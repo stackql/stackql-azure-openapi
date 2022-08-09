@@ -17,43 +17,41 @@ const resolveAppRoot = () => {
     return current;
 };
 
-async function doClearFolders(protectFiles, clearFolders, logger) {
-    let cleared = false; // set to true to disable
-    if (!cleared) {
-        logger.info("Clearing Folders.");
-        cleared = true;
-        for (const folder of clearFolders) {
-            try {
-                await clearFolder(
-                folder,
-                [...protectFiles].map((each) => resolveUri(folder, each)),
-                );
-            } catch {
-                // no worries
-            }
-        }
-    }
-}
-
 function printCompleteSummary(logger, artifactWriter) {
     const runtime = Math.round(process.uptime() * 100) / 100;
     logger.info(`Autorest completed in ${runtime}s. ${artifactWriter.stats.writeCompleted} files generated.`);
 }
 
-export async function processSpecs(dirName, verbose, debug) {
-    let configFile = `azure-rest-api-specs/specification/${dirName}/resource-manager/readme.md`;
-    let serviceName = dirName;    
-    let outputFolder = `openapi/1-autorest-output/${serviceName}`;
+export async function processSpecs(dirName, options) {
 
-    if (fs.existsSync(configFile)) {
-        await processSpec(serviceName, configFile, outputFolder, verbose, debug);
+    if (!fs.existsSync(`azure-rest-api-specs/specification/${dirName}/resource-manager`)) {
+        return;
+    }
+
+    const serviceRootDir = `azure-rest-api-specs/specification/${dirName}`;
+  
+    if (fs.existsSync(`${serviceRootDir}/resource-manager/readme.md`)) {
+        await processSpec(
+            dirName, 
+            `${serviceRootDir}/resource-manager/readme.md`, 
+            `openapi/1-autorest-output/${dirName}`, 
+            options.debug, 
+            options.dryrun);
     } else {
-        fs.writeFileSync(outputFolder, "");
-        //C:\Users\javen\Dropbox\GitRepositories\stackql\stackql-azure-openapi\openapi\1-autorest-output\azsadmin
+        // readme not found, recurse subdirectories
+        const subdirs = fs.readdirSync(`azure-rest-api-specs/specification/${dirName}/resource-manager`, { withFileTypes: true }).filter(dirent => dirent.isDirectory());
+        for (const subdir of subdirs) {
+            await processSpec(
+                `${dirName}_${subdir.name}`, 
+                `${serviceRootDir}/resource-manager/${subdir.name}/readme.md`, 
+                `openapi/1-autorest-output/${dirName}_${subdir.name}`, 
+                options.debug, 
+                options.dryrun);
+        }
     }
 }
 
-async function processSpec(serviceName, configFile, outputFolder, verbose, debug) {
+export async function processSpec(serviceName, configFile, outputFolder, debug, dryrun) {
     
     console.log(`processing ${serviceName}...`);
 
@@ -61,21 +59,24 @@ async function processSpec(serviceName, configFile, outputFolder, verbose, debug
     const f = new RealFileSystem();
     const logger = new ConsoleLogger();
     const autorest = new AutoRest(
-    logger,
-    f,
-    resolveUri(createFolderUri(AppRoot), configFile),
+        logger,
+        f,
+        resolveUri(createFolderUri(AppRoot), configFile),
     );
 
     autorest.AddConfiguration({ "azure-arm": true });
     autorest.AddConfiguration({ "output-converted-oai3": true });
+    autorest.AddConfiguration({ "include-x-ms-examples-original-file": false });
+    autorest.AddConfiguration({ "openapi-type": "arm" });
     autorest.AddConfiguration({ "output-folder": `${createFolderUri(AppRoot)}/${outputFolder}` });
-    autorest.AddConfiguration({ "verbose": verbose });
+    autorest.AddConfiguration({ "verbose": debug });
     autorest.AddConfiguration({ "debug": debug });
+    autorest.AddConfiguration({ "allow-no-input": dryrun });
     autorest.AddConfiguration({ "level": "error" });
-    
+    autorest.AddConfiguration({ "skip-semantics-validation": true });
+    autorest.AddConfiguration({ "model-validator": false });
     //autorest.AddConfiguration({ "stats": true });
-    autorest.AddConfiguration({ "disable-validation": true });
-
+    
     const context = await autorest.view;
     const cfg = context.config;
     const artifactWriter = new ArtifactWriter(cfg);
@@ -83,20 +84,13 @@ async function processSpec(serviceName, configFile, outputFolder, verbose, debug
 
     // listen for output messages and file writes
     let artifacts = [];
-    let clearFolders = new Set();
-    let protectFiles = new Set();
     autorest.GeneratedFile.Subscribe((_, artifact) => {
         if (context.config.help) {
             artifacts.push(artifact);
             return;
         }
-        protectFiles.add(artifact.uri);
         artifactWriter.writeArtifact(artifact);
     });
-    autorest.ProtectFile.Subscribe((_, filename) => {
-        protectFiles.add(filename);
-    });
-    autorest.ClearFolder.Subscribe((_, folder) => clearFolders.add(folder));
 
     const result = await autorest.Process().finish;
     if (result !== true) {
@@ -104,10 +98,15 @@ async function processSpec(serviceName, configFile, outputFolder, verbose, debug
     }
 
     // perform file system operations.
-    await doClearFolders(protectFiles, clearFolders, logger);
 
-    logger.info("Writing Outputs.");
-    await artifactWriter.wait();
+    // clear folders here if you want...
+
+    if (dryrun){
+        logger.info("No output, dryrun mode selected.");
+    } else {
+        logger.info("Writing outputs.");
+        await artifactWriter.wait();
+    }
   
     printCompleteSummary(logger, artifactWriter);
     // return the exit code to the caller.
