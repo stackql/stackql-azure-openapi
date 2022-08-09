@@ -1,10 +1,9 @@
 import { readdir } from 'fs/promises'
 import { processSpecs, processSpec } from './autorest'
-import { defererence, combine, validate } from './openapi'
+import { dereference, combine, validate } from './openapi'
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 
 async function autorest(options) {
-
   if (options.specificationDir){
     const serviceName = options.specificationDir;
     const serviceRootDir = `azure-rest-api-specs/specification/${serviceName}`;
@@ -32,6 +31,18 @@ async function autorest(options) {
   return true;
 }
 
+
+async function openapiDereference(options) {
+  if (options.specificationDir){
+    await dereference(options.specificationDir, options.debug, options.dryrun);
+  } else {
+    // interate through all specification subdirs
+
+  }
+  return true;
+}
+
+
 export async function main(args) {
 
   const options = parseArgumentsIntoOptions(args);
@@ -51,8 +62,13 @@ export async function main(args) {
           });
           break;
         case 'dereference':
-            //
-            break;
+          await openapiDereference(options).finally(() => {
+            process.exit(0);
+          }).catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          break;
         case 'combine':
             //
             break;

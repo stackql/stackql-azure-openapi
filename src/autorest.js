@@ -5,9 +5,10 @@ import { ConsoleLogger } from '@autorest/common';
 import { AutoRest } from '@autorest/core';
 import { resolveUri, 
          createFolderUri,
-         clearFolder,
 } from '@azure-tools/uri';
 import { ArtifactWriter } from "./lib/artifact-writer";
+
+const logger = new ConsoleLogger();
 
 const resolveAppRoot = () => {
     let current = path.resolve(__dirname);
@@ -57,7 +58,7 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
 
     const AppRoot = resolveAppRoot();
     const f = new RealFileSystem();
-    const logger = new ConsoleLogger();
+    //const logger = new ConsoleLogger();
     const autorest = new AutoRest(
         logger,
         f,
