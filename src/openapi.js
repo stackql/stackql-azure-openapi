@@ -26,11 +26,11 @@ export async function dereference(generatedDir, derefedDir, serviceName, debug, 
     const outputDir = `${derefedDir}/${serviceName}`;
 
     if (!fs.existsSync(outputDir)){
-        logger.debug(`creating ${outputDir}...`);
+        debug ? logger.debug(`creating ${outputDir}...`): null;
         fs.mkdirSync(outputDir);
     } else {
-        // delete all file in outputDir
-        logger.debug(`${outputDir} exists, cleaning...`);
+        // delete all files in outputDir
+        debug ? logger.debug(`${outputDir} exists, cleaning...`): null;
         const files = getFiles(outputDir);
         for (let file of files){
             fs.unlinkSync(file.path);
@@ -59,12 +59,28 @@ export async function dereference(generatedDir, derefedDir, serviceName, debug, 
     logger.info(`dereferencing ${serviceName} completed in ${new Date().getTime() - startTime.getTime()}ms`);
 }
 
-export async function combine(derefedDir, outputDir, specificationDir, debug, dryrun) {
+export async function combine(derefedDir, combinedDir, specificationDir, debug, dryrun) {
     
+    logger.info(`combining ${specificationDir}...`);
+
     const inputDir = `${derefedDir}/${specificationDir}`;
+    const outputDir = `${combinedDir}/${specificationDir}`;
+
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
     let inputDoc = {};
+
+    if (!fs.existsSync(outputDir)){
+        debug ? logger.debug(`creating ${outputDir}...`): null;
+        fs.mkdirSync(outputDir);
+    } else {
+        // delete all files in outputDir
+        debug ? logger.debug(`${outputDir} exists, cleaning...`): null;
+        const files = getFiles(outputDir);
+        for (let file of files){
+            fs.unlinkSync(file.path);
+        }
+    }
 
     // statically defined properties, shouldn't change between services
     const openapi = '3.0.0';
@@ -91,7 +107,7 @@ export async function combine(derefedDir, outputDir, specificationDir, debug, dr
     let paths = {};
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
-        console.log(`Processing ${fileName}`);
+        debug ? logger.debug(`Processing ${fileName}`): null;
         inputDoc = await $RefParser.parse(fileName);
 
         // info
@@ -144,7 +160,15 @@ export async function combine(derefedDir, outputDir, specificationDir, debug, dr
     outputDoc.components.parameters = parameters;
     outputDoc.paths = paths;
 
-    fs.writeFileSync(`${outputDir}/${specificationDir}.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
+    if (dryrun){
+        logger.info(`dryrun specified, no output written`);
+    } else {
+        logger.info(`writing ${outputDir}/${specificationDir}.yaml...`);
+        fs.writeFileSync(`${outputDir}/${specificationDir}.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
+        logger.info(`${outputDir}/${specificationDir}.yaml written successfully`);
+    }
+    logger.info(`${specificationDir} finished processing`);
+    
 }
 
 

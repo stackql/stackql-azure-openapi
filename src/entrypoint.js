@@ -46,8 +46,18 @@ async function openapiDereference(options) {
       logger.info(`dereferencing completed!`);
     });
   } else {
-    // interate through all specification subdirs
-
+    // interate through all generated subdirs
+    const subdirs = (await readdir(`${generatedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
+    for (const subdir of subdirs){
+      try {
+        await dereference(generatedDir, derefedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+          logger.info(`dereferencing completed!`);
+        });
+      } catch (err) {
+        logger.error(err);
+        continue;
+      }
+    }
   }
   return true;
 }
