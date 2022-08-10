@@ -19,14 +19,11 @@ function getFiles(inputDir, files=[]){
     return files;
 }
 
-export async function dereference(serviceName, debug, dryrun) {
+export async function dereference(generatedDir, derefedDir, serviceName, debug, dryrun) {
     const startTime = new Date();
-
     logger.info(`dereferencing ${serviceName}`);
-
-    const inputDir = `openapi/1-autorest-output/${serviceName}`;
-
-    const outputDir = `openapi/2-staging/${serviceName}`;
+    const inputDir = `${generatedDir}/${serviceName}`;
+    const outputDir = `${derefedDir}/${serviceName}`;
 
     if (!fs.existsSync(outputDir)){
         logger.debug(`creating ${outputDir}...`);
@@ -44,106 +41,51 @@ export async function dereference(serviceName, debug, dryrun) {
 
     // process all files in all sub dirs in inputDir
     const files = getFiles(inputDir);
-    for (const file of files){
-        try {
-            logger.debug(`dereferencing ${file.name}...`);
-            logger.debug(`input path : ${file.path}`);
-            const outputFileName = `${uuidv4()}.yaml`
-            const outputFilePath = `${outputDir}/${outputFileName}`;
-            logger.debug(`output path : ${outputFilePath}`);
-            let schema = await $RefParser.dereference(file.path);
-            if (dryrun) {
-                logger.info('No output, dryrun mode selected.')
-                continue;
-            }
-            logger.info(`writing ${outputFileName}...`);
-            fs.writeFileSync(outputFilePath, yaml.dump(schema, {lineWidth: -1, noRefs: true}));
-            
-
-            //dryrun ? logger.info('No output, dryrun mode selected.') : fs.writeFileSync(outputFilePath, yaml.dump(schema, {lineWidth: -1, noRefs: true}));
-
-            // const parser = new $RefParser();
-            // const dereferenced = await parser.dereference(inputFile, { logger });
-            // const dereferencedYaml = yaml.safeDump(dereferenced);
-            // outputFile.write(dereferencedYaml);
-            // outputFile.end();
-            debug ? logger.debug(`dereferenced ${filePath}`) : null;
-        } catch (err) {
-            logger.error(err);
-            continue;
+    for (let i = 0; i < files.length; i++) {        
+        logger.info(`dereferencing ${files[i].name}...`);
+        debug ? logger.debug(`input path : ${files[i].path}`): null;
+        const outputFileName = `${uuidv4()}.json`
+        const outputFilePath = `${outputDir}/${outputFileName}`;
+        debug ? logger.debug(`output path : ${outputFilePath}`): null;
+        let schema = await $RefParser.bundle(files[i].path);
+        if (dryrun){
+            logger.info(`dryrun specified, no output written`);
+        } else {
+            fs.writeFileSync(outputFilePath, JSON.stringify(schema));
+            logger.info(`${outputFilePath} written`);
         }
+        debug ? logger.debug(`processed element ${i+1} of ${files.length}`): null;
     };    
-
-    // const files = await getAllFiles(inputDir).finally(() => {
-    //     logger.info(JSON.stringify(files));
-    //     logger.info(`dereferencing ${serviceName} completed in ${Math.round((new Date()).getTime() - startTime.getTime()) / 1000}s`);
-    // });
-
-    
-
-    
-    
-    
-    
-    
-    // .finally(files => {
-    //     for (const file of files) {
-    //         debug ? logger.debug(`dereferencing ${file}`) : null;
-    //         // const contents = fs.readFileSync(file, 'utf8');
-    //         // const parsed = yaml.safeLoad(contents);
-    //         // const dereferenced = $RefParser.dereference(parsed);
-    //         // const outputFile = file.replace(inputDir, outputDir);
-    //         // fs.writeFileSync(outputFile, yaml.safeDump(dereferenced));
-    //     }
-    // });
-
-
-    // output to uuid-named files in outputDir
-
-
-
-    // const dirs = fs.readdirSync(inputDir);
-    // for (const d of dirs) {
-    //     const childObj = `${inputDir}/${d}`;
-    //     const commonJsonPath = `${childObj}/common.json`;
-    //     debug ? logger.debug(`looking for ${commonJsonPath}`) : null;
-    //     if (fs.existsSync(commonJsonPath)) {
-    //         // its a dir, process contents
-    //         for (sd of fs.readdirSync(childObj)) {
-    //             //if sd is not a directory skip it
-    //             if (!fs.lstatSync(`${childObj}/${sd}`).isDirectory()) {
-    //                 continue;
-    //             }
-    //             const subDir = `${childObj}/${sd}`;
-    //             for (f of fs.readdirSync(subDir)) {
-    //                 const fileName = f.split(".json")[0];
-    //                 const filePath = `${subDir}/${f}`;
-    //                 console.log(`Processing ${filePath}`);
-    //                 let schema = await $RefParser.dereference(filePath);
-    //                 dryrun ? logger.info('No output, dryrun mode selected.') : fs.writeFileSync(`${outputDir}/${fileName}.yaml`, yaml.dump(schema, {lineWidth: -1, noRefs: true}));
-    //             }
-    //         }
-    //     } else {
-    //         debug ? logger.debug(`common.json not found, processing files in ${childObj}`) : null;
-    //         // its files, process the
-    //         for (f of fs.readdirSync(childObj)) {
-    //             const fileName = f.split(".json")[0];
-    //             const filePath = `${childObj}/${f}`;
-    //             debug ? logger.debug(`Processing ${filePath}`) : null;
-    //             let schema = await $RefParser.dereference(filePath);
-    //             dryrun ? logger.info('No output, dryrun mode selected.') : fs.writeFileSync(`${outputDir}/${fileName}.yaml`, yaml.dump(schema, {lineWidth: -1, noRefs: true}));
-    //         }
-    //     }
-    // }
-    // const endTime = new Date();
-    // const runtime = Math.round((endTime.getTime() - startTime.getTime()) / 1000);
-    // logger.info(`dereferencing ${serviceName} completed in ${runtime}s`);
+    logger.info(`dereferencing ${serviceName} completed in ${new Date().getTime() - startTime.getTime()}ms`);
 }
 
-export async function combine(inputDir, outputDir) {
+export async function combine(derefedDir, outputDir, specificationDir, debug, dryrun) {
+    
+    const inputDir = `${derefedDir}/${specificationDir}`;
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
     let inputDoc = {};
+
+    // statically defined properties, shouldn't change between services
+    const openapi = '3.0.0';
+    const servers = [{url: 'https://management.azure.com/'}];
+    const security = [{azure_auth: ['user_impersonation']}];
+    const securitySchemes = {
+        azure_auth: {
+            description: 'Azure Active Directory OAuth2 Flow.',
+            type: 'oauth2',
+            flows: {
+              implicit: {
+                authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/authorize',
+                scopes: {
+                  user_impersonation: 'impersonate your user account'
+                }
+              }
+            }
+          }
+    };
+
+    let info = {};
     let schemas = {};
     let parameters = {};
     let paths = {};
@@ -151,14 +93,26 @@ export async function combine(inputDir, outputDir) {
         const fileName = `${inputDir}/${f}`;
         console.log(`Processing ${fileName}`);
         inputDoc = await $RefParser.parse(fileName);
+
+        // info
+        if (!info.title){
+            if (!inputDoc['x-ms-secondary-file']){
+                info = inputDoc.info;
+            }
+        }
+
+        // schemas
         schemas = {
             ...schemas,
             ...inputDoc.components.schemas
         };
+
+        // parameters
         parameters = {
             ...parameters,
             ...inputDoc.components.parameters
         };
+
         // clean paths x-ms-examples
         let cleanPaths = {};
         Object.keys(inputDoc.paths).forEach(pathKey => {
@@ -177,17 +131,20 @@ export async function combine(inputDir, outputDir) {
             ...cleanPaths
         };
     }
-    outputDoc.servers = inputDoc.servers;
-    outputDoc.openapi = inputDoc.openapi;
-    outputDoc.info = inputDoc.info;
-    outputDoc.security = inputDoc.security;
+    outputDoc.openapi = openapi;
+    
+    outputDoc.servers = servers;
+    outputDoc.info = info;
+    outputDoc.security = security;
+    
     outputDoc.components = {};
-    outputDoc.components.securitySchemes = inputDoc.components.securitySchemes;
+    outputDoc.components.securitySchemes = securitySchemes;
     outputDoc.components.schemas = schemas;
+
     outputDoc.components.parameters = parameters;
     outputDoc.paths = paths;
 
-    fs.writeFileSync(`${outputDir}/compute.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
+    fs.writeFileSync(`${outputDir}/${specificationDir}.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
 }
 
 

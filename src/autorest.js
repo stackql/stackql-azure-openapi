@@ -23,29 +23,29 @@ function printCompleteSummary(logger, artifactWriter) {
     logger.info(`Autorest completed in ${runtime}s. ${artifactWriter.stats.writeCompleted} files generated.`);
 }
 
-export async function processSpecs(dirName, options) {
+export async function processSpecs(azureRestApiSpecsDir, generatedDir, dirName, options) {
 
-    if (!fs.existsSync(`azure-rest-api-specs/specification/${dirName}/resource-manager`)) {
+    if (!fs.existsSync(`${azureRestApiSpecsDir}/specification/${dirName}/resource-manager`)) {
         return;
     }
 
-    const serviceRootDir = `azure-rest-api-specs/specification/${dirName}`;
+    const serviceRootDir = `${azureRestApiSpecsDir}/specification/${dirName}`;
   
     if (fs.existsSync(`${serviceRootDir}/resource-manager/readme.md`)) {
         await processSpec(
             dirName, 
             `${serviceRootDir}/resource-manager/readme.md`, 
-            `openapi/1-autorest-output/${dirName}`, 
+            `${generatedDir}/${dirName}`, 
             options.debug, 
             options.dryrun);
     } else {
         // readme not found, recurse subdirectories
-        const subdirs = fs.readdirSync(`azure-rest-api-specs/specification/${dirName}/resource-manager`, { withFileTypes: true }).filter(dirent => dirent.isDirectory());
+        const subdirs = fs.readdirSync(`${azureRestApiSpecsDir}/specification/${dirName}/resource-manager`, { withFileTypes: true }).filter(dirent => dirent.isDirectory());
         for (const subdir of subdirs) {
             await processSpec(
                 `${dirName}_${subdir.name}`, 
                 `${serviceRootDir}/resource-manager/${subdir.name}/readme.md`, 
-                `openapi/1-autorest-output/${dirName}_${subdir.name}`, 
+                `${generatedDir}/${dirName}_${subdir.name}`, 
                 options.debug, 
                 options.dryrun);
         }
@@ -58,7 +58,6 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
 
     const AppRoot = resolveAppRoot();
     const f = new RealFileSystem();
-    //const logger = new ConsoleLogger();
     const autorest = new AutoRest(
         logger,
         f,
@@ -76,13 +75,11 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     autorest.AddConfiguration({ "level": "error" });
     autorest.AddConfiguration({ "skip-semantics-validation": true });
     autorest.AddConfiguration({ "model-validator": false });
-    //autorest.AddConfiguration({ "stats": true });
     
     const context = await autorest.view;
     const cfg = context.config;
     const artifactWriter = new ArtifactWriter(cfg);
-    //console.log(cfg);
-
+  
     // listen for output messages and file writes
     let artifacts = [];
     autorest.GeneratedFile.Subscribe((_, artifact) => {
@@ -110,7 +107,6 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     }
   
     printCompleteSummary(logger, artifactWriter);
-    // return the exit code to the caller.
     return 0;
     
  }
