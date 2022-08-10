@@ -6,7 +6,11 @@ This project uses [__autorest__](https://github.com/Azure/autorest) via JavaScri
 
 ## Usage
 
-The main entrypoint to the program is:
+> use the `prereq.sh` script or the equivalent to download the latest api documentation from [__azure-rest-api-specs__](https://github.com/Azure/azure-rest-api-specs)
+
+> use `run.sh` script or the equivalent to run all the `stackql-azure-openapi` commands in a batch
+
+The main entrypoint to the program is:  
 
 ```bash
 bin/stackql-azure-openapi
