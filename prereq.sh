@@ -6,13 +6,3 @@ then
 else
     git clone https://github.com/Azure/azure-rest-api-specs
 fi
-
-# convert all specs to openapi3
-
-
-
-# deference and consolidate all specs
-
-
-
-# remove unused fields

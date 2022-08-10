@@ -68,8 +68,18 @@ async function openapiCombine(options) {
       logger.info(`finished combining!`);
     });
   } else {
-    // interate through all specification subdirs
-
+    // interate through all dereferenced subdirs
+    const subdirs = (await readdir(`${derefedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
+    for (const subdir of subdirs){
+      try {
+        await combine(derefedDir, combinedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+          logger.info(`finished combining!`);
+        });
+      } catch (err) {
+        logger.error(err);
+        continue;
+      }
+    }
   }
   return true;
 }
