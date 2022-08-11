@@ -222,7 +222,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
-        // debug ? logger.debug(`Processing ${fileName}`): null;
+        //debug ? logger.debug(`Processing ${fileName}`): null;
 
         inputDoc = await $RefParser.parse(fileName);
 
@@ -232,8 +232,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         outputDoc.security = inputDoc.security;
         outputDoc.components = inputDoc.components;
 
-        let rowData = `${specificationDir},${outputDoc.info.title},${outputDoc.info.description},${outputDoc.info.version}`;
-        console.log(rowData);
+        //let rowData = `${specificationDir},${outputDoc.info.title},${outputDoc.info.description},${outputDoc.info.version}`;
+        //console.log(rowData);
 
         Object.keys(inputDoc.paths).forEach(pathKey => {
             //debug ? logger.debug(`Processing path ${pathKey}`): null;
@@ -247,31 +247,42 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         
                         // replace outlier operationIds
 
+                        //let rowData = `${specificationDir},${inputDoc.paths[pathKey][verbKey]['tags'][0] ? inputDoc.paths[pathKey][verbKey]['tags'][0] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'] ? inputDoc.paths[pathKey][verbKey]['operationId'] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[2] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[2] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[3] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[3] : ''}`;
+                        let tag = inputDoc.paths[pathKey][verbKey]['tags'] ? inputDoc.paths[pathKey][verbKey]['tags'][0] : '';
+                        let operationId = inputDoc.paths[pathKey][verbKey]['operationId'] ? inputDoc.paths[pathKey][verbKey]['operationId'] : '';
+                        let operationIdSplit = operationId.split('_');
+                        let operationIdSplit0 = operationIdSplit[0] ? operationIdSplit[0] : '';
+                        let operationIdSplit1 = operationIdSplit[1] ? operationIdSplit[1] : '';
+                        let operationIdSplit2 = operationIdSplit[2] ? operationIdSplit[2] : '';
+                        let rowData = `${specificationDir},${tag},${operationId},${operationIdSplit0},${operationIdSplit1},${operationIdSplit2}`;
+                        console.log(rowData);
+
+                
 
 
                         // clean up camel case before we convert to snake case in openapi-doc-util
-                        let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
-                        .replace(/VCenters/g, 'Vcenters')
-                        .replace(/HyperV/g, 'Hyperv')
-                        .replace(/NetApp/g, 'Netapp')
-                        .replace(/VCores/g, 'Vcores')
-                        .replace(/MongoDB/g, 'Mongodb')
-                        .replace(/VmSS/g, 'Vms')
-                        .replace(/SaaS/g, 'Saas')
-                        .replace(/vNet/g, 'Vnet')
-                        .replace(/GitHub/g, 'Github')
-                        .replace(/OAuth/g, 'Oauth')
-                        .replace(/-/g, '_')
-                        ;
+                        // let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
+                        // .replace(/VCenters/g, 'Vcenters')
+                        // .replace(/HyperV/g, 'Hyperv')
+                        // .replace(/NetApp/g, 'Netapp')
+                        // .replace(/VCores/g, 'Vcores')
+                        // .replace(/MongoDB/g, 'Mongodb')
+                        // .replace(/VmSS/g, 'Vms')
+                        // .replace(/SaaS/g, 'Saas')
+                        // .replace(/vNet/g, 'Vnet')
+                        // .replace(/GitHub/g, 'Github')
+                        // .replace(/OAuth/g, 'Oauth')
+                        // .replace(/-/g, '_')
+                        // ;
                         
-                        resName = fixCamelCase(resName);
+                        //resName = fixCamelCase(resName);
 
                         //resName === 'generatevirtualwanvpnserverconfigurationvpnprofile' ? resName = 'generate_virtual_wan_vpn_server_configuration_vpn_profile' : null;
 
                         // AdCOperations
                         // AdCCatalogs
 
-                        debug ? logger.debug(`Resource name ${resName}`): null;
+                        //debug ? logger.debug(`Resource name ${resName}`): null;
                     } catch (e) {
                         if (e !== 'Break') throw e
                     }
