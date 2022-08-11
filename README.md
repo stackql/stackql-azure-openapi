@@ -21,6 +21,7 @@ This can be run without any arguments to get command line usage and help.  The `
 - `generate` : uses `autorest` to generate initial OpenAPI3 specs for one or many services
 - `dereference` : dereferences all external JSON pointers in the generated OpenAPI specs
 - `combine` : combines all the generated OpenAPI specs into a single OpenAPI spec
+- `tag` : replaces existing tags for operations with the stackql resource name (optional)
 
 These commands are intended to be run in sequence with the output of each command being the input to the next.  The flow is summarized below:  
 
@@ -84,4 +85,20 @@ To create a single OpenAPI document for all services, run the following command:
 
 ```bash
 bin/stackql-azure-openapi combine
+```
+
+## `tag` command (Optional)
+
+Takes the output from the `combine` command, generates the stackql resource name from stemming the `operationId` for each operation, pushes this value to the beginning of the `tags` array for each operation, and outputs the resulting document.    
+
+To update tags for a single OpenAPI document for a single service (the `compute` service in this example), run the following command:  
+
+```bash
+bin/stackql-azure-openapi tag compute
+```
+
+To tags fo all OpenAPI documents for all services, run the following command:
+
+```bash
+bin/stackql-azure-openapi tag
 ```

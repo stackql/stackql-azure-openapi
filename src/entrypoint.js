@@ -1,6 +1,6 @@
 import { readdir } from 'fs/promises'
 import { processSpecs, processSpec } from './autorest'
-import { dereference, combine, validate } from './openapi'
+import { dereference, combine, validate, tag } from './openapi'
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
 
@@ -11,6 +11,7 @@ const azureRestApiSpecsDir = 'azure-rest-api-specs';
 const generatedDir = 'openapi/1-autorest-generated';
 const derefedDir = 'openapi/2-dereferenced';
 const combinedDir = 'openapi/3-combined';
+const taggedDir = 'openapi/4-tagged';
 
 async function autorest(options) {
   if (options.specificationDir){
@@ -84,6 +85,29 @@ async function openapiCombine(options) {
   return true;
 }
 
+async function openapiTag(options) {
+  
+  if (options.specificationDir){
+    await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
+      logger.info(`finished tagging!`);
+    });
+  } else {
+    // interate through all combined subdirs
+    const subdirs = (await readdir(`${combinedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
+    for (const subdir of subdirs){
+      try {
+        await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+          logger.info(`finished tagging!`);
+        });
+      } catch (err) {
+        logger.error(err);
+        continue;
+      }
+    }
+  }
+  return true;
+}
+
 
 export async function main(args) {
 
@@ -113,6 +137,14 @@ export async function main(args) {
           break;
         case 'combine':
           await openapiCombine(options).finally(() => {
+            process.exit(0);
+          }).catch(err => {
+            logger.error(err);
+            process.exit(1);
+          });
+          break;
+        case 'tag':
+          await openapiTag(options).finally(() => {
             process.exit(0);
           }).catch(err => {
             logger.error(err);

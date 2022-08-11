@@ -7,6 +7,7 @@ const generateDesc = 'Uses autorest to generate latest OpenAPI3 specs for an Azu
 const dereferenceDesc = 'Uses the output from the generate command to create intermediate dereferenced OpenAPI schemas (removing all JSON pointers) for an Azure RM service or services.';
 const combineDesc = 'Uses the output from the dereference command to create a single OpenAPI3 yaml document for an Azure RM service or services.';
 const validateDesc = 'Validates an OpenAPI3 document.';
+const tagDesc = 'Tags an OpenAPI3 document with the appropriate stackql resource name.';
 
 const debugDesc = '[OPTIONAL] Debug flag. (defaults to false)';
 const dryrunDesc = '[OPTIONAL] Dry run flag. (defaults to false)';
@@ -26,6 +27,7 @@ const cmdUsage = [
       { name: 'generate', summary: generateDesc },
       { name: 'dereference', summary: dereferenceDesc },       
       { name: 'combine', summary: combineDesc },
+      { name: 'tag', summary: tagDesc },      
       { name: 'validate', summary: validateDesc },
     ]
   },
@@ -163,6 +165,39 @@ const validateUsage = [
     }    
 ];
 
+const tagUsage = [
+  {
+    header: `${programName} tag`,
+    content:tagDesc
+  },
+  {
+    header: 'Synopsis',
+    content: `$ ${programName} tag [<specificationDir>] [<flags>]`
+  },
+  {
+    header: 'Arguments',
+    content: [
+      { name: 'specificationDir', summary: '[OPTIONAL] Specify a single directory containing a combined OpenAPI yaml document' },
+    ]
+  },
+  {
+      header: 'Flags',
+      optionList: [
+        {
+          name: 'debug',
+          alias: 'd',
+          type: Boolean,
+          description: debugDesc,
+        },
+        {
+          name: 'dryrun',
+          type: Boolean,
+          description: dryrunDesc,
+        },        
+      ]
+    }    
+];
+
 function showUsage(command) {
     switch(command) {
         case 'generate':
@@ -172,11 +207,14 @@ function showUsage(command) {
           console.log(commandLineUsage(dereferenceUsage));
           break;
         case 'combine':
-            console.log(commandLineUsage(combineUsage));
-            break;
+          console.log(commandLineUsage(combineUsage));
+          break;
         case 'validate':
-            console.log(commandLineUsage(validateUsage));
-            break;
+          console.log(commandLineUsage(validateUsage));
+          break;
+        case 'tag':
+          console.log(commandLineUsage(tagUsage));
+          break;           
         default:
             console.log(commandLineUsage(cmdUsage));
     };

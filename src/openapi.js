@@ -19,23 +19,27 @@ function getFiles(inputDir, files=[]){
     return files;
 }
 
+function createOrCleanDir(dir, debug){
+    if (!fs.existsSync(dir)){
+        debug ? logger.debug(`creating ${dir}...`): null;
+        fs.mkdirSync(dir);
+    } else {
+        // delete all files in dir
+        debug ? logger.debug(`${dir} exists, cleaning...`): null;
+        const files = getFiles(dir);
+        for (let file of files){
+            fs.unlinkSync(file.path);
+        }
+    }
+}
+
 export async function dereference(generatedDir, derefedDir, serviceName, debug, dryrun) {
     const startTime = new Date();
     logger.info(`dereferencing ${serviceName}`);
     const inputDir = `${generatedDir}/${serviceName}`;
     const outputDir = `${derefedDir}/${serviceName}`;
 
-    if (!fs.existsSync(outputDir)){
-        debug ? logger.debug(`creating ${outputDir}...`): null;
-        fs.mkdirSync(outputDir);
-    } else {
-        // delete all files in outputDir
-        debug ? logger.debug(`${outputDir} exists, cleaning...`): null;
-        const files = getFiles(outputDir);
-        for (let file of files){
-            fs.unlinkSync(file.path);
-        }
-    }
+    createOrCleanDir(outputDir, debug);
 
     debug ? logger.debug(`dereferencing ${inputDir}`) : null;
 
@@ -70,17 +74,7 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
     let outputDoc = {};
     let inputDoc = {};
 
-    if (!fs.existsSync(outputDir)){
-        debug ? logger.debug(`creating ${outputDir}...`): null;
-        fs.mkdirSync(outputDir);
-    } else {
-        // delete all files in outputDir
-        debug ? logger.debug(`${outputDir} exists, cleaning...`): null;
-        const files = getFiles(outputDir);
-        for (let file of files){
-            fs.unlinkSync(file.path);
-        }
-    }
+    createOrCleanDir(outputDir, debug);
 
     // statically defined properties, shouldn't change between services
     const openapi = '3.0.0';
@@ -171,6 +165,95 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
     
 }
 
+export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
+
+    logger.info(`tagging ${specificationDir}...`);
+
+    const inputDir = `${combinedDir}/${specificationDir}`;
+    const outputDir = `${taggedDir}/${specificationDir}`;
+
+    const files = fs.readdirSync(inputDir);
+    let outputDoc = {};
+    let inputDoc = {};
+
+    const operations = [
+        'get',
+        'put',
+        'post',
+        'delete',
+        'options',
+        'head',
+        'patch',
+        'trace',
+    ];
+
+    createOrCleanDir(outputDir, debug);
+
+    for (const f of files) {
+        const fileName = `${inputDir}/${f}`;
+        debug ? logger.debug(`Processing ${fileName}`): null;
+
+        inputDoc = await $RefParser.parse(fileName);
+
+        outputDoc.openapi = inputDoc.openapi;
+        outputDoc.servers = inputDoc.servers;
+        outputDoc.info = inputDoc.info;
+        outputDoc.security = inputDoc.security;
+        outputDoc.components = inputDoc.components;
+
+        Object.keys(inputDoc.paths).forEach(pathKey => {
+            //debug ? logger.debug(`Processing path ${pathKey}`): null;
+            Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
+                //debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
+                if (operations.includes(verbKey)){
+                    try {
+                        //logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
+                        // clean up camel case before we convert to snake case in openapi-doc-util
+                        
+                        //inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? null : console.log(inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]);
+                        
+                        let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
+                        .replace(/HyperV/g, 'Hyperv')
+                        .replace(/NetApp/g, 'Netapp')
+                        .replace(/VCores/g, 'Vcores')
+                        .replace(/SaaS/g, 'Saas')
+                        .replace(/HCRP/g, 'Hcrp')
+
+                        .replace(/SAP/g, 'Sap')
+                        .replace(/MIP/g, 'Mip')
+                        .replace(/API/g, 'Api')
+                        .replace(/EDM/g, 'Edm')
+                        .replace(/SCC/g, 'Scc')
+                        .replace(/HCI/g, 'Hci')
+                        .replace(/WCF/g, 'Wcf')
+                        .replace(/CRR/g, 'Crr')
+                        .replace(/BMS/g, 'Bms')
+                        .replace(/PIN/g, 'Pin')
+                        .replace(/AFD/g, 'Afd')
+
+                        .replace(/VM/g, 'Vm')
+                        .replace(/OS/g, 'Os')
+                        .replace(/AD/g, 'Ad')
+                        .replace(/IP/g, 'Ip')
+                        .replace(/ML/g, 'Ml')
+                        .replace(/BI/g, 'Bi')
+                        
+
+                        .replace(/-/g, '_')
+                        ;
+
+                        //resName === 'generatevirtualwanvpnserverconfigurationvpnprofile' ? resName = 'generate_virtual_wan_vpn_server_configuration_vpn_profile' : null;
+
+                        debug ? logger.debug(`Resource name ${resName}`): null;
+                    } catch (e) {
+                        if (e !== 'Break') throw e
+                    }
+                }
+        
+            });
+        });
+    }
+}
 
 export async function validate(spec) {
     return await $RefParser.parse(spec);
