@@ -167,7 +167,7 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
-    logger.info(`tagging ${specificationDir}...`);
+    // logger.info(`tagging ${specificationDir}...`);
 
     const inputDir = `${combinedDir}/${specificationDir}`;
     const outputDir = `${taggedDir}/${specificationDir}`;
@@ -188,11 +188,41 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     ];
 
     createOrCleanDir(outputDir, debug);
+
+    const fixCamelCase = (inStr) => {
+	
+        const getReplaceArgs = (s) => {
+            let retstr = s.charAt(0) + s.slice(1, s.length-1).toLowerCase() + s.charAt(s.length-1);
+            return {find: s, replace: retstr}
+        };
+        
+        const updateStr = (f, r) => {
+            let re = new RegExp(f,"g");
+            inStr = inStr.replace(re, r);
+        };
+        
+        // find all occurrences of sequences of more than one upper case letter 
+        const sequentialCaps = /[A-Z]{2,}/g;
+        const seqs = [...inStr.matchAll(sequentialCaps)];
+        const flattened = seqs.flatMap(seq => seq);
+        const uniq = [...new Set(flattened)];
+        
+        // generate the replace args for each unique sequence
+        const arr= uniq.map(element => getReplaceArgs(element));
+        
+        // iterate through each replace operation
+        arr.forEach(obj => updateStr(obj.find, obj.replace))
+        
+        // final clean up and return
+        return inStr.slice(0,-1) + inStr.charAt(inStr.length-1).toLowerCase();
+    
+    }
+
     //cosmos-db
     
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
-        debug ? logger.debug(`Processing ${fileName}`): null;
+        // debug ? logger.debug(`Processing ${fileName}`): null;
 
         inputDoc = await $RefParser.parse(fileName);
 
@@ -202,6 +232,9 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         outputDoc.security = inputDoc.security;
         outputDoc.components = inputDoc.components;
 
+        let rowData = `${specificationDir},${outputDoc.info.title},${outputDoc.info.description},${outputDoc.info.version}`;
+        console.log(rowData);
+
         Object.keys(inputDoc.paths).forEach(pathKey => {
             //debug ? logger.debug(`Processing path ${pathKey}`): null;
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
@@ -209,10 +242,14 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                 if (operations.includes(verbKey)){
                     try {
                         //logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
-                        // clean up camel case before we convert to snake case in openapi-doc-util
-                        
                         //inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? null : console.log(inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]);
+
                         
+                        // replace outlier operationIds
+
+
+
+                        // clean up camel case before we convert to snake case in openapi-doc-util
                         let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
                         .replace(/VCenters/g, 'Vcenters')
                         .replace(/HyperV/g, 'Hyperv')
@@ -224,42 +261,10 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         .replace(/vNet/g, 'Vnet')
                         .replace(/GitHub/g, 'Github')
                         .replace(/OAuth/g, 'Oauth')
-
-                        .replace(/HCRP/g, 'Hcrp')
-                        .replace(/MHSM/g, 'Mhsm')
-                        .replace(/MSIX/g, 'Msix')
-                        
-
-                        
-                        
-                        .replace(/B2C/g, 'B2c')
-                        .replace(/SAP/g, 'Sap')
-                        .replace(/MIP/g, 'Mip')
-                        .replace(/API/g, 'Api')
-                        .replace(/EDM/g, 'Edm')
-                        .replace(/SCC/g, 'Scc')
-                        .replace(/HCI/g, 'Hci')
-                        .replace(/WCF/g, 'Wcf')
-                        .replace(/CRR/g, 'Crr')
-                        .replace(/BMS/g, 'Bms')
-                        .replace(/PIN/g, 'Pin')
-                        .replace(/AFD/g, 'Afd')
-                        .replace(/MAM/g, 'Mam')
-                        
-
-                        
-                        
-                        .replace(/VM/g, 'Vm')
-                        .replace(/VM/g, 'Vm')
-                        .replace(/OS/g, 'Os')
-                        .replace(/AD/g, 'Ad')
-                        .replace(/IP/g, 'Ip')
-                        .replace(/ML/g, 'Ml')
-                        .replace(/BI/g, 'Bi')
-                        
-
                         .replace(/-/g, '_')
                         ;
+                        
+                        resName = fixCamelCase(resName);
 
                         //resName === 'generatevirtualwanvpnserverconfigurationvpnprofile' ? resName = 'generate_virtual_wan_vpn_server_configuration_vpn_profile' : null;
 
