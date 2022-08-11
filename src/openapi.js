@@ -188,7 +188,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     ];
 
     createOrCleanDir(outputDir, debug);
-
+    //cosmos-db
+    
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
         debug ? logger.debug(`Processing ${fileName}`): null;
@@ -213,12 +214,25 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         //inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? null : console.log(inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]);
                         
                         let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
+                        .replace(/VCenters/g, 'Vcenters')
                         .replace(/HyperV/g, 'Hyperv')
                         .replace(/NetApp/g, 'Netapp')
                         .replace(/VCores/g, 'Vcores')
+                        .replace(/MongoDB/g, 'Mongodb')
+                        .replace(/VmSS/g, 'Vms')
                         .replace(/SaaS/g, 'Saas')
-                        .replace(/HCRP/g, 'Hcrp')
+                        .replace(/vNet/g, 'Vnet')
+                        .replace(/GitHub/g, 'Github')
+                        .replace(/OAuth/g, 'Oauth')
 
+                        .replace(/HCRP/g, 'Hcrp')
+                        .replace(/MHSM/g, 'Mhsm')
+                        .replace(/MSIX/g, 'Msix')
+                        
+
+                        
+                        
+                        .replace(/B2C/g, 'B2c')
                         .replace(/SAP/g, 'Sap')
                         .replace(/MIP/g, 'Mip')
                         .replace(/API/g, 'Api')
@@ -230,7 +244,12 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         .replace(/BMS/g, 'Bms')
                         .replace(/PIN/g, 'Pin')
                         .replace(/AFD/g, 'Afd')
+                        .replace(/MAM/g, 'Mam')
+                        
 
+                        
+                        
+                        .replace(/VM/g, 'Vm')
                         .replace(/VM/g, 'Vm')
                         .replace(/OS/g, 'Os')
                         .replace(/AD/g, 'Ad')
@@ -243,6 +262,9 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         ;
 
                         //resName === 'generatevirtualwanvpnserverconfigurationvpnprofile' ? resName = 'generate_virtual_wan_vpn_server_configuration_vpn_profile' : null;
+
+                        // AdCOperations
+                        // AdCCatalogs
 
                         debug ? logger.debug(`Resource name ${resName}`): null;
                     } catch (e) {
