@@ -4,7 +4,7 @@ Generates a single OpenAPI document for each Azure Resource Manager service from
 
 This project uses [__autorest__](https://github.com/Azure/autorest) via JavaScript to emit the latest set of OpenAPI specifications for each service,  then dereferences and combines the documents into a single YAML OpenAPI specification using [__APIDevTools/json-schema-ref-parser__](https://github.com/APIDevTools/json-schema-ref-parser). 
 
-
+> a complete set of specs for each service is available [here](https://github.com/stackql/stackql-azure-openapi/tree/main/openapi/4-tagged)  
 
 ## Usage
 
