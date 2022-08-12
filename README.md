@@ -2,7 +2,9 @@
 
 Generates a single OpenAPI document for each Azure Resource Manager service from a set of OpenAPI specifications sourced from [__azure-rest-api-specs__](https://github.com/Azure/azure-rest-api-specs).  
 
-This project uses [__autorest__](https://github.com/Azure/autorest) via JavaScript to emit the latest set of OpenAPI specifications for each service,  then dereferences and combines the documents into a single YAML OpenAPI specification using [__APIDevTools/json-schema-ref-parser__](https://github.com/APIDevTools/json-schema-ref-parser).  
+This project uses [__autorest__](https://github.com/Azure/autorest) via JavaScript to emit the latest set of OpenAPI specifications for each service,  then dereferences and combines the documents into a single YAML OpenAPI specification using [__APIDevTools/json-schema-ref-parser__](https://github.com/APIDevTools/json-schema-ref-parser). 
+
+
 
 ## Usage
 

@@ -206,12 +206,29 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         
         const updateStr = (f, r) => {
             let re = new RegExp(f,"g");
-            inStr = inStr.replace(re, r);
+            outStr = outStr.replace(re, r);
         };
-        
+
+        const replaceTokens = (s) => {
+            return s.replace(/VCenters/g, 'Vcenters')
+            .replace(/HyperV/g, 'Hyperv')
+            .replace(/NetApp/g, 'Netapp')
+            .replace(/VCores/g, 'Vcores')
+            .replace(/MongoDB/g, 'Mongodb')
+            .replace(/VmSS/g, 'Vms')
+            .replace(/SaaS/g, 'Saas')
+            .replace(/vNet/g, 'Vnet')
+            .replace(/GitHub/g, 'Github')
+            .replace(/OAuth/g, 'Oauth')
+            .replace(/-/g, '_');
+        }
+
+        // pre clean name
+        let outStr = replaceTokens(inStr);
+
         // find all occurrences of sequences of more than one upper case letter 
         const sequentialCaps = /[A-Z]{2,}/g;
-        const seqs = [...inStr.matchAll(sequentialCaps)];
+        const seqs = [...outStr.matchAll(sequentialCaps)];
         const flattened = seqs.flatMap(seq => seq);
         const uniq = [...new Set(flattened)];
         
@@ -222,7 +239,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         arr.forEach(obj => updateStr(obj.find, obj.replace))
         
         // final clean up and return
-        return inStr.slice(0,-1) + inStr.charAt(inStr.length-1).toLowerCase();
+        return outStr.slice(0,-1) + outStr.charAt(outStr.length-1).toLowerCase();
     
     }
 
@@ -267,24 +284,11 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             if (inputDoc.paths[pathKey][verbKey]['tags']){
                                 let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
                                 // use the tag
-                                stackqlResName = camelToSnake(tag);
+                                stackqlResName = camelToSnake(fixCamelCase(tag));
                             }
                         } else {
                             // clean up camel case before we convert to snake case in openapi-doc-util
-                            stackqlResName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
-                                .replace(/VCenters/g, 'Vcenters')
-                                .replace(/HyperV/g, 'Hyperv')
-                                .replace(/NetApp/g, 'Netapp')
-                                .replace(/VCores/g, 'Vcores')
-                                .replace(/MongoDB/g, 'Mongodb')
-                                .replace(/VmSS/g, 'Vms')
-                                .replace(/SaaS/g, 'Saas')
-                                .replace(/vNet/g, 'Vnet')
-                                .replace(/GitHub/g, 'Github')
-                                .replace(/OAuth/g, 'Oauth')
-                                .replace(/-/g, '_')
-                            ;
-                            stackqlResName = camelToSnake(fixCamelCase(stackqlResName));
+                            stackqlResName = camelToSnake(fixCamelCase(inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]));
                             // we have a method, lets check it
                             let method = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1];
                             stackqlSqlVerb = getSQLVerbFromMethod(method);
