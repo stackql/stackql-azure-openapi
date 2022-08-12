@@ -167,10 +167,18 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
-    // logger.info(`tagging ${specificationDir}...`);
+    const camelToSnake = (inStr) => {
+        let str = inStr.replace(/-/g, '_').replace(/ /g, '_');
+        return str.replace(/\.?([A-Z])/g, function (x,y){
+            return "_" + y.toLowerCase()
+        }).replace(/^_/, "");
+    }
+
+    logger.info(`tagging ${specificationDir}...`);
 
     const inputDir = `${combinedDir}/${specificationDir}`;
-    const outputDir = `${taggedDir}/${specificationDir}`;
+    const serviceName = camelToSnake(specificationDir.replace(/-/g, '_'));
+    const outputDir = `${taggedDir}/${serviceName}`;
 
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
@@ -218,11 +226,21 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     
     }
 
-    //cosmos-db
-    
+    const getSQLVerbFromMethod = (m) => {
+        if (m.toLowerCase() == 'list' || m.toLowerCase() == 'get' || m == 'ListAll' || m.startsWith('ListBy') || m.startsWith('GetBy')){
+            return 'select';
+        } else if (m.toLowerCase() == 'add' || m.toLowerCase() == 'create' || m == 'CreateOrUpdate' || m == 'CreateOrReplace'){
+            return 'insert';
+        } else if (m.toLowerCase() == 'delete' || m.startsWith('DeleteBy')) {
+            return 'delete';
+        } else {
+            return 'exec';
+        }
+    };
+   
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
-        //debug ? logger.debug(`Processing ${fileName}`): null;
+        debug ? logger.debug(`Processing ${fileName}`): null;
 
         inputDoc = await $RefParser.parse(fileName);
 
@@ -230,59 +248,55 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         outputDoc.servers = inputDoc.servers;
         outputDoc.info = inputDoc.info;
         outputDoc.security = inputDoc.security;
-        outputDoc.components = inputDoc.components;
-
-        //let rowData = `${specificationDir},${outputDoc.info.title},${outputDoc.info.description},${outputDoc.info.version}`;
-        //console.log(rowData);
+        outputDoc.components = inputDoc.components;0
+        outputDoc.paths = {};
 
         Object.keys(inputDoc.paths).forEach(pathKey => {
-            //debug ? logger.debug(`Processing path ${pathKey}`): null;
+            debug ? logger.debug(`Processing path ${pathKey}`): null;
+            outputDoc.paths[pathKey] ? null : outputDoc.paths[pathKey] = {};
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
-                //debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
+                debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
+                outputDoc.paths[pathKey][verbKey] = inputDoc.paths[pathKey][verbKey];
                 if (operations.includes(verbKey)){
                     try {
-                        //logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
-                        //inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? null : console.log(inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]);
-
+                        logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
+                        let stackqlResName = 'operations';
+                        let stackqlSqlVerb = 'exec';
+                        if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
+                            // replace outlier operationIds with no method
+                            if (inputDoc.paths[pathKey][verbKey]['tags']){
+                                let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
+                                // use the tag
+                                stackqlResName = camelToSnake(tag);
+                            }
+                        } else {
+                            // clean up camel case before we convert to snake case in openapi-doc-util
+                            stackqlResName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
+                                .replace(/VCenters/g, 'Vcenters')
+                                .replace(/HyperV/g, 'Hyperv')
+                                .replace(/NetApp/g, 'Netapp')
+                                .replace(/VCores/g, 'Vcores')
+                                .replace(/MongoDB/g, 'Mongodb')
+                                .replace(/VmSS/g, 'Vms')
+                                .replace(/SaaS/g, 'Saas')
+                                .replace(/vNet/g, 'Vnet')
+                                .replace(/GitHub/g, 'Github')
+                                .replace(/OAuth/g, 'Oauth')
+                                .replace(/-/g, '_')
+                            ;
+                            stackqlResName = camelToSnake(fixCamelCase(stackqlResName));
+                            // we have a method, lets check it
+                            let method = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1];
+                            stackqlSqlVerb = getSQLVerbFromMethod(method);
+                        }
                         
-                        // replace outlier operationIds
+                        debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
+                        debug ? logger.debug(`stackql verb : ${stackqlSqlVerb}`): null;
 
-                        //let rowData = `${specificationDir},${inputDoc.paths[pathKey][verbKey]['tags'][0] ? inputDoc.paths[pathKey][verbKey]['tags'][0] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'] ? inputDoc.paths[pathKey][verbKey]['operationId'] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[2] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[2] : ''},${inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[3] ? inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[3] : ''}`;
-                        let tag = inputDoc.paths[pathKey][verbKey]['tags'] ? inputDoc.paths[pathKey][verbKey]['tags'][0] : '';
-                        let operationId = inputDoc.paths[pathKey][verbKey]['operationId'] ? inputDoc.paths[pathKey][verbKey]['operationId'] : '';
-                        let operationIdSplit = operationId.split('_');
-                        let operationIdSplit0 = operationIdSplit[0] ? operationIdSplit[0] : '';
-                        let operationIdSplit1 = operationIdSplit[1] ? operationIdSplit[1] : '';
-                        let operationIdSplit2 = operationIdSplit[2] ? operationIdSplit[2] : '';
-                        let rowData = `${specificationDir},${tag},${operationId},${operationIdSplit0},${operationIdSplit1},${operationIdSplit2}`;
-                        console.log(rowData);
+                        // add special keys to the operation
+                        outputDoc.paths[pathKey][verbKey]['x-stackQL-resource'] = stackqlResName;
+                        outputDoc.paths[pathKey][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
 
-                
-
-
-                        // clean up camel case before we convert to snake case in openapi-doc-util
-                        // let resName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0]
-                        // .replace(/VCenters/g, 'Vcenters')
-                        // .replace(/HyperV/g, 'Hyperv')
-                        // .replace(/NetApp/g, 'Netapp')
-                        // .replace(/VCores/g, 'Vcores')
-                        // .replace(/MongoDB/g, 'Mongodb')
-                        // .replace(/VmSS/g, 'Vms')
-                        // .replace(/SaaS/g, 'Saas')
-                        // .replace(/vNet/g, 'Vnet')
-                        // .replace(/GitHub/g, 'Github')
-                        // .replace(/OAuth/g, 'Oauth')
-                        // .replace(/-/g, '_')
-                        // ;
-                        
-                        //resName = fixCamelCase(resName);
-
-                        //resName === 'generatevirtualwanvpnserverconfigurationvpnprofile' ? resName = 'generate_virtual_wan_vpn_server_configuration_vpn_profile' : null;
-
-                        // AdCOperations
-                        // AdCCatalogs
-
-                        //debug ? logger.debug(`Resource name ${resName}`): null;
                     } catch (e) {
                         if (e !== 'Break') throw e
                     }
@@ -291,6 +305,16 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             });
         });
     }
+
+    if (dryrun){
+        logger.info(`dryrun specified, no output written`);
+    } else {
+        logger.info(`writing ${outputDir}/${serviceName}.yaml...`);
+        fs.writeFileSync(`${outputDir}/${serviceName}.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
+        logger.info(`${outputDir}/${serviceName}.yaml written successfully`);
+    }
+    logger.info(`${specificationDir} finished processing`);
+
 }
 
 export async function validate(spec) {

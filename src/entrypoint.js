@@ -89,7 +89,7 @@ async function openapiTag(options) {
   
   if (options.specificationDir){
     await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
-      //logger.info(`finished tagging!`);
+      logger.info(`finished tagging!`);
     });
   } else {
     // interate through all combined subdirs
@@ -97,7 +97,7 @@ async function openapiTag(options) {
     for (const subdir of subdirs){
       try {
         await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
-          //logger.info(`finished tagging!`);
+          logger.info(`finished tagging!`);
         });
       } catch (err) {
         logger.error(err);
