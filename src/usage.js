@@ -11,6 +11,7 @@ const tagDesc = 'Tags an OpenAPI3 document with the appropriate stackql resource
 
 const debugDesc = '[OPTIONAL] Debug flag. (defaults to false)';
 const dryrunDesc = '[OPTIONAL] Dry run flag. (defaults to false)';
+const prettyprintDesc = '[OPTIONAL] Pretty print flag for JSON output. (defaults to false)';
 
 const cmdUsage = [
   {
@@ -94,6 +95,11 @@ const dereferenceUsage = [
           name: 'dryrun',
           type: Boolean,
           description: dryrunDesc,
+        }, 
+        {
+          name: 'prettyprint',
+          type: Boolean,
+          description: prettyprintDesc,
         },        
       ]
     }    
@@ -225,6 +231,7 @@ function parseArgumentsIntoOptions(rawArgs) {
    {
      '--dryrun': Boolean,
      '--debug': Boolean,
+     '--prettyprint': Boolean,
      '-d': '--debug',
    },
    {
@@ -234,6 +241,7 @@ function parseArgumentsIntoOptions(rawArgs) {
  return {
   dryrun: args['--dryrun'] || false,
   debug: args['--debug'] || false,
+  prettyprint: args['--prettyprint'] || false,
   command: args._[0] || false,
   specificationDir: args._[1] || false,
  };

@@ -21,84 +21,6 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    ConfigurationList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Configuration'
-          description: The array of tenant configurations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of tenant configurations.
-    Configuration:
-      type: object
-      description: Tenant configuration.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ConfigurationProperties'
-          description: Tenant configuration properties.
-      allOf:
-        - title: Proxy Resource
-          description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-          type: object
-          allOf:
-            - title: Resource
-              description: Common fields that are returned in the response for all Azure Resource Manager resources
-              type: object
-              properties:
-                id:
-                  readOnly: true
-                  type: string
-                  description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-                name:
-                  readOnly: true
-                  type: string
-                  description: The name of the resource
-                type:
-                  readOnly: true
-                  type: string
-                  description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-              x-ms-azure-resource: true
-    ConfigurationProperties:
-      type: object
-      description: Tenant configuration properties.
-      x-ms-azure-resource: true
-      properties:
-        enforcePrivateMarkdownStorage:
-          type: boolean
-          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
-    ViolationsList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Violation'
-          description: The array of violations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of list of items that violate tenant's configuration.
-    Violation:
-      type: object
-      description: Violation information.
-      properties:
-        id:
-          description: Id of the item that violates tenant configuration.
-          type: string
-          readOnly: true
-        userId:
-          description: Id of the user who owns violated item.
-          type: string
-          readOnly: true
-        errorMessage:
-          description: Error message.
-          type: string
-          readOnly: true
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -565,6 +487,64 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    ConfigurationList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Configuration'
+          description: The array of tenant configurations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of tenant configurations.
+    Configuration:
+      type: object
+      description: Tenant configuration.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ConfigurationProperties'
+          description: Tenant configuration properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    ConfigurationProperties:
+      type: object
+      description: Tenant configuration properties.
+      x-ms-azure-resource: true
+      properties:
+        enforcePrivateMarkdownStorage:
+          type: boolean
+          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
+    ViolationsList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+          description: The array of violations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of list of items that violate tenant's configuration.
+    Violation:
+      type: object
+      description: Violation information.
+      properties:
+        id:
+          description: Id of the item that violates tenant configuration.
+          type: string
+          readOnly: true
+        userId:
+          description: Id of the user who owns violated item.
+          type: string
+          readOnly: true
+        errorMessage:
+          description: Error message.
+          type: string
+          readOnly: true
     DashboardListResult:
       type: object
       properties:
@@ -820,19 +800,6 @@ components:
             - code
           readOnly: true
   parameters:
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The configuration name. Value must be 'default'
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - default
-        x-ms-enum:
-          name: configurationName
-          modelAsString: true
-        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -873,6 +840,19 @@ components:
       schema:
         minLength: 1
         type: string
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The configuration name. Value must be 'default'
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - default
+        x-ms-enum:
+          name: configurationName
+          modelAsString: true
+        type: string
     DashboardNameParameter:
       name: dashboardName
       in: path
@@ -891,12 +871,7 @@ paths:
       operationId: TenantConfigurations_List
       description: Gets list of the tenant configurations.
       parameters:
-        - name: api-version
-          in: query
-          description: The API version to be used with the HTTP request.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Returns the list of tenant configurations.
@@ -909,12 +884,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: Error response.
-                properties:
-                  error:
-                    $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/responses/default/content/application~1json/schema/properties/error/properties/details/items'
-                    description: The error details.
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: tenant_configurations
@@ -927,7 +897,7 @@ paths:
       description: Gets the tenant configuration.
       parameters:
         - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Returns the tenant configuration.
@@ -942,9 +912,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: tenant_configurations
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - tenantConfiguration
@@ -952,7 +922,7 @@ paths:
       description: Create the tenant configuration. If configuration already exists - update it. User has to be a Tenant Admin for this operation.
       parameters:
         - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The parameters required to create or update tenant configuration.
         required: true
@@ -979,7 +949,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: tenant_configurations
       x-stackQL-verb: insert
     delete:
@@ -989,7 +959,7 @@ paths:
       description: Delete the tenant configuration. User has to be a Tenant Admin for this operation.
       parameters:
         - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Configuration was deleted.
@@ -1000,7 +970,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: tenant_configurations
       x-stackQL-verb: delete
   /providers/Microsoft.Portal/listTenantConfigurationViolations:
@@ -1010,7 +980,7 @@ paths:
       operationId: ListTenantConfigurationViolations_List
       description: Gets list of items that violate tenant's configuration.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Returns the list of items that violate tenant's configuration.
@@ -1023,7 +993,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.Portal~1tenantConfigurations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: list_tenant_configuration_violations
@@ -1142,7 +1112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: dashboards
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     patch:
       tags:
         - Dashboard

@@ -20,6 +20,411 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Resource:
+      description: ARM Resource.
+      type: object
+      properties:
+        id:
+          description: Resource Id represents the complete path to the resource.
+          type: string
+          readOnly: true
+        name:
+          description: Resource name associated with the resource.
+          type: string
+          readOnly: true
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          type: string
+          readOnly: true
+        location:
+          description: Resource location.
+          type: string
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        eTag:
+          description: Optional ETag.
+          type: string
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
     BackupResourceEncryptionConfig:
       type: object
       properties:
@@ -180,17 +585,7 @@ components:
           readOnly: true
           type: array
           items:
-            type: object
-            properties:
-              type:
-                readOnly: true
-                type: string
-                description: The additional info type.
-              info:
-                readOnly: true
-                type: object
-                description: The additional info.
-            description: The resource management error additional info.
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
           x-ms-identifiers: []
           description: The error additional info.
       description: An error response from the Container Instance service.
@@ -224,7 +619,7 @@ components:
               readOnly: true
               type: array
               items:
-                $ref: '#/components/schemas/CloudErrorBody/properties/additionalInfo/items'
+                $ref: '#/components/schemas/ErrorAdditionalInfo'
               x-ms-identifiers: []
               description: The error additional info.
       description: The resource management error response.
@@ -3174,24 +3569,6 @@ components:
           x-ms-enum:
             name: RecoveryPointTierStatus
             modelAsString: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
     ResourceList:
       description: Base for all lists of resources.
       type: object
@@ -5950,384 +6327,33 @@ components:
           x-ms-enum:
             name: RetentionDurationType
             modelAsString: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
   parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
     SubscriptionId:
       name: subscriptionId
       in: path
@@ -6366,32 +6392,6 @@ components:
       required: true
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
 paths:
   /Subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig:
     get:
@@ -6418,7 +6418,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-stackQL-resource: backup_resource_storage_configs_non_crr
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - BackupResourceStorageConfigsNonCRR
@@ -6534,7 +6534,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BackupStatusResponse'
       x-stackQL-resource: backup_status
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /Subscriptions/{subscriptionId}/providers/Microsoft.RecoveryServices/locations/{azureRegion}/backupValidateFeatures:
     post:
       tags:
@@ -6593,7 +6593,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProtectionIntentResource'
       x-stackQL-resource: protection_intent
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - ProtectionIntent
@@ -6775,7 +6775,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-stackQL-resource: backup_resource_vault_configs
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     patch:
       tags:
         - BackupResourceVaultConfigs
@@ -6867,7 +6867,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-stackQL-resource: backup_resource_encryption_configs
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - BackupResourceEncryptionConfigs
@@ -6928,7 +6928,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-stackQL-resource: private_endpoint_connection
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - PrivateEndpointConnection
@@ -7141,7 +7141,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-stackQL-resource: bms_prepare_data_move_operation_result
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig/triggerDataMove:
     post:
       tags:
@@ -7225,7 +7225,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/GetProtectedItemQueryObject'
       x-stackQL-resource: protected_items
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - ProtectedItems
@@ -7375,7 +7375,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protected_item_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints:
     get:
       tags:
@@ -7478,7 +7478,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: recovery_points
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/restore:
     post:
       tags:
@@ -7600,7 +7600,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_policies
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - ProtectionPolicies
@@ -7709,7 +7709,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_policy_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs:
     get:
       tags:
@@ -7782,7 +7782,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: job_details
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/{jobName}/cancel:
     post:
       tags:
@@ -7848,7 +7848,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: job_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/operationResults/{operationId}:
     get:
       tags:
@@ -7886,7 +7886,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: export_jobs_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobsExport:
     post:
       tags:
@@ -8055,7 +8055,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: validate_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupValidateOperationsStatuses/{operationId}:
     get:
       tags:
@@ -8087,7 +8087,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: validate_operation_statuses
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupEngines:
     get:
       tags:
@@ -8173,7 +8173,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/BMSBackupEngineQueryObject'
       x-stackQL-resource: backup_engines
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/operationResults/{operationId}:
     get:
       tags:
@@ -8209,7 +8209,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_container_refresh_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectableContainers:
     get:
       tags:
@@ -8287,7 +8287,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_containers
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - ProtectionContainers
@@ -8514,7 +8514,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_container_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/backup:
     post:
       tags:
@@ -8612,7 +8612,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protected_item_operation_statuses
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/provisionInstantItemRecovery:
     post:
       tags:
@@ -8779,7 +8779,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: backup_operation_results
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupOperations/{operationId}:
     get:
       tags:
@@ -8811,7 +8811,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: backup_operation_statuses
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupPolicies/{policyName}/operations/{operationId}:
     get:
       tags:
@@ -8849,7 +8849,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: protection_policy_operation_statuses
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupProtectableItems:
     get:
       tags:
@@ -8959,7 +8959,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: security_pi_ns
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/move:
     post:
       tags:
@@ -9089,7 +9089,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: resource_guard_proxies
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupResourceGuardProxies/{resourceGuardProxyName}:
     get:
       tags:
@@ -9120,7 +9120,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: resource_guard_proxy
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - ResourceGuardProxy

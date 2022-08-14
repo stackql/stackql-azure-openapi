@@ -19,6 +19,267 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Workflow:
+      title: Workflow
+      description: Resource representation of a workflow
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          description: Properties of a workflow.
+          $ref: '#/components/schemas/WorkflowProperties'
+          x-ms-client-flatten: true
+    WorkflowProperties:
+      type: object
+      description: Workflow properties
+      properties:
+        githubWorkflowProfile:
+          description: Profile of a github workflow.
+          $ref: '#/components/schemas/GitHubWorkflowProfile'
+          x-ms-client-flatten: true
+    GitHubWorkflowProfile:
+      type: object
+      description: GitHub Workflow Profile
+      properties:
+        repositoryOwner:
+          type: string
+          title: The owner of the repository the workflow is associated with.
+          description: Repository Owner
+        repositoryName:
+          type: string
+          title: The name of the repository the workflow is associated with.
+          description: Repository Name
+        branchName:
+          type: string
+          title: The name of the branch the workflow is associated with.
+          description: Repository Branch Name
+        dockerfile:
+          type: string
+          title: Path to Dockerfile within the repository.
+          description: Path to the Dockerfile within the repository.
+        dockerBuildContext:
+          type: string
+          title: Path to Dockerfile Build Context within the repository.
+          description: Path to Dockerfile Build Context within the repository.
+        deploymentProperties:
+          $ref: '#/components/schemas/DeploymentProperties'
+        namespace:
+          type: string
+          description: Kubernetes namespace the application is deployed to.
+          title: The Kubernetes namespace the application is deployed to
+        acr:
+          $ref: '#/components/schemas/ACR'
+        oidcCredentials:
+          type: object
+          description: The fields needed for OIDC with GitHub.
+          properties:
+            azureClientId:
+              type: string
+              description: Azure Application Client ID
+            azureTenantId:
+              type: string
+              description: Azure Directory (tenant) ID
+        aksResourceId:
+          type: string
+          description: The Azure Kubernetes Cluster Resource the application will be deployed to.
+          title: The Azure Kubernetes Managed Cluster resource.
+        prURL:
+          type: string
+          description: The URL to the Pull Request submitted against the users repository.
+          readOnly: true
+        pullNumber:
+          type: integer
+          format: int32
+          readOnly: true
+          description: The number associated with the submitted pull request.
+        prStatus:
+          $ref: '#/components/schemas/PullRequestStatus'
+        lastWorkflowRun:
+          $ref: '#/components/schemas/WorkflowRun'
+        authStatus:
+          $ref: '#/components/schemas/AuthorizationStatus'
+    WorkflowListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workflow'
+          description: The list of workflows.
+        nextLink:
+          type: string
+          description: The URL to the next set of workflow results.
+          readOnly: true
+      description: The response from List Workflows operation.
+    PullRequestStatus:
+      type: string
+      readOnly: true
+      enum:
+        - unknown
+        - submitted
+        - merged
+        - removed
+      x-ms-enum:
+        name: PullRequestStatus
+        modelAsString: true
+        values:
+          - value: unknown
+            description: Pull Request state unknown.
+          - value: submitted
+            description: Pull Request submitted to repository.
+          - value: merged
+            description: Pull Request merged into repository.
+          - value: merged
+            description: Workflow no longer found within repository.
+      description: The status of the Pull Request submitted against the users repository.
+    DeploymentProperties:
+      type: object
+      properties:
+        manifestType:
+          $ref: '#/components/schemas/ManifestType'
+        kubeManifestLocations:
+          type: array
+          items:
+            type: string
+        helmChartPath:
+          type: string
+          description: Helm chart directory path in repository.
+        helmValues:
+          type: string
+          description: Helm Values.yaml file location in repository.
+        overrides:
+          type: object
+          additionalProperties:
+            type: string
+          title: Manifest override values.
+          description: Manifest override values.
+    ManifestType:
+      type: string
+      enum:
+        - helm
+        - kube
+      x-ms-enum:
+        name: ManifestType
+        modelAsString: true
+        values:
+          - value: helm
+            description: Repositories using helm
+          - value: kube
+            description: Repositories using kubernetes manifests
+      description: Determines the type of manifests within the repository.
+    AuthorizationStatus:
+      type: string
+      enum:
+        - Authorized
+        - NotFound
+        - Error
+      readOnly: true
+      x-ms-enum:
+        name: ManifestType
+        modelAsString: true
+        values:
+          - value: Authorized
+            description: Requests authorized successfully
+          - value: NotFound
+            description: Requests returned NotFound response
+          - value: Error
+            description: Requests returned other error response
+      description: Determines the authorization status of requests.
+    WorkflowRun:
+      type: object
+      properties:
+        succeeded:
+          type: boolean
+          readOnly: true
+          description: Describes if the workflow run succeeded.
+        workflowRunURL:
+          type: string
+          readOnly: true
+          description: URL to the run of the workflow.
+        lastRunAt:
+          type: string
+          readOnly: true
+          format: date-time
+          description: The timestamp of the last workflow run.
+    ACR:
+      type: object
+      description: Information on the azure container registry
+      properties:
+        acrSubscriptionId:
+          type: string
+          description: ACR subscription id
+        acrResourceGroup:
+          type: string
+          description: ACR resource group
+        acrRegistryName:
+          type: string
+          description: ACR registry
+        acrRepositoryName:
+          type: string
+          description: ACR repository
+    GitHubOAuthInfoResponse:
+      type: object
+      description: URL used to authorize the Developer Hub GitHub App
+      properties:
+        authURL:
+          type: string
+          description: URL for authorizing the Developer Hub GitHub App
+        token:
+          type: string
+          description: OAuth token used to make calls to GitHub
+    TagsObject:
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+      x-ms-mutability:
+        - read
+        - create
+        - update
+      description: Resource tags.
+    DeleteWorkflowResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: delete status message
+      description: delete response if content must be provided on delete operation
+    GitHubOAuthCallRequest:
+      type: object
+      properties:
+        redirectUrl:
+          type: string
+          description: The URL the client will redirect to on successful authentication. If empty, no redirect will occur.
+      description: GitHubOAuth request object
+    GitHubOAuthResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          description: Properties of a workflow.
+          $ref: '#/components/schemas/GitHubOAuthProperties'
+          x-ms-client-flatten: true
+      description: 'Singleton response of GitHubOAuth containing '
+    GitHubOAuthProperties:
+      type: object
+      properties:
+        username:
+          type: string
+          description: user making request
+      description: The response from List GitHubOAuth operation.
+    GitHubOAuthListResponse:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubOAuthResponse'
+          description: Singleton list response containing one GitHubOAuthResponse response
+      description: The response from List GitHubOAuth operation.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -464,351 +725,42 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    Workflow:
-      title: Workflow
-      description: Resource representation of a workflow
-      type: object
-      allOf:
-        - title: Tracked Resource
-          description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-          type: object
-          properties:
-            tags:
-              type: object
-              additionalProperties:
-                type: string
-              x-ms-mutability:
-                - read
-                - create
-                - update
-              description: Resource tags.
-            location:
-              type: string
-              x-ms-mutability:
-                - read
-                - create
-              description: The geo-location where the resource lives
-          required:
-            - location
-          allOf:
-            - title: Resource
-              description: Common fields that are returned in the response for all Azure Resource Manager resources
-              type: object
-              properties:
-                id:
-                  readOnly: true
-                  type: string
-                  description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-                name:
-                  readOnly: true
-                  type: string
-                  description: The name of the resource
-                type:
-                  readOnly: true
-                  type: string
-                  description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-                systemData:
-                  readOnly: true
-                  type: object
-                  description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-                  properties:
-                    createdBy:
-                      type: string
-                      description: The identity that created the resource.
-                    createdByType:
-                      type: string
-                      description: The type of identity that created the resource.
-                      enum:
-                        - User
-                        - Application
-                        - ManagedIdentity
-                        - Key
-                      x-ms-enum:
-                        name: createdByType
-                        modelAsString: true
-                    createdAt:
-                      type: string
-                      format: date-time
-                      description: The timestamp of resource creation (UTC).
-                    lastModifiedBy:
-                      type: string
-                      description: The identity that last modified the resource.
-                    lastModifiedByType:
-                      type: string
-                      description: The type of identity that last modified the resource.
-                      enum:
-                        - User
-                        - Application
-                        - ManagedIdentity
-                        - Key
-                      x-ms-enum:
-                        name: createdByType
-                        modelAsString: true
-                    lastModifiedAt:
-                      type: string
-                      format: date-time
-                      description: The timestamp of resource last modification (UTC)
-              x-ms-azure-resource: true
-      properties:
-        properties:
-          description: Properties of a workflow.
-          $ref: '#/components/schemas/WorkflowProperties'
-          x-ms-client-flatten: true
-    WorkflowProperties:
-      type: object
-      description: Workflow properties
-      properties:
-        githubWorkflowProfile:
-          description: Profile of a github workflow.
-          $ref: '#/components/schemas/GitHubWorkflowProfile'
-          x-ms-client-flatten: true
-    GitHubWorkflowProfile:
-      type: object
-      description: GitHub Workflow Profile
-      properties:
-        repositoryOwner:
-          type: string
-          title: The owner of the repository the workflow is associated with.
-          description: Repository Owner
-        repositoryName:
-          type: string
-          title: The name of the repository the workflow is associated with.
-          description: Repository Name
-        branchName:
-          type: string
-          title: The name of the branch the workflow is associated with.
-          description: Repository Branch Name
-        dockerfile:
-          type: string
-          title: Path to Dockerfile within the repository.
-          description: Path to the Dockerfile within the repository.
-        dockerBuildContext:
-          type: string
-          title: Path to Dockerfile Build Context within the repository.
-          description: Path to Dockerfile Build Context within the repository.
-        deploymentProperties:
-          $ref: '#/components/schemas/DeploymentProperties'
-        namespace:
-          type: string
-          description: Kubernetes namespace the application is deployed to.
-          title: The Kubernetes namespace the application is deployed to
-        acr:
-          $ref: '#/components/schemas/ACR'
-        oidcCredentials:
-          type: object
-          description: The fields needed for OIDC with GitHub.
-          properties:
-            azureClientId:
-              type: string
-              description: Azure Application Client ID
-            azureTenantId:
-              type: string
-              description: Azure Directory (tenant) ID
-        aksResourceId:
-          type: string
-          description: The Azure Kubernetes Cluster Resource the application will be deployed to.
-          title: The Azure Kubernetes Managed Cluster resource.
-        prURL:
-          type: string
-          description: The URL to the Pull Request submitted against the users repository.
-          readOnly: true
-        pullNumber:
-          type: integer
-          format: int32
-          readOnly: true
-          description: The number associated with the submitted pull request.
-        prStatus:
-          $ref: '#/components/schemas/PullRequestStatus'
-        lastWorkflowRun:
-          $ref: '#/components/schemas/WorkflowRun'
-        authStatus:
-          $ref: '#/components/schemas/AuthorizationStatus'
-    WorkflowListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Workflow'
-          description: The list of workflows.
-        nextLink:
-          type: string
-          description: The URL to the next set of workflow results.
-          readOnly: true
-      description: The response from List Workflows operation.
-    PullRequestStatus:
-      type: string
-      readOnly: true
-      enum:
-        - unknown
-        - submitted
-        - merged
-        - removed
-      x-ms-enum:
-        name: PullRequestStatus
-        modelAsString: true
-        values:
-          - value: unknown
-            description: Pull Request state unknown.
-          - value: submitted
-            description: Pull Request submitted to repository.
-          - value: merged
-            description: Pull Request merged into repository.
-          - value: merged
-            description: Workflow no longer found within repository.
-      description: The status of the Pull Request submitted against the users repository.
-    DeploymentProperties:
-      type: object
-      properties:
-        manifestType:
-          $ref: '#/components/schemas/ManifestType'
-        kubeManifestLocations:
-          type: array
-          items:
-            type: string
-        helmChartPath:
-          type: string
-          description: Helm chart directory path in repository.
-        helmValues:
-          type: string
-          description: Helm Values.yaml file location in repository.
-        overrides:
-          type: object
-          additionalProperties:
-            type: string
-          title: Manifest override values.
-          description: Manifest override values.
-    ManifestType:
-      type: string
-      enum:
-        - helm
-        - kube
-      x-ms-enum:
-        name: ManifestType
-        modelAsString: true
-        values:
-          - value: helm
-            description: Repositories using helm
-          - value: kube
-            description: Repositories using kubernetes manifests
-      description: Determines the type of manifests within the repository.
-    AuthorizationStatus:
-      type: string
-      enum:
-        - Authorized
-        - NotFound
-        - Error
-      readOnly: true
-      x-ms-enum:
-        name: ManifestType
-        modelAsString: true
-        values:
-          - value: Authorized
-            description: Requests authorized successfully
-          - value: NotFound
-            description: Requests returned NotFound response
-          - value: Error
-            description: Requests returned other error response
-      description: Determines the authorization status of requests.
-    WorkflowRun:
-      type: object
-      properties:
-        succeeded:
-          type: boolean
-          readOnly: true
-          description: Describes if the workflow run succeeded.
-        workflowRunURL:
-          type: string
-          readOnly: true
-          description: URL to the run of the workflow.
-        lastRunAt:
-          type: string
-          readOnly: true
-          format: date-time
-          description: The timestamp of the last workflow run.
-    ACR:
-      type: object
-      description: Information on the azure container registry
-      properties:
-        acrSubscriptionId:
-          type: string
-          description: ACR subscription id
-        acrResourceGroup:
-          type: string
-          description: ACR resource group
-        acrRegistryName:
-          type: string
-          description: ACR registry
-        acrRepositoryName:
-          type: string
-          description: ACR repository
-    GitHubOAuthInfoResponse:
-      type: object
-      description: URL used to authorize the Developer Hub GitHub App
-      properties:
-        authURL:
-          type: string
-          description: URL for authorizing the Developer Hub GitHub App
-        token:
-          type: string
-          description: OAuth token used to make calls to GitHub
-    TagsObject:
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-      x-ms-mutability:
-        - read
-        - create
-        - update
-      description: Resource tags.
-    DeleteWorkflowResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          description: delete status message
-      description: delete response if content must be provided on delete operation
-    GitHubOAuthCallRequest:
-      type: object
-      properties:
-        redirectUrl:
-          type: string
-          description: The URL the client will redirect to on successful authentication. If empty, no redirect will occur.
-      description: GitHubOAuth request object
-    GitHubOAuthResponse:
-      type: object
-      allOf:
-        - title: Proxy Resource
-          description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-          type: object
-          allOf:
-            - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/responses/200/content/application~1json/schema/properties/value/items/allOf/0/allOf/0'
-      properties:
-        properties:
-          description: Properties of a workflow.
-          $ref: '#/components/schemas/GitHubOAuthProperties'
-          x-ms-client-flatten: true
-      description: 'Singleton response of GitHubOAuth containing '
-    GitHubOAuthProperties:
-      type: object
-      properties:
-        username:
-          type: string
-          description: user making request
-      description: The response from List GitHubOAuth operation.
-    GitHubOAuthListResponse:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/GitHubOAuthResponse'
-          description: Singleton list response containing one GitHubOAuthResponse response
-      description: The response from List GitHubOAuth operation.
   parameters:
+    ManagedClusterParameter:
+      name: managedClusterResource
+      in: query
+      description: The ManagedCluster resource associated with the workflows.
+      required: false
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    WorkflowNameParameter:
+      name: workflowName
+      in: path
+      description: The name of the workflow resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 63
+        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
+        type: string
+    GitHubOAuthCodeParameter:
+      name: code
+      in: query
+      description: The code response from authenticating the GitHub App.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    GitHubOAuthStateParameter:
+      name: state
+      in: query
+      description: The state response from authenticating the GitHub App.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -853,41 +805,6 @@ components:
       schema:
         minLength: 1
         type: string
-    ManagedClusterParameter:
-      name: managedClusterResource
-      in: query
-      description: The ManagedCluster resource associated with the workflows.
-      required: false
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    WorkflowNameParameter:
-      name: workflowName
-      in: path
-      description: The name of the workflow resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 63
-        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
-        type: string
-    GitHubOAuthCodeParameter:
-      name: code
-      in: query
-      description: The code response from authenticating the GitHub App.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    GitHubOAuthStateParameter:
-      name: state
-      in: query
-      description: The state response from authenticating the GitHub App.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
 paths:
   /providers/Microsoft.DevHub/operations:
     get:
@@ -897,97 +814,20 @@ paths:
       description: Returns list of operations.
       summary: Gets a list of operations.
       parameters:
-        - name: api-version
-          in: query
-          description: The API version to use for this operation.
-          required: true
-          schema:
-            minLength: 1
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Operation details.
           content:
             application/json:
               schema:
-                description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-                type: object
-                properties:
-                  value:
-                    type: array
-                    items:
-                      title: REST API Operation
-                      description: Details of a REST API operation, returned from the Resource Provider Operations API
-                      type: object
-                      properties:
-                        name:
-                          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-                          type: string
-                          readOnly: true
-                        isDataAction:
-                          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-                          type: boolean
-                          readOnly: true
-                        display:
-                          description: Localized display information for this particular operation.
-                          type: object
-                          properties:
-                            provider:
-                              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-                              type: string
-                              readOnly: true
-                            resource:
-                              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-                              type: string
-                              readOnly: true
-                            operation:
-                              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-                              type: string
-                              readOnly: true
-                            description:
-                              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-                              type: string
-                              readOnly: true
-                        origin:
-                          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-                          type: string
-                          readOnly: true
-                          enum:
-                            - user
-                            - system
-                            - user,system
-                          x-ms-enum:
-                            name: Origin
-                            modelAsString: true
-                        actionType:
-                          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-                          type: string
-                          readOnly: true
-                          enum:
-                            - Internal
-                          x-ms-enum:
-                            name: ActionType
-                            modelAsString: true
-                    x-ms-identifiers:
-                      - name
-                    description: List of operations supported by the resource provider
-                    readOnly: true
-                  nextLink:
-                    type: string
-                    description: URL to get the next set of operation list results (if there are any).
-                    readOnly: true
+                $ref: '#/components/schemas/OperationListResult'
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
-                title: Error response
-                description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-                type: object
-                properties:
-                  error:
-                    description: The error object.
-                    $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema/properties/error/properties/details/items'
+                $ref: '#/components/schemas/ErrorResponse'
       deprecated: false
       x-stackQL-resource: operations
       x-stackQL-verb: select
@@ -998,9 +838,9 @@ paths:
       operationId: GitHubOAuth
       summary: Gets GitHubOAuth info used to authenticate users with the Developer Hub GitHub App.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1locations~1%7Blocation%7D~1githuboauth/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
       requestBody:
         required: false
         x-ms-requestBody-name: parameters
@@ -1020,7 +860,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: github_oauth
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.DevHub/locations/{location}/githuboauth/default:
@@ -1030,9 +870,9 @@ paths:
       operationId: GitHubOAuthCallback
       summary: Callback URL to hit once authenticated with GitHub App to have the service store the OAuth token.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1locations~1%7Blocation%7D~1githuboauth/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/GitHubOAuthCodeParameter'
         - $ref: '#/components/parameters/GitHubOAuthStateParameter'
       responses:
@@ -1047,7 +887,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: github_oauth
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.DevHub/locations/{location}/githuboauth:
@@ -1057,16 +897,9 @@ paths:
       operationId: ListGitHubOAuth
       summary: Callback URL to hit once authenticated with GitHub App to have the service store the OAuth token.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - name: location
-          in: path
-          description: The name of Azure region.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            minLength: 1
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
       responses:
         '200':
           description: OK
@@ -1079,7 +912,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: github_oauth
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.DevHub/workflows:
@@ -1089,14 +922,8 @@ paths:
       operationId: Workflow_List
       summary: Gets a list of workflows associated with the specified subscription.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - name: subscriptionId
-          in: path
-          description: The ID of the target subscription.
-          required: true
-          schema:
-            minLength: 1
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: Describe the result of a successful operation.
@@ -1109,7 +936,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: workflow
@@ -1121,17 +948,9 @@ paths:
       operationId: Workflow_ListByResourceGroup
       summary: Gets a list of workflows within a resource group.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group. The name is case insensitive.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            minLength: 1
-            maxLength: 90
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ManagedClusterParameter'
       responses:
         '200':
@@ -1145,7 +964,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: workflow
@@ -1157,9 +976,9 @@ paths:
       operationId: Workflow_Get
       summary: Gets a workflow.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkflowNameParameter'
       responses:
         '200':
@@ -1173,18 +992,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: workflow
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Workflow
       operationId: Workflow_CreateOrUpdate
       summary: Creates or updates a workflow
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkflowNameParameter'
       requestBody:
         required: true
@@ -1211,7 +1030,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: workflow
       x-stackQL-verb: insert
     delete:
@@ -1220,9 +1039,9 @@ paths:
       operationId: Workflow_Delete
       summary: Deletes a workflow
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkflowNameParameter'
       responses:
         '200':
@@ -1238,7 +1057,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: workflow
       x-stackQL-verb: delete
     patch:
@@ -1247,9 +1066,9 @@ paths:
       operationId: Workflow_UpdateTags
       summary: Updates tags on a workflow.
       parameters:
-        - $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/1'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.DevHub~1workflows/get/parameters/2'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkflowNameParameter'
       requestBody:
         description: Parameters supplied to the Update Workflow Tags operation.
@@ -1271,6 +1090,6 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.DevHub~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: workflow
       x-stackQL-verb: exec

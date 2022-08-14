@@ -1,6 +1,9 @@
-import { readdir } from 'fs/promises'
-import { processSpecs, processSpec } from './autorest'
-import { dereference, combine, validate, tag } from './openapi'
+import { readdir } from 'fs/promises';
+import { processSpecs, processSpec } from './autorest';
+import { dereference } from './dereference';
+import { combine } from './combine';
+import { tag } from './tag';
+import { validate } from './validate';
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
 
@@ -43,7 +46,7 @@ async function autorest(options) {
 
 async function openapiDereference(options) {
   if (options.specificationDir){
-    await dereference(generatedDir, derefedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
+    await dereference(generatedDir, derefedDir, options.specificationDir, options.debug, options.dryrun, options.prettyprint).finally(() => {
       logger.info(`dereferencing completed!`);
     });
   } else {
@@ -51,7 +54,7 @@ async function openapiDereference(options) {
     const subdirs = (await readdir(`${generatedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
     for (const subdir of subdirs){
       try {
-        await dereference(generatedDir, derefedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+        await dereference(generatedDir, derefedDir, subdir.name, options.debug, options.dryrun, options.prettyprint).finally(() => {
           logger.info(`dereferencing completed!`);
         });
       } catch (err) {

@@ -19,60 +19,473 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    CloudError:
-      description: An error response from Key Vault resource provider
+    KeyProperties:
       properties:
-        error:
-          $ref: '#/components/schemas/CloudErrorBody'
-      x-ms-external: true
+        attributes:
+          $ref: '#/components/schemas/KeyAttributes'
+          description: The attributes of the key.
+        kty:
+          type: string
+          minLength: 1
+          description: The type of the key. For valid values, see JsonWebKeyType.
+          enum:
+            - EC
+            - EC-HSM
+            - RSA
+            - RSA-HSM
+          x-ms-enum:
+            name: JsonWebKeyType
+            modelAsString: true
+        keyOps:
+          type: array
+          items:
+            type: string
+            description: The permitted JSON web key operations of the key. For more information, see JsonWebKeyOperation.
+            enum:
+              - encrypt
+              - decrypt
+              - sign
+              - verify
+              - wrapKey
+              - unwrapKey
+              - import
+              - release
+            x-ms-enum:
+              name: JsonWebKeyOperation
+              modelAsString: true
+        keySize:
+          type: integer
+          format: int32
+          description: 'The key size in bits. For example: 2048, 3072, or 4096 for RSA.'
+        curveName:
+          type: string
+          description: The elliptic curve name. For valid values, see JsonWebKeyCurveName.
+          enum:
+            - P-256
+            - P-384
+            - P-521
+            - P-256K
+          x-ms-enum:
+            name: JsonWebKeyCurveName
+            modelAsString: true
+        keyUri:
+          type: string
+          description: The URI to retrieve the current version of the key.
+          readOnly: true
+        keyUriWithVersion:
+          type: string
+          description: The URI to retrieve the specific version of the key.
+          readOnly: true
+        rotationPolicy:
+          $ref: '#/components/schemas/RotationPolicy'
+          description: Key rotation policy in response. It will be used for both output and input. Omitted if empty
+        release_policy:
+          $ref: '#/components/schemas/KeyReleasePolicy'
+          description: Key release policy in response. It will be used for both output and input. Omitted if empty
+      description: The properties of the key.
       type: object
-    CloudErrorBody:
-      description: An error response from Key Vault resource provider
+    KeyAttributes:
       properties:
-        code:
+        enabled:
+          type: boolean
+          description: Determines whether or not the object is enabled.
+        nbf:
+          x-ms-client-name: NotBefore
+          type: integer
+          format: int64
+          description: Not before date in seconds since 1970-01-01T00:00:00Z.
+        exp:
+          x-ms-client-name: Expires
+          type: integer
+          format: int64
+          description: Expiry date in seconds since 1970-01-01T00:00:00Z.
+        created:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Creation time in seconds since 1970-01-01T00:00:00Z.
+        updated:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
+        recoveryLevel:
           type: string
-          description: Error code. This is a mnemonic that can be consumed programmatically.
-        message:
-          type: string
-          description: User friendly error message. The message is typically localized and may vary with service version.
-      x-ms-external: true
+          description: The deletion recovery level currently in effect for the object. If it contains 'Purgeable', then the object can be permanently deleted by a privileged user; otherwise, only the system can purge the object at the end of the retention interval.
+          enum:
+            - Purgeable
+            - Recoverable+Purgeable
+            - Recoverable
+            - Recoverable+ProtectedSubscription
+          x-ms-enum:
+            name: DeletionRecoveryLevel
+            modelAsString: true
+          readOnly: true
+          nullable: false
+        exportable:
+          type: boolean
+          description: Indicates if the private key can be exported.
+      description: The object attributes managed by the Azure Key Vault service.
       type: object
-    SystemData:
-      description: Metadata pertaining to creation and last modification of the key vault resource.
-      readOnly: true
+    KeyCreateParameters:
       properties:
-        createdBy:
-          type: string
-          description: The identity that created the key vault resource.
-        createdByType:
-          description: The type of identity that created the key vault resource.
-          $ref: '#/components/schemas/IdentityType'
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of the key vault resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the key vault resource.
-        lastModifiedByType:
-          description: The type of identity that last modified the key vault resource.
-          $ref: '#/components/schemas/IdentityType'
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of the key vault resource last modification (UTC).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: The tags that will be assigned to the key.
+        properties:
+          $ref: '#/components/schemas/KeyProperties'
+          description: The properties of the key to be created.
+      description: The parameters used to create a key.
+      required:
+        - properties
+      x-ms-azure-resource: true
       type: object
-    IdentityType:
-      type: string
-      description: The type of identity.
-      enum:
-        - User
-        - Application
-        - ManagedIdentity
-        - Key
-      x-ms-enum:
-        name: identityType
-        modelAsString: true
+    Key:
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/KeyProperties'
+          description: The properties of the key.
+      required:
+        - properties
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: The key resource.
+      type: object
+    KeyListResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Key'
+          description: The key resources.
+        nextLink:
+          type: string
+          description: The URL to get the next page of keys.
+      description: The page of keys.
+      type: object
+    RotationPolicy:
+      properties:
+        attributes:
+          $ref: '#/components/schemas/KeyRotationPolicyAttributes'
+          description: The attributes of key rotation policy.
+        lifetimeActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LifetimeAction'
+          description: The lifetimeActions for key rotation action.
+      type: object
+    KeyRotationPolicyAttributes:
+      properties:
+        created:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Creation time in seconds since 1970-01-01T00:00:00Z.
+        updated:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
+        expiryTime:
+          type: string
+          description: 'The expiration time for the new key version. It should be in ISO8601 format. Eg: ''P90D'', ''P1Y''.'
+      type: object
+    LifetimeAction:
+      properties:
+        trigger:
+          $ref: '#/components/schemas/Trigger'
+          description: The trigger of key rotation policy lifetimeAction.
+        action:
+          $ref: '#/components/schemas/Action'
+          description: The action of key rotation policy lifetimeAction.
+      type: object
+    Trigger:
+      properties:
+        timeAfterCreate:
+          type: string
+          description: 'The time duration after key creation to rotate the key. It only applies to rotate. It will be in ISO 8601 duration format. Eg: ''P90D'', ''P1Y''.'
+        timeBeforeExpiry:
+          type: string
+          description: 'The time duration before key expiring to rotate or notify. It will be in ISO 8601 duration format. Eg: ''P90D'', ''P1Y''.'
+      type: object
+    Action:
+      properties:
+        type:
+          type: string
+          description: The type of action.
+          enum:
+            - rotate
+            - notify
+          x-ms-enum:
+            name: KeyRotationPolicyActionType
+            modelAsString: false
+      type: object
+    KeyReleasePolicy:
+      properties:
+        contentType:
+          description: Content type and version of key release policy
+          type: string
+          default: application/json; charset=utf-8
+        data:
+          description: Blob encoding the policy rules under which the key can be released.
+          type: string
+          format: base64url
+      type: object
+    OperationListResult:
+      description: Result of the request to list Storage operations. It contains a list of operations and a URL link to get the next set of results.
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          description: List of Storage operations supported by the Storage resource provider.
+        nextLink:
+          type: string
+          description: The URL to get the next set of operations.
+      type: object
+    Operation:
+      description: Key Vault REST API operation definition.
+      type: object
+      properties:
+        name:
+          description: 'Operation name: {provider}/{resource}/{operation}'
+          type: string
+        display:
+          description: Display metadata associated with the operation.
+          properties:
+            provider:
+              description: 'Service provider: Microsoft Key Vault.'
+              type: string
+            resource:
+              description: Resource on which the operation is performed etc.
+              type: string
+            operation:
+              description: 'Type of operation: get, read, delete, etc.'
+              type: string
+            description:
+              description: Description of operation.
+              type: string
+        origin:
+          type: string
+          description: The origin of operations.
+        properties:
+          description: Properties of operation, include metric specifications.
+          x-ms-client-flatten: true
+          x-ms-client-name: OperationProperties
+          $ref: '#/components/schemas/OperationProperties'
+        isDataAction:
+          type: boolean
+          description: Property to specify whether the action is a data action.
+    OperationProperties:
+      description: Properties of operation, include metric specifications.
+      properties:
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecification'
+          description: One property of operation, include metric specifications.
+      type: object
+    ServiceSpecification:
+      description: One property of operation, include log specifications.
+      properties:
+        logSpecifications:
+          description: Log specifications of operation.
+          type: array
+          items:
+            $ref: '#/components/schemas/LogSpecification'
+        metricSpecifications:
+          description: Metric specifications of operation.
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricSpecification'
+      type: object
+    LogSpecification:
+      description: Log specification of operation.
+      properties:
+        name:
+          type: string
+          description: Name of log specification.
+        displayName:
+          type: string
+          description: Display name of log specification.
+        blobDuration:
+          type: string
+          description: Blob duration of specification.
+      type: object
+    MetricSpecification:
+      description: Metric specification of operation.
+      properties:
+        name:
+          type: string
+          description: Name of metric specification.
+        displayName:
+          type: string
+          description: Display name of metric specification.
+        displayDescription:
+          type: string
+          description: Display description of metric specification.
+        unit:
+          type: string
+          description: 'The metric unit. Possible values include: ''Bytes'', ''Count'', ''Milliseconds''.'
+        aggregationType:
+          type: string
+          description: 'The metric aggregation type. Possible values include: ''Average'', ''Count'', ''Total''.'
+        supportedAggregationTypes:
+          type: array
+          description: The supported aggregation types for the metrics.
+          items:
+            type: string
+        supportedTimeGrainTypes:
+          type: array
+          description: The supported time grain types for the metrics.
+          items:
+            type: string
+        lockAggregationType:
+          type: string
+          description: The metric lock aggregation type.
+        dimensions:
+          type: array
+          description: The dimensions of metric
+          items:
+            $ref: '#/components/schemas/DimensionProperties'
+        fillGapWithZero:
+          type: boolean
+          description: Property to specify whether to fill gap with zero.
+        internalMetricName:
+          type: string
+          description: The internal metric name.
+      type: object
+    DimensionProperties:
+      description: 'Type of operation: get, read, delete, etc.'
+      properties:
+        name:
+          type: string
+          description: Name of dimension.
+        displayName:
+          type: string
+          description: Display name of dimension.
+        toBeExportedForShoebox:
+          type: boolean
+          description: Property to specify whether the dimension should be exported for Shoebox.
+      type: object
+    Attributes:
+      properties:
+        enabled:
+          type: boolean
+          description: Determines whether the object is enabled.
+        nbf:
+          x-ms-client-name: NotBefore
+          type: integer
+          format: unixtime
+          description: Not before date in seconds since 1970-01-01T00:00:00Z.
+        exp:
+          x-ms-client-name: Expires
+          type: integer
+          format: unixtime
+          description: Expiry date in seconds since 1970-01-01T00:00:00Z.
+        created:
+          type: integer
+          format: unixtime
+          readOnly: true
+          description: Creation time in seconds since 1970-01-01T00:00:00Z.
+        updated:
+          type: integer
+          format: unixtime
+          readOnly: true
+          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
+      description: The object attributes managed by the KeyVault service.
+      type: object
+    SecretProperties:
+      properties:
+        value:
+          type: string
+          description: 'The value of the secret. NOTE: ''value'' will never be returned from the service, as APIs using this model are is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
+        contentType:
+          type: string
+          description: The content type of the secret.
+        attributes:
+          $ref: '#/components/schemas/SecretAttributes'
+          description: The attributes of the secret.
+        secretUri:
+          type: string
+          description: The URI to retrieve the current version of the secret.
+          readOnly: true
+        secretUriWithVersion:
+          type: string
+          description: The URI to retrieve the specific version of the secret.
+          readOnly: true
+      description: Properties of the secret
+      type: object
+    SecretPatchProperties:
+      properties:
+        value:
+          type: string
+          description: The value of the secret.
+        contentType:
+          type: string
+          description: The content type of the secret.
+        attributes:
+          $ref: '#/components/schemas/SecretAttributes'
+          description: The attributes of the secret.
+      description: Properties of the secret
+      type: object
+    SecretAttributes:
+      allOf:
+        - $ref: '#/components/schemas/Attributes'
+      description: The secret management attributes.
+      type: object
+    SecretCreateOrUpdateParameters:
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'The tags that will be assigned to the secret. '
+        properties:
+          $ref: '#/components/schemas/SecretProperties'
+          description: Properties of the secret
+      description: Parameters for creating or updating a secret
+      required:
+        - properties
+      x-ms-azure-resource: true
+      type: object
+    SecretPatchParameters:
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'The tags that will be assigned to the secret. '
+        properties:
+          $ref: '#/components/schemas/SecretPatchProperties'
+          description: Properties of the secret
+      description: Parameters for patching a secret
+      x-ms-azure-resource: true
+      type: object
+    Secret:
+      properties:
+        properties:
+          $ref: '#/components/schemas/SecretProperties'
+          description: Properties of the secret
+      required:
+        - properties
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: Resource information with extended details.
+      type: object
+    SecretListResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Secret'
+          description: The list of secrets.
+        nextLink:
+          type: string
+          description: The URL to get the next set of secrets.
+      description: List of secrets
+      type: object
     ManagedHsmSku:
       properties:
         family:
@@ -240,38 +653,7 @@ components:
             type: string
           description: Resource tags
         systemData:
-          description: Metadata pertaining to creation and last modification of the key vault resource.
-          readOnly: true
-          properties:
-            createdBy:
-              type: string
-              description: The identity that created the key vault resource.
-            createdByType:
-              description: The type of identity that created the key vault resource.
-              type: string
-              enum:
-                - User
-                - Application
-                - ManagedIdentity
-                - Key
-              x-ms-enum:
-                name: identityType
-                modelAsString: true
-            createdAt:
-              type: string
-              format: date-time
-              description: The timestamp of the key vault resource creation (UTC).
-            lastModifiedBy:
-              type: string
-              description: The identity that last modified the key vault resource.
-            lastModifiedByType:
-              description: The type of identity that last modified the key vault resource.
-              $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.KeyVault~1managedHSMs/get/responses/200/content/application~1json/schema/properties/value/items/allOf/0/properties/systemData/properties/createdByType'
-            lastModifiedAt:
-              type: string
-              format: date-time
-              description: The timestamp of the key vault resource last modification (UTC).
-          type: object
+          $ref: '#/components/schemas/SystemData'
       description: Managed HSM resource
       x-ms-azure-resource: true
       type: object
@@ -625,523 +1007,60 @@ components:
           type: string
           description: Activation Status Message.
       description: The security domain properties of the managed hsm.
-    OperationListResult:
-      description: Result of the request to list Storage operations. It contains a list of operations and a URL link to get the next set of results.
+    CloudError:
+      description: An error response from Key Vault resource provider
       properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          description: List of Storage operations supported by the Storage resource provider.
-        nextLink:
-          type: string
-          description: The URL to get the next set of operations.
+        error:
+          $ref: '#/components/schemas/CloudErrorBody'
+      x-ms-external: true
       type: object
-    Operation:
-      description: Key Vault REST API operation definition.
-      type: object
+    CloudErrorBody:
+      description: An error response from Key Vault resource provider
       properties:
-        name:
-          description: 'Operation name: {provider}/{resource}/{operation}'
+        code:
           type: string
-        display:
-          description: Display metadata associated with the operation.
-          properties:
-            provider:
-              description: 'Service provider: Microsoft Key Vault.'
-              type: string
-            resource:
-              description: Resource on which the operation is performed etc.
-              type: string
-            operation:
-              description: 'Type of operation: get, read, delete, etc.'
-              type: string
-            description:
-              description: Description of operation.
-              type: string
-        origin:
+          description: Error code. This is a mnemonic that can be consumed programmatically.
+        message:
           type: string
-          description: The origin of operations.
-        properties:
-          description: Properties of operation, include metric specifications.
-          x-ms-client-flatten: true
-          x-ms-client-name: OperationProperties
-          $ref: '#/components/schemas/OperationProperties'
-        isDataAction:
-          type: boolean
-          description: Property to specify whether the action is a data action.
-    OperationProperties:
-      description: Properties of operation, include metric specifications.
+          description: User friendly error message. The message is typically localized and may vary with service version.
+      x-ms-external: true
+      type: object
+    SystemData:
+      description: Metadata pertaining to creation and last modification of the key vault resource.
+      readOnly: true
       properties:
-        serviceSpecification:
-          $ref: '#/components/schemas/ServiceSpecification'
-          description: One property of operation, include metric specifications.
+        createdBy:
+          type: string
+          description: The identity that created the key vault resource.
+        createdByType:
+          description: The type of identity that created the key vault resource.
+          $ref: '#/components/schemas/IdentityType'
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of the key vault resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the key vault resource.
+        lastModifiedByType:
+          description: The type of identity that last modified the key vault resource.
+          $ref: '#/components/schemas/IdentityType'
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of the key vault resource last modification (UTC).
       type: object
-    ServiceSpecification:
-      description: One property of operation, include log specifications.
-      properties:
-        logSpecifications:
-          description: Log specifications of operation.
-          type: array
-          items:
-            $ref: '#/components/schemas/LogSpecification'
-        metricSpecifications:
-          description: Metric specifications of operation.
-          type: array
-          items:
-            $ref: '#/components/schemas/MetricSpecification'
-      type: object
-    LogSpecification:
-      description: Log specification of operation.
-      properties:
-        name:
-          type: string
-          description: Name of log specification.
-        displayName:
-          type: string
-          description: Display name of log specification.
-        blobDuration:
-          type: string
-          description: Blob duration of specification.
-      type: object
-    MetricSpecification:
-      description: Metric specification of operation.
-      properties:
-        name:
-          type: string
-          description: Name of metric specification.
-        displayName:
-          type: string
-          description: Display name of metric specification.
-        displayDescription:
-          type: string
-          description: Display description of metric specification.
-        unit:
-          type: string
-          description: 'The metric unit. Possible values include: ''Bytes'', ''Count'', ''Milliseconds''.'
-        aggregationType:
-          type: string
-          description: 'The metric aggregation type. Possible values include: ''Average'', ''Count'', ''Total''.'
-        supportedAggregationTypes:
-          type: array
-          description: The supported aggregation types for the metrics.
-          items:
-            type: string
-        supportedTimeGrainTypes:
-          type: array
-          description: The supported time grain types for the metrics.
-          items:
-            type: string
-        lockAggregationType:
-          type: string
-          description: The metric lock aggregation type.
-        dimensions:
-          type: array
-          description: The dimensions of metric
-          items:
-            $ref: '#/components/schemas/DimensionProperties'
-        fillGapWithZero:
-          type: boolean
-          description: Property to specify whether to fill gap with zero.
-        internalMetricName:
-          type: string
-          description: The internal metric name.
-      type: object
-    DimensionProperties:
-      description: 'Type of operation: get, read, delete, etc.'
-      properties:
-        name:
-          type: string
-          description: Name of dimension.
-        displayName:
-          type: string
-          description: Display name of dimension.
-        toBeExportedForShoebox:
-          type: boolean
-          description: Property to specify whether the dimension should be exported for Shoebox.
-      type: object
-    Attributes:
-      properties:
-        enabled:
-          type: boolean
-          description: Determines whether the object is enabled.
-        nbf:
-          x-ms-client-name: NotBefore
-          type: integer
-          format: unixtime
-          description: Not before date in seconds since 1970-01-01T00:00:00Z.
-        exp:
-          x-ms-client-name: Expires
-          type: integer
-          format: unixtime
-          description: Expiry date in seconds since 1970-01-01T00:00:00Z.
-        created:
-          type: integer
-          format: unixtime
-          readOnly: true
-          description: Creation time in seconds since 1970-01-01T00:00:00Z.
-        updated:
-          type: integer
-          format: unixtime
-          readOnly: true
-          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
-      description: The object attributes managed by the KeyVault service.
-      type: object
-    SecretProperties:
-      properties:
-        value:
-          type: string
-          description: 'The value of the secret. NOTE: ''value'' will never be returned from the service, as APIs using this model are is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
-        contentType:
-          type: string
-          description: The content type of the secret.
-        attributes:
-          $ref: '#/components/schemas/SecretAttributes'
-          description: The attributes of the secret.
-        secretUri:
-          type: string
-          description: The URI to retrieve the current version of the secret.
-          readOnly: true
-        secretUriWithVersion:
-          type: string
-          description: The URI to retrieve the specific version of the secret.
-          readOnly: true
-      description: Properties of the secret
-      type: object
-    SecretPatchProperties:
-      properties:
-        value:
-          type: string
-          description: The value of the secret.
-        contentType:
-          type: string
-          description: The content type of the secret.
-        attributes:
-          $ref: '#/components/schemas/SecretAttributes'
-          description: The attributes of the secret.
-      description: Properties of the secret
-      type: object
-    SecretAttributes:
-      allOf:
-        - $ref: '#/components/schemas/Attributes'
-      description: The secret management attributes.
-      type: object
-    SecretCreateOrUpdateParameters:
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: 'The tags that will be assigned to the secret. '
-        properties:
-          $ref: '#/components/schemas/SecretProperties'
-          description: Properties of the secret
-      description: Parameters for creating or updating a secret
-      required:
-        - properties
-      x-ms-azure-resource: true
-      type: object
-    SecretPatchParameters:
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: 'The tags that will be assigned to the secret. '
-        properties:
-          $ref: '#/components/schemas/SecretPatchProperties'
-          description: Properties of the secret
-      description: Parameters for patching a secret
-      x-ms-azure-resource: true
-      type: object
-    Secret:
-      properties:
-        properties:
-          $ref: '#/components/schemas/SecretProperties'
-          description: Properties of the secret
-      required:
-        - properties
-      allOf:
-        - properties:
-            id:
-              readOnly: true
-              type: string
-              description: Fully qualified identifier of the key vault resource.
-            name:
-              readOnly: true
-              type: string
-              description: Name of the key vault resource.
-            type:
-              readOnly: true
-              type: string
-              description: Resource type of the key vault resource.
-            location:
-              readOnly: true
-              type: string
-              description: Azure location of the key vault resource.
-            tags:
-              readOnly: true
-              type: object
-              additionalProperties:
-                type: string
-              description: Tags assigned to the key vault resource.
-          description: Key Vault resource
-          x-ms-azure-resource: true
-          type: object
-      description: Resource information with extended details.
-      type: object
-    SecretListResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Secret'
-          description: The list of secrets.
-        nextLink:
-          type: string
-          description: The URL to get the next set of secrets.
-      description: List of secrets
-      type: object
-    KeyProperties:
-      properties:
-        attributes:
-          $ref: '#/components/schemas/KeyAttributes'
-          description: The attributes of the key.
-        kty:
-          type: string
-          minLength: 1
-          description: The type of the key. For valid values, see JsonWebKeyType.
-          enum:
-            - EC
-            - EC-HSM
-            - RSA
-            - RSA-HSM
-          x-ms-enum:
-            name: JsonWebKeyType
-            modelAsString: true
-        keyOps:
-          type: array
-          items:
-            type: string
-            description: The permitted JSON web key operations of the key. For more information, see JsonWebKeyOperation.
-            enum:
-              - encrypt
-              - decrypt
-              - sign
-              - verify
-              - wrapKey
-              - unwrapKey
-              - import
-              - release
-            x-ms-enum:
-              name: JsonWebKeyOperation
-              modelAsString: true
-        keySize:
-          type: integer
-          format: int32
-          description: 'The key size in bits. For example: 2048, 3072, or 4096 for RSA.'
-        curveName:
-          type: string
-          description: The elliptic curve name. For valid values, see JsonWebKeyCurveName.
-          enum:
-            - P-256
-            - P-384
-            - P-521
-            - P-256K
-          x-ms-enum:
-            name: JsonWebKeyCurveName
-            modelAsString: true
-        keyUri:
-          type: string
-          description: The URI to retrieve the current version of the key.
-          readOnly: true
-        keyUriWithVersion:
-          type: string
-          description: The URI to retrieve the specific version of the key.
-          readOnly: true
-        rotationPolicy:
-          $ref: '#/components/schemas/RotationPolicy'
-          description: Key rotation policy in response. It will be used for both output and input. Omitted if empty
-        release_policy:
-          $ref: '#/components/schemas/KeyReleasePolicy'
-          description: Key release policy in response. It will be used for both output and input. Omitted if empty
-      description: The properties of the key.
-      type: object
-    KeyAttributes:
-      properties:
-        enabled:
-          type: boolean
-          description: Determines whether or not the object is enabled.
-        nbf:
-          x-ms-client-name: NotBefore
-          type: integer
-          format: int64
-          description: Not before date in seconds since 1970-01-01T00:00:00Z.
-        exp:
-          x-ms-client-name: Expires
-          type: integer
-          format: int64
-          description: Expiry date in seconds since 1970-01-01T00:00:00Z.
-        created:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Creation time in seconds since 1970-01-01T00:00:00Z.
-        updated:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
-        recoveryLevel:
-          type: string
-          description: The deletion recovery level currently in effect for the object. If it contains 'Purgeable', then the object can be permanently deleted by a privileged user; otherwise, only the system can purge the object at the end of the retention interval.
-          enum:
-            - Purgeable
-            - Recoverable+Purgeable
-            - Recoverable
-            - Recoverable+ProtectedSubscription
-          x-ms-enum:
-            name: DeletionRecoveryLevel
-            modelAsString: true
-          readOnly: true
-          nullable: false
-        exportable:
-          type: boolean
-          description: Indicates if the private key can be exported.
-      description: The object attributes managed by the Azure Key Vault service.
-      type: object
-    KeyCreateParameters:
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: The tags that will be assigned to the key.
-        properties:
-          $ref: '#/components/schemas/KeyProperties'
-          description: The properties of the key to be created.
-      description: The parameters used to create a key.
-      required:
-        - properties
-      x-ms-azure-resource: true
-      type: object
-    Key:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/KeyProperties'
-          description: The properties of the key.
-      required:
-        - properties
-      allOf:
-        - properties:
-            id:
-              readOnly: true
-              type: string
-              description: Fully qualified identifier of the key vault resource.
-            name:
-              readOnly: true
-              type: string
-              description: Name of the key vault resource.
-            type:
-              readOnly: true
-              type: string
-              description: Resource type of the key vault resource.
-            location:
-              readOnly: true
-              type: string
-              description: Azure location of the key vault resource.
-            tags:
-              readOnly: true
-              type: object
-              additionalProperties:
-                type: string
-              description: Tags assigned to the key vault resource.
-          description: Key Vault resource
-          x-ms-azure-resource: true
-          type: object
-      description: The key resource.
-      type: object
-    KeyListResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Key'
-          description: The key resources.
-        nextLink:
-          type: string
-          description: The URL to get the next page of keys.
-      description: The page of keys.
-      type: object
-    RotationPolicy:
-      properties:
-        attributes:
-          $ref: '#/components/schemas/KeyRotationPolicyAttributes'
-          description: The attributes of key rotation policy.
-        lifetimeActions:
-          type: array
-          items:
-            $ref: '#/components/schemas/LifetimeAction'
-          description: The lifetimeActions for key rotation action.
-      type: object
-    KeyRotationPolicyAttributes:
-      properties:
-        created:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Creation time in seconds since 1970-01-01T00:00:00Z.
-        updated:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Last updated time in seconds since 1970-01-01T00:00:00Z.
-        expiryTime:
-          type: string
-          description: 'The expiration time for the new key version. It should be in ISO8601 format. Eg: ''P90D'', ''P1Y''.'
-      type: object
-    LifetimeAction:
-      properties:
-        trigger:
-          $ref: '#/components/schemas/Trigger'
-          description: The trigger of key rotation policy lifetimeAction.
-        action:
-          $ref: '#/components/schemas/Action'
-          description: The action of key rotation policy lifetimeAction.
-      type: object
-    Trigger:
-      properties:
-        timeAfterCreate:
-          type: string
-          description: 'The time duration after key creation to rotate the key. It only applies to rotate. It will be in ISO 8601 duration format. Eg: ''P90D'', ''P1Y''.'
-        timeBeforeExpiry:
-          type: string
-          description: 'The time duration before key expiring to rotate or notify. It will be in ISO 8601 duration format. Eg: ''P90D'', ''P1Y''.'
-      type: object
-    Action:
-      properties:
-        type:
-          type: string
-          description: The type of action.
-          enum:
-            - rotate
-            - notify
-          x-ms-enum:
-            name: KeyRotationPolicyActionType
-            modelAsString: false
-      type: object
-    KeyReleasePolicy:
-      properties:
-        contentType:
-          description: Content type and version of key release policy
-          type: string
-          default: application/json; charset=utf-8
-        data:
-          description: Blob encoding the policy rules under which the key can be released.
-          type: string
-          format: base64url
-      type: object
+    IdentityType:
+      type: string
+      description: The type of identity.
+      enum:
+        - User
+        - Application
+        - ManagedIdentity
+        - Key
+      x-ms-enum:
+        name: identityType
+        modelAsString: true
     Sku:
       properties:
         family:
@@ -1554,37 +1473,7 @@ components:
           description: Tags assigned to the key vault resource.
         systemData:
           description: System metadata for the key vault.
-          readOnly: true
-          properties:
-            createdBy:
-              type: string
-              description: The identity that created the key vault resource.
-            createdByType:
-              description: The type of identity that created the key vault resource.
-              type: string
-              enum:
-                - User
-                - Application
-                - ManagedIdentity
-                - Key
-              x-ms-enum:
-                name: identityType
-                modelAsString: true
-            createdAt:
-              type: string
-              format: date-time
-              description: The timestamp of the key vault resource creation (UTC).
-            lastModifiedBy:
-              type: string
-              description: The identity that last modified the key vault resource.
-            lastModifiedByType:
-              description: The type of identity that last modified the key vault resource.
-              $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.KeyVault~1vaults/get/responses/200/content/application~1json/schema/properties/value/items/properties/systemData/properties/createdByType'
-            lastModifiedAt:
-              type: string
-              format: date-time
-              description: The timestamp of the key vault resource last modification (UTC).
-          type: object
+          $ref: '#/components/schemas/SystemData'
         properties:
           $ref: '#/components/schemas/VaultProperties'
           description: Properties of the vault
@@ -1967,6 +1856,462 @@ components:
       schema:
         type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}:
+    put:
+      tags:
+        - Keys
+      operationId: Keys_CreateIfNotExist
+      description: Creates the first version of a new key if it does not exist. If it already exists, then the existing key is returned without any write operations being performed. This API does not create subsequent versions, and does not update existing keys.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: resourceGroupName
+          in: path
+          description: The name of the resource group which contains the specified key vault.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the key vault which contains the key to be created.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: keyName
+          in: path
+          description: The name of the key to be created.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The parameters used to create the specified key.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyCreateParameters'
+      responses:
+        '200':
+          description: The created key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: keys
+      x-stackQL-verb: exec
+    get:
+      tags:
+        - Keys
+      operationId: Keys_Get
+      description: Gets the current version of the specified key from the specified key vault.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: resourceGroupName
+          in: path
+          description: The name of the resource group which contains the specified key vault.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault which contains the key to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: keyName
+          in: path
+          description: The name of the key to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The retrieved key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: keys
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys:
+    get:
+      tags:
+        - Keys
+      operationId: Keys_List
+      description: Lists the keys in the specified key vault.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: resourceGroupName
+          in: path
+          description: The name of the resource group which contains the specified key vault.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault which contains the keys to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The retrieved page of keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-stackQL-resource: keys
+      x-stackQL-verb: select
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}/versions/{keyVersion}:
+    get:
+      tags:
+        - Keys
+      operationId: Keys_GetVersion
+      description: Gets the specified version of the specified key in the specified key vault.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: resourceGroupName
+          in: path
+          description: The name of the resource group which contains the specified key vault.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault which contains the key version to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: keyName
+          in: path
+          description: The name of the key version to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - name: keyVersion
+          in: path
+          description: The version of the key to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-fA-F0-9]{32}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The retrieved key version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: keys
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}/versions:
+    get:
+      tags:
+        - Keys
+      operationId: Keys_ListVersions
+      description: Lists the versions of the specified key in the specified key vault.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: resourceGroupName
+          in: path
+          description: The name of the resource group which contains the specified key vault.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault which contains the key versions to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: keyName
+          in: path
+          description: The name of the key versions to be retrieved.
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The retrieved page of key versions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-stackQL-resource: keys
+      x-stackQL-verb: exec
+  /providers/Microsoft.KeyVault/operations:
+    get:
+      tags:
+        - Operations
+      description: Lists all of the available Key Vault Rest API operations.
+      operationId: Operations_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-stackQL-resource: operations
+      x-stackQL-verb: select
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/secrets/{secretName}:
+    put:
+      tags:
+        - Secrets
+      operationId: Secrets_CreateOrUpdate
+      description: 'Create or update a secret in a key vault in the specified subscription.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
+      parameters:
+        - name: resourceGroupName
+          in: path
+          description: The name of the Resource Group to which the vault belongs.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: Name of the vault
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: secretName
+          in: path
+          description: Name of the secret
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters to create or update the secret
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretCreateOrUpdateParameters'
+      responses:
+        '200':
+          description: Created or updated secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '201':
+          description: Created or updated vault
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: secrets
+      x-stackQL-verb: insert
+    patch:
+      tags:
+        - Secrets
+      operationId: Secrets_Update
+      description: 'Update a secret in the specified subscription.  NOTE: This API is intended for internal use in ARM deployments.  Users should use the data-plane REST service for interaction with vault secrets.'
+      parameters:
+        - name: resourceGroupName
+          in: path
+          description: The name of the Resource Group to which the vault belongs.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: Name of the vault
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{3,24}$
+            type: string
+        - name: secretName
+          in: path
+          description: Name of the secret
+          required: true
+          schema:
+            pattern: ^[a-zA-Z0-9-]{1,127}$
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters to patch the secret
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretPatchParameters'
+      responses:
+        '200':
+          description: Patched secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '201':
+          description: Patched secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: secrets
+      x-stackQL-verb: exec
+    get:
+      tags:
+        - Secrets
+      operationId: Secrets_Get
+      description: 'Gets the specified secret.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
+      parameters:
+        - name: resourceGroupName
+          in: path
+          description: The name of the Resource Group to which the vault belongs.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault.
+          required: true
+          schema:
+            type: string
+        - name: secretName
+          in: path
+          description: The name of the secret.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Retrieved secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: secrets
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/secrets:
+    get:
+      tags:
+        - Secrets
+      operationId: Secrets_List
+      description: 'The List operation gets information about the secrets in a vault.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
+      parameters:
+        - name: resourceGroupName
+          in: path
+          description: The name of the Resource Group to which the vault belongs.
+          required: true
+          schema:
+            type: string
+        - name: vaultName
+          in: path
+          description: The name of the vault.
+          required: true
+          schema:
+            type: string
+        - name: $top
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            format: int32
+            type: integer
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Get information about secrets in the specified vault.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-stackQL-resource: secrets
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/managedHSMs/{name}:
     put:
       tags:
@@ -2135,7 +2480,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ManagedHsmError'
       x-stackQL-resource: managed_hsms
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/managedHSMs:
     get:
       tags:
@@ -2365,7 +2710,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ManagedHsmError'
       x-stackQL-resource: mhsm_private_endpoint_connections
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - MHSMPrivateEndpointConnections
@@ -2412,7 +2757,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.KeyVault~1checkMhsmNameAvailability/post/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: mhsm_private_endpoint_connections
       x-stackQL-verb: exec
     delete:
@@ -2453,7 +2798,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.KeyVault~1checkMhsmNameAvailability/post/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: mhsm_private_endpoint_connections
       x-stackQL-verb: delete
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/managedHSMs/{name}/privateLinkResources:
@@ -2484,7 +2829,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.KeyVault~1checkMhsmNameAvailability/post/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: mhsm_private_link_resources
       x-stackQL-verb: select
   /subscriptions/{subscriptionId}/providers/Microsoft.KeyVault/checkMhsmNameAvailability:
@@ -2516,520 +2861,8 @@ paths:
           content:
             application/json:
               schema:
-                description: An error response from Key Vault resource provider
-                properties:
-                  error:
-                    description: An error response from Key Vault resource provider
-                    properties:
-                      code:
-                        type: string
-                        description: Error code. This is a mnemonic that can be consumed programmatically.
-                      message:
-                        type: string
-                        description: User friendly error message. The message is typically localized and may vary with service version.
-                    x-ms-external: true
-                    type: object
-                x-ms-external: true
-                type: object
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: managed_hsms
-      x-stackQL-verb: exec
-  /providers/Microsoft.KeyVault/operations:
-    get:
-      tags:
-        - Operations
-      description: Lists all of the available Key Vault Rest API operations.
-      operationId: Operations_List
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                description: An error response from Key Vault resource provider
-                properties:
-                  error:
-                    description: An error response from Key Vault resource provider
-                    properties:
-                      code:
-                        type: string
-                        description: Error code. This is a mnemonic that can be consumed programmatically.
-                      message:
-                        type: string
-                        description: User friendly error message. The message is typically localized and may vary with service version.
-                    x-ms-external: true
-                    type: object
-                x-ms-external: true
-                type: object
-      x-ms-pageable:
-        nextLinkName: nextLink
-      x-stackQL-resource: operations
-      x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/secrets/{secretName}:
-    put:
-      tags:
-        - Secrets
-      operationId: Secrets_CreateOrUpdate
-      description: 'Create or update a secret in a key vault in the specified subscription.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
-      parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the Resource Group to which the vault belongs.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: Name of the vault
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: secretName
-          in: path
-          description: Name of the secret
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Parameters to create or update the secret
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SecretCreateOrUpdateParameters'
-      responses:
-        '200':
-          description: Created or updated secret
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Secret'
-        '201':
-          description: Created or updated vault
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Secret'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1secrets/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: secrets
-      x-stackQL-verb: insert
-    patch:
-      tags:
-        - Secrets
-      operationId: Secrets_Update
-      description: 'Update a secret in the specified subscription.  NOTE: This API is intended for internal use in ARM deployments.  Users should use the data-plane REST service for interaction with vault secrets.'
-      parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the Resource Group to which the vault belongs.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: Name of the vault
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: secretName
-          in: path
-          description: Name of the secret
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Parameters to patch the secret
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SecretPatchParameters'
-      responses:
-        '200':
-          description: Patched secret
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Secret'
-        '201':
-          description: Patched secret
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Secret'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1secrets/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: secrets
-      x-stackQL-verb: exec
-    get:
-      tags:
-        - Secrets
-      operationId: Secrets_Get
-      description: 'Gets the specified secret.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
-      parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the Resource Group to which the vault belongs.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault.
-          required: true
-          schema:
-            type: string
-        - name: secretName
-          in: path
-          description: The name of the secret.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Retrieved secret
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Secret'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1secrets/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: secrets
-      x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/secrets:
-    get:
-      tags:
-        - Secrets
-      operationId: Secrets_List
-      description: 'The List operation gets information about the secrets in a vault.  NOTE: This API is intended for internal use in ARM deployments. Users should use the data-plane REST service for interaction with vault secrets.'
-      parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the Resource Group to which the vault belongs.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault.
-          required: true
-          schema:
-            type: string
-        - name: $top
-          in: query
-          description: Maximum number of results to return.
-          schema:
-            format: int32
-            type: integer
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Get information about secrets in the specified vault.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SecretListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                description: An error response from Key Vault resource provider
-                properties:
-                  error:
-                    description: An error response from Key Vault resource provider
-                    properties:
-                      code:
-                        type: string
-                        description: Error code. This is a mnemonic that can be consumed programmatically.
-                      message:
-                        type: string
-                        description: User friendly error message. The message is typically localized and may vary with service version.
-                    x-ms-external: true
-                    type: object
-                x-ms-external: true
-                type: object
-      x-ms-pageable:
-        nextLinkName: nextLink
-      x-stackQL-resource: secrets
-      x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}:
-    put:
-      tags:
-        - Keys
-      operationId: Keys_CreateIfNotExist
-      description: Creates the first version of a new key if it does not exist. If it already exists, then the existing key is returned without any write operations being performed. This API does not create subsequent versions, and does not update existing keys.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group which contains the specified key vault.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the key vault which contains the key to be created.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: keyName
-          in: path
-          description: The name of the key to be created.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The parameters used to create the specified key.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KeyCreateParameters'
-      responses:
-        '200':
-          description: The created key.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Key'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1keys/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: keys
-      x-stackQL-verb: exec
-    get:
-      tags:
-        - Keys
-      operationId: Keys_Get
-      description: Gets the current version of the specified key from the specified key vault.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group which contains the specified key vault.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault which contains the key to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: keyName
-          in: path
-          description: The name of the key to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The retrieved key.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Key'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1keys/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: keys
-      x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys:
-    get:
-      tags:
-        - Keys
-      operationId: Keys_List
-      description: Lists the keys in the specified key vault.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group which contains the specified key vault.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault which contains the keys to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The retrieved page of keys.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KeyListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                description: An error response from Key Vault resource provider
-                properties:
-                  error:
-                    description: An error response from Key Vault resource provider
-                    properties:
-                      code:
-                        type: string
-                        description: Error code. This is a mnemonic that can be consumed programmatically.
-                      message:
-                        type: string
-                        description: User friendly error message. The message is typically localized and may vary with service version.
-                    x-ms-external: true
-                    type: object
-                x-ms-external: true
-                type: object
-      x-ms-pageable:
-        nextLinkName: nextLink
-      x-stackQL-resource: keys
-      x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}/versions/{keyVersion}:
-    get:
-      tags:
-        - Keys
-      operationId: Keys_GetVersion
-      description: Gets the specified version of the specified key in the specified key vault.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group which contains the specified key vault.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault which contains the key version to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: keyName
-          in: path
-          description: The name of the key version to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - name: keyVersion
-          in: path
-          description: The version of the key to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-fA-F0-9]{32}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The retrieved key version.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Key'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1keys/get/responses/default/content/application~1json/schema'
-      x-stackQL-resource: keys
-      x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}/versions:
-    get:
-      tags:
-        - Keys
-      operationId: Keys_ListVersions
-      description: Lists the versions of the specified key in the specified key vault.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group which contains the specified key vault.
-          required: true
-          schema:
-            type: string
-        - name: vaultName
-          in: path
-          description: The name of the vault which contains the key versions to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{3,24}$
-            type: string
-        - name: keyName
-          in: path
-          description: The name of the key versions to be retrieved.
-          required: true
-          schema:
-            pattern: ^[a-zA-Z0-9-]{1,127}$
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The retrieved page of key versions.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KeyListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.KeyVault~1vaults~1%7BvaultName%7D~1keys/get/responses/default/content/application~1json/schema'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      x-stackQL-resource: keys
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}:
     put:
@@ -3080,7 +2913,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: insert
     patch:
@@ -3130,7 +2963,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: exec
     delete:
@@ -3163,7 +2996,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: delete
     get:
@@ -3198,9 +3031,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/accessPolicies/{operationKind}:
     put:
       tags:
@@ -3262,7 +3095,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults:
@@ -3298,7 +3131,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: vaults
@@ -3330,7 +3163,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: vaults
@@ -3356,7 +3189,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: vaults
@@ -3394,7 +3227,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.KeyVault/locations/{location}/deletedVaults/{vaultName}/purge:
@@ -3429,7 +3262,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resources:
@@ -3481,25 +3314,11 @@ paths:
           content:
             application/json:
               schema:
-                description: An error response from Key Vault resource provider
-                properties:
-                  error:
-                    description: An error response from Key Vault resource provider
-                    properties:
-                      code:
-                        type: string
-                        description: Error code. This is a mnemonic that can be consumed programmatically.
-                      message:
-                        type: string
-                        description: User friendly error message. The message is typically localized and may vary with service version.
-                    x-ms-external: true
-                    type: object
-                x-ms-external: true
-                type: object
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: vaults
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.KeyVault/checkNameAvailability:
     post:
       tags:
@@ -3529,7 +3348,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: vaults
       x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/privateEndpointConnections/{privateEndpointConnectionName}:
@@ -3558,9 +3377,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: private_endpoint_connections
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - PrivateEndpointConnections
@@ -3602,7 +3421,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: exec
     delete:
@@ -3642,7 +3461,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: delete
@@ -3669,7 +3488,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
       x-stackQL-resource: private_endpoint_connections
@@ -3697,6 +3516,6 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resources/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: private_link_resources
       x-stackQL-verb: select

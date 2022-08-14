@@ -38,11 +38,6 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -90,6 +85,28 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -108,6 +125,15 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -117,9 +143,18 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -128,7 +163,16 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          $ref: '#/components/schemas/SkuTier'
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -237,36 +281,61 @@ components:
           description: The additional info.
       description: The resource management error additional info.
     Operation:
-      description: Microsoft.NetApp REST API operation definition.
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
       type: object
       properties:
         name:
-          description: 'Operation name: {provider}/{resource}/{operation}'
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
           type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
         display:
-          description: Display metadata associated with the operation.
+          description: Localized display information for this particular operation.
+          type: object
           properties:
             provider:
-              description: 'Service provider: Microsoft NetApp.'
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
               type: string
+              readOnly: true
             resource:
-              description: Resource on which the operation is performed etc.
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
               type: string
+              readOnly: true
             operation:
-              description: 'Type of operation: get, read, delete, etc.'
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
               type: string
+              readOnly: true
             description:
-              description: Operation description.
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
               type: string
+              readOnly: true
         origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
           type: string
-          description: The origin of operations.
-        properties:
-          $ref: '#/components/schemas/OperationProperties'
-          description: Properties of operation, include metric specifications.
-          x-ms-client-flatten: true
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
     OperationListResult:
-      description: Result of the request to list Cloud Volume operations. It contains a list of operations and a URL link to get the next set of results.
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
       properties:
         value:
           type: array
@@ -274,7 +343,12 @@ components:
             $ref: '#/components/schemas/Operation'
           x-ms-identifiers:
             - name
-          description: List of Storage operations supported by the Storage resource provider.
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
     OperationStatusResult:
       description: The current status of an async operation.
       type: object
@@ -425,17 +499,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     OperationProperties:
       description: Properties of operation, include metric specifications.
       properties:
@@ -638,7 +701,7 @@ components:
       description: Information regarding Subscription Quota Item.
       type: object
       allOf:
-        - $ref: '#/components/schemas/subvolumeInfo/allOf/0'
+        - $ref: '#/components/schemas/ProxyResource'
       properties:
         properties:
           description: SubscriptionQuotaItem properties
@@ -676,7 +739,7 @@ components:
       required:
         - location
       allOf:
-        - $ref: '#/components/schemas/volume/allOf/0'
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         etag:
           readOnly: true
@@ -903,7 +966,7 @@ components:
         - location
         - properties
       allOf:
-        - $ref: '#/components/schemas/volume/allOf/0'
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         etag:
           readOnly: true
@@ -1072,86 +1135,7 @@ components:
         - location
         - properties
       allOf:
-        - title: Tracked Resource
-          description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-          type: object
-          properties:
-            tags:
-              type: object
-              additionalProperties:
-                type: string
-              x-ms-mutability:
-                - read
-                - create
-                - update
-              description: Resource tags.
-            location:
-              type: string
-              x-ms-mutability:
-                - read
-                - create
-              description: The geo-location where the resource lives
-          required:
-            - location
-          allOf:
-            - title: Resource
-              description: Common fields that are returned in the response for all Azure Resource Manager resources
-              type: object
-              properties:
-                id:
-                  readOnly: true
-                  type: string
-                  description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-                name:
-                  readOnly: true
-                  type: string
-                  description: The name of the resource
-                type:
-                  readOnly: true
-                  type: string
-                  description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-                systemData:
-                  readOnly: true
-                  type: object
-                  description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-                  properties:
-                    createdBy:
-                      type: string
-                      description: The identity that created the resource.
-                    createdByType:
-                      type: string
-                      description: The type of identity that created the resource.
-                      enum:
-                        - User
-                        - Application
-                        - ManagedIdentity
-                        - Key
-                      x-ms-enum:
-                        name: createdByType
-                        modelAsString: true
-                    createdAt:
-                      type: string
-                      format: date-time
-                      description: The timestamp of resource creation (UTC).
-                    lastModifiedBy:
-                      type: string
-                      description: The identity that last modified the resource.
-                    lastModifiedByType:
-                      type: string
-                      description: The type of identity that last modified the resource.
-                      enum:
-                        - User
-                        - Application
-                        - ManagedIdentity
-                        - Key
-                      x-ms-enum:
-                        name: createdByType
-                        modelAsString: true
-                    lastModifiedAt:
-                      type: string
-                      format: date-time
-                      description: The timestamp of resource last modification (UTC)
-              x-ms-azure-resource: true
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         etag:
           readOnly: true
@@ -2017,7 +2001,7 @@ components:
         - location
         - properties
       allOf:
-        - $ref: '#/components/schemas/volume/allOf/0'
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         etag:
           readOnly: true
@@ -2388,7 +2372,7 @@ components:
         - location
         - properties
       allOf:
-        - $ref: '#/components/schemas/volume/allOf/0'
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         etag:
           readOnly: true
@@ -2674,7 +2658,7 @@ components:
       description: Quota Rule of a Volume
       type: object
       allOf:
-        - $ref: '#/components/schemas/volume/allOf/0'
+        - $ref: '#/components/schemas/TrackedResource'
       properties:
         properties:
           description: Volume Quota Rule Properties
@@ -2940,11 +2924,7 @@ components:
       description: Subvolume Information properties
       type: object
       allOf:
-        - title: Proxy Resource
-          description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-          type: object
-          allOf:
-            - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.NetApp~1netAppAccounts/get/responses/200/content/application~1json/schema/properties/value/items/allOf/0/allOf/0'
+        - $ref: '#/components/schemas/ProxyResource'
       properties:
         properties:
           description: Subvolume Properties
@@ -3287,13 +3267,7 @@ paths:
       description: Lists all of the available Microsoft.NetApp Rest API operations
       operationId: Operations_List
       parameters:
-        - name: api-version
-          in: query
-          description: The API version to use for this operation.
-          required: true
-          schema:
-            minLength: 1
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -3326,7 +3300,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/location'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3357,7 +3331,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/location'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3388,7 +3362,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/location'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3410,7 +3384,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/location'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -3435,7 +3409,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/location'
         - $ref: '#/components/parameters/QuotaLimitName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3446,7 +3420,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: netapp_resource_quota_limits
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/netAppAccounts:
     get:
       summary: Describe all NetApp Accounts in a subscription
@@ -3456,7 +3430,7 @@ paths:
       operationId: Accounts_ListBySubscription
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
       responses:
@@ -3480,7 +3454,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
       responses:
@@ -3505,7 +3479,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3516,7 +3490,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: accounts
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - NetApp Accounts
@@ -3535,7 +3509,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - account updated
@@ -3565,7 +3539,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       description: Delete the specified NetApp account
       responses:
         '202':
@@ -3597,7 +3571,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - account updated
@@ -3633,7 +3607,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
       responses:
@@ -3659,7 +3633,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3670,7 +3644,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: pools
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Capacity Pools
@@ -3690,7 +3664,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - pool updated
@@ -3730,7 +3704,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3758,7 +3732,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously
@@ -3780,7 +3754,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       tags:
         - Volumes
       operationId: Volumes_List
@@ -3810,7 +3784,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3821,7 +3795,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: volumes
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Volumes
@@ -3842,7 +3816,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Ok - volume updated
@@ -3885,7 +3859,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -3924,7 +3898,7 @@ paths:
           required: false
           schema:
             type: boolean
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously
@@ -3950,7 +3924,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Object for snapshot to revert supplied in the body of the operation.
         required: true
@@ -3984,7 +3958,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4008,7 +3982,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Optional body to force break the replication.
         required: false
@@ -4042,7 +4016,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: body for the id of the source volume.
         required: true
@@ -4074,7 +4048,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4099,7 +4073,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -4126,7 +4100,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4152,7 +4126,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4178,7 +4152,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Authorize request object supplied in the body of the operation.
         required: true
@@ -4212,7 +4186,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4238,7 +4212,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Move volume to the pool supplied in the body of the operation.
         required: true
@@ -4272,7 +4246,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4296,7 +4270,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4320,7 +4294,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4343,7 +4317,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       description: List all snapshots associated with the volume
       x-ms-pageable:
         nextLinkName: null
@@ -4372,7 +4346,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SnapshotName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4383,7 +4357,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: snapshots
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Snapshots
@@ -4405,7 +4379,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SnapshotName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '201':
           description: Snapshot created
@@ -4443,7 +4417,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SnapshotName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4473,7 +4447,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SnapshotName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4510,7 +4484,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SnapshotName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -4531,7 +4505,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -4556,7 +4530,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4567,7 +4541,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: snapshot_policies
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: SnapshotPolicies_Create
       description: Create a snapshot policy
@@ -4586,7 +4560,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - snapshot Policy updated
@@ -4623,7 +4597,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4654,7 +4628,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4681,7 +4655,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4706,7 +4680,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4731,7 +4705,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4754,7 +4728,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -4780,7 +4754,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4791,7 +4765,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: account_backups
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     delete:
       tags:
         - Backups
@@ -4803,7 +4777,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4831,7 +4805,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -4859,7 +4833,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4870,7 +4844,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: backups
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Backups
@@ -4884,7 +4858,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Backup object supplied in the body of the operation.
         required: true
@@ -4928,7 +4902,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Backup object supplied in the body of the operation.
         x-ms-requestBody-name: body
@@ -4969,7 +4943,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -4995,7 +4969,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -5021,7 +4995,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5032,7 +5006,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: backup_policies
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Backup Policy
@@ -5044,7 +5018,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Backup policy object supplied in the body of the operation.
         required: true
@@ -5086,7 +5060,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Backup policy object supplied in the body of the operation.
         required: true
@@ -5126,7 +5100,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5153,7 +5127,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       description: List all quota rules associated with the volume
       x-ms-pageable:
         nextLinkName: null
@@ -5182,7 +5156,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/VolumeQuotaRuleName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5193,7 +5167,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: volume_quota_rules
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - VolumeQuotaRules
@@ -5215,7 +5189,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/VolumeQuotaRuleName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - VolumeQuotaRule updated
@@ -5257,7 +5231,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/VolumeQuotaRuleName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5287,7 +5261,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/VolumeQuotaRuleName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously
@@ -5311,7 +5285,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
       responses:
@@ -5333,7 +5307,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionId'
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       tags:
         - Volume Groups
       operationId: VolumeGroups_ListByNetAppAccount
@@ -5362,7 +5336,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5373,7 +5347,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: volume_groups
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Volume Groups
@@ -5393,7 +5367,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '201':
           description: Volume group created
@@ -5417,7 +5391,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroup'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5443,7 +5417,7 @@ paths:
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
       responses:
@@ -5471,7 +5445,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SubvolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5482,7 +5456,7 @@ paths:
         default:
           description: Error response describing why the operation failed.
       x-stackQL-resource: subvolumes
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       tags:
         - Subvolumes
@@ -5504,7 +5478,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SubvolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - updated
@@ -5548,7 +5522,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SubvolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5578,7 +5552,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SubvolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -5607,7 +5581,7 @@ paths:
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/SubvolumeName'
-        - $ref: '#/paths/~1providers~1Microsoft.NetApp~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK

@@ -68,14 +68,23 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     autorest.AddConfiguration({ "output-converted-oai3": true });
     autorest.AddConfiguration({ "include-x-ms-examples-original-file": false });
     autorest.AddConfiguration({ "openapi-type": "arm" });
-    autorest.AddConfiguration({ "output-folder": `${createFolderUri(AppRoot)}/${outputFolder}` });
+    autorest.AddConfiguration({ "output-folder": `${createFolderUri(AppRoot)}${outputFolder}` });
     autorest.AddConfiguration({ "verbose": debug });
     autorest.AddConfiguration({ "debug": debug });
     autorest.AddConfiguration({ "allow-no-input": dryrun });
     autorest.AddConfiguration({ "level": "error" });
     autorest.AddConfiguration({ "skip-semantics-validation": true });
     autorest.AddConfiguration({ "model-validator": false });
-    
+
+    if (serviceName === 'machinelearning'){
+        autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
+    }
+
+    if (serviceName === 'policyinsights'){
+        console.log('skipping policyinsights...');
+        return;
+    }
+
     const context = await autorest.view;
     const cfg = context.config;
     const artifactWriter = new ArtifactWriter(cfg);

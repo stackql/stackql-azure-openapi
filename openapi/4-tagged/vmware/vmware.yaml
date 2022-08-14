@@ -19,6 +19,352 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Resource:
+      type: object
+      description: The core properties of ARM resources
+      properties:
+        id:
+          description: Resource ID.
+          readOnly: true
+          type: string
+        name:
+          description: Resource name.
+          readOnly: true
+          type: string
+        type:
+          description: Resource type.
+          readOnly: true
+          type: string
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      type: object
+      description: The resource model definition for a ARM tracked top level resource
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        location:
+          type: string
+          description: Resource location
+        tags:
+          description: Resource tags
+          $ref: '#/components/schemas/ResourceTags'
+    ProxyResource:
+      type: object
+      description: The resource model definition for a ARM proxy resource
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties: {}
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      type: object
+      description: The resource model definition representing SKU
+      properties:
+        name:
+          type: string
+          description: The name of the SKU.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      description: A REST API operation
+      type: object
+      properties:
+        name:
+          description: Name of the operation being performed on this object
+          type: string
+          readOnly: true
+        display:
+          type: object
+          description: Contains the localized display information for this operation
+          readOnly: true
+          properties:
+            provider:
+              description: Localized friendly form of the resource provider name
+              type: string
+              readOnly: true
+            resource:
+              description: Localized friendly form of the resource type related to this operation
+              type: string
+              readOnly: true
+            operation:
+              description: Localized friendly name for the operation
+              type: string
+              readOnly: true
+            description:
+              description: Localized friendly description for the operation
+              type: string
+              readOnly: true
+        isDataAction:
+          description: Gets or sets a value indicating whether the operation is a data action or not
+          type: boolean
+        origin:
+          description: Origin of the operation
+          type: string
+        properties:
+          $ref: '#/components/schemas/OperationProperties'
+          description: Properties of the operation
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
     Trial:
       type: object
       description: Subscription trial availability
@@ -61,48 +407,6 @@ components:
           x-ms-enum:
             name: QuotaEnabled
             modelAsString: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceTags:
       description: Resource tags
       type: object
@@ -112,19 +416,13 @@ components:
         - read
         - create
         - update
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     CloudError:
       type: object
       x-ms-external: true
       properties:
         error:
           description: An error returned by the API
-          $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/responses/default/content/application~1json/schema/properties/error/properties/details/items'
+          $ref: '#/components/schemas/ErrorResponse'
       description: API error response
     OperationList:
       type: object
@@ -140,59 +438,6 @@ components:
           description: URL to get the next page if any
           type: string
           readOnly: true
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
     OperationProperties:
       description: Extra Operation properties
       type: object
@@ -957,36 +1202,6 @@ components:
           type: string
           readOnly: true
           x-ms-secret: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
     HcxEnterpriseSiteList:
       type: object
       description: A paged list of HCX Enterprise Sites
@@ -2253,271 +2468,33 @@ components:
             name: ResourceIdentityType
             modelAsString: true
       description: Identity for the virtual machine.
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
   parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
     privateCloudName:
       name: privateCloudName
       in: path
@@ -2686,32 +2663,6 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
 paths:
   /providers/Microsoft.AVS/operations:
     get:
@@ -2722,13 +2673,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       parameters:
-        - name: api-version
-          in: query
-          description: The API version to use for this operation.
-          required: true
-          schema:
-            minLength: 1
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -2751,14 +2696,14 @@ paths:
       description: Return trial status for subscription by region
       operationId: Locations_CheckTrialAvailability
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - name: location
           in: path
           description: Azure region
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -2781,14 +2726,14 @@ paths:
       description: Return quota for subscription by region
       operationId: Locations_CheckQuotaAvailability
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - name: location
           in: path
           description: Azure region
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -2813,17 +2758,9 @@ paths:
         - PrivateClouds
       summary: List private clouds in a resource group
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group. The name is case insensitive.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            minLength: 1
-            maxLength: 90
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -2848,14 +2785,8 @@ paths:
         - PrivateClouds
       summary: List private clouds in a subscription
       parameters:
-        - name: subscriptionId
-          in: path
-          description: The ID of the target subscription.
-          required: true
-          schema:
-            minLength: 1
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -2878,10 +2809,10 @@ paths:
         - PrivateClouds
       summary: Get a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -2896,7 +2827,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: private_clouds
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: PrivateClouds_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -2904,10 +2835,10 @@ paths:
         - PrivateClouds
       summary: Create or update a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The private cloud
         required: true
@@ -2944,10 +2875,10 @@ paths:
         - PrivateClouds
       summary: Update a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The private cloud properties to be updated
         required: true
@@ -2984,10 +2915,10 @@ paths:
         - PrivateClouds
       summary: Delete a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3010,10 +2941,10 @@ paths:
         - PrivateClouds
       summary: Rotate the vCenter password
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-long-running-operation: true
       responses:
         '202':
@@ -3035,10 +2966,10 @@ paths:
         - PrivateClouds
       summary: Rotate the NSX-T Manager password
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-long-running-operation: true
       responses:
         '202':
@@ -3062,10 +2993,10 @@ paths:
         - Clusters
       summary: List clusters in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3088,11 +3019,11 @@ paths:
         - Clusters
       summary: Get a cluster by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3107,7 +3038,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: clusters
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: Clusters_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3115,8 +3046,8 @@ paths:
         - Clusters
       summary: Create or update a cluster in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -3124,7 +3055,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A cluster in the private cloud
         required: true
@@ -3161,11 +3092,11 @@ paths:
         - Clusters
       summary: Update a cluster in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The cluster properties to be updated
         required: true
@@ -3202,11 +3133,11 @@ paths:
         - Clusters
       summary: Delete a cluster in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3231,11 +3162,11 @@ paths:
         - Datastores
       summary: List datastores in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3258,12 +3189,12 @@ paths:
         - Datastores
       summary: Get a datastore in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/datastoreName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3278,7 +3209,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: datastores
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: Datastores_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3286,12 +3217,12 @@ paths:
         - Datastores
       summary: Create or update a datastore in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/datastoreName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A datastore in a private cloud cluster
         required: true
@@ -3328,12 +3259,12 @@ paths:
         - Datastores
       summary: Delete a datastore in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/datastoreName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3356,10 +3287,10 @@ paths:
         - PrivateClouds
       summary: List the admin credentials for the private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3384,10 +3315,10 @@ paths:
         - HcxEnterpriseSites
       summary: List HCX Enterprise Sites in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3410,11 +3341,11 @@ paths:
         - HcxEnterpriseSites
       summary: Get an HCX Enterprise Site by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/hcxEnterpriseSiteName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3429,15 +3360,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: hcx_enterprise_sites
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: HcxEnterpriseSites_CreateOrUpdate
       tags:
         - HcxEnterpriseSites
       summary: Create or update an HCX Enterprise Site in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -3445,7 +3376,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/hcxEnterpriseSiteName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The HCX Enterprise Site
         required: true
@@ -3481,11 +3412,11 @@ paths:
         - HcxEnterpriseSites
       summary: Delete an HCX Enterprise Site in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/hcxEnterpriseSiteName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3508,10 +3439,10 @@ paths:
         - Authorizations
       summary: List ExpressRoute Circuit Authorizations in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3534,11 +3465,11 @@ paths:
         - Authorizations
       summary: Get an ExpressRoute Circuit Authorization by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/authorizationName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3553,7 +3484,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: authorizations
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: Authorizations_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3561,8 +3492,8 @@ paths:
         - Authorizations
       summary: Create or update an ExpressRoute Circuit Authorization in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -3570,7 +3501,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/authorizationName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: An ExpressRoute Circuit Authorization
         required: true
@@ -3607,11 +3538,11 @@ paths:
         - Authorizations
       summary: Delete an ExpressRoute Circuit Authorization in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/authorizationName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3636,10 +3567,10 @@ paths:
         - GlobalReachConnections
       summary: List global reach connections in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3662,11 +3593,11 @@ paths:
         - GlobalReachConnections
       summary: Get a global reach connection by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/globalReachConnectionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -3681,7 +3612,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: global_reach_connections
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: GlobalReachConnections_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3689,8 +3620,8 @@ paths:
         - GlobalReachConnections
       summary: Create or update a global reach connection in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -3698,7 +3629,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/globalReachConnectionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A global reach connection in the private cloud
         required: true
@@ -3735,11 +3666,11 @@ paths:
         - GlobalReachConnections
       summary: Delete a global reach connection in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/globalReachConnectionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -3764,9 +3695,9 @@ paths:
         - WorkloadNetworks
       summary: List of segments in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -3790,9 +3721,9 @@ paths:
         - WorkloadNetworks
       summary: Get a segment by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/segmentId'
       responses:
@@ -3817,9 +3748,9 @@ paths:
         - WorkloadNetworks
       summary: Create a segment by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/segmentId'
       requestBody:
@@ -3858,9 +3789,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update a segment by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/segmentId'
       requestBody:
@@ -3895,9 +3826,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a segment by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/segmentId'
       responses:
@@ -3924,9 +3855,9 @@ paths:
         - WorkloadNetworks
       summary: List dhcp in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -3950,9 +3881,9 @@ paths:
         - WorkloadNetworks
       summary: Get dhcp by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/dhcpId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -3977,9 +3908,9 @@ paths:
         - WorkloadNetworks
       summary: Create dhcp by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dhcpId'
       requestBody:
@@ -4018,9 +3949,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update dhcp by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dhcpId'
       requestBody:
@@ -4055,9 +3986,9 @@ paths:
         - WorkloadNetworks
       summary: Delete dhcp by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dhcpId'
       responses:
@@ -4084,9 +4015,9 @@ paths:
         - WorkloadNetworks
       summary: List of gateways in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4110,9 +4041,9 @@ paths:
         - WorkloadNetworks
       summary: Get a gateway by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/gatewayId'
       responses:
@@ -4139,9 +4070,9 @@ paths:
         - WorkloadNetworks
       summary: List of port mirroring profiles in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4165,9 +4096,9 @@ paths:
         - WorkloadNetworks
       summary: Get a port mirroring profile by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/portMirroringId'
       responses:
@@ -4192,9 +4123,9 @@ paths:
         - WorkloadNetworks
       summary: Create a port mirroring profile by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/portMirroringId'
       requestBody:
@@ -4233,9 +4164,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update a port mirroring profile by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/portMirroringId'
       requestBody:
@@ -4270,9 +4201,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a port mirroring profile by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/portMirroringId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -4299,9 +4230,9 @@ paths:
         - WorkloadNetworks
       summary: List of vm groups in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4325,9 +4256,9 @@ paths:
         - WorkloadNetworks
       summary: Get a vm group by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/vmGroupId'
       responses:
@@ -4352,9 +4283,9 @@ paths:
         - WorkloadNetworks
       summary: Create a vm group by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/vmGroupId'
       requestBody:
@@ -4393,9 +4324,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update a vm group by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/vmGroupId'
       requestBody:
@@ -4430,9 +4361,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a vm group by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/vmGroupId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -4459,9 +4390,9 @@ paths:
         - WorkloadNetworks
       summary: List of virtual machines in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4485,9 +4416,9 @@ paths:
         - WorkloadNetworks
       summary: Get a virtual machine by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/virtualMachineId'
       responses:
@@ -4514,9 +4445,9 @@ paths:
         - WorkloadNetworks
       summary: List of DNS services in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4540,9 +4471,9 @@ paths:
         - WorkloadNetworks
       summary: Get a DNS service by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsServiceId'
       responses:
@@ -4567,9 +4498,9 @@ paths:
         - WorkloadNetworks
       summary: Create a DNS service by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsServiceId'
       requestBody:
@@ -4608,9 +4539,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update a DNS service by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsServiceId'
       requestBody:
@@ -4645,9 +4576,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a DNS service by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/dnsServiceId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -4674,9 +4605,9 @@ paths:
         - WorkloadNetworks
       summary: List of DNS zones in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4700,9 +4631,9 @@ paths:
         - WorkloadNetworks
       summary: Get a DNS zone by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsZoneId'
       responses:
@@ -4727,9 +4658,9 @@ paths:
         - WorkloadNetworks
       summary: Create a DNS zone by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsZoneId'
       requestBody:
@@ -4768,9 +4699,9 @@ paths:
         - WorkloadNetworks
       summary: Create or update a DNS zone by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/dnsZoneId'
       requestBody:
@@ -4805,9 +4736,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a DNS zone by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/dnsZoneId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -4834,9 +4765,9 @@ paths:
         - WorkloadNetworks
       summary: List of Public IP Blocks in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
         '200':
@@ -4860,9 +4791,9 @@ paths:
         - WorkloadNetworks
       summary: Get a Public IP Block by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/publicIPId'
       responses:
@@ -4887,9 +4818,9 @@ paths:
         - WorkloadNetworks
       summary: Create a Public IP Block by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/publicIPId'
       requestBody:
@@ -4928,9 +4859,9 @@ paths:
         - WorkloadNetworks
       summary: Delete a Public IP Block by id in a private cloud workload network.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/publicIPId'
         - $ref: '#/components/parameters/privateCloudName'
       responses:
@@ -4957,10 +4888,10 @@ paths:
         - CloudLinks
       summary: List cloud link in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -4983,11 +4914,11 @@ paths:
         - CloudLinks
       summary: Get an cloud link by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/cloudLinkName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5002,7 +4933,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: cloud_links
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: CloudLinks_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5010,8 +4941,8 @@ paths:
         - CloudLinks
       summary: Create or update a cloud link in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -5019,7 +4950,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/cloudLinkName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A cloud link in the private cloud
         required: true
@@ -5056,11 +4987,11 @@ paths:
         - CloudLinks
       summary: Delete a cloud link in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/cloudLinkName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -5085,10 +5016,10 @@ paths:
         - Addons
       summary: List addons in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5111,11 +5042,11 @@ paths:
         - Addons
       summary: Get an addon by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/addonName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5130,7 +5061,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: addons
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: Addons_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5138,8 +5069,8 @@ paths:
         - Addons
       summary: Create or update a addon in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -5147,7 +5078,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/addonName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A addon in the private cloud
         required: true
@@ -5184,11 +5115,11 @@ paths:
         - Addons
       summary: Delete a addon in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/addonName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -5213,9 +5144,9 @@ paths:
         - VirtualMachines
       summary: List of virtual machines in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
       responses:
@@ -5240,9 +5171,9 @@ paths:
         - VirtualMachines
       summary: Get a virtual machine by id in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/virtualMachineId'
@@ -5260,7 +5191,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: virtual_machines
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/virtualMachines/{virtualMachineId}/restrictMovement:
     post:
       x-ms-long-running-operation: true
@@ -5270,9 +5201,9 @@ paths:
         - PlacementPolicies
       summary: Enable or disable DRS-driven VM movement restriction
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/virtualMachineId'
@@ -5304,11 +5235,11 @@ paths:
         - PlacementPolicies
       summary: List placement policies in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5331,12 +5262,12 @@ paths:
         - PlacementPolicies
       summary: Get a placement policy by name in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/placementPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5351,7 +5282,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: placement_policies
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: PlacementPolicies_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5359,12 +5290,12 @@ paths:
         - PlacementPolicies
       summary: Create or update a placement policy in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/placementPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A placement policy in the private cloud cluster
         required: true
@@ -5401,12 +5332,12 @@ paths:
         - PlacementPolicies
       summary: Update a placement policy in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/placementPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: The placement policy properties that may be updated
         required: true
@@ -5443,12 +5374,12 @@ paths:
         - PlacementPolicies
       summary: Delete a placement policy in a private cloud cluster
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/clusterName'
         - $ref: '#/components/parameters/placementPolicyName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -5473,10 +5404,10 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -5499,11 +5430,11 @@ paths:
       description: Get a script package available to run on a private cloud
       operationId: ScriptPackages_Get
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/scriptPackageName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -5518,7 +5449,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: script_packages
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptPackages/{scriptPackageName}/scriptCmdlets:
     get:
       tags:
@@ -5528,10 +5459,10 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/scriptPackageName'
       responses:
         '200':
@@ -5555,12 +5486,12 @@ paths:
       description: Return information about a script cmdlet resource in a specific package on a private cloud
       operationId: ScriptCmdlets_Get
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/scriptPackageName'
         - $ref: '#/components/parameters/scriptCmdletName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Request has succeeded
@@ -5575,7 +5506,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: script_cmdlets
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptExecutions:
     get:
       operationId: ScriptExecutions_List
@@ -5585,10 +5516,10 @@ paths:
         nextLinkName: nextLink
       summary: List script executions in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5611,11 +5542,11 @@ paths:
         - Scripts
       summary: Get an script execution by name in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/scriptExecutionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: successful operation
@@ -5630,7 +5561,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: script_executions
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     put:
       operationId: ScriptExecutions_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5638,8 +5569,8 @@ paths:
         - Scripts
       summary: Create or update a script execution in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: privateCloudName
           in: path
           description: The name of the private cloud.
@@ -5647,7 +5578,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/scriptExecutionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: A script running in the private cloud
         required: true
@@ -5684,11 +5615,11 @@ paths:
         - Scripts
       summary: Cancel a ScriptExecution in a private cloud
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/scriptExecutionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The delete has succeeded
@@ -5711,11 +5642,11 @@ paths:
       description: Return the logs for a script execution resource
       operationId: ScriptExecutions_GetExecutionLogs
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.AVS~1privateClouds/get/parameters/1'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/privateCloudName'
         - $ref: '#/components/parameters/scriptExecutionName'
-        - $ref: '#/paths/~1providers~1Microsoft.AVS~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Name of the desired output stream to return. If not provided, will return all. An empty array will return nothing
         required: false

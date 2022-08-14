@@ -18,35 +18,41 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
     Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      description: The core properties of ARM resources
       type: object
       properties:
         id:
-          readOnly: true
           type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+          readOnly: true
+          description: ARM resource id of the guest configuration assignment.
         name:
-          readOnly: true
           type: string
-          description: The name of the resource
+          readOnly: false
+          description: Name of the guest configuration assignment.
+        location:
+          type: string
+          readOnly: false
+          description: Region where the VM is located.
         type:
           readOnly: true
           type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+          description: The type of the resource.
       x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
     TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      description: The resource model definition for a ARM tracked top level resource
       type: object
       properties:
         tags:
@@ -63,92 +69,15 @@ components:
           x-ms-mutability:
             - read
             - create
-          description: The geo-location where the resource lives
-      required:
-        - location
+          description: The Azure Region where the resource lives
       allOf:
         - $ref: '#/components/schemas/Resource'
     ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      description: ARM proxy resource.
       type: object
       allOf:
         - $ref: '#/components/schemas/Resource'
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationList:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of Automation operations supported by the Automation resource provider.
-      description: The response model for the list of Automation operations
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+      properties: {}
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -317,6 +246,18 @@ components:
             $ref: '#/components/schemas/ErrorAdditionalInfo'
           x-ms-identifiers: []
           description: The error additional info.
+    ErrorResponse:
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              description: Error code.
+              type: string
+            message:
+              description: Detail error message indicating why the operation failed.
+              type: string
+      description: Error response of an operation failure
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -329,6 +270,35 @@ components:
           type: object
           description: The additional info.
       description: The resource management error additional info.
+    Operation:
+      description: GuestConfiguration REST API operation
+      type: object
+      properties:
+        name:
+          description: 'Operation name: For ex. providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/write or read'
+          type: string
+        display:
+          properties:
+            provider:
+              description: 'Service provider: Microsoft.GuestConfiguration'
+              type: string
+            resource:
+              description: 'Resource on which the operation is performed:  For ex. '
+              type: string
+            operation:
+              description: 'Operation type: Read, write, delete, etc.'
+              type: string
+            description:
+              description: Description about operation.
+              type: string
+          description: Provider, Resource, Operation and description values.
+        properties:
+          properties:
+            statusCode:
+              description: 'Service provider: Microsoft.GuestConfiguration'
+              type: string
+          x-ms-client-flatten: true
+          description: Provider, Resource, Operation and description values.
     OperationListResult:
       description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
@@ -513,68 +483,9 @@ components:
           readOnly: true
           type: object
           description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          properties:
-            createdBy:
-              type: string
-              description: The identity that created the resource.
-            createdByType:
-              type: string
-              description: The type of identity that created the resource.
-              enum:
-                - User
-                - Application
-                - ManagedIdentity
-                - Key
-              x-ms-enum:
-                name: createdByType
-                modelAsString: true
-            createdAt:
-              type: string
-              format: date-time
-              description: The timestamp of resource creation (UTC).
-            lastModifiedBy:
-              type: string
-              description: The identity that last modified the resource.
-            lastModifiedByType:
-              type: string
-              description: The type of identity that last modified the resource.
-              enum:
-                - User
-                - Application
-                - ManagedIdentity
-                - Key
-              x-ms-enum:
-                name: createdByType
-                modelAsString: true
-            lastModifiedAt:
-              type: string
-              format: date-time
-              description: The timestamp of resource last modification (UTC)
+          $ref: '#/components/schemas/systemData'
       allOf:
-        - description: ARM proxy resource.
-          type: object
-          allOf:
-            - description: The core properties of ARM resources
-              type: object
-              properties:
-                id:
-                  type: string
-                  readOnly: true
-                  description: ARM resource id of the guest configuration assignment.
-                name:
-                  type: string
-                  readOnly: false
-                  description: Name of the guest configuration assignment.
-                location:
-                  type: string
-                  readOnly: false
-                  description: Region where the VM is located.
-                type:
-                  readOnly: true
-                  type: string
-                  description: The type of the resource.
-              x-ms-azure-resource: true
-          properties: {}
+        - $ref: '#/components/schemas/ProxyResource'
       description: Guest configuration assignment is an association between a machine and guest configuration.
     GuestConfigurationNavigation:
       description: Guest configuration is an artifact that encapsulates DSC configuration and its dependencies. The artifact is a zip file containing DSC configuration (as MOF) and dependent resources and other dependencies like modules.
@@ -1033,20 +944,55 @@ components:
           description: Date and time when last compliance status was checked.
           nullable: true
       description: Information about VMSS VM
+    OperationList:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of Automation operations supported by the Automation resource provider.
+      description: The response model for the list of Automation operations
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription.
+      description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
       required: true
       schema:
-        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
       in: query
-      description: The API version to use for this operation.
+      description: Client Api Version.
       required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The resource group name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-\w\._]+$
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
       schema:
         minLength: 1
         type: string
@@ -1074,34 +1020,6 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{guestConfigurationAssignmentName}:
     put:
@@ -1116,10 +1034,10 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachines~1%7BvmName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Parameters supplied to the create or update guest configuration assignment.
         required: true
@@ -1146,7 +1064,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignments
       x-stackQL-verb: insert
     get:
@@ -1155,16 +1073,16 @@ paths:
       operationId: GuestConfigurationAssignments_Get
       description: Get information about a guest configuration assignment
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachines~1%7BvmName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The guest configuration assignment was returned successfully.
@@ -1177,25 +1095,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignments
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     delete:
       tags:
         - GuestConfigurationAssignments
       operationId: GuestConfigurationAssignments_Delete
       description: Delete a guest configuration assignment
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: Name of the guest configuration assignment
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachines~1%7BvmName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1204,7 +1122,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignments
       x-stackQL-verb: delete
   /subscriptions/{subscriptionId}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments:
@@ -1214,13 +1132,8 @@ paths:
       operationId: GuestConfigurationAssignments_SubscriptionList
       description: List all guest configuration assignments for a subscription.
       parameters:
-        - name: subscriptionId
-          in: path
-          description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1235,7 +1148,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_assignments
@@ -1247,16 +1160,9 @@ paths:
       operationId: GuestConfigurationAssignments_RGList
       description: List all guest configuration assignments for a resource group.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The resource group name.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            pattern: ^[-\w\._]+$
-            type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1271,7 +1177,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_assignments
@@ -1283,16 +1189,10 @@ paths:
       operationId: GuestConfigurationAssignments_List
       description: List all guest configuration assignments for a virtual machine.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - name: vmName
-          in: path
-          description: The name of the virtual machine.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1305,7 +1205,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_assignments
@@ -1317,16 +1217,16 @@ paths:
       operationId: GuestConfigurationAssignmentReports_List
       description: List all reports for the guest configuration assignment, latest report first.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachines~1%7BvmName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Reports were returned successfully 2. Guest configuration assignment was found, but VM is not registered yet, hence no reports returned.'
@@ -1339,7 +1239,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignment_reports
       x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{guestConfigurationAssignmentName}/reports/{reportId}:
@@ -1349,7 +1249,7 @@ paths:
       operationId: GuestConfigurationAssignmentReports_Get
       description: Get a report for the guest configuration assignment, by reportId.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
@@ -1362,9 +1262,9 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachines~1%7BvmName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VmNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Report was returned successfully 2. Guest configuration assignment was found, but VM is not registered yet, hence no report was returned.'
@@ -1377,9 +1277,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignment_reports
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridCompute/machines/{machineName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{guestConfigurationAssignmentName}:
     put:
       tags:
@@ -1393,10 +1293,10 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.HybridCompute~1machines~1%7BmachineName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Parameters supplied to the create or update guest configuration assignment.
         required: true
@@ -1423,7 +1323,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_hcrp_assignments
       x-stackQL-verb: insert
     get:
@@ -1432,16 +1332,16 @@ paths:
       operationId: GuestConfigurationHCRPAssignments_Get
       description: Get information about a guest configuration assignment
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.HybridCompute~1machines~1%7BmachineName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The guest configuration assignment was returned successfully.
@@ -1454,25 +1354,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_hcrp_assignments
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     delete:
       tags:
         - GuestConfigurationHCRPAssignments
       operationId: GuestConfigurationHCRPAssignments_Delete
       description: Delete a guest configuration assignment
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: Name of the guest configuration assignment
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.HybridCompute~1machines~1%7BmachineName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1481,7 +1381,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_hcrp_assignments
       x-stackQL-verb: delete
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridCompute/machines/{machineName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments:
@@ -1491,16 +1391,10 @@ paths:
       operationId: GuestConfigurationHCRPAssignments_List
       description: List all guest configuration assignments for an ARC machine.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - name: machineName
-          in: path
-          description: The name of the ARC machine.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1513,7 +1407,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_hcrp_assignments
@@ -1525,16 +1419,16 @@ paths:
       operationId: GuestConfigurationHCRPAssignmentReports_List
       description: List all reports for the guest configuration assignment, latest report first.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.HybridCompute~1machines~1%7BmachineName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Reports were returned successfully 2. Guest configuration assignment was found, but machine is not registered yet, hence no reports returned.'
@@ -1547,7 +1441,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_hcrp_assignment_reports
       x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridCompute/machines/{machineName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{guestConfigurationAssignmentName}/reports/{reportId}:
@@ -1557,7 +1451,7 @@ paths:
       operationId: GuestConfigurationHCRPAssignmentReports_Get
       description: Get a report for the guest configuration assignment, by reportId.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: guestConfigurationAssignmentName
           in: path
           description: The guest configuration assignment name.
@@ -1570,9 +1464,9 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.HybridCompute~1machines~1%7BmachineName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/MachineNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Report was returned successfully 2. Guest configuration assignment was found, but machine is not registered yet, hence no report was returned.'
@@ -1585,9 +1479,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_hcrp_assignment_reports
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachineScaleSets/{vmssName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{name}:
     get:
       tags:
@@ -1595,16 +1489,16 @@ paths:
       operationId: GuestConfigurationAssignmentsVMSS_Get
       description: Get information about a guest configuration assignment for VMSS
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachineScaleSets~1%7BvmssName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/VMSSNameParameter'
         - name: name
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The guest configuration assignment was returned successfully.
@@ -1617,25 +1511,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignments_vmss
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
     delete:
       tags:
         - GuestConfigurationAssignments
       operationId: GuestConfigurationAssignmentsVMSS_Delete
       description: Delete a guest configuration assignment for VMSS
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachineScaleSets~1%7BvmssName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/VMSSNameParameter'
         - name: name
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1650,7 +1544,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignments_vmss
       x-stackQL-verb: delete
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachineScaleSets/{vmssName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments:
@@ -1660,16 +1554,10 @@ paths:
       operationId: GuestConfigurationAssignmentsVMSS_List
       description: List all guest configuration assignments for VMSS.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - name: vmssName
-          in: path
-          description: The name of the virtual machine scale set.
-          required: true
-          x-ms-parameter-location: method
-          schema:
-            type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/VMSSNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
@@ -1682,7 +1570,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_assignments_vmss
@@ -1694,16 +1582,16 @@ paths:
       operationId: GuestConfigurationAssignmentReportsVMSS_List
       description: List all reports for the VMSS guest configuration assignment, latest report first.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachineScaleSets~1%7BvmssName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/VMSSNameParameter'
         - name: name
           in: path
           description: The guest configuration assignment name.
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Reports were returned successfully 2. Guest configuration assignment was found, but VM is not registered yet, hence no reports returned.'
@@ -1716,7 +1604,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: guest_configuration_assignment_reports_vmss
@@ -1728,9 +1616,9 @@ paths:
       operationId: GuestConfigurationAssignmentReportsVMSS_Get
       description: Get a report for the VMSS guest configuration assignment, by reportId.
       parameters:
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/0'
-        - $ref: '#/paths/~1subscriptions~1%7BsubscriptionId%7D~1resourceGroups~1%7BresourceGroupName%7D~1providers~1Microsoft.Compute~1virtualMachineScaleSets~1%7BvmssName%7D~1providers~1Microsoft.GuestConfiguration~1guestConfigurationAssignments/get/parameters/2'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/VMSSNameParameter'
         - name: name
           in: path
           description: The guest configuration assignment name.
@@ -1743,7 +1631,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/parameters/0'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: 'OK. This response is due one of these two reasons: 1. Report was returned successfully 2. Guest configuration assignment was found, but VM is not registered yet, hence no report was returned.'
@@ -1756,9 +1644,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1providers~1Microsoft.GuestConfiguration~1operations/get/responses/default/content/application~1json/schema'
+                $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: guest_configuration_assignment_reports_vmss
-      x-stackQL-verb: select
+      x-stackQL-verb: exec
   /providers/Microsoft.GuestConfiguration/operations:
     get:
       tags:
@@ -1766,70 +1654,20 @@ paths:
       description: Lists all of the available GuestConfiguration REST API operations.
       operationId: Operations_List
       parameters:
-        - name: api-version
-          in: query
-          description: Client Api Version.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                properties:
-                  value:
-                    type: array
-                    items:
-                      description: GuestConfiguration REST API operation
-                      type: object
-                      properties:
-                        name:
-                          description: 'Operation name: For ex. providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/write or read'
-                          type: string
-                        display:
-                          properties:
-                            provider:
-                              description: 'Service provider: Microsoft.GuestConfiguration'
-                              type: string
-                            resource:
-                              description: 'Resource on which the operation is performed:  For ex. '
-                              type: string
-                            operation:
-                              description: 'Operation type: Read, write, delete, etc.'
-                              type: string
-                            description:
-                              description: Description about operation.
-                              type: string
-                          description: Provider, Resource, Operation and description values.
-                        properties:
-                          properties:
-                            statusCode:
-                              description: 'Service provider: Microsoft.GuestConfiguration'
-                              type: string
-                          x-ms-client-flatten: true
-                          description: Provider, Resource, Operation and description values.
-                    x-ms-identifiers:
-                      - name
-                    description: List of Automation operations supported by the Automation resource provider.
-                description: The response model for the list of Automation operations
+                $ref: '#/components/schemas/OperationList'
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        description: Error code.
-                        type: string
-                      message:
-                        description: Detail error message indicating why the operation failed.
-                        type: string
-                description: Error response of an operation failure
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
       x-stackQL-resource: operations
