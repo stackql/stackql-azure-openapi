@@ -107,8 +107,26 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                 } else {
                     v = 'select';
                 }
+            } else if (s == 'consumption'){
+                if (['Marketplaces_List', 'ReservationRecommendations_List', 'UsageDetails_List'].includes(o)){
+                    v = 'exec';
+                } else {
+                    v = 'select';
+                }                
+            } else if (s == 'cost_management') {
+                if (['Dimensions_List'].includes(o)){
+                    v = 'exec';
+                } else {
+                    v = 'select';
+                }
+            } else if (s == 'network'){
+                if (['VpnServerConfigurationsAssociatedWithVirtualWan_List'].includes(o)){
+                    v = 'exec';
+                } else {
+                    v = 'select';
+                }
             } else {
-                v = 'select';        
+                v = 'select';
             }
         } else if (m.toLowerCase() == 'delete' || m.startsWith('DeleteBy')){
             v = 'delete';
