@@ -155,9 +155,34 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
                 debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
                 outputDoc.paths[pathKey][verbKey] = inputDoc.paths[pathKey][verbKey];
+                // PATH LEVEL
+                if (verbKey == 'parameters'){
+                    console.log(`PATH HERE ${serviceName}:${pathKey}`);
+                    for (let i = 0; i < inputDoc.paths[pathKey]['parameters'].length; i++){
+                        if (inputDoc.paths[pathKey]['parameters'][i]['$ref']){
+                            if (inputDoc.paths[pathKey]['parameters'][i]['$ref'] == '#/components/parameters/apiVersionParameter'){
+                                debug ? logger.debug(`API Version at path level for ${pathKey}`): null;
+                            }
+                        }
+                    }
+                }
+                //
                 if (operations.includes(verbKey)){
                     try {
                         logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
+                        // VERB LEVEL
+                        if (inputDoc.paths[pathKey][verbKey]['parameters']){
+                            for (let i = 0; i < inputDoc.paths[pathKey][verbKey]['parameters'].length; i++){
+                                if (inputDoc.paths[pathKey][verbKey]['parameters'][i]['$ref']){
+                                    if (inputDoc.paths[pathKey][verbKey]['parameters'][i]['$ref'] == '#/components/parameters/apiVersionParameter'){
+                                        debug ? logger.debug(`API Version at verb level for ${pathKey}:${verbKey}`): null;
+                                    }
+                                }
+                            }
+                        } else {
+                            debug ? logger.debug(`NO API Version at verb level for ${pathKey}:${verbKey}`): null;
+                        }
+                        //
                         let stackqlResName = 'operations';
                         let stackqlSqlVerb = 'exec';
                         if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
