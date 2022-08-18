@@ -144,45 +144,62 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
         outputDoc.openapi = inputDoc.openapi;
         outputDoc.servers = inputDoc.servers;
-        outputDoc.info = inputDoc.info;
+        outputDoc.info = inputDoc.info; // update this...
         outputDoc.security = inputDoc.security;
-        outputDoc.components = inputDoc.components;0
+        outputDoc.components = inputDoc.components;
         outputDoc.paths = {};
 
         Object.keys(inputDoc.paths).forEach(pathKey => {
             debug ? logger.debug(`Processing path ${pathKey}`): null;
-            outputDoc.paths[pathKey] ? null : outputDoc.paths[pathKey] = {};
+
+            let apiVersion = inputDoc.paths[pathKey]['x-api-version'];
+            let versionedPath = `${pathKey}?api-version=${apiVersion}`;
+            debug ? logger.debug(`API version ${apiVersion}`): null;
+            debug ? logger.debug(`Versioned path ${versionedPath}`): null;
+
+            outputDoc.paths[versionedPath] ? null : outputDoc.paths[versionedPath] = {};
+
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
                 debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
-                outputDoc.paths[pathKey][verbKey] = inputDoc.paths[pathKey][verbKey];
-                // PATH LEVEL
+                
+                outputDoc.paths[versionedPath][verbKey] = inputDoc.paths[pathKey][verbKey];
+
+                // remove api version from path level parameters
                 if (verbKey == 'parameters'){
-                    console.log(`PATH HERE ${serviceName}:${pathKey}`);
+                    debug ? logger.debug(`Removing api version from path parameters for ${pathKey}`): null;
+                    let newPathParams = [];
                     for (let i = 0; i < inputDoc.paths[pathKey]['parameters'].length; i++){
                         if (inputDoc.paths[pathKey]['parameters'][i]['$ref']){
-                            if (inputDoc.paths[pathKey]['parameters'][i]['$ref'] == '#/components/parameters/apiVersionParameter'){
+                            if (inputDoc.paths[pathKey]['parameters'][i]['$ref'].toLowerCase() == '#/components/parameters/apiversionparameter'){
                                 debug ? logger.debug(`API Version at path level for ${pathKey}`): null;
+                                continue;
                             }
                         }
+                        newPathParams.push(inputDoc.paths[pathKey]['parameters'][i]);
                     }
+                    outputDoc.paths[versionedPath]['parameters'] = newPathParams;
                 }
-                //
+
                 if (operations.includes(verbKey)){
                     try {
                         logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
-                        // VERB LEVEL
+
+                        // remove api version from operation level parameters
                         if (inputDoc.paths[pathKey][verbKey]['parameters']){
+                            debug ? logger.debug(`Removing api version from operation level parameters for ${pathKey}:${verbKey}`): null;
+                            let newOpParams = [];
                             for (let i = 0; i < inputDoc.paths[pathKey][verbKey]['parameters'].length; i++){
                                 if (inputDoc.paths[pathKey][verbKey]['parameters'][i]['$ref']){
-                                    if (inputDoc.paths[pathKey][verbKey]['parameters'][i]['$ref'] == '#/components/parameters/apiVersionParameter'){
+                                    if (inputDoc.paths[pathKey][verbKey]['parameters'][i]['$ref'].toLowerCase() == '#/components/parameters/apiversionparameter'){
                                         debug ? logger.debug(`API Version at verb level for ${pathKey}:${verbKey}`): null;
+                                        continue;
                                     }
                                 }
+                                newOpParams.push(inputDoc.paths[pathKey][verbKey]['parameters'][i]);
                             }
-                        } else {
-                            debug ? logger.debug(`NO API Version at verb level for ${pathKey}:${verbKey}`): null;
+                            outputDoc.paths[versionedPath][verbKey]['parameters'] = newOpParams;
                         }
-                        //
+
                         let stackqlResName = 'operations';
                         let stackqlSqlVerb = 'exec';
                         if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
@@ -213,8 +230,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         debug ? logger.debug(`stackql verb : ${stackqlSqlVerb}`): null;
 
                         // add special keys to the operation
-                        outputDoc.paths[pathKey][verbKey]['x-stackQL-resource'] = stackqlResName;
-                        outputDoc.paths[pathKey][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
+                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
+                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
 
                     } catch (e) {
                         if (e !== 'Break') throw e

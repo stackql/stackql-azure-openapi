@@ -54,6 +54,9 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
             }
         }
 
+        // get version
+        let apiVersion = inputDoc.info.version;        
+
         // schemas
         schemas = {
             ...schemas,
@@ -70,6 +73,8 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
         let cleanPaths = {};
         Object.keys(inputDoc.paths).forEach(pathKey => {
             cleanPaths[pathKey] = {};
+            // add version tag
+            cleanPaths[pathKey]['x-api-version'] = apiVersion;            
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
                 cleanPaths[pathKey][verbKey] = {};
                 if (verbKey === 'parameters'){
