@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
 import { createOrCleanDir } from './shared-functions';
+import { contactInfo, serviceInfo } from './provider-metadata';
 
 const logger = new ConsoleLogger();
 
@@ -18,8 +19,19 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     logger.info(`tagging ${specificationDir}...`);
 
     const inputDir = `${combinedDir}/${specificationDir}`;
-    const serviceName = camelToSnake(specificationDir.replace(/-/g, '_'));
-    const outputDir = `${taggedDir}/${serviceName}`;
+    
+    // get metadata for service
+    if (!serviceInfo[specificationDir]){
+        logger.info(`skipping ${specificationDir}...`);
+        return;
+    }
+
+    const providerName = serviceInfo[specificationDir].provider;
+    const serviceName = serviceInfo[specificationDir].service;
+    const title = serviceInfo[specificationDir].title;
+    const description = serviceInfo[specificationDir].description;
+        
+    const outputDir = `${taggedDir}/${providerName}/${serviceName}`;
 
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
@@ -63,6 +75,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             .replace(/OAuth/g, 'Oauth')
             .replace(/B2C/g, 'B2c')
             .replace(/B2B/g, 'B2b')
+            .replace(/VM/g, 'Vm')
             .replace(/-/g, '_');
         }
 
@@ -135,6 +148,12 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         } 
         return v;
     };
+
+    // get generated date for version
+    const date = new Date();
+    const versionDate = `${date.toISOString().split('T')[0]}-stackql-generated`;
+    debug ? logger.debug(`version : ${versionDate}`): null;
+    debug ? logger.debug(`contact info : ${JSON.stringify(contactInfo)}`): null;
    
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
@@ -144,7 +163,12 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
         outputDoc.openapi = inputDoc.openapi;
         outputDoc.servers = inputDoc.servers;
-        outputDoc.info = inputDoc.info; // update this...
+        outputDoc.info = {};
+        outputDoc.info.title = title;
+        outputDoc.info.description = description;
+        outputDoc.info.contact = contactInfo;
+        outputDoc.info.version = versionDate;
+
         outputDoc.security = inputDoc.security;
         outputDoc.components = inputDoc.components;
         outputDoc.paths = {};
