@@ -102,7 +102,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     const getSQLVerbFromMethod = (s, r, m, o) => {
         let v = 'exec';
         if (m.startsWith('ListBy')){
-            if (s == 'apimanagement'){
+            if (s == 'api_management'){
                 if (!['Api_ListByTags','Product_ListByTags','Reports_ListByApi','Reports_ListByUser','Reports_ListByOperation','Reports_ListByProduct','Reports_ListByGeo','Reports_ListByTime','Reports_ListByRequest'].includes(o)){
                     v = 'select';
                 }
@@ -114,7 +114,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         } else if (m == 'GetBy'){
             v = 'select';
         } else if (m.toLowerCase() == 'list'){
-            if (s == 'keyvault'){
+            if (s == 'key_vault'){
                 if (['Vaults_List'].includes(o)){
                     v = 'exec';
                 } else {
