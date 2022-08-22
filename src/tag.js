@@ -177,7 +177,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             debug ? logger.debug(`Processing path ${pathKey}`): null;
 
             let apiVersion = inputDoc.paths[pathKey]['x-api-version'];
-            let versionedPath = `${pathKey}?api-version=${apiVersion}`;
+            let versionedPath = `${pathKey}/?api-version=${apiVersion}`;
             debug ? logger.debug(`API version ${apiVersion}`): null;
             debug ? logger.debug(`Versioned path ${versionedPath}`): null;
 
@@ -186,7 +186,9 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             Object.keys(inputDoc.paths[pathKey]).forEach(verbKey => {
                 debug ? logger.debug(`Processing operation ${pathKey}:${verbKey}`): null;
                 
-                outputDoc.paths[versionedPath][verbKey] = inputDoc.paths[pathKey][verbKey];
+                if (verbKey != 'x-api-version'){
+                    outputDoc.paths[versionedPath][verbKey] = inputDoc.paths[pathKey][verbKey];
+                }
 
                 // remove api version from path level parameters
                 if (verbKey == 'parameters'){
