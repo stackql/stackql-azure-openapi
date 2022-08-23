@@ -7,6 +7,24 @@ import { contactInfo, serviceInfo } from './provider-metadata';
 
 const logger = new ConsoleLogger();
 
+function fixString(str) {
+    // clean up free text strings here if needed
+    return str
+}
+
+function cleanUpDescriptions(obj) {
+    for (let k in obj) {
+        if (typeof obj[k] === "object") {
+            cleanUpDescriptions(obj[k])
+        } else {
+            if (k === "description"){
+                obj[k] = fixString(obj[k]);
+            }
+        }
+    }
+    return obj;
+}  
+
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
     const camelToSnake = (inStr) => {
@@ -267,6 +285,16 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
             });
         });
     }
+
+    // clean up all free text descriptions
+    debug ? logger.debug(`cleaning up markdown in description fields...`): null;
+    outputDoc = cleanUpDescriptions(outputDoc);
+
+    // add azure specific config key
+    debug ? logger.debug(`adding azure specific key to deal with allOf usage...`): null;
+    outputDoc['x-stackQL-config'] = {};
+    outputDoc['x-stackQL-config']['variations'] = {};
+    outputDoc['x-stackQL-config']['variations']['isObjectSchemaImplicitlyUnioned'] = true;
 
     if (dryrun){
         logger.info(`dryrun specified, no output written`);
