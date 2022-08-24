@@ -189,6 +189,15 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
         outputDoc.security = inputDoc.security;
         outputDoc.components = inputDoc.components;
+        // fix schemas with no types
+        debug ? logger.debug(`Fixing schemas with no type...`): null;
+        Object.keys(outputDoc.components.schemas).forEach(schemaName => {
+            if(outputDoc.components.schemas[schemaName].properties){
+                outputDoc.components.schemas[schemaName].type = 'object';
+            }
+        });    
+
+        // add paths
         outputDoc.paths = {};
 
         Object.keys(inputDoc.paths).forEach(pathKey => {
@@ -260,13 +269,27 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             let initMethod = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1];
                             let finalResName = initResName;
                             let finalMethod = initMethod;
+                            
                             // fix up anomolies in operationid naming
                             if (['list', 'update'].includes(initResName.toLowerCase())){
                                 finalResName = initMethod;
                                 finalMethod = initResName;
                             }
-                            // get stackql resourcename and verb
+                            
+                            // get stackql resourcename
                             stackqlResName = camelToSnake(fixCamelCase(finalResName));
+
+                            // remove service from stackqlResName
+                            if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
+                                debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
+                                if (serviceName == 'security' && stackqlResName == 'security_connectors'){
+                                    debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
+                                } else {
+                                    stackqlResName = stackqlResName.substring(serviceName.length+1);
+                                }
+                            }
+
+                            // get stackql verb
                             stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, finalMethod, inputDoc.paths[pathKey][verbKey]['operationId']);
                         }
                         
