@@ -233,15 +233,18 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }
 
                         if (fieldName == 'properties'){
-                            if (inputDoc.components.schemas[schemaName]['properties']['properties']){
-                                // nested props
-                                if (inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
+                            // flatten nested props?
+                            if (inputDoc.components.schemas[schemaName]['properties']['properties'] &&
+                                inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] &&
+                                inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] == true &&
+                                inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
+                                    let origProps = inputDoc.components.schemas[schemaName]['properties'];
                                     let referredSchemaName = inputDoc.components.schemas[schemaName]['properties']['properties']['$ref'].split('/').pop();
                                     finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
-                                }
+                                    delete origProps['properties'];
+                                    finalProps = {...finalProps, ...origProps};
                             } else {
-                                // un-nested props, add them as is
-                                finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};
+                                finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};    
                             }
                         }
                     });
@@ -374,10 +377,10 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     outputDoc = cleanUpDescriptions(outputDoc);
 
     // add azure specific config key
-    debug ? logger.debug(`adding azure specific key to deal with allOf usage...`): null;
-    outputDoc['x-stackQL-config'] = {};
-    outputDoc['x-stackQL-config']['variations'] = {};
-    outputDoc['x-stackQL-config']['variations']['isObjectSchemaImplicitlyUnioned'] = true;
+    // debug ? logger.debug(`adding azure specific key to deal with allOf usage...`): null;
+    // outputDoc['x-stackQL-config'] = {};
+    // outputDoc['x-stackQL-config']['variations'] = {};
+    // outputDoc['x-stackQL-config']['variations']['isObjectSchemaImplicitlyUnioned'] = true;
 
     if (dryrun){
         logger.info(`dryrun specified, no output written`);

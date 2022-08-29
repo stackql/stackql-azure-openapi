@@ -540,6 +540,10 @@ components:
         retentionPolicy:
           $ref: '#/components/schemas/RetentionPolicy'
           description: the retention policy for the events in the log.
+        tags:
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     LogProfileCollection:
       properties:
@@ -582,9 +586,21 @@ components:
     MetricNamespace:
       description: Metric namespace class specifies the metadata for a metric namespace.
       properties:
-        metricNamespaceName:
+        id:
           type: string
-          description: The metric namespace name.
+          description: The ID of the metric namespace.
+        type:
+          type: string
+          description: The type of the namespace.
+        name:
+          type: string
+          description: The escaped name of the namespace.
+        classification:
+          $ref: '#/components/schemas/NamespaceClassification'
+          description: Kind of namespace
+        properties:
+          $ref: '#/components/schemas/MetricNamespaceName'
+          description: Properties which include the fully qualified namespace name.
       type: object
     MetricNamespaceCollection:
       properties:
@@ -810,6 +826,10 @@ components:
           type: object
           $ref: '#/components/schemas/AccessModeSettings'
           description: Access mode settings
+        systemData:
+          $ref: '#/components/schemas/systemData'
+          description: System data
+          readOnly: true
         tags:
           type: object
           additionalProperties:
@@ -923,6 +943,10 @@ components:
         provisioningState:
           description: State of the private endpoint connection.
           type: string
+          readOnly: true
+        systemData:
+          $ref: '#/components/schemas/systemData'
+          description: System data
           readOnly: true
       type: object
     ScopedResourceProperties:
@@ -1040,7 +1064,23 @@ components:
         - id
         - location
         - properties
-      properties: {}
+      properties:
+        id:
+          type: string
+          description: Azure Resource Manager identifier of the Log Analytics Workspace.
+        location:
+          type: string
+          description: Location of the Log Analytics workspace.
+        properties:
+          x-ms-client-flatten: true
+          type: object
+          description: Resource properties.
+          properties:
+            customerId:
+              type: string
+              description: Log Analytics workspace identifier.
+          required:
+            - customerId
       type: object
     DataContainer:
       type: object
@@ -1053,7 +1093,45 @@ components:
         - workspace
     VMInsightsOnboardingStatus:
       description: VM Insights onboarding status for a resource.
-      properties: {}
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          type: object
+          description: Resource properties.
+          properties:
+            resourceId:
+              type: string
+              description: Azure Resource Manager identifier of the resource whose onboarding status is being represented.
+            onboardingStatus:
+              type: string
+              enum:
+                - onboarded
+                - notOnboarded
+                - unknown
+              x-ms-enum:
+                name: OnboardingStatus
+                modelAsString: true
+              description: The onboarding status for the resource. Note that, a higher level scope, e.g., resource group or subscription, is considered onboarded if at least one resource under it is onboarded.
+            dataStatus:
+              type: string
+              enum:
+                - present
+                - notPresent
+              x-ms-enum:
+                name: DataStatus
+                modelAsString: true
+              description: The status of VM Insights data from the resource. When reported as `present` the data array will contain information about the data containers to which data for the specified resource is being routed.
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DataContainer'
+              x-ms-identifiers:
+                - /workspace/id
+              description: Containers that currently store VM Insights data for the specified resource.
+          required:
+            - resourceId
+            - onboardingStatus
+            - dataStatus
       type: object
     MetricAlertAction:
       description: An alert action.
@@ -1323,6 +1401,10 @@ components:
           type: boolean
           description: the value indicating whether this alert rule is migrated.
           readOnly: true
+        tags:
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     MetricAlertResourceCollection:
       properties:
@@ -1361,18 +1443,19 @@ components:
     MetricAlertStatus:
       description: An alert status.
       properties:
-        dimensions:
-          type: object
-          additionalProperties:
-            type: string
-          description: An object describing the type of the dimensions.
-        status:
+        name:
           type: string
-          description: status value
-        timestamp:
+          description: The status name.
+        id:
           type: string
-          format: date-time
-          description: UTC time when the status was checked.
+          description: The alert rule arm id.
+        type:
+          type: string
+          description: The extended resource type name.
+        properties:
+          x-ms-client-flatten: false
+          $ref: '#/components/schemas/MetricAlertStatusProperties'
+          description: The alert status properties of the metric alert status.
       type: object
     MetricAlertCriteria:
       type: object
@@ -1744,7 +1827,46 @@ components:
     DataCollectionRuleAssociationProxyOnlyResource:
       description: Definition of generic ARM proxy resource.
       x-ms-azure-resource: true
-      properties: {}
+      properties:
+        properties:
+          description: Resource properties.
+          allOf:
+            - $ref: '#/components/schemas/DataCollectionRuleAssociation'
+          x-ms-client-flatten: true
+        id:
+          description: Fully qualified ID of the resource.
+          type: string
+          readOnly: true
+          example: /subscriptions/703362b3-f278-4e4b-9179-c76eaf41ffc2/resourceGroups/myResourceGroup/providers/Microsoft.Insights/dataCollectionRules/myCollectionRule
+          x-ms-mutability:
+            - read
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+          example: myCollectionRule
+          x-ms-mutability:
+            - read
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+          example: Microsoft.Insights/dataCollectionRules
+          x-ms-mutability:
+            - read
+        etag:
+          description: Resource entity tag (ETag).
+          type: string
+          readOnly: true
+          x-ms-mutability:
+            - read
+        systemData:
+          description: Metadata pertaining to creation and last modification of the resource.
+          allOf:
+            - $ref: '#/components/schemas/systemData'
+          readOnly: true
+          x-ms-mutability:
+            - read
       type: object
     DataCollectionRuleAssociationProxyOnlyResourceListResult:
       description: A pageable list of resources.
@@ -1791,7 +1913,126 @@ components:
       type: object
     EventData:
       description: The Azure event log entries are of type EventData
-      properties: {}
+      properties:
+        authorization:
+          readOnly: true
+          $ref: '#/components/schemas/SenderAuthorization'
+          description: The sender authorization information.
+        claims:
+          readOnly: true
+          type: object
+          additionalProperties:
+            type: string
+          description: key value pairs to identify ARM permissions.
+        caller:
+          readOnly: true
+          type: string
+          description: the email address of the user who has performed the operation, the UPN claim or SPN claim based on availability.
+        description:
+          readOnly: true
+          type: string
+          description: the description of the event.
+        id:
+          readOnly: true
+          type: string
+          description: the Id of this event as required by ARM for RBAC. It contains the EventDataID and a timestamp information.
+        eventDataId:
+          readOnly: true
+          type: string
+          description: the event data Id. This is a unique identifier for an event.
+        correlationId:
+          readOnly: true
+          type: string
+          description: the correlation Id, usually a GUID in the string format. The correlation Id is shared among the events that belong to the same uber operation.
+        eventName:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          description: the event name. This value should not be confused with OperationName. For practical purposes, OperationName might be more appealing to end users.
+        category:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          description: the event category.
+        httpRequest:
+          readOnly: true
+          $ref: '#/components/schemas/HttpRequestInfo'
+          description: the HTTP request info. Usually includes the 'clientRequestId', 'clientIpAddress' (IP address of the user who initiated the event) and 'method' (HTTP method e.g. PUT).
+        level:
+          readOnly: true
+          type: string
+          description: the event level
+          enum:
+            - Critical
+            - Error
+            - Warning
+            - Informational
+            - Verbose
+          x-ms-enum:
+            name: EventLevel
+            modelAsString: false
+        resourceGroupName:
+          readOnly: true
+          externalDocs:
+            url: http://msdn.microsoft.com/en-us/library/azure/dn790546.aspx
+          type: string
+          description: the resource group name of the impacted resource.
+        resourceProviderName:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          externalDocs:
+            url: http://msdn.microsoft.com/en-us/library/azure/dn790572.aspx
+          description: the resource provider name of the impacted resource.
+        resourceId:
+          readOnly: true
+          externalDocs:
+            url: http://msdn.microsoft.com/en-us/library/azure/dn790569.aspx
+          type: string
+          description: the resource uri that uniquely identifies the resource that caused this event.
+        resourceType:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          externalDocs:
+            url: http://msdn.microsoft.com/en-us/library/azure/dn790569.aspx
+          description: the resource type
+        operationId:
+          readOnly: true
+          type: string
+          description: It is usually a GUID shared among the events corresponding to single operation. This value should not be confused with EventName.
+        operationName:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          description: the operation name.
+        properties:
+          readOnly: true
+          type: object
+          additionalProperties:
+            type: string
+          description: the set of <Key, Value> pairs (usually a Dictionary<String, String>) that includes details about the event.
+        status:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          description: 'a string describing the status of the operation. Some typical values are: Started, In progress, Succeeded, Failed, Resolved.'
+        subStatus:
+          readOnly: true
+          $ref: '#/components/schemas/LocalizableString'
+          description: 'the event sub status. Most of the time, when included, this captures the HTTP status code of the REST call. Common values are: OK (HTTP Status Code: 200), Created (HTTP Status Code: 201), Accepted (HTTP Status Code: 202), No Content (HTTP Status Code: 204), Bad Request(HTTP Status Code: 400), Not Found (HTTP Status Code: 404), Conflict (HTTP Status Code: 409), Internal Server Error (HTTP Status Code: 500), Service Unavailable (HTTP Status Code:503), Gateway Timeout (HTTP Status Code: 504)'
+        eventTimestamp:
+          readOnly: true
+          type: string
+          format: date-time
+          description: the timestamp of when the event was generated by the Azure service processing the request corresponding the event. It in ISO 8601 format.
+        submissionTimestamp:
+          readOnly: true
+          type: string
+          format: date-time
+          description: the timestamp of when the event became available for querying via this API. It is in ISO 8601 format. This value should not be confused eventTimestamp. As there might be a delay between the occurrence time of the event, and the time that the event is submitted to the Azure logging infrastructure.
+        subscriptionId:
+          readOnly: true
+          type: string
+          description: the Azure subscription Id usually a GUID.
+        tenantId:
+          readOnly: true
+          type: string
+          description: the Azure tenant Id
       type: object
     EventDataCollection:
       properties:
@@ -1855,7 +2096,7 @@ components:
           description: Gets or sets a list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups). A maximum of 15 tags can be provided for a resource. Each tag must have a key no greater in length than 128 characters and a value no greater in length than 256 characters.
         systemData:
           readOnly: true
-          description: The system metadata related to the response.
+          description: The system metadata related to this resource.
           $ref: '#/components/schemas/systemData'
         categoryType:
           enum:
@@ -1961,7 +2202,67 @@ components:
       required:
         - location
       x-ms-azure-resource: true
-      properties: {}
+      properties:
+        properties:
+          description: Resource properties.
+          allOf:
+            - $ref: '#/components/schemas/DataCollectionEndpoint'
+          x-ms-client-flatten: true
+        location:
+          description: The geo-location where the resource lives.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        kind:
+          description: The kind of the resource.
+          enum:
+            - Linux
+            - Windows
+          type: string
+          example: Linux
+          x-ms-enum:
+            name: KnownDataCollectionEndpointResourceKind
+            modelAsString: true
+        id:
+          description: Fully qualified ID of the resource.
+          type: string
+          readOnly: true
+          example: /subscriptions/703362b3-f278-4e4b-9179-c76eaf41ffc2/resourceGroups/myResourceGroup/providers/Microsoft.Insights/dataCollectionEndpoints/myCollectionEndpoint
+          x-ms-mutability:
+            - read
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+          example: myCollectionEndpoint
+          x-ms-mutability:
+            - read
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+          example: Microsoft.Insights/dataCollectionEndpoints
+          x-ms-mutability:
+            - read
+        etag:
+          description: Resource entity tag (ETag).
+          type: string
+          readOnly: true
+          x-ms-mutability:
+            - read
+        systemData:
+          description: Metadata pertaining to creation and last modification of the resource.
+          allOf:
+            - $ref: '#/components/schemas/systemData'
+          readOnly: true
+          x-ms-mutability:
+            - read
       type: object
     DataCollectionEndpointResourceListResult:
       description: A pageable list of resources.
@@ -2019,6 +2320,15 @@ components:
             $ref: '#/components/schemas/TimeSeriesBaseline'
           x-ms-identifiers: []
           description: The baseline for each time series that was queried.
+        id:
+          type: string
+          description: The metric baseline Id.
+        type:
+          type: string
+          description: The resource type of the metric baseline resource.
+        name:
+          type: string
+          description: The name of the metric for which the baselines were retrieved.
       type: object
     MetricBaselinesProperties:
       type: object
@@ -2429,6 +2739,10 @@ components:
           description: Indicates whether this Activity Log Alert rule is enabled. If an Activity Log Alert rule is not enabled, then none of its actions will be activated.
           type: boolean
           default: true
+        tags:
+          description: The resource tags
+          additionalProperties:
+            type: string
       type: object
     AlertRulePatchProperties:
       description: An Activity Log Alert rule properties for patch operations.
@@ -3306,7 +3620,67 @@ components:
       required:
         - location
       x-ms-azure-resource: true
-      properties: {}
+      properties:
+        properties:
+          description: Resource properties.
+          allOf:
+            - $ref: '#/components/schemas/DataCollectionRule'
+          x-ms-client-flatten: true
+        location:
+          description: The geo-location where the resource lives.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        kind:
+          description: The kind of the resource.
+          enum:
+            - Linux
+            - Windows
+          type: string
+          example: Linux
+          x-ms-enum:
+            name: KnownDataCollectionRuleResourceKind
+            modelAsString: true
+        id:
+          description: Fully qualified ID of the resource.
+          type: string
+          readOnly: true
+          example: /subscriptions/703362b3-f278-4e4b-9179-c76eaf41ffc2/resourceGroups/myResourceGroup/providers/Microsoft.Insights/dataCollectionRules/myCollectionRule
+          x-ms-mutability:
+            - read
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+          example: myCollectionRule
+          x-ms-mutability:
+            - read
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+          example: Microsoft.Insights/dataCollectionRules
+          x-ms-mutability:
+            - read
+        etag:
+          description: Resource entity tag (ETag).
+          type: string
+          readOnly: true
+          x-ms-mutability:
+            - read
+        systemData:
+          description: Metadata pertaining to creation and last modification of the resource.
+          allOf:
+            - $ref: '#/components/schemas/systemData'
+          readOnly: true
+          x-ms-mutability:
+            - read
       type: object
     DataCollectionRuleResourceListResult:
       description: A pageable list of resources.
@@ -3851,6 +4225,11 @@ components:
           type: boolean
           default: true
           description: Indicates whether this action group is enabled. If an action group is not enabled, then none of its actions will be activated.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     ActionGroupPatch:
       description: An Azure action group for patch operations.
@@ -4215,6 +4594,14 @@ components:
         odata.type:
           type: string
           description: 'specifies the type of the action. There are two types of actions: RuleEmailAction and RuleWebhookAction.'
+        serviceUri:
+          type: string
+          description: the service uri to Post the notification when the alert activates or resolves.
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: the dictionary of custom properties to include with the post operation. These data are appended to the webhook payload.
       type: object
     AlertRule:
       required:
@@ -4343,6 +4730,10 @@ components:
           type: string
           format: date-time
           description: Last time the rule was updated in ISO8601 format.
+        tags:
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     AlertRuleResourceCollection:
       properties:
@@ -4451,6 +4842,11 @@ components:
           x-ms-enum:
             name: enabled
             modelAsString: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     LogSearchRuleResourceCollection:
       type: object
@@ -5229,7 +5625,15 @@ components:
       description: Email notification of an autoscale event.
     WebhookNotification:
       description: Webhook notification of an autoscale event.
-      properties: {}
+      properties:
+        serviceUri:
+          type: string
+          description: the service address to receive the notification.
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+          description: a property bag of settings. This value can be empty.
       type: object
     AutoscaleNotification:
       type: object
@@ -5379,6 +5783,11 @@ components:
         targetResourceLocation:
           type: string
           description: the location of the resource that the autoscale setting should be added to.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     AutoscaleSettingResourceCollection:
       type: object
@@ -5581,7 +5990,7 @@ components:
           description: Gets or sets a list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups). A maximum of 15 tags can be provided for a resource. Each tag must have a key no greater in length than 128 characters and a value no greater in length than 256 characters.
         systemData:
           readOnly: true
-          description: The system metadata related to the response.
+          description: The system metadata related to this resource.
           $ref: '#/components/schemas/systemData'
         storageAccountId:
           type: string
@@ -8478,6 +8887,3 @@ paths:
         nextLinkName: null
       x-stackQL-resource: diagnostic_settings
       x-stackQL-verb: select
-x-stackQL-config:
-  variations:
-    isObjectSchemaImplicitlyUnioned: true
