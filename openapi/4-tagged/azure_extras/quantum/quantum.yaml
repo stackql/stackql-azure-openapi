@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,59 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    WorkspaceNameParameter:
+      name: workspaceName
+      in: path
+      description: The name of the quantum workspace resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     WorkspaceListResult:
       properties:
@@ -48,40 +101,62 @@ components:
       description: The response of a list Providers operation.
       type: object
     QuantumWorkspace:
-      type: object
       description: The resource proxy definition object for quantum workspace.
       properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Gets or sets the properties. Define quantum workspace's specific properties.
-          $ref: '#/components/schemas/WorkspaceResourceProperties'
-        identity:
-          type: object
-          description: Managed Identity information.
-          properties:
-            principalId:
-              readOnly: true
-              type: string
-              description: The principal ID of resource identity.
-            tenantId:
-              readOnly: true
-              type: string
-              description: The tenant ID of resource.
-            type:
-              type: string
-              description: The identity type.
-              enum:
-                - SystemAssigned
-                - None
-              x-ms-enum:
-                name: ResourceIdentityType
-                modelAsString: true
-        systemData:
-          description: System metadata
-          $ref: '#/components/schemas/systemData'
+        providers:
+          type: array
+          description: List of Providers selected for this Workspace
+          items:
+            $ref: '#/components/schemas/Provider'
+          x-ms-identifiers: []
+        usable:
+          type: string
+          enum:
+            - 'Yes'
+            - 'No'
+            - Partial
+          x-ms-enum:
+            name: UsableStatus
+            modelAsString: true
+          description: Whether the current workspace is ready to accept Jobs.
           readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
+        provisioningState:
+          type: string
+          enum:
+            - Succeeded
+            - ProviderLaunching
+            - ProviderUpdating
+            - ProviderDeleting
+            - ProviderProvisioning
+            - Failed
+          x-ms-enum:
+            name: ProvisioningStatus
+            modelAsString: true
+          description: Provisioning status field
+          readOnly: true
+        storageAccount:
+          type: string
+          description: ARM Resource Id of the storage account associated with this workspace.
+        endpointUri:
+          type: string
+          description: The URI of the workspace endpoint.
+          readOnly: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     TagsObject:
       properties:
         tags:
@@ -134,20 +209,69 @@ components:
           readOnly: true
       type: object
     ProviderDescription:
-      type: object
       description: Information about an offering. A provider offering is an entity that offers Targets to run Azure Quantum Jobs.
       properties:
-        id:
+        description:
           type: string
-          description: Unique provider's id.
-        name:
-          type: string
-          description: Provider's display name.
+          description: A description about this provider.
           readOnly: true
-        properties:
+        providerType:
+          type: string
+          description: Provider type.
+          readOnly: true
+        company:
+          type: string
+          description: Company name.
+          readOnly: true
+        defaultEndpoint:
+          type: string
+          description: Provider's default endpoint.
+          readOnly: true
+        aad:
           type: object
-          description: A list of provider-specific properties.
-          $ref: '#/components/schemas/ProviderProperties'
+          description: Azure Active Directory info.
+          properties:
+            applicationId:
+              type: string
+              description: Provider's application id.
+              readOnly: true
+            tenantId:
+              type: string
+              description: Provider's tenant id.
+              readOnly: true
+        managedApplication:
+          type: object
+          description: Provider's Managed-Application info
+          properties:
+            publisherId:
+              type: string
+              description: Provider's publisher id.
+              readOnly: true
+            offerId:
+              type: string
+              description: Provider's offer id.
+              readOnly: true
+        targets:
+          type: array
+          description: The list of targets available from this provider.
+          items:
+            $ref: '#/components/schemas/TargetDescription'
+        skus:
+          type: array
+          description: The list of skus available from this provider.
+          items:
+            $ref: '#/components/schemas/SkuDescription'
+        quotaDimensions:
+          type: array
+          description: The list of quota dimensions from the provider.
+          items:
+            $ref: '#/components/schemas/QuotaDimension'
+        pricingDimensions:
+          type: array
+          description: The list of pricing dimensions from the provider.
+          items:
+            $ref: '#/components/schemas/PricingDimension'
+      type: object
     ProviderProperties:
       type: object
       description: Provider properties.
@@ -441,18 +565,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -469,16 +604,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -886,59 +1041,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    WorkspaceNameParameter:
-      name: workspaceName
-      in: path
-      description: The name of the quantum workspace resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Quantum/workspaces/{workspaceName}/?api-version=2022-01-10-preview:
     get:

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,114 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to be used with the HTTP request.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group that contains the Batch account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    AccountNameParameter:
+      name: accountName
+      in: path
+      description: The name of the Batch account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9]+$
+        minLength: 3
+        maxLength: 24
+        type: string
+    CertificateNameParameter:
+      name: certificateName
+      in: path
+      description: The identifier for the certificate. This must be made up of algorithm and thumbprint separated by a dash, and must match the certificate data in the request. For example SHA1-a3d1c5.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[\w]+-[\w]+$
+        minLength: 5
+        maxLength: 45
+        type: string
+    DetectorIdParameter:
+      name: detectorId
+      in: path
+      description: The name of the detector.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    PoolNameParameter:
+      name: poolName
+      in: path
+      description: The pool name. This must be unique within the account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_-]+$
+        minLength: 1
+        maxLength: 64
+        type: string
+    PrivateLinkResourceNameParameter:
+      name: privateLinkResourceName
+      in: path
+      description: The private link resource name. This must be unique within the account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_-]+\.?[a-fA-F0-9-]*$
+        minLength: 1
+        maxLength: 101
+        type: string
+    PrivateEndpointConnectionNameParameter:
+      name: privateEndpointConnectionName
+      in: path
+      description: The private endpoint connection name. This must be unique within the account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_-]+\.?[a-fA-F0-9-]*$
+        minLength: 1
+        maxLength: 101
+        type: string
+    ApplicationNameParameter:
+      name: applicationName
+      in: path
+      description: The name of the application. This must be unique within the account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_-]+$
+        minLength: 1
+        maxLength: 64
+        type: string
+    VersionNameParameter:
+      name: versionName
+      in: path
+      description: The version of the application.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$
+        minLength: 1
+        maxLength: 64
+        type: string
   schemas:
     AutoStorageBaseProperties:
       type: object
@@ -130,26 +238,39 @@ components:
           - value: TaskAuthenticationToken
             description: The authentication mode using task authentication tokens.
     BatchAccountCreateParameters:
-      type: object
-      properties:
-        location:
-          type: string
-          description: The region in which to create the account.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: The user-specified tags associated with the account.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/BatchAccountCreateProperties'
-          description: The properties of the Batch account.
-        identity:
-          $ref: '#/components/schemas/BatchAccountIdentity'
-          description: The identity of the Batch account.
       required:
         - location
       description: Parameters supplied to the Create operation.
+      properties:
+        autoStorage:
+          $ref: '#/components/schemas/AutoStorageBaseProperties'
+          description: The properties related to the auto-storage account.
+        poolAllocationMode:
+          title: The allocation mode to use for creating pools in the Batch account.
+          description: The pool allocation mode also affects how clients may authenticate to the Batch Service API. If the mode is BatchService, clients may authenticate using access keys or Azure Active Directory. If the mode is UserSubscription, clients must use Azure Active Directory. The default is BatchService.
+          $ref: '#/components/schemas/PoolAllocationMode'
+        keyVaultReference:
+          $ref: '#/components/schemas/KeyVaultReference'
+          description: A reference to the Azure key vault associated with the Batch account.
+        publicNetworkAccess:
+          title: The network access type for accessing Azure Batch account.
+          description: If not specified, the default value is 'enabled'.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        networkProfile:
+          title: Network profile for Batch account, which contains network rule settings for each endpoint.
+          description: The network profile only takes effect when publicNetworkAccess is enabled.
+          $ref: '#/components/schemas/NetworkProfile'
+        encryption:
+          title: The encryption configuration for the Batch account.
+          description: Configures how customer data is encrypted inside the Batch account. By default, accounts are encrypted using a Microsoft managed key. For additional control, a customer-managed key can be used instead.
+          $ref: '#/components/schemas/EncryptionProperties'
+        allowedAuthenticationModes:
+          nullable: true
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthenticationMode'
+          description: List of allowed authentication modes for the Batch account that can be used to authenticate with the data plane. This does not affect authentication with the control plane.
+      type: object
     KeyVaultReference:
       type: object
       properties:
@@ -168,17 +289,41 @@ components:
         - url
       description: Identifies the Azure key vault associated with a Batch account.
     AutoStorageProperties:
-      type: object
+      required:
+        - lastKeySync
+      description: Contains information about the auto-storage account associated with a Batch account.
       properties:
         lastKeySync:
           type: string
           format: date-time
           description: The UTC time at which storage keys were last synchronized with the Batch account.
-      required:
-        - lastKeySync
-      allOf:
-        - $ref: '#/components/schemas/AutoStorageBaseProperties'
-      description: Contains information about the auto-storage account associated with a Batch account.
+        storageAccountId:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Storage/storageAccounts
+          description: The resource ID of the storage account to be used for auto-storage account.
+        authenticationMode:
+          type: string
+          description: The authentication mode which the Batch service will use to manage the auto-storage account.
+          default: StorageKeys
+          enum:
+            - StorageKeys
+            - BatchAccountManagedIdentity
+          x-ms-enum:
+            name: AutoStorageAuthenticationMode
+            modelAsString: false
+            values:
+              - value: StorageKeys
+                description: The Batch service will authenticate requests to auto-storage using storage account keys.
+              - value: BatchAccountManagedIdentity
+                description: The Batch service will authenticate requests to auto-storage using the managed identity assigned to the Batch account.
+        nodeIdentityReference:
+          title: The reference to the user assigned identity which compute nodes will use to access auto-storage.
+          description: The identity referenced here must be assigned to pools which have compute nodes that need access to auto-storage.
+          $ref: '#/components/schemas/ComputeNodeIdentityReference'
+      type: object
     VirtualMachineFamilyCoreQuota:
       type: object
       properties:
@@ -357,34 +502,178 @@ components:
           description: List of allowed authentication modes for the Batch account that can be used to authenticate with the data plane. This does not affect authentication with the control plane.
       description: Account specific properties.
     BatchAccount:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/BatchAccountProperties'
-          description: The properties associated with the account.
-        identity:
-          $ref: '#/components/schemas/BatchAccountIdentity'
-          description: The identity of the Batch account.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: Contains information about an Azure Batch account.
-    BatchAccountUpdateParameters:
-      type: object
       properties:
+        accountEndpoint:
+          type: string
+          readOnly: true
+          description: The account endpoint used to interact with the Batch service.
+        nodeManagementEndpoint:
+          type: string
+          readOnly: true
+          description: The endpoint used by compute node to connect to the Batch node management service.
+        provisioningState:
+          type: string
+          readOnly: true
+          nullable: false
+          description: The provisioned state of the resource
+          enum:
+            - Invalid
+            - Creating
+            - Deleting
+            - Succeeded
+            - Failed
+            - Cancelled
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: false
+            values:
+              - value: Invalid
+                description: The account is in an invalid state.
+              - value: Creating
+                description: The account is being created.
+              - value: Deleting
+                description: The account is being deleted.
+              - value: Succeeded
+                description: The account has been created and is ready for use.
+              - value: Failed
+                description: The last operation for the account is failed.
+              - value: Cancelled
+                description: The last operation for the account is cancelled.
+        poolAllocationMode:
+          readOnly: true
+          nullable: false
+          x-nullable: false
+          title: The allocation mode to use for creating pools in the Batch account.
+          $ref: '#/components/schemas/PoolAllocationMode'
+        keyVaultReference:
+          title: A reference to the Azure key vault associated with the Batch account.
+          readOnly: true
+          $ref: '#/components/schemas/KeyVaultReference'
+        publicNetworkAccess:
+          nullable: true
+          x-nullable: true
+          title: The network interface type for accessing Azure Batch service and Batch account operations.
+          description: If not specified, the default value is 'enabled'.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        networkProfile:
+          nullable: true
+          x-nullable: true
+          title: Network profile for Batch account, which contains network rule settings for each endpoint.
+          description: The network profile only takes effect when publicNetworkAccess is enabled.
+          $ref: '#/components/schemas/NetworkProfile'
+        privateEndpointConnections:
+          readOnly: true
+          nullable: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: List of private endpoint connections associated with the Batch account
+        autoStorage:
+          title: The properties and status of any auto-storage account associated with the Batch account.
+          readOnly: true
+          $ref: '#/components/schemas/AutoStorageProperties'
+        encryption:
+          title: The encryption configuration for the Batch account.
+          description: Configures how customer data is encrypted inside the Batch account. By default, accounts are encrypted using a Microsoft managed key. For additional control, a customer-managed key can be used instead.
+          readOnly: true
+          $ref: '#/components/schemas/EncryptionProperties'
+        dedicatedCoreQuota:
+          readOnly: true
+          nullable: true
+          type: integer
+          format: int32
+          title: The dedicated core quota for the Batch account.
+          description: For accounts with PoolAllocationMode set to UserSubscription, quota is managed on the subscription so this value is not returned.
+        lowPriorityCoreQuota:
+          readOnly: true
+          nullable: true
+          type: integer
+          format: int32
+          title: The Spot/low-priority core quota for the Batch account.
+          description: For accounts with PoolAllocationMode set to UserSubscription, quota is managed on the subscription so this value is not returned.
+        dedicatedCoreQuotaPerVMFamily:
+          readOnly: true
+          nullable: true
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualMachineFamilyCoreQuota'
+          x-ms-identifiers:
+            - name
+          description: A list of the dedicated core quota per Virtual Machine family for the Batch account. For accounts with PoolAllocationMode set to UserSubscription, quota is managed on the subscription so this value is not returned.
+        dedicatedCoreQuotaPerVMFamilyEnforced:
+          readOnly: true
+          nullable: false
+          type: boolean
+          title: A value indicating whether core quotas per Virtual Machine family are enforced for this account
+          description: If this flag is true, dedicated core quota is enforced via both the dedicatedCoreQuotaPerVMFamily and dedicatedCoreQuota properties on the account. If this flag is false, dedicated core quota is enforced only via the dedicatedCoreQuota property on the account and does not consider Virtual Machine family.
+        poolQuota:
+          readOnly: true
+          nullable: false
+          type: integer
+          format: int32
+          title: The pool quota for the Batch account.
+        activeJobAndJobScheduleQuota:
+          readOnly: true
+          nullable: false
+          type: integer
+          format: int32
+          title: The active job and job schedule quota for the Batch account.
+        allowedAuthenticationModes:
+          readOnly: true
+          nullable: false
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthenticationMode'
+          description: List of allowed authentication modes for the Batch account that can be used to authenticate with the data plane. This does not affect authentication with the control plane.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        location:
+          readOnly: true
+          type: string
+          description: The location of the resource.
         tags:
+          readOnly: true
           type: object
           additionalProperties:
             type: string
-          description: The user-specified tags associated with the account.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/BatchAccountUpdateProperties'
-          description: The properties of the account.
-        identity:
-          $ref: '#/components/schemas/BatchAccountIdentity'
-          description: The identity of the Batch account.
+          description: The tags of the resource.
+      type: object
+    BatchAccountUpdateParameters:
       description: Parameters for updating an Azure Batch account.
+      properties:
+        autoStorage:
+          $ref: '#/components/schemas/AutoStorageBaseProperties'
+          description: The properties related to the auto-storage account.
+        encryption:
+          title: The encryption configuration for the Batch account.
+          description: Configures how customer data is encrypted inside the Batch account. By default, accounts are encrypted using a Microsoft managed key. For additional control, a customer-managed key can be used instead.
+          $ref: '#/components/schemas/EncryptionProperties'
+        allowedAuthenticationModes:
+          nullable: true
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthenticationMode'
+          description: List of allowed authentication modes for the Batch account that can be used to authenticate with the data plane. This does not affect authentication with the control plane.
+        publicNetworkAccess:
+          title: The network access type for accessing Azure Batch account.
+          description: If not specified, the default value is 'enabled'.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        networkProfile:
+          title: Network profile for Batch account, which contains network rule settings for each endpoint.
+          description: The network profile only takes effect when publicNetworkAccess is enabled.
+          $ref: '#/components/schemas/NetworkProfile'
+      type: object
     BatchAccountListResult:
       type: object
       properties:
@@ -478,15 +767,34 @@ components:
         - format
       description: Parameters for an activating an application package.
     Application:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ApplicationProperties'
-          description: The properties associated with the Application.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Contains information about an application in a Batch account.
+      properties:
+        displayName:
+          type: string
+          description: The display name for the application.
+        allowUpdates:
+          type: boolean
+          description: A value indicating whether packages within the application may be overwritten using the same version string.
+        defaultVersion:
+          type: string
+          description: The package to use if a client requests the application but does not specify a version. This property can only be set to the name of an existing package.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     ApplicationProperties:
       type: object
       properties:
@@ -501,15 +809,58 @@ components:
           description: The package to use if a client requests the application but does not specify a version. This property can only be set to the name of an existing package.
       description: The properties associated with the Application.
     ApplicationPackage:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ApplicationPackageProperties'
-          description: The properties associated with the Application Package.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: An application package which represents a particular version of an application.
+      properties:
+        state:
+          type: string
+          readOnly: true
+          description: The current state of the application package.
+          enum:
+            - Pending
+            - Active
+          x-ms-enum:
+            name: PackageState
+            modelAsString: false
+            values:
+              - value: Pending
+                description: The application package has been created but has not yet been activated.
+              - value: Active
+                description: The application package is ready for use.
+        format:
+          type: string
+          readOnly: true
+          description: The format of the application package, if the package is active.
+        storageUrl:
+          type: string
+          readOnly: true
+          description: The URL for the application package in Azure Storage.
+        storageUrlExpiry:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The UTC time at which the Azure Storage URL will expire.
+        lastActivationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The time at which the package was last activated, if the package is active.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     ApplicationPackageProperties:
       type: object
       properties:
@@ -745,7 +1096,7 @@ components:
               - value: Cer
                 description: The certificate is a base64-encoded X.509 certificate.
     CertificateProperties:
-      type: object
+      description: Certificate properties.
       properties:
         provisioningState:
           type: string
@@ -804,13 +1155,146 @@ components:
           $ref: '#/components/schemas/DeleteCertificateError'
           title: The error which occurred while deleting the certificate
           description: This is only returned when the certificate provisioningState is 'Failed'.
-      allOf:
-        - $ref: '#/components/schemas/CertificateBaseProperties'
-      description: Certificate properties.
-    CertificateCreateOrUpdateProperties:
+        thumbprintAlgorithm:
+          type: string
+          title: The algorithm of the certificate thumbprint.
+          description: This must match the first portion of the certificate name. Currently required to be 'SHA1'.
+        thumbprint:
+          type: string
+          title: The thumbprint of the certificate.
+          description: This must match the thumbprint from the name.
+        format:
+          type: string
+          nullable: false
+          description: The format of the certificate - either Pfx or Cer. If omitted, the default is Pfx.
+          enum:
+            - Pfx
+            - Cer
+          x-ms-enum:
+            name: CertificateFormat
+            modelAsString: false
+            values:
+              - value: Pfx
+                description: The certificate is a PFX (PKCS#12) formatted certificate or certificate chain.
+              - value: Cer
+                description: The certificate is a base64-encoded X.509 certificate.
       type: object
-      allOf:
-        - $ref: '#/components/schemas/CertificateBaseProperties'
+    CertificateCreateOrUpdateProperties:
+      description: Certificate properties for create operations
+      required:
+        - data
+      properties:
+        thumbprintAlgorithm:
+          type: string
+          title: The algorithm of the certificate thumbprint.
+          description: This must match the first portion of the certificate name. Currently required to be 'SHA1'.
+        thumbprint:
+          type: string
+          title: The thumbprint of the certificate.
+          description: This must match the thumbprint from the name.
+        format:
+          type: string
+          nullable: false
+          description: The format of the certificate - either Pfx or Cer. If omitted, the default is Pfx.
+          enum:
+            - Pfx
+            - Cer
+          x-ms-enum:
+            name: CertificateFormat
+            modelAsString: false
+            values:
+              - value: Pfx
+                description: The certificate is a PFX (PKCS#12) formatted certificate or certificate chain.
+              - value: Cer
+                description: The certificate is a base64-encoded X.509 certificate.
+        data:
+          type: string
+          title: The base64-encoded contents of the certificate.
+          description: The maximum size is 10KB.
+        password:
+          type: string
+          title: The password to access the certificate's private key.
+          description: This must not be specified if the certificate format is Cer.
+      type: object
+    Certificate:
+      description: Contains information about a certificate.
+      properties:
+        provisioningState:
+          type: string
+          readOnly: true
+          nullable: false
+          title: The provisioned state of the resource
+          enum:
+            - Succeeded
+            - Deleting
+            - Failed
+          x-ms-enum:
+            name: CertificateProvisioningState
+            modelAsString: false
+            values:
+              - value: Succeeded
+                description: The certificate is available for use in pools.
+              - value: Deleting
+                description: The user has requested that the certificate be deleted, but the delete operation has not yet completed. You may not reference the certificate when creating or updating pools.
+              - value: Failed
+                description: The user requested that the certificate be deleted, but there are pools that still have references to the certificate, or it is still installed on one or more compute nodes. (The latter can occur if the certificate has been removed from the pool, but the node has not yet restarted. Nodes refresh their certificates only when they restart.) You may use the cancel certificate delete operation to cancel the delete, or the delete certificate operation to retry the delete.
+        provisioningStateTransitionTime:
+          type: string
+          format: date-time
+          title: The time at which the certificate entered its current state.
+          readOnly: true
+        previousProvisioningState:
+          type: string
+          readOnly: true
+          nullable: false
+          description: The previous provisioned state of the resource
+          enum:
+            - Succeeded
+            - Deleting
+            - Failed
+          x-ms-enum:
+            name: CertificateProvisioningState
+            modelAsString: false
+            values:
+              - value: Succeeded
+                description: The certificate is available for use in pools.
+              - value: Deleting
+                description: The user has requested that the certificate be deleted, but the delete operation has not yet completed. You may not reference the certificate when creating or updating pools.
+              - value: Failed
+                description: The user requested that the certificate be deleted, but there are pools that still have references to the certificate, or it is still installed on one or more compute nodes. (The latter can occur if the certificate has been removed from the pool, but the node has not yet restarted. Nodes refresh their certificates only when they restart.) You may use the cancel certificate delete operation to cancel the delete, or the delete certificate operation to retry the delete.
+        previousProvisioningStateTransitionTime:
+          type: string
+          format: date-time
+          title: The time at which the certificate entered its previous state.
+          readOnly: true
+        publicData:
+          type: string
+          readOnly: true
+          description: The public key of the certificate.
+        deleteCertificateError:
+          readOnly: true
+          $ref: '#/components/schemas/DeleteCertificateError'
+          title: The error which occurred while deleting the certificate
+          description: This is only returned when the certificate provisioningState is 'Failed'.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
+    CertificateCreateOrUpdateParameters:
+      description: Contains information about a certificate.
       properties:
         data:
           type: string
@@ -820,29 +1304,23 @@ components:
           type: string
           title: The password to access the certificate's private key.
           description: This must not be specified if the certificate format is Cer.
-      description: Certificate properties for create operations
-      required:
-        - data
-    Certificate:
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
       type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CertificateProperties'
-          description: The properties associated with the certificate.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Contains information about a certificate.
-    CertificateCreateOrUpdateParameters:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CertificateCreateOrUpdateProperties'
-          description: The properties associated with the certificate.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Contains information about a certificate.
     ListCertificatesResult:
       type: object
       properties:
@@ -891,15 +1369,28 @@ components:
           description: The URL to get the next set of results.
       description: Values returned by the List operation.
     DetectorResponse:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DetectorResponseProperties'
-          description: The properties associated with the detector.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Contains the information for a detector.
+      properties:
+        value:
+          type: string
+          description: A base64 encoded string that represents the content of a detector.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     DetectorResponseProperties:
       type: object
       properties:
@@ -908,15 +1399,42 @@ components:
           description: A base64 encoded string that represents the content of a detector.
       description: Detector response properties.
     PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: The properties associated with the private link resource.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Contains information about a private link resource.
+      properties:
+        groupId:
+          type: string
+          title: The group id of the private link resource.
+          description: The group id is used to establish the private link connection.
+          readOnly: true
+        requiredMembers:
+          type: array
+          items:
+            type: string
+          title: The list of required members that are used to establish the private link connection.
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          title: The list of required zone names for the private DNS resource name
+          readOnly: true
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     PrivateLinkResourceProperties:
       type: object
       properties:
@@ -939,15 +1457,67 @@ components:
           readOnly: true
       description: Private link resource properties.
     PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: The properties associated with the private endpoint connection.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Contains information about a private link resource.
+      properties:
+        provisioningState:
+          type: string
+          readOnly: true
+          nullable: false
+          title: The provisioning state of the private endpoint connection.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Failed
+            - Cancelled
+          x-ms-enum:
+            name: PrivateEndpointConnectionProvisioningState
+            modelAsString: false
+            values:
+              - value: Creating
+                description: The connection is creating.
+              - value: Updating
+                description: The user has requested that the connection status be updated, but the update operation has not yet completed. You may not reference the connection when connecting the Batch account.
+              - value: Deleting
+                description: The connection is deleting.
+              - value: Succeeded
+                description: The connection status is final and is ready for use if Status is Approved.
+              - value: Failed
+                description: The user requested that the connection be updated and it failed. You may retry the update operation.
+              - value: Cancelled
+                description: The user has cancelled the connection creation.
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          readOnly: true
+          title: The ARM resource identifier of the private endpoint.
+        groupIds:
+          type: array
+          readOnly: true
+          items:
+            type: string
+          title: The group id of the private endpoint connection.
+          description: The value has one and only one group id.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          title: The private link service connection state of the private endpoint connection.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       properties:
@@ -1039,19 +1609,184 @@ components:
           - value: Disconnected
             description: The private endpoint connection is disconnected and cannot be used to access Batch account
     Pool:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PoolProperties'
-          description: The properties associated with the pool.
-        identity:
-          title: The type of identity used for the Batch Pool.
-          description: The type of identity used for the Batch Pool.
-          $ref: '#/components/schemas/BatchPoolIdentity'
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Contains information about a pool.
+      properties:
+        displayName:
+          type: string
+          title: The display name for the pool.
+          description: The display name need not be unique and can contain any Unicode characters up to a maximum length of 1024.
+        lastModified:
+          type: string
+          format: date-time
+          title: The last modified time of the pool.
+          description: This is the last time at which the pool level data, such as the targetDedicatedNodes or autoScaleSettings, changed. It does not factor in node-level changes such as a compute node changing state.
+          readOnly: true
+        creationTime:
+          type: string
+          format: date-time
+          title: The creation time of the pool.
+          readOnly: true
+        provisioningState:
+          type: string
+          title: The current state of the pool.
+          enum:
+            - Succeeded
+            - Deleting
+          x-ms-enum:
+            name: PoolProvisioningState
+            modelAsString: false
+            values:
+              - value: Succeeded
+                description: The pool is available to run tasks subject to the availability of compute nodes.
+              - value: Deleting
+                description: The user has requested that the pool be deleted, but the delete operation has not yet completed.
+          readOnly: true
+        provisioningStateTransitionTime:
+          type: string
+          format: date-time
+          title: The time at which the pool entered its current state.
+          readOnly: true
+        allocationState:
+          type: string
+          title: Whether the pool is resizing.
+          enum:
+            - Steady
+            - Resizing
+            - Stopping
+          x-ms-enum:
+            name: AllocationState
+            modelAsString: false
+            values:
+              - value: Steady
+                description: The pool is not resizing. There are no changes to the number of nodes in the pool in progress. A pool enters this state when it is created and when no operations are being performed on the pool to change the number of nodes.
+              - value: Resizing
+                description: The pool is resizing; that is, compute nodes are being added to or removed from the pool.
+              - value: Stopping
+                description: The pool was resizing, but the user has requested that the resize be stopped, but the stop request has not yet been completed.
+          readOnly: true
+        allocationStateTransitionTime:
+          type: string
+          format: date-time
+          title: The time at which the pool entered its current allocation state.
+          readOnly: true
+        vmSize:
+          type: string
+          title: The size of virtual machines in the pool. All VMs in a pool are the same size.
+          description: For information about available sizes of virtual machines for Cloud Services pools (pools created with cloudServiceConfiguration), see Sizes for Cloud Services (https://azure.microsoft.com/documentation/articles/cloud-services-sizes-specs/). Batch supports all Cloud Services VM sizes except ExtraSmall. For information about available VM sizes for pools using images from the Virtual Machines Marketplace (pools created with virtualMachineConfiguration) see Sizes for Virtual Machines (Linux) (https://azure.microsoft.com/documentation/articles/virtual-machines-linux-sizes/) or Sizes for Virtual Machines (Windows) (https://azure.microsoft.com/documentation/articles/virtual-machines-windows-sizes/). Batch supports all Azure VM sizes except STANDARD_A0 and those with premium storage (STANDARD_GS, STANDARD_DS, and STANDARD_DSV2 series).
+        deploymentConfiguration:
+          $ref: '#/components/schemas/DeploymentConfiguration'
+          title: This property describes how the pool nodes will be deployed - using Cloud Services or Virtual Machines.
+          description: Using CloudServiceConfiguration specifies that the nodes should be creating using Azure Cloud Services (PaaS), while VirtualMachineConfiguration uses Azure Virtual Machines (IaaS).
+        currentDedicatedNodes:
+          type: integer
+          format: int32
+          title: The number of compute nodes currently in the pool.
+          readOnly: true
+        currentLowPriorityNodes:
+          type: integer
+          format: int32
+          title: The number of Spot/low-priority compute nodes currently in the pool.
+          readOnly: true
+        scaleSettings:
+          $ref: '#/components/schemas/ScaleSettings'
+          title: Settings which configure the number of nodes in the pool.
+        autoScaleRun:
+          $ref: '#/components/schemas/AutoScaleRun'
+          title: The results and errors from the last execution of the autoscale formula.
+          description: This property is set only if the pool automatically scales, i.e. autoScaleSettings are used.
+          readOnly: true
+        interNodeCommunication:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: InterNodeCommunicationState
+            modelAsString: false
+            values:
+              - value: Enabled
+                description: Enable network communication between virtual machines.
+              - value: Disabled
+                description: Disable network communication between virtual machines.
+          title: Whether the pool permits direct communication between nodes.
+          description: This imposes restrictions on which nodes can be assigned to the pool. Enabling this value can reduce the chance of the requested number of nodes to be allocated in the pool. If not specified, this value defaults to 'Disabled'.
+        networkConfiguration:
+          $ref: '#/components/schemas/NetworkConfiguration'
+          title: The network configuration for the pool.
+        taskSlotsPerNode:
+          type: integer
+          format: int32
+          title: The number of task slots that can be used to run concurrent tasks on a single compute node in the pool.
+          description: The default value is 1. The maximum value is the smaller of 4 times the number of cores of the vmSize of the pool or 256.
+        taskSchedulingPolicy:
+          $ref: '#/components/schemas/TaskSchedulingPolicy'
+          title: How tasks are distributed across compute nodes in a pool.
+          description: If not specified, the default is spread.
+        userAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAccount'
+          x-ms-identifiers:
+            - name
+          title: The list of user accounts to be created on each node in the pool.
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataItem'
+          x-ms-identifiers:
+            - name
+          title: A list of name-value pairs associated with the pool as metadata.
+          description: The Batch service does not assign any meaning to metadata; it is solely for the use of user code.
+        startTask:
+          $ref: '#/components/schemas/StartTask'
+          title: A task specified to run on each compute node as it joins the pool.
+          description: In an PATCH (update) operation, this property can be set to an empty object to remove the start task from the pool.
+        certificates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CertificateReference'
+          title: The list of certificates to be installed on each compute node in the pool.
+          description: For Windows compute nodes, the Batch service installs the certificates to the specified certificate store and location. For Linux compute nodes, the certificates are stored in a directory inside the task working directory and an environment variable AZ_BATCH_CERTIFICATES_DIR is supplied to the task to query for this location. For certificates with visibility of 'remoteUser', a 'certs' directory is created in the user's home directory (e.g., /home/{user-name}/certs) and certificates are placed in that directory.
+        applicationPackages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationPackageReference'
+          title: The list of application packages to be installed on each compute node in the pool.
+          description: Changes to application package references affect all new compute nodes joining the pool, but do not affect compute nodes that are already in the pool until they are rebooted or reimaged. There is a maximum of 10 application package references on any given pool.
+        applicationLicenses:
+          type: array
+          items:
+            type: string
+          title: The list of application licenses the Batch service will make available on each compute node in the pool.
+          description: The list of application licenses must be a subset of available Batch service application licenses. If a license is requested which is not supported, pool creation will fail.
+        resizeOperationStatus:
+          $ref: '#/components/schemas/ResizeOperationStatus'
+          title: Contains details about the current or last completed resize operation.
+          readOnly: true
+        mountConfiguration:
+          type: array
+          items:
+            $ref: '#/components/schemas/MountConfiguration'
+          x-ms-identifiers: []
+          title: A list of file systems to mount on each node in the pool.
+          description: This supports Azure Files, NFS, CIFS/SMB, and Blobfuse.
+        id:
+          readOnly: true
+          type: string
+          description: The ID of the resource.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+        etag:
+          readOnly: true
+          type: string
+          description: The ETag of the resource, used for concurrency statements.
+      type: object
     PoolProperties:
       type: object
       properties:
@@ -2374,38 +3109,8 @@ components:
       description: The Batch List supported SKUs operation response.
     Operation:
       title: A REST API operation
+      properties: {}
       type: object
-      properties:
-        name:
-          title: The operation name.
-          description: This is of the format {provider}/{resource}/{operation}
-          type: string
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        display:
-          title: The object that describes the operation.
-          type: object
-          properties:
-            provider:
-              title: Friendly name of the resource provider.
-              type: string
-            operation:
-              title: The operation type.
-              description: 'For example: read, write, delete, or listKeys/action'
-              type: string
-            resource:
-              title: The resource type on which the operation is performed.
-              type: string
-            description:
-              title: The friendly name of the operation
-              type: string
-        origin:
-          title: The intended executor of the operation.
-          type: string
-        properties:
-          title: Properties of the operation.
-          type: object
     OperationListResult:
       title: Result of the request to list REST API operations. It contains a list of operations and a URL nextLink to get the next set of results.
       type: object
@@ -2653,114 +3358,6 @@ components:
           readOnly: true
           description: The port an endpoint is connected to.
       description: Details about the connection between the Batch service and the endpoint.
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to be used with the HTTP request.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group that contains the Batch account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    AccountNameParameter:
-      name: accountName
-      in: path
-      description: The name of the Batch account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9]+$
-        minLength: 3
-        maxLength: 24
-        type: string
-    CertificateNameParameter:
-      name: certificateName
-      in: path
-      description: The identifier for the certificate. This must be made up of algorithm and thumbprint separated by a dash, and must match the certificate data in the request. For example SHA1-a3d1c5.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[\w]+-[\w]+$
-        minLength: 5
-        maxLength: 45
-        type: string
-    DetectorIdParameter:
-      name: detectorId
-      in: path
-      description: The name of the detector.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PoolNameParameter:
-      name: poolName
-      in: path
-      description: The pool name. This must be unique within the account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_-]+$
-        minLength: 1
-        maxLength: 64
-        type: string
-    PrivateLinkResourceNameParameter:
-      name: privateLinkResourceName
-      in: path
-      description: The private link resource name. This must be unique within the account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_-]+\.?[a-fA-F0-9-]*$
-        minLength: 1
-        maxLength: 101
-        type: string
-    PrivateEndpointConnectionNameParameter:
-      name: privateEndpointConnectionName
-      in: path
-      description: The private endpoint connection name. This must be unique within the account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_-]+\.?[a-fA-F0-9-]*$
-        minLength: 1
-        maxLength: 101
-        type: string
-    ApplicationNameParameter:
-      name: applicationName
-      in: path
-      description: The name of the application. This must be unique within the account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_-]+$
-        minLength: 1
-        maxLength: 64
-        type: string
-    VersionNameParameter:
-      name: versionName
-      in: path
-      description: The version of the application.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$
-        minLength: 1
-        maxLength: 64
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Batch/batchAccounts/{accountName}/?api-version=2022-06-01:
     put:

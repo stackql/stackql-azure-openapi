@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,50 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ProviderName:
+      name: providerName
+      in: path
+      description: The name of the attestation provider.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9-]{3,24}$
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
   schemas:
     OperationList:
       properties:
@@ -66,18 +110,44 @@ components:
           description: Description of the operation.
     AttestationProvider:
       description: Attestation service response message.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        systemData:
-          readOnly: true
-          description: The system metadata relating to this resource
-          $ref: '#/components/schemas/systemData'
-        properties:
+        tags:
           type: object
-          $ref: '#/components/schemas/StatusResult'
-          description: Describes Attestation service status.
-          x-ms-client-flatten: true
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        trustModel:
+          type: string
+          description: Trust model for the attestation provider.
+        status:
+          type: string
+          description: Status of attestation service.
+          enum:
+            - Ready
+            - NotReady
+            - Error
+          x-ms-enum:
+            name: AttestationServiceStatus
+            modelAsString: true
+        attestUri:
+          type: string
+          description: Gets the uri of attestation service
+        privateEndpointConnections:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: List of private endpoint connections associated with the attestation provider.
       type: object
     StatusResult:
       type: object
@@ -153,17 +223,9 @@ components:
         - properties
       x-ms-azure-resource: true
       properties:
-        location:
-          type: string
-          description: The supported Azure location where the attestation provider should be created.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: The tags that will be assigned to the attestation provider.
-        properties:
-          $ref: '#/components/schemas/AttestationServiceCreationSpecificParams'
-          description: Properties of the attestation provider
+        policySigningCertificates:
+          description: JSON Web Key Set defining a set of X.509 Certificates that will represent the parent certificate for the signing certificate used for policy operations
+          $ref: '#/components/schemas/JSONWebKeySet'
       type: object
     AttestationServiceCreationSpecificParams:
       description: Client supplied parameters used to create a new attestation provider.
@@ -194,18 +256,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -222,16 +295,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -576,15 +669,30 @@ components:
           description: The ARM identifier for Private Endpoint
       description: The Private Endpoint resource.
     PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          x-ms-client-flatten: true
-          description: Resource properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: The Private Endpoint Connection resource.
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private end point.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+        provisioningState:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
+          description: The provisioning state of the private endpoint connection resource.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       properties:
@@ -636,15 +744,36 @@ components:
         name: PrivateEndpointConnectionProvisioningState
         modelAsString: true
     PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: A private link resource
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource Private link DNS zone name.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     PrivateLinkResourceProperties:
       type: object
       properties:
@@ -784,50 +913,6 @@ components:
           items:
             $ref: '#/components/schemas/JSONWebKey'
           x-ms-identifiers: []
-  parameters:
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ProviderName:
-      name: providerName
-      in: path
-      description: The name of the attestation provider.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9-]{3,24}$
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
 paths:
   /providers/Microsoft.Attestation/operations/?api-version=2020-10-01:
     get:

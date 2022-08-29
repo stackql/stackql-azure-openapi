@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,21 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    subscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID.
+      required: true
+      schema:
+        type: string
+    apiVersionParameter:
+      name: api-version
+      in: query
+      description: The version of the API to be used with the client request.
+      required: true
+      schema:
+        type: string
   schemas:
     MetadataEntityListResult:
       description: The list of metadata entities
@@ -37,21 +52,31 @@ components:
           type: string
     MetadataEntity:
       description: The metadata entity contract.
-      type: object
       properties:
-        id:
-          description: The resource Id of the metadata entity.
+        displayName:
+          description: The display name.
           type: string
-        type:
-          description: The type of the metadata entity.
-          type: string
-        name:
-          description: The name of the metadata entity.
-          type: string
-        properties:
-          $ref: '#/components/schemas/MetadataEntityProperties'
-          description: The metadata entity properties.
-          x-ms-client-flatten: true
+        dependsOn:
+          description: The list of keys on which this entity depends on.
+          type: array
+          items:
+            type: string
+        applicableScenarios:
+          description: The list of scenarios applicable to this metadata entity.
+          type: array
+          items:
+            enum:
+              - Alerts
+            type: string
+            x-ms-enum:
+              name: Scenario
+              modelAsString: true
+        supportedValues:
+          description: The list of supported values.
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataSupportedValueDetail'
+      type: object
     MetadataEntityProperties:
       description: The metadata entity properties
       type: object
@@ -103,14 +128,54 @@ components:
           type: string
     ConfigData:
       description: The Advisor configuration data structure.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ConfigDataProperties'
-          description: The Advisor configuration data structure.
-          x-ms-client-flatten: true
+        id:
+          description: The resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        exclude:
+          description: 'Exclude the resource from Advisor evaluations. Valid values: False (default) or True.'
+          type: boolean
+        lowCpuThreshold:
+          description: 'Minimum percentage threshold for Advisor low CPU utilization evaluation. Valid only for subscriptions. Valid values: 5 (default), 10, 15 or 20.'
+          enum:
+            - '5'
+            - '10'
+            - '15'
+            - '20'
+          type: string
+          x-ms-enum:
+            name: CpuThreshold
+            modelAsString: true
+        duration:
+          description: 'Minimum duration for Advisor low CPU utilization evaluation. Valid only for subscriptions. Valid values: 7 (default), 14, 21, 30, 60 or 90.'
+          enum:
+            - '7'
+            - '14'
+            - '21'
+            - '30'
+            - '60'
+            - '90'
+          type: string
+          x-ms-enum:
+            name: Duration
+            modelAsString: true
+        digests:
+          description: Advisor digest configuration. Valid only for subscriptions
+          type: array
+          items:
+            $ref: '#/components/schemas/DigestConfig'
+          x-ms-identifiers:
+            - name
+      type: object
     ConfigDataProperties:
       description: Configuration data properties
       type: object
@@ -218,14 +283,117 @@ components:
             $ref: '#/components/schemas/ResourceRecommendationBase'
     ResourceRecommendationBase:
       description: Advisor Recommendation.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/RecommendationProperties'
-          description: The properties of the recommendation.
-          x-ms-client-flatten: true
+        id:
+          description: The resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        category:
+          description: The category of the recommendation.
+          enum:
+            - HighAvailability
+            - Security
+            - Performance
+            - Cost
+            - OperationalExcellence
+          type: string
+          x-ms-enum:
+            name: category
+            modelAsString: true
+        impact:
+          description: The business impact of the recommendation.
+          enum:
+            - High
+            - Medium
+            - Low
+          type: string
+          x-ms-enum:
+            name: impact
+            modelAsString: true
+        impactedField:
+          description: The resource type identified by Advisor.
+          type: string
+        impactedValue:
+          description: The resource identified by Advisor.
+          type: string
+        lastUpdated:
+          format: date-time
+          description: The most recent time that Advisor checked the validity of the recommendation.
+          type: string
+        metadata:
+          description: The recommendation metadata.
+          type: object
+          additionalProperties:
+            type: object
+        recommendationTypeId:
+          description: The recommendation-type GUID.
+          type: string
+        risk:
+          description: The potential risk of not implementing the recommendation.
+          enum:
+            - Error
+            - Warning
+            - None
+          type: string
+          x-ms-enum:
+            name: risk
+            modelAsString: true
+        shortDescription:
+          $ref: '#/components/schemas/ShortDescription'
+          description: A summary of the recommendation.
+        suppressionIds:
+          description: The list of snoozed and dismissed rules for the recommendation.
+          type: array
+          items:
+            format: uuid
+            type: string
+        extendedProperties:
+          description: Extended properties
+          type: object
+          additionalProperties:
+            type: string
+        resourceMetadata:
+          $ref: '#/components/schemas/ResourceMetadata'
+          description: Metadata of resource that was assessed
+        description:
+          description: The detailed description of recommendation.
+          type: string
+        label:
+          description: The label of recommendation.
+          type: string
+        learnMoreLink:
+          description: The link to learn more about recommendation and generation logic.
+          type: string
+        potentialBenefits:
+          description: The potential benefit of implementing recommendation.
+          type: string
+        actions:
+          description: The list of recommended actions to implement recommendation.
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: object
+          x-ms-identifiers: []
+        remediation:
+          description: The automated way to apply recommendation.
+          type: object
+          additionalProperties:
+            type: object
+        exposedMetadataProperties:
+          description: The recommendation metadata properties exposed to customer to provide additional information.
+          type: object
+          additionalProperties:
+            type: object
+      type: object
     RecommendationProperties:
       description: The properties of the recommendation.
       type: object
@@ -417,14 +585,31 @@ components:
           type: string
     SuppressionContract:
       description: The details of the snoozed or dismissed rule; for example, the duration, name, and GUID associated with the rule.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/SuppressionProperties'
-          description: The properties of the suppression.
-          x-ms-client-flatten: true
+        id:
+          description: The resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        suppressionId:
+          description: The GUID of the suppression.
+          type: string
+        ttl:
+          description: The duration for which the suppression is valid.
+          type: string
+        expirationTimeStamp:
+          readOnly: true
+          format: date-time
+          description: Gets or sets the expiration time stamp.
+          type: string
+      type: object
     SuppressionProperties:
       description: The properties of the suppression.
       type: object
@@ -454,12 +639,19 @@ components:
             $ref: '#/components/schemas/SuppressionContract'
     PredictionRequest:
       description: Parameters for predict recommendation.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/PredictionRequestProperties'
-          description: Request properties for prediction recommendation.
-          x-ms-client-flatten: true
+        predictionType:
+          description: Type of the prediction.
+          enum:
+            - PredictiveRightsizing
+          type: string
+          x-ms-enum:
+            name: predictionType
+            modelAsString: true
+        extendedProperties:
+          description: Extended properties are arguments specific for each prediction type.
+          type: object
+      type: object
     PredictionRequestProperties:
       description: Properties given for the predictor.
       type: object
@@ -477,13 +669,52 @@ components:
           type: object
     PredictionResponse:
       description: Response used by predictions.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PredictionResponseProperties'
-          description: The properties of the prediction.
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        extendedProperties:
+          description: Extended properties
+          type: object
+        predictionType:
+          description: Type of the prediction.
+          enum:
+            - PredictiveRightsizing
+          type: string
+          x-ms-enum:
+            name: predictionType
+            modelAsString: true
+        category:
+          description: The category of the recommendation.
+          enum:
+            - HighAvailability
+            - Security
+            - Performance
+            - Cost
+            - OperationalExcellence
+          type: string
+          x-ms-enum:
+            name: category
+            modelAsString: true
+        impact:
+          description: The business impact of the recommendation.
+          enum:
+            - High
+            - Medium
+            - Low
+          type: string
+          x-ms-enum:
+            name: impact
+            modelAsString: true
+        impactedField:
+          description: The resource type identified by Advisor.
+          type: string
+        lastUpdated:
+          format: date-time
+          description: The most recent time that Advisor checked the validity of the recommendation.
+          type: string
+        shortDescription:
+          $ref: '#/components/schemas/ShortDescription'
+          description: A summary of the recommendation.
+      type: object
     PredictionResponseProperties:
       description: Properties of the prediction
       type: object
@@ -531,21 +762,6 @@ components:
         shortDescription:
           $ref: '#/components/schemas/ShortDescription'
           description: A summary of the recommendation.
-  parameters:
-    subscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID.
-      required: true
-      schema:
-        type: string
-    apiVersionParameter:
-      name: api-version
-      in: query
-      description: The version of the API to be used with the client request.
-      required: true
-      schema:
-        type: string
 paths:
   /providers/Microsoft.Advisor/metadata/{name}/?api-version=2022-09-01:
     get:

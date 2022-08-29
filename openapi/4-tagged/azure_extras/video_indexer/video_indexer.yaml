@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,62 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    AccountNameParameter:
+      name: accountName
+      in: path
+      description: The name of the Azure Video Indexer account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9-]+$
+        maxLength: 50
+        minLength: 3
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +101,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +140,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -530,34 +617,102 @@ components:
           description: Resource tags
     Account:
       description: An Azure Video Indexer account.
-      type: object
       properties:
-        properties:
-          description: List of account properties
-          type: object
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AccountPropertiesForPutRequest'
-        identity:
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-        systemData:
+        tenantId:
+          description: The account's tenant id
+          type: string
           readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-    AccountPatch:
+          example: 2b9bcf6d-39d5-460a-a6bb-7b40b7ccf139
+        accountId:
+          description: The account's data-plane ID. This can be set only when connecting an existing classic account
+          type: string
+          default: 00000000-0000-0000-0000-000000000000
+          example: 3575690b-a569-449c-ab7b-11020f948f76
+        accountName:
+          description: The account's name
+          type: string
+          readOnly: true
+          example: contoso-videoAnalyzer
+        mediaServices:
+          description: The media services details
+          type: object
+          $ref: '#/components/schemas/MediaServicesForPutRequest'
+        totalSecondsIndexed:
+          description: An integer representing the total seconds that have been indexed on the account
+          type: integer
+          format: int32
+          readOnly: true
+        provisioningState:
+          readOnly: true
+          type: string
+          description: Gets the status of the account at the time the operation was called.
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+            - Provisioning
+            - Deleting
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
       type: object
+    AccountPatch:
       description: Azure Video Indexer account
       properties:
-        properties:
-          description: List of account properties
+        tenantId:
+          description: The account's tenant id
+          type: string
+          readOnly: true
+          example: 2b9bcf6d-39d5-460a-a6bb-7b40b7ccf139
+        accountId:
+          description: The account's data-plane ID
+          readOnly: true
+          type: string
+          example: 3575690b-a569-449c-ab7b-11020f948f76
+        mediaServices:
+          description: The media services details
           type: object
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AccountPropertiesForPatchRequest'
-        identity:
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-      allOf:
-        - $ref: '#/components/schemas/Tags'
+          $ref: '#/components/schemas/MediaServicesForPatchRequest'
+        provisioningState:
+          readOnly: true
+          type: string
+          description: Gets the status of the account at the time the operation was called.
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+            - Provisioning
+            - Deleting
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags
+      type: object
     AccountPropertiesForPutRequest:
       description: Azure Video Indexer account properties
       type: object
@@ -744,27 +899,12 @@ components:
           example: 462af7c5-d1f6-4b91-86e3-8bc5e8a61574
     ClassicAccount:
       description: An Azure Video Indexer classic account.
-      type: object
       properties:
-        name:
-          description: The account's name
-          type: string
-          readOnly: true
-          example: contoso-videoanalyzer
-        location:
-          description: The account's location
-          type: string
-          example: westus
-        id:
-          description: The account's id
-          type: string
-          readOnly: true
-          example: 462af7c5-d1f6-4b91-86e3-8bc5e8a61574
-        properties:
-          description: List of classic account properties
+        mediaServices:
+          description: The media services details
           type: object
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ClassicAccountProperties'
+          $ref: '#/components/schemas/ClassicAccountMediaServices'
+      type: object
     ClassicAccountProperties:
       description: Azure Video Indexer classic account properties
       type: object
@@ -890,9 +1030,10 @@ components:
     UserAssignedIdentities:
       title: User-Assigned Identities
       description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
-      type: object
       additionalProperties:
         $ref: '#/components/schemas/UserAssignedIdentity'
+      properties: {}
+      type: object
     UserAssignedIdentity:
       type: object
       description: User assigned identity properties
@@ -965,62 +1106,6 @@ components:
           $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
       required:
         - type
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    AccountNameParameter:
-      name: accountName
-      in: path
-      description: The name of the Azure Video Indexer account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9-]+$
-        maxLength: 50
-        minLength: 3
-        type: string
 paths:
   /providers/Microsoft.VideoIndexer/operations/?api-version=2022-08-01:
     get:

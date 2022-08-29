@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,88 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    PrivateEndpointConnectionNameParameter:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Gets subscription credentials which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: Name of an Azure Resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-\w\._]+$
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    CountTypeParameter:
+      name: countType
+      in: path
+      description: The type of counts to retrieve
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - status
+          - nodeconfiguration
+        x-ms-enum:
+          name: CountType
+          modelAsString: true
+        type: string
+    AutomationAccountNameParameter:
+      name: automationAccountName
+      in: path
+      description: The name of the automation account.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    clientRequestId:
+      name: clientRequestId
+      in: header
+      description: Identifies this specific client request.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     DscNodeReportListResult:
       properties:
@@ -242,12 +324,47 @@ components:
     DscNode:
       description: Definition of a DscNode
       properties:
-        properties:
-          $ref: '#/components/schemas/DscNodeProperties'
+        lastSeen:
+          type: string
+          format: date-time
+          description: Gets or sets the last seen time of the node.
+          nullable: false
+        registrationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the registration time of the node.
+          nullable: false
+        ip:
+          type: string
+          description: Gets or sets the ip of the node.
+        accountId:
+          type: string
+          description: Gets or sets the account id of the node.
+        nodeConfiguration:
+          nullable: true
+          x-nullable: true
           x-ms-client-flatten: true
-          description: The properties of a DscNode.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+          $ref: '#/components/schemas/DscNodeConfigurationAssociationProperty'
+          description: Gets or sets the configuration of the node.
+        status:
+          type: string
+          description: Gets or sets the status of the node.
+        nodeId:
+          type: string
+          description: Gets or sets the node id.
+        etag:
+          type: string
+          description: Gets or sets the etag of the resource.
+        totalCount:
+          type: integer
+          description: Gets the total number of records matching filter criteria.
+        extensionHandler:
+          type: array
+          description: Gets or sets the list of extensionHandler properties for a Node.
+          items:
+            $ref: '#/components/schemas/DscNodeExtensionHandlerAssociationProperty'
+          x-ms-identifiers:
+            - name
       type: object
     DscNodeProperties:
       description: The properties of a DscNode
@@ -327,17 +444,8 @@ components:
       description: The parameters supplied to the regenerate keys operation.
       type: object
     DscNodeUpdateParameters:
-      properties:
-        nodeId:
-          type: string
-          description: Gets or sets the id of the dsc node.
-        properties:
-          properties:
-            nodeConfiguration:
-              x-ms-client-flatten: true
-              $ref: '#/components/schemas/DscNodeConfigurationAssociationProperty'
-              description: Gets or sets the configuration of the node.
       description: The parameters supplied to the update dsc node operation.
+      properties: {}
       type: object
     DscNodeListResult:
       properties:
@@ -355,15 +463,41 @@ components:
       description: The response model for the list dsc nodes operation.
       type: object
     JobStream:
-      properties:
-        id:
-          type: string
-          description: Gets or sets the id of the resource.
-        properties:
-          $ref: '#/components/schemas/JobStreamProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the id of the job stream.
       description: Definition of the job stream.
+      properties:
+        jobStreamId:
+          type: string
+          description: Gets or sets the id of the job stream.
+        time:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time of the job.
+          nullable: false
+        streamType:
+          type: string
+          description: Gets or sets the stream type.
+          enum:
+            - Progress
+            - Output
+            - Warning
+            - Error
+            - Debug
+            - Verbose
+            - Any
+          x-ms-enum:
+            name: JobStreamType
+            modelAsString: true
+        streamText:
+          type: string
+          description: Gets or sets the stream text.
+        summary:
+          type: string
+          description: Gets or sets the summary.
+        value:
+          type: object
+          additionalProperties:
+            type: object
+          description: Gets or sets the values of the job stream.
       type: object
     JobStreamProperties:
       properties:
@@ -421,12 +555,79 @@ components:
         - read
         - create
       properties:
-        properties:
-          $ref: '#/components/schemas/JobProperties'
-          x-ms-client-flatten: true
-          description: The properties of the job.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook.
+        startedBy:
+          type: string
+          description: Gets or sets the job started by.
+        runOn:
+          type: string
+          description: Gets or sets the runOn which specifies the group name where the job is to be executed.
+        jobId:
+          type: string
+          format: uuid
+          description: Gets or sets the id of the job.
+          nullable: false
+        creationTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: Gets or sets the creation time of the job.
+        status:
+          type: string
+          description: Gets or sets the status of the job.
+          enum:
+            - New
+            - Activating
+            - Running
+            - Completed
+            - Failed
+            - Stopped
+            - Blocked
+            - Suspended
+            - Disconnected
+            - Suspending
+            - Stopping
+            - Resuming
+            - Removing
+          x-ms-enum:
+            name: JobStatus
+            modelAsString: true
+        statusDetails:
+          type: string
+          description: Gets or sets the status details of the job.
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Gets or sets the start time of the job.
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Gets or sets the end time of the job.
+        exception:
+          type: string
+          description: Gets or sets the exception of the job.
+        lastModifiedTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Gets or sets the last modified time of the job.
+        lastStatusModifiedTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Gets or sets the last status modified time of the job.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
+        provisioningState:
+          $ref: '#/components/schemas/JobProvisioningStateProperty'
+          description: The current provisioning state of the job.
       type: object
     JobListResultV2:
       properties:
@@ -444,16 +645,72 @@ components:
       type: object
     JobCollectionItem:
       description: Job collection item properties.
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Job properties.
-          $ref: '#/components/schemas/JobCollectionItemProperties'
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       required:
         - properties
+      properties:
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          readOnly: true
+          description: The runbook association.
+        jobId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The id of the job.
+          nullable: false
+        creationTime:
+          type: string
+          format: date-time
+          nullable: false
+          readOnly: true
+          description: The creation time of the job.
+        status:
+          type: string
+          readOnly: true
+          description: The status of the job.
+          enum:
+            - New
+            - Activating
+            - Running
+            - Completed
+            - Failed
+            - Stopped
+            - Blocked
+            - Suspended
+            - Disconnected
+            - Suspending
+            - Stopping
+            - Resuming
+            - Removing
+          x-ms-enum:
+            name: JobStatus
+            modelAsString: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The start time of the job.
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The end time of the job.
+        lastModifiedTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The last modified time of the job.
+        provisioningState:
+          type: string
+          description: The provisioning state of a resource.
+          readOnly: true
+        runOn:
+          type: string
+          description: Specifies the runOn group name where the job was executed.
+      type: object
     JobProperties:
       properties:
         runbook:
@@ -539,14 +796,21 @@ components:
       description: The runbook property associated with the entity.
       type: object
     JobCreateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/JobCreateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the list of job properties.
       required:
         - properties
       description: The parameters supplied to the create job operation.
+      properties:
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
+        runOn:
+          type: string
+          description: Gets or sets the runOn which specifies the group name where the job is to be executed.
       type: object
     JobCollectionItemProperties:
       description: Job collection item properties.
@@ -641,22 +905,72 @@ components:
         name: JobProvisioningState
         modelAsString: true
     AutomationAccount:
-      properties:
-        properties:
-          $ref: '#/components/schemas/AutomationAccountProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the automation account properties.
-        etag:
-          type: string
-          description: Gets or sets the etag of the resource.
-        identity:
-          $ref: '#/components/schemas/Identity'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Resource system metadata.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Definition of the automation account type.
+      properties:
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Gets or sets the SKU of account.
+        lastModifiedBy:
+          type: string
+          description: Gets or sets the last modified by.
+        state:
+          type: string
+          readOnly: true
+          description: Gets status of account.
+          enum:
+            - Ok
+            - Unavailable
+            - Suspended
+          x-ms-enum:
+            name: AutomationAccountState
+            modelAsString: true
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
+        encryption:
+          $ref: '#/components/schemas/EncryptionProperties'
+          description: Encryption properties for the automation account
+        privateEndpointConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: List of Automation operations supported by the Automation resource provider.
+        publicNetworkAccess:
+          type: boolean
+          description: Indicates whether traffic on the non-ARM endpoint (Webhook/Agent) is allowed from the public internet
+        disableLocalAuth:
+          type: boolean
+          description: Indicates whether requests using non-AAD authentication are blocked
+        automationHybridServiceUrl:
+          type: string
+          description: URL of automation hybrid service which is used for hybrid worker on-boarding.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The Azure Region where the resource lives
       type: object
     AutomationAccountProperties:
       properties:
@@ -742,27 +1056,20 @@ components:
       required:
         - name
     AutomationAccountCreateOrUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/AutomationAccountCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets account create or update properties.
-        name:
-          type: string
-          description: Gets or sets name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        identity:
-          type: object
-          $ref: '#/components/schemas/Identity'
-          description: Sets the identity property for automation account
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       description: The parameters supplied to the create or update automation account operation.
+      properties:
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Gets or sets account SKU.
+        encryption:
+          $ref: '#/components/schemas/EncryptionProperties'
+          description: Set the encryption properties for the automation account
+        publicNetworkAccess:
+          type: boolean
+          description: Indicates whether traffic on the non-ARM endpoint (Webhook/Agent) is allowed from the public internet
+        disableLocalAuth:
+          type: boolean
+          description: Indicates whether requests using non-AAD authentication are blocked
       type: object
     AutomationAccountCreateOrUpdateProperties:
       properties:
@@ -928,27 +1235,20 @@ components:
       description: The parameters supplied to the update account properties.
       type: object
     AutomationAccountUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/AutomationAccountUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets account update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        identity:
-          type: object
-          $ref: '#/components/schemas/Identity'
-          description: Sets the identity property for automation account
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       description: The parameters supplied to the update automation account operation.
+      properties:
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Gets or sets account SKU.
+        encryption:
+          $ref: '#/components/schemas/EncryptionProperties'
+          description: Set the encryption properties for the automation account
+        publicNetworkAccess:
+          type: boolean
+          description: Indicates whether traffic on the non-ARM endpoint (Webhook/Agent) is allowed from the public internet
+        disableLocalAuth:
+          type: boolean
+          description: Indicates whether requests using non-AAD authentication are blocked
       type: object
     Identity:
       description: Identity for the resource.
@@ -1031,17 +1331,26 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+      type: object
     TrackedResource:
       description: The resource model definition for a ARM tracked top level resource
-      type: object
       properties:
         tags:
           type: object
@@ -1058,14 +1367,35 @@ components:
             - read
             - create
           description: The Azure Region where the resource lives
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+      type: object
     ProxyResource:
       description: ARM proxy resource.
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties: {}
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -1391,16 +1721,29 @@ components:
       description: The response model for the list source control sync job streams operation.
       type: object
     SourceControlSyncJobStream:
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Resource id.
-        properties:
-          $ref: '#/components/schemas/SourceControlSyncJobStreamProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control sync job stream.
       description: Definition of the source control sync job stream.
+      properties:
+        sourceControlSyncJobStreamId:
+          type: string
+          description: The sync job stream id.
+        summary:
+          type: string
+          description: The summary of the sync job stream.
+        time:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The time of the sync job stream.
+        streamType:
+          type: string
+          description: The type of the sync job stream.
+          enum:
+            - Error
+            - Output
+          x-ms-enum:
+            name: streamType
+            modelAsString: true
       type: object
     SourceControlSyncJobStreamProperties:
       properties:
@@ -1428,16 +1771,37 @@ components:
       description: Definition of source control sync job stream properties.
       type: object
     SourceControlSyncJobStreamById:
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Resource id.
-        properties:
-          $ref: '#/components/schemas/SourceControlSyncJobStreamByIdProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control sync job stream.
       description: Definition of the source control sync job stream by id.
+      properties:
+        sourceControlSyncJobStreamId:
+          type: string
+          description: The sync job stream id.
+        summary:
+          type: string
+          description: The summary of the sync job stream.
+        time:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The time of the sync job stream.
+        streamType:
+          type: string
+          description: The type of the sync job stream.
+          enum:
+            - Error
+            - Output
+          x-ms-enum:
+            name: streamType
+            modelAsString: true
+        streamText:
+          type: string
+          description: The text of the sync job stream.
+        value:
+          type: object
+          additionalProperties:
+            type: object
+          description: The values of the job stream.
       type: object
     SourceControlSyncJobStreamByIdProperties:
       properties:
@@ -1475,20 +1839,79 @@ components:
     softwareUpdateConfigurationMachineRun:
       description: Software update configuration machine run model.
       x-ms-azure-resource: false
-      type: object
       properties:
-        name:
-          readOnly: true
+        targetComputer:
           type: string
-          description: Name of the software update configuration machine run
-        id:
+          description: name of the updated computer
           readOnly: true
+        targetComputerType:
           type: string
-          description: Resource Id of the software update configuration machine run
-        properties:
-          x-ms-client-flatten: true
-          description: Software update configuration machine run properties.
-          $ref: '#/components/schemas/updateConfigurationMachineRunProperties'
+          description: type of the updated computer.
+          readOnly: true
+        softwareUpdateConfiguration:
+          description: software update configuration triggered this run
+          $ref: '#/components/schemas/updateConfigurationNavigation'
+        status:
+          type: string
+          description: Status of the software update configuration machine run.
+          readOnly: true
+        osType:
+          type: string
+          description: Operating system target of the software update configuration triggered this run
+          readOnly: true
+        correlationId:
+          type: string
+          format: uuid
+          description: correlation id of the software update configuration machine run
+          readOnly: true
+        sourceComputerId:
+          type: string
+          format: uuid
+          description: source computer id of the software update configuration machine run
+          readOnly: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: Start time of the software update configuration machine run.
+          readOnly: true
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: End time of the software update configuration machine run.
+          readOnly: true
+        configuredDuration:
+          type: string
+          description: configured duration for the software update configuration run.
+          readOnly: true
+        job:
+          description: Job associated with the software update configuration machine run
+          $ref: '#/components/schemas/jobNavigation'
+        creationTime:
+          type: string
+          description: Creation time of the resource, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        createdBy:
+          type: string
+          description: createdBy property, which only appears in the response.
+          readOnly: true
+        lastModifiedTime:
+          type: string
+          description: Last time resource was modified, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        lastModifiedBy:
+          type: string
+          description: lastModifiedBy property, which only appears in the response.
+          readOnly: true
+        error:
+          description: Details of provisioning error
+          $ref: '#/components/schemas/ErrorResponse'
+      type: object
     softwareUpdateConfigurationMachineRunListResult:
       description: result of listing all software update configuration machine runs
       properties:
@@ -1610,18 +2033,22 @@ components:
       description: The properties of the create connection properties
       type: object
     ConnectionCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the connection.
-        properties:
-          $ref: '#/components/schemas/ConnectionCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the connection.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update connection operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the connection.
+        connectionType:
+          $ref: '#/components/schemas/ConnectionTypeAssociationProperty'
+          description: Gets or sets the connectionType of the connection.
+        fieldDefinitionValues:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the field definition properties of the connection.
       type: object
     ConnectionProperties:
       properties:
@@ -1652,14 +2079,32 @@ components:
       description: Definition of the connection properties.
       type: object
     Connection:
-      properties:
-        properties:
-          $ref: '#/components/schemas/ConnectionProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the connection.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the connection.
+      properties:
+        connectionType:
+          $ref: '#/components/schemas/ConnectionTypeAssociationProperty'
+          description: Gets or sets the connectionType of the connection.
+        fieldDefinitionValues:
+          type: object
+          additionalProperties:
+            type: string
+          readOnly: true
+          description: Gets the field definition values of the connection.
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     ConnectionListResult:
       properties:
@@ -1686,15 +2131,16 @@ components:
       description: The properties of the update connection operation.
       type: object
     ConnectionUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the connection.
-        properties:
-          $ref: '#/components/schemas/ConnectionUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the connection.
       description: The parameters supplied to the update connection operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the connection.
+        fieldDefinitionValues:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the field definition values of the connection.
       type: object
     ConnectionTypeAssociationProperty:
       properties:
@@ -1720,11 +2166,9 @@ components:
     NodeCount:
       description: Number of nodes based on the Filter
       properties:
-        name:
-          description: Gets the name of a count type
-          type: string
-        properties:
-          $ref: '#/components/schemas/NodeCountProperties'
+        count:
+          description: Gets the count for the name
+          type: integer
       type: object
     NodeCountProperties:
       properties:
@@ -1775,24 +2219,31 @@ components:
       description: Properties of the connection type.
       type: object
     ConnectionType:
-      properties:
-        id:
-          type: string
-          readOnly: true
-          description: Gets the id of the resource.
-        name:
-          type: string
-          readOnly: true
-          description: Gets the name of the connection type.
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
-        properties:
-          $ref: '#/components/schemas/ConnectionTypeProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the connection type.
       description: Definition of the connection type.
+      properties:
+        isGlobal:
+          type: boolean
+          description: Gets or sets a Boolean value to indicate if the connection type is global.
+        fieldDefinitions:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FieldDefinition'
+          readOnly: true
+          description: Gets the field definitions of the connection type.
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     ConnectionTypeListResult:
       properties:
@@ -1807,18 +2258,19 @@ components:
       description: The response model for the list connection type operation.
       type: object
     ConnectionTypeCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the connection type.
-        properties:
-          $ref: '#/components/schemas/ConnectionTypeCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the value of the connection type.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update connection type operation.
+      properties:
+        isGlobal:
+          type: boolean
+          description: Gets or sets a Boolean value to indicate if the connection type is global.
+        fieldDefinitions:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FieldDefinition'
+          description: Gets or sets the field definitions of the connection type.
       type: object
     ConnectionTypeCreateOrUpdateProperties:
       properties:
@@ -1932,28 +2384,100 @@ components:
           - value: Minute
             description: The minimum allowed interval for Minute schedules is 15 minutes.
     ScheduleCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the Schedule.
-        properties:
-          $ref: '#/components/schemas/ScheduleCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the list of schedule properties.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update schedule operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the schedule.
+        startTime:
+          type: string
+          format: date-time
+          description: Gets or sets the start time of the schedule.
+          nullable: false
+        expiryTime:
+          type: string
+          format: date-time
+          description: Gets or sets the end time of the schedule.
+          nullable: true
+        interval:
+          description: Gets or sets the interval of the schedule.
+        frequency:
+          type: string
+          description: Gets or sets the frequency of the schedule.
+          $ref: '#/components/schemas/scheduleFrequency'
+        timeZone:
+          type: string
+          description: Gets or sets the time zone of the schedule.
+        advancedSchedule:
+          $ref: '#/components/schemas/AdvancedSchedule'
+          description: Gets or sets the AdvancedSchedule.
       type: object
     Schedule:
-      properties:
-        properties:
-          $ref: '#/components/schemas/ScheduleProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the schedule.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the schedule.
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Gets or sets the start time of the schedule.
+          nullable: false
+        startTimeOffsetMinutes:
+          readOnly: true
+          type: number
+          format: double
+          description: Gets the start time's offset in minutes.
+          nullable: false
+        expiryTime:
+          type: string
+          format: date-time
+          description: Gets or sets the end time of the schedule.
+          nullable: true
+        expiryTimeOffsetMinutes:
+          type: number
+          format: double
+          description: Gets or sets the expiry time's offset in minutes.
+          nullable: false
+        isEnabled:
+          type: boolean
+          default: false
+          description: Gets or sets a value indicating whether this schedule is enabled.
+        nextRun:
+          type: string
+          format: date-time
+          description: Gets or sets the next run time of the schedule.
+          nullable: true
+        nextRunOffsetMinutes:
+          type: number
+          format: double
+          description: Gets or sets the next run time's offset in minutes.
+          nullable: false
+        interval:
+          description: Gets or sets the interval of the schedule.
+        frequency:
+          type: string
+          description: Gets or sets the frequency of the schedule.
+          $ref: '#/components/schemas/scheduleFrequency'
+        timeZone:
+          type: string
+          description: Gets or sets the time zone of the schedule.
+        advancedSchedule:
+          $ref: '#/components/schemas/AdvancedSchedule'
+          description: Gets or sets the advanced schedule.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     ScheduleProperties:
       properties:
@@ -2030,15 +2554,14 @@ components:
       description: The parameters supplied to the update schedule operation.
       type: object
     ScheduleUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the Schedule.
-        properties:
-          $ref: '#/components/schemas/ScheduleUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the list of schedule properties.
       description: The parameters supplied to the update schedule operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the schedule.
+        isEnabled:
+          type: boolean
+          description: Gets or sets a value indicating whether this schedule is enabled.
       type: object
     ScheduleListResult:
       properties:
@@ -2162,17 +2685,102 @@ components:
       description: Definition of the runbook property type.
       type: object
     Runbook:
-      properties:
-        properties:
-          $ref: '#/components/schemas/RunbookProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the runbook properties.
-        etag:
-          type: string
-          description: Gets or sets the etag of the resource.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Definition of the runbook type.
+      properties:
+        runbookType:
+          type: string
+          description: Gets or sets the type of the runbook.
+          enum:
+            - Script
+            - Graph
+            - PowerShellWorkflow
+            - PowerShell
+            - GraphPowerShellWorkflow
+            - GraphPowerShell
+            - Python2
+            - Python3
+          x-ms-enum:
+            name: RunbookTypeEnum
+            modelAsString: true
+        publishContentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the published runbook content link.
+        state:
+          type: string
+          description: Gets or sets the state of the runbook.
+          enum:
+            - New
+            - Edit
+            - Published
+          x-ms-enum:
+            name: RunbookState
+            modelAsString: true
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        logProgress:
+          type: boolean
+          description: Gets or sets progress log option.
+        logActivityTrace:
+          type: integer
+          format: int32
+          description: Gets or sets the option to log activity trace of the runbook.
+        jobCount:
+          type: integer
+          format: int32
+          description: Gets or sets the job count of the runbook.
+        parameters:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RunbookParameter'
+          description: Gets or sets the runbook parameters.
+        outputTypes:
+          type: array
+          items:
+            type: string
+          description: Gets or sets the runbook output types.
+        draft:
+          $ref: '#/components/schemas/RunbookDraft'
+          description: Gets or sets the draft runbook properties.
+        provisioningState:
+          type: string
+          description: Gets or sets the provisioning state of the runbook.
+          enum:
+            - Succeeded
+          x-ms-enum:
+            name: RunbookProvisioningState
+            modelAsString: false
+        lastModifiedBy:
+          type: string
+          description: Gets or sets the last modified by.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The Azure Region where the resource lives
       type: object
     RunbookListResult:
       properties:
@@ -2227,25 +2835,44 @@ components:
       description: The parameters supplied to the create or update runbook properties.
       type: object
     RunbookCreateOrUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/RunbookCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets runbook create or update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       required:
         - properties
       description: The parameters supplied to the create or update runbook operation.
+      properties:
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        logProgress:
+          type: boolean
+          description: Gets or sets progress log option.
+        runbookType:
+          type: string
+          description: Gets or sets the type of the runbook.
+          enum:
+            - Script
+            - Graph
+            - PowerShellWorkflow
+            - PowerShell
+            - GraphPowerShellWorkflow
+            - GraphPowerShell
+            - Python2
+            - Python3
+          x-ms-enum:
+            name: RunbookTypeEnum
+            modelAsString: true
+        draft:
+          $ref: '#/components/schemas/RunbookDraft'
+          description: Gets or sets the draft runbook properties.
+        publishContentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the published runbook content link.
+        description:
+          type: string
+          description: Gets or sets the description of the runbook.
+        logActivityTrace:
+          type: integer
+          format: int32
+          description: Gets or sets the activity-level tracing options of the runbook.
       type: object
     RunbookUpdateProperties:
       properties:
@@ -2265,23 +2892,21 @@ components:
       description: The parameters supplied to the update runbook properties.
       type: object
     RunbookUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/RunbookUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the runbook update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       description: The parameters supplied to the update runbook operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the runbook.
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        logProgress:
+          type: boolean
+          description: Gets or sets progress log option.
+        logActivityTrace:
+          type: integer
+          format: int32
+          description: Gets or sets the activity-level tracing options of the runbook.
       type: object
     RunbookDraftUndoEditResult:
       properties:
@@ -2521,18 +3146,24 @@ components:
       description: The properties of the create certificate operation.
       type: object
     CertificateCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the certificate.
-        properties:
-          $ref: '#/components/schemas/CertificateCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the certificate.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update or replace certificate operation.
+      properties:
+        base64Value:
+          type: string
+          description: Gets or sets the base64 encoded value of the certificate.
+        description:
+          type: string
+          description: Gets or sets the description of the certificate.
+        thumbprint:
+          type: string
+          description: Gets or sets the thumbprint of the certificate.
+        isExportable:
+          type: boolean
+          description: Gets or sets the is exportable flag of the certificate.
+          nullable: false
       type: object
     CertificateProperties:
       properties:
@@ -2569,14 +3200,38 @@ components:
       description: Properties of the certificate.
       type: object
     Certificate:
-      properties:
-        properties:
-          $ref: '#/components/schemas/CertificateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the certificate.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the certificate.
+      properties:
+        thumbprint:
+          type: string
+          readOnly: true
+          description: Gets the thumbprint of the certificate.
+        expiryTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the expiry time of the certificate.
+          nullable: false
+        isExportable:
+          type: boolean
+          readOnly: true
+          description: Gets the is exportable flag of the certificate.
+          nullable: false
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     CertificateListResult:
       properties:
@@ -2598,15 +3253,11 @@ components:
       description: The properties of the update certificate operation
       type: object
     CertificateUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the certificate.
-        properties:
-          $ref: '#/components/schemas/CertificateUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the certificate.
       description: The parameters supplied to the update certificate operation.
+      properties:
+        description:
+          type: string
+          description: Gets or sets the description of the certificate.
       type: object
     LinkedWorkspace:
       properties:
@@ -2617,18 +3268,20 @@ components:
       description: Definition of the linked workspace.
       type: object
     VariableCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the variable.
-        properties:
-          $ref: '#/components/schemas/VariableCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the variable.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update variable operation.
+      properties:
+        value:
+          type: string
+          description: Gets or sets the value of the variable.
+        description:
+          type: string
+          description: Gets or sets the description of the variable.
+        isEncrypted:
+          type: boolean
+          description: Gets or sets the encrypted flag of the variable.
       type: object
     VariableCreateOrUpdateProperties:
       properties:
@@ -2644,14 +3297,28 @@ components:
       description: The properties of the create variable operation.
       type: object
     Variable:
-      properties:
-        properties:
-          $ref: '#/components/schemas/VariableProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the variable.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the variable.
+      properties:
+        value:
+          type: string
+          description: Gets or sets the value of the variable.
+        isEncrypted:
+          type: boolean
+          description: Gets or sets the encrypted flag of the variable.
+          nullable: true
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     VariableListResult:
       properties:
@@ -2666,15 +3333,14 @@ components:
       description: The response model for the list variables operation.
       type: object
     VariableUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the variable.
-        properties:
-          $ref: '#/components/schemas/VariableUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the value of the variable.
       description: The parameters supplied to the update variable operation.
+      properties:
+        value:
+          type: string
+          description: Gets or sets the value of the variable.
+        description:
+          type: string
+          description: Gets or sets the description of the variable.
       type: object
     VariableUpdateProperties:
       properties:
@@ -2713,26 +3379,46 @@ components:
     softwareUpdateConfiguration:
       x-ms-azure-resource: true
       description: Software update configuration properties.
-      type: object
-      properties:
-        name:
-          readOnly: true
-          type: string
-          description: Resource name.
-        id:
-          readOnly: true
-          type: string
-          description: Resource Id.
-        type:
-          readOnly: true
-          type: string
-          description: Resource type
-        properties:
-          x-ms-client-flatten: true
-          description: Software update configuration properties.
-          $ref: '#/components/schemas/softwareUpdateConfigurationProperties'
       required:
         - properties
+      properties:
+        updateConfiguration:
+          description: update specific properties for the Software update configuration
+          $ref: '#/components/schemas/updateConfiguration'
+        scheduleInfo:
+          description: Schedule information for the Software update configuration
+          $ref: '#/components/schemas/SUCScheduleProperties'
+        provisioningState:
+          type: string
+          description: Provisioning state for the software update configuration, which only appears in the response.
+          readOnly: true
+        error:
+          description: Details of provisioning error
+          $ref: '#/components/schemas/ErrorResponse'
+        creationTime:
+          type: string
+          description: Creation time of the resource, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        createdBy:
+          type: string
+          description: CreatedBy property, which only appears in the response.
+          readOnly: true
+        lastModifiedTime:
+          type: string
+          description: Last time resource was modified, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        lastModifiedBy:
+          type: string
+          description: LastModifiedBy property, which only appears in the response.
+          readOnly: true
+        tasks:
+          description: Tasks information for the Software update configuration.
+          $ref: '#/components/schemas/softwareUpdateConfigurationTasks'
+      type: object
     softwareUpdateConfigurationProperties:
       description: Software update configuration properties.
       properties:
@@ -2979,22 +3665,46 @@ components:
       type: object
     softwareUpdateConfigurationCollectionItem:
       description: Software update configuration collection item properties.
-      type: object
-      properties:
-        name:
-          readOnly: true
-          type: string
-          description: Name of the software update configuration.
-        id:
-          readOnly: true
-          type: string
-          description: Resource Id of the software update configuration
-        properties:
-          x-ms-client-flatten: true
-          description: Software update configuration properties.
-          $ref: '#/components/schemas/softwareUpdateConfigurationCollectionItemProperties'
       required:
         - properties
+      properties:
+        updateConfiguration:
+          description: Update specific properties of the software update configuration.
+          $ref: '#/components/schemas/updateConfiguration'
+        tasks:
+          description: Pre and Post Tasks defined
+          $ref: '#/components/schemas/softwareUpdateConfigurationTasks'
+        frequency:
+          description: execution frequency of the schedule associated with the software update configuration
+          type: string
+          $ref: '#/components/schemas/scheduleFrequency'
+        startTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: the start time of the update.
+        creationTime:
+          type: string
+          description: Creation time of the software update configuration, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        lastModifiedTime:
+          type: string
+          description: Last time software update configuration was modified, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        provisioningState:
+          type: string
+          description: Provisioning state for the software update configuration, which only appears in the response.
+          readOnly: true
+        nextRun:
+          type: string
+          format: date-time
+          nullable: true
+          description: ext run time of the update.
+      type: object
     softwareUpdateConfigurationCollectionItemProperties:
       description: Software update configuration collection item properties.
       properties:
@@ -3122,18 +3832,20 @@ components:
       description: The properties of the create credential operation.
       type: object
     CredentialCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the credential.
-        properties:
-          $ref: '#/components/schemas/CredentialCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the credential.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update credential operation.
+      properties:
+        userName:
+          type: string
+          description: Gets or sets the user name of the credential.
+        password:
+          type: string
+          description: Gets or sets the password of the credential.
+        description:
+          type: string
+          description: Gets or sets the description of the credential.
       type: object
     CredentialProperties:
       properties:
@@ -3159,14 +3871,27 @@ components:
       description: Definition of the credential properties
       type: object
     Credential:
-      properties:
-        properties:
-          $ref: '#/components/schemas/CredentialProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the credential.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the credential.
+      properties:
+        userName:
+          type: string
+          readOnly: true
+          description: Gets the user name of the credential.
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     CredentialListResult:
       properties:
@@ -3194,15 +3919,17 @@ components:
       description: The properties of the Update credential
       type: object
     CredentialUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the credential.
-        properties:
-          $ref: '#/components/schemas/CredentialUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the variable.
       description: The parameters supplied to the Update credential operation.
+      properties:
+        userName:
+          type: string
+          description: Gets or sets the user name of the credential.
+        password:
+          type: string
+          description: Gets or sets the password of the credential.
+        description:
+          type: string
+          description: Gets or sets the description of the credential.
       type: object
     WebhookProperties:
       properties:
@@ -3253,14 +3980,52 @@ components:
       description: Definition of the webhook properties
       type: object
     Webhook:
-      properties:
-        properties:
-          $ref: '#/components/schemas/WebhookProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the webhook properties.
       description: Definition of the webhook type.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        isEnabled:
+          type: boolean
+          default: false
+          description: Gets or sets the value of the enabled flag of the webhook.
+        uri:
+          type: string
+          description: Gets or sets the webhook uri.
+        expiryTime:
+          type: string
+          format: date-time
+          description: Gets or sets the expiry time.
+          nullable: false
+        lastInvokedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last invoked time.
+          nullable: true
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job that is created when the webhook calls the runbook it is associated with.
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook the webhook is associated with.
+        runOn:
+          type: string
+          description: Gets or sets the name of the hybrid worker group the webhook job will run on.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        lastModifiedBy:
+          type: string
+          description: Details of the user who last modified the Webhook
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     WebhookListResult:
       properties:
@@ -3293,29 +4058,51 @@ components:
       description: The properties of the update webhook.
       type: object
     WebhookUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the webhook.
-        properties:
-          $ref: '#/components/schemas/WebhookUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the value of the webhook.
       description: The parameters supplied to the update webhook operation.
+      properties:
+        isEnabled:
+          type: boolean
+          description: Gets or sets the value of the enabled flag of webhook.
+        runOn:
+          type: string
+          description: Gets or sets the name of the hybrid worker group the webhook job will run on.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
+        description:
+          type: string
+          description: Gets or sets the description of the webhook.
       type: object
     WebhookCreateOrUpdateParameters:
-      properties:
-        name:
-          type: string
-          description: Gets or sets the name of the webhook.
-        properties:
-          $ref: '#/components/schemas/WebhookCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the webhook.
       required:
         - name
         - properties
       description: The parameters supplied to the create or update webhook operation.
+      properties:
+        isEnabled:
+          type: boolean
+          description: Gets or sets the value of the enabled flag of webhook.
+        uri:
+          type: string
+          description: Gets or sets the uri.
+        expiryTime:
+          type: string
+          format: date-time
+          description: Gets or sets the expiry time.
+          nullable: false
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook.
+        runOn:
+          type: string
+          description: Gets or sets the name of the hybrid worker group the webhook job will run on.
       type: object
     WebhookCreateOrUpdateProperties:
       properties:
@@ -3446,19 +4233,38 @@ components:
       description: Properties of the activity.
       type: object
     Activity:
-      properties:
-        id:
-          type: string
-          description: Gets or sets the id of the resource.
-        name:
-          type: string
-          readOnly: true
-          description: Gets the name of the activity.
-        properties:
-          $ref: '#/components/schemas/ActivityProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the activity.
       description: Definition of the activity.
+      properties:
+        definition:
+          type: string
+          description: Gets or sets the user name of the activity.
+        parameterSets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityParameterSet'
+          x-ms-identifiers:
+            - name
+          description: Gets or sets the parameter sets of the activity.
+        outputTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityOutputType'
+          x-ms-identifiers:
+            - name
+          description: Gets or sets the output types of the activity.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
       type: object
     ActivityListResult:
       properties:
@@ -3504,25 +4310,13 @@ components:
       description: The parameters supplied to the create or update module properties.
       type: object
     ModuleCreateOrUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/ModuleCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the module create properties.
-        name:
-          type: string
-          description: Gets or sets name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       required:
         - properties
       description: The parameters supplied to the create or update module operation.
+      properties:
+        contentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the module content link.
       type: object
     ModuleProperties:
       properties:
@@ -3595,36 +4389,89 @@ components:
       description: The parameters supplied to the update properties.
       type: object
     ModuleUpdateParameters:
+      description: The parameters supplied to the update module operation.
       properties:
-        properties:
-          $ref: '#/components/schemas/ModuleUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the module update properties.
-        name:
+        contentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the module content link.
+      type: object
+    Module:
+      description: Definition of the module type.
+      properties:
+        isGlobal:
+          type: boolean
+          description: Gets or sets the isGlobal flag of the module.
+        version:
           type: string
-          description: Gets or sets name of the resource.
-        location:
+          description: Gets or sets the version of the module.
+        sizeInBytes:
+          type: integer
+          format: int64
+          description: Gets or sets the size in bytes of the module.
+        activityCount:
+          type: integer
+          format: int32
+          description: Gets or sets the activity count of the module.
+        provisioningState:
           type: string
-          description: Gets or sets the location of the resource.
+          description: Gets or sets the provisioning state of the module.
+          enum:
+            - Created
+            - Creating
+            - StartingImportModuleRunbook
+            - RunningImportModuleRunbook
+            - ContentRetrieved
+            - ContentDownloaded
+            - ContentValidated
+            - ConnectionTypeImported
+            - ContentStored
+            - ModuleDataStored
+            - ActivitiesStored
+            - ModuleImportRunbookComplete
+            - Succeeded
+            - Failed
+            - Cancelled
+            - Updating
+          x-ms-enum:
+            name: ModuleProvisioningState
+            modelAsString: false
+        contentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the contentLink of the module.
+        error:
+          $ref: '#/components/schemas/ModuleErrorInfo'
+          description: Gets or sets the error info of the module.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
+        isComposite:
+          type: boolean
+          description: Gets or sets type of module, if its composite or not.
         tags:
           type: object
           additionalProperties:
             type: string
-          description: Gets or sets the tags attached to the resource.
-      description: The parameters supplied to the update module operation.
-      type: object
-    Module:
-      properties:
-        properties:
-          $ref: '#/components/schemas/ModuleProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the module properties.
-        etag:
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
           type: string
-          description: Gets or sets the etag of the resource.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Definition of the module type.
+          x-ms-mutability:
+            - read
+            - create
+          description: The Azure Region where the resource lives
       type: object
     TypeField:
       properties:
@@ -3658,14 +4505,18 @@ components:
             $ref: '#/components/schemas/PrivateLinkResource'
     PrivateLinkResource:
       description: A private link resource
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+      type: object
     PrivateLinkResourceProperties:
       description: Properties of a private link resource.
       type: object
@@ -3703,25 +4554,27 @@ components:
       description: Definition of the content source.
       type: object
     DscConfigurationCreateOrUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/DscConfigurationCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets configuration create or update properties.
-        name:
-          type: string
-          description: Gets or sets name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       required:
         - properties
       description: The parameters supplied to the create or update configuration operation.
+      properties:
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        logProgress:
+          type: boolean
+          description: Gets or sets progress log option.
+        source:
+          $ref: '#/components/schemas/ContentSource'
+          description: Gets or sets the source.
+        parameters:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DscConfigurationParameter'
+          description: Gets or sets the configuration parameters.
+        description:
+          type: string
+          description: Gets or sets the description of the configuration.
       type: object
     DscConfigurationListResult:
       properties:
@@ -3779,20 +4632,25 @@ components:
       description: Definition of the configuration parameter type.
       type: object
     DscConfigurationUpdateParameters:
+      description: The parameters supplied to the create or update configuration operation.
       properties:
-        properties:
-          $ref: '#/components/schemas/DscConfigurationCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets configuration create or update properties.
-        name:
-          type: string
-          description: Gets or sets name of the resource.
-        tags:
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        logProgress:
+          type: boolean
+          description: Gets or sets progress log option.
+        source:
+          $ref: '#/components/schemas/ContentSource'
+          description: Gets or sets the source.
+        parameters:
           type: object
           additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
-      description: The parameters supplied to the create or update configuration operation.
+            $ref: '#/components/schemas/DscConfigurationParameter'
+          description: Gets or sets the configuration parameters.
+        description:
+          type: string
+          description: Gets or sets the description of the configuration.
       type: object
     DscConfigurationProperties:
       properties:
@@ -3849,18 +4707,74 @@ components:
       description: Definition of the configuration property type.
       type: object
     DscConfiguration:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DscConfigurationProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the configuration properties.
-        etag:
-          type: string
-          description: Gets or sets the etag of the resource.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Definition of the configuration type.
+      properties:
+        provisioningState:
+          type: string
+          description: Gets or sets the provisioning state of the configuration.
+          enum:
+            - Succeeded
+          x-ms-enum:
+            name: DscConfigurationProvisioningState
+            modelAsString: false
+        jobCount:
+          type: integer
+          format: int32
+          description: Gets or sets the job count of the configuration.
+        parameters:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DscConfigurationParameter'
+          description: Gets or sets the configuration parameters.
+        source:
+          $ref: '#/components/schemas/ContentSource'
+          description: Gets or sets the source.
+        state:
+          type: string
+          description: Gets or sets the state of the configuration.
+          enum:
+            - New
+            - Edit
+            - Published
+          x-ms-enum:
+            name: DscConfigurationState
+            modelAsString: true
+        logVerbose:
+          type: boolean
+          description: Gets or sets verbose log option.
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        nodeConfigurationCount:
+          type: integer
+          description: Gets the number of compiled node configurations.
+          nullable: false
+        description:
+          type: string
+          description: Gets or sets the description.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The Azure Region where the resource lives
+      type: object
     RunAsCredentialAssociationProperty:
       properties:
         name:
@@ -3885,17 +4799,32 @@ components:
           description: Sets the credential of a worker group.
       description: Definition of hybrid runbook worker group property.
     HybridRunbookWorkerGroup:
-      properties:
-        properties:
-          $ref: '#/components/schemas/HybridRunbookWorkerGroupProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the hybrid worker group properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Resource system metadata.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: Definition of hybrid runbook worker group.
+      properties:
+        groupType:
+          type: string
+          description: Type of the HybridWorkerGroup.
+          enum:
+            - User
+            - System
+          x-ms-enum:
+            name: GroupTypeEnum
+            modelAsString: true
+        credential:
+          $ref: '#/components/schemas/RunAsCredentialAssociationProperty'
+          description: Sets the credential of a worker group.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
       type: object
     HybridRunbookWorkerGroupsListResult:
       properties:
@@ -3917,26 +4846,25 @@ components:
           description: Sets the credential of a worker group.
       description: The hybrid runbook worker group properties.
     HybridRunbookWorkerGroupCreateOrUpdateParameters:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/HybridRunbookWorkerGroupCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets hybrid runbook worker group create or update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
       description: The parameters supplied to the create hybrid runbook worker group operation.
+      properties:
+        credential:
+          $ref: '#/components/schemas/RunAsCredentialAssociationProperty'
+          description: Sets the credential of a worker group.
+      type: object
     PrivateEndpointConnection:
       description: A private endpoint connection
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        groupIds:
+          $ref: '#/components/schemas/GroupIdsProperty'
+          description: Gets the groupIds.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection State of the Private Endpoint Connection.
+      type: object
     PrivateEndpointConnectionProperties:
       description: Properties of a private endpoint connection.
       type: object
@@ -3989,24 +4917,25 @@ components:
       description: The response model for the list job schedule operation.
       type: object
     JobSchedule:
-      properties:
-        id:
-          type: string
-          readOnly: true
-          description: Gets the id of the resource.
-        name:
-          type: string
-          readOnly: true
-          description: Gets the name of the variable.
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
-        properties:
-          $ref: '#/components/schemas/JobScheduleProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the job schedule.
       description: Definition of the job schedule.
+      properties:
+        jobScheduleId:
+          type: string
+          description: Gets or sets the id of job schedule.
+        schedule:
+          $ref: '#/components/schemas/ScheduleAssociationProperty'
+          description: Gets or sets the schedule.
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook.
+        runOn:
+          type: string
+          description: Gets or sets the hybrid worker group that the scheduled job should run on.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job schedule.
       type: object
     ScheduleAssociationProperty:
       properties:
@@ -4058,27 +4987,68 @@ components:
       description: The parameters supplied to the create job schedule operation.
       type: object
     JobScheduleCreateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/JobScheduleCreateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the list of job schedule properties.
       required:
         - properties
       description: The parameters supplied to the create job schedule operation.
+      properties:
+        schedule:
+          $ref: '#/components/schemas/ScheduleAssociationProperty'
+          description: Gets or sets the schedule.
+        runbook:
+          $ref: '#/components/schemas/RunbookAssociationProperty'
+          description: Gets or sets the runbook.
+        runOn:
+          type: string
+          description: Gets or sets the hybrid worker group that the scheduled job should run on.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets a list of job properties.
       type: object
     HybridRunbookWorker:
-      properties:
-        properties:
-          $ref: '#/components/schemas/HybridRunbookWorkerProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the hybrid worker group properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Resource system metadata.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: Definition of hybrid runbook worker.
+      properties:
+        ip:
+          type: string
+          description: Gets or sets the assigned machine IP address.
+        registeredDateTime:
+          type: string
+          format: date-time
+          description: Gets or sets the registration time of the worker machine.
+          nullable: false
+        lastSeenDateTime:
+          type: string
+          format: date-time
+          description: Last Heartbeat from the Worker
+          nullable: false
+        vmResourceId:
+          type: string
+          description: Azure Resource Manager Id for a virtual machine.
+        workerType:
+          type: string
+          description: Type of the HybridWorker.
+          enum:
+            - HybridV1
+            - HybridV2
+          x-ms-enum:
+            name: WorkerType
+            modelAsString: true
+        workerName:
+          type: string
+          description: Name of the HybridWorker.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
       type: object
     HybridRunbookWorkerProperties:
       type: object
@@ -4139,18 +5109,14 @@ components:
           description: Azure Resource Manager Id for a virtual machine.
       description: The parameters supplied to the create or update hybrid runbook worker operation.
     HybridRunbookWorkerCreateParameters:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/HybridRunbookWorkerCreateOrUpdateParameters'
-          x-ms-client-flatten: true
-          description: Gets or sets hybrid runbook worker group create or update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
       required:
         - properties
       description: The parameters supplied to the create hybrid runbook worker operation.
+      properties:
+        vmResourceId:
+          type: string
+          description: Azure Resource Manager Id for a virtual machine.
+      type: object
     SourceControlListResult:
       properties:
         value:
@@ -4186,22 +5152,68 @@ components:
       description: The properties of the update source control
       type: object
     SourceControlUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/SourceControlUpdateProperties'
-          x-ms-client-flatten: true
-          description: The value of the source control.
       description: The parameters supplied to the update source control operation.
+      properties:
+        branch:
+          type: string
+          description: The repo branch of the source control.
+        folderPath:
+          type: string
+          description: The folder path of the source control. Path must be relative.
+        autoSync:
+          type: boolean
+          description: The auto sync of the source control. Default is false.
+        publishRunbook:
+          type: boolean
+          description: The auto publish of the source control. Default is true.
+        securityToken:
+          description: The authorization token for the repo of the source control.
+          $ref: '#/components/schemas/SourceControlSecurityTokenProperties'
+        description:
+          type: string
+          description: The user description of the source control.
       type: object
     SourceControl:
-      properties:
-        properties:
-          $ref: '#/components/schemas/SourceControlProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the source control.
+      properties:
+        repoUrl:
+          type: string
+          description: The repo url of the source control.
+        branch:
+          type: string
+          description: The repo branch of the source control. Include branch as empty string for VsoTfvc.
+        folderPath:
+          type: string
+          description: The folder path of the source control.
+        autoSync:
+          type: boolean
+          description: The auto sync of the source control. Default is false.
+        publishRunbook:
+          type: boolean
+          description: The auto publish of the source control. Default is true.
+        sourceType:
+          type: string
+          description: The source type. Must be one of VsoGit, VsoTfvc, GitHub.
+          enum:
+            - VsoGit
+            - VsoTfvc
+            - GitHub
+          x-ms-enum:
+            name: sourceType
+            modelAsString: true
+        description:
+          type: string
+          description: The description.
+        creationTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: The creation time.
+        lastModifiedTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: The last modified time.
       type: object
     SourceControlProperties:
       properties:
@@ -4246,14 +5258,45 @@ components:
       description: Definition of the source control properties
       type: object
     SourceControlCreateOrUpdateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/SourceControlCreateOrUpdateProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control.
       required:
         - properties
       description: The parameters supplied to the create or update source control operation.
+      properties:
+        repoUrl:
+          type: string
+          maxLength: 2000
+          description: The repo url of the source control.
+        branch:
+          type: string
+          maxLength: 255
+          description: The repo branch of the source control. Include branch as empty string for VsoTfvc.
+        folderPath:
+          type: string
+          maxLength: 255
+          description: The folder path of the source control. Path must be relative.
+        autoSync:
+          type: boolean
+          description: The auto async of the source control. Default is false.
+        publishRunbook:
+          type: boolean
+          description: The auto publish of the source control. Default is true.
+        sourceType:
+          type: string
+          description: The source type. Must be one of VsoGit, VsoTfvc, GitHub, case sensitive.
+          enum:
+            - VsoGit
+            - VsoTfvc
+            - GitHub
+          x-ms-enum:
+            name: sourceType
+            modelAsString: true
+        securityToken:
+          description: The authorization token for the repo of the source control.
+          $ref: '#/components/schemas/SourceControlSecurityTokenProperties'
+        description:
+          type: string
+          maxLength: 512
+          description: The user description of the source control.
       type: object
     SourceControlCreateOrUpdateProperties:
       properties:
@@ -4315,32 +5358,58 @@ components:
             modelAsString: true
       type: object
     Watcher:
+      description: Definition of the watcher type.
       properties:
-        properties:
-          $ref: '#/components/schemas/WatcherProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the watcher properties.
-        etag:
+        executionFrequencyInSeconds:
+          type: integer
+          format: int64
+          description: Gets or sets the frequency at which the watcher is invoked.
+        scriptName:
           type: string
-          description: Gets or sets the etag of the resource.
-        tags:
+          description: Gets or sets the name of the script the watcher is attached to, i.e. the name of an existing runbook.
+        scriptParameters:
           type: object
           additionalProperties:
             type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
+          description: Gets or sets the parameters of the script.
+        scriptRunOn:
           type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      description: Definition of the watcher type.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+          description: Gets or sets the name of the hybrid worker group the watcher will run on.
+        status:
+          type: string
+          readOnly: true
+          description: Gets the current status of the watcher.
+        creationTime:
+          type: string
+          readOnly: true
+          format: date-time
+          description: Gets or sets the creation time.
+          nullable: false
+        lastModifiedTime:
+          type: string
+          readOnly: true
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        lastModifiedBy:
+          type: string
+          readOnly: true
+          description: Details of the user who last modified the watcher.
+        description:
+          type: string
+          description: Gets or sets the description.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource Id for the resource
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
       type: object
     WatcherProperties:
       properties:
@@ -4386,13 +5455,10 @@ components:
       type: object
     WatcherUpdateParameters:
       properties:
-        properties:
-          $ref: '#/components/schemas/WatcherUpdateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the watcher update properties.
-        name:
-          type: string
-          description: Gets or sets the name of the resource.
+        executionFrequencyInSeconds:
+          type: integer
+          format: int64
+          description: Gets or sets the frequency at which the watcher is invoked.
       type: object
     WatcherUpdateProperties:
       properties:
@@ -4424,25 +5490,24 @@ components:
           description: Gets or sets the list of deleted automation accounts.
       description: The response model for the list deleted automation account.
     DeletedAutomationAccount:
-      type: object
+      description: Definition of the deleted automation account type.
       properties:
-        properties:
-          $ref: '#/components/schemas/DeletedAutomationAccountProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the automation account properties.
-        id:
-          description: The resource id.
+        automationAccountResourceId:
           type: string
-        name:
+          description: Gets or sets the Automation Account Resource Id.
+        automationAccountId:
           type: string
-          description: Gets or sets name of the resource.
-        type:
-          type: string
-          description: The resource type.
+          description: Gets or sets the Automation Account Id.
         location:
           type: string
           description: Gets or sets the location of the resource.
-      description: Definition of the deleted automation account type.
+        deletionTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the deletion time.
+          nullable: false
+      type: object
     DeletedAutomationAccountProperties:
       type: object
       properties:
@@ -4472,19 +5537,13 @@ components:
       description: The parameters supplied to the create or update module properties.
       type: object
     PythonPackageCreateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/PythonPackageCreateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the module create properties.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       required:
         - properties
       description: The parameters supplied to the create or update module operation.
+      properties:
+        contentLink:
+          $ref: '#/components/schemas/ContentLink'
+          description: Gets or sets the module content link.
       type: object
     PythonPackageUpdateParameters:
       properties:
@@ -4496,14 +5555,89 @@ components:
       description: The parameters supplied to the update module operation.
       type: object
     DscCompilationJob:
-      properties:
-        properties:
-          $ref: '#/components/schemas/DscCompilationJobProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the properties of the Dsc Compilation job.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the Dsc Compilation job.
+      properties:
+        configuration:
+          $ref: '#/components/schemas/DscConfigurationAssociationProperty'
+          description: Gets or sets the configuration.
+        startedBy:
+          type: string
+          readOnly: true
+          description: Gets the compilation job started by.
+        jobId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Gets the id of the job.
+          nullable: false
+        creationTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the creation time of the job.
+          nullable: false
+        provisioningState:
+          $ref: '#/components/schemas/JobProvisioningStateProperty'
+          description: The current provisioning state of the job.
+        runOn:
+          type: string
+          description: Gets or sets the runOn which specifies the group name where the job is to be executed.
+        status:
+          type: string
+          description: Gets or sets the status of the job.
+          enum:
+            - New
+            - Activating
+            - Running
+            - Completed
+            - Failed
+            - Stopped
+            - Blocked
+            - Suspended
+            - Disconnected
+            - Suspending
+            - Stopping
+            - Resuming
+            - Removing
+          x-ms-enum:
+            name: JobStatus
+            modelAsString: true
+        statusDetails:
+          type: string
+          description: Gets or sets the status details of the job.
+        startTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the start time of the job.
+          nullable: true
+        endTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the end time of the job.
+          nullable: true
+        exception:
+          type: string
+          readOnly: true
+          description: Gets the exception of the job.
+        lastModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last modified time of the job.
+          nullable: false
+        lastStatusModifiedTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Gets the last status modified time of the job.
+          nullable: true
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
       type: object
     DscCompilationJobCreateProperties:
       properties:
@@ -4620,25 +5754,21 @@ components:
       description: The response model for the list job operation.
       type: object
     DscCompilationJobCreateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/DscCompilationJobCreateProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the list of compilation job properties.
-        name:
-          type: string
-          description: Gets or sets name of the resource.
-        location:
-          type: string
-          description: Gets or sets the location of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
       required:
         - properties
       description: The parameters supplied to the create compilation job operation.
+      properties:
+        configuration:
+          $ref: '#/components/schemas/DscConfigurationAssociationProperty'
+          description: Gets or sets the configuration.
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Gets or sets the parameters of the job.
+        incrementNodeConfigurationBuild:
+          type: boolean
+          description: If a new build version of NodeConfiguration is required.
       type: object
     DscConfigurationAssociationProperty:
       properties:
@@ -4648,15 +5778,32 @@ components:
       description: The Dsc configuration property associated with the entity.
       type: object
     DscNodeConfiguration:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DscNodeConfigurationProperties'
-          x-ms-client-flatten: true
-          description: Gets or sets the configuration properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Definition of the dsc node configuration.
+      properties:
+        lastModifiedTime:
+          type: string
+          format: date-time
+          description: Gets or sets the last modified time.
+          nullable: false
+        creationTime:
+          type: string
+          format: date-time
+          description: Gets or sets creation time.
+          nullable: false
+        configuration:
+          $ref: '#/components/schemas/DscConfigurationAssociationProperty'
+          description: Gets or sets the configuration of the node.
+        source:
+          type: string
+          description: Source of node configuration.
+        nodeCount:
+          type: integer
+          format: int64
+          description: Number of nodes with this node configuration assigned
+        incrementNodeConfigurationBuild:
+          type: boolean
+          description: If a new build version of NodeConfiguration is required.
+      type: object
     DscNodeConfigurationProperties:
       description: Properties for the DscNodeConfiguration
       properties:
@@ -4702,18 +5849,15 @@ components:
     DscNodeConfigurationCreateOrUpdateParameters:
       description: The parameters supplied to the create or update node configuration operation.
       properties:
-        properties:
-          $ref: '#/components/schemas/DscNodeConfigurationCreateOrUpdateParametersProperties'
-          x-ms-client-flatten: true
-          description: Node configuration properties
-        name:
-          type: string
-          description: Name of the node configuration.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets the tags attached to the resource.
+        source:
+          $ref: '#/components/schemas/ContentSource'
+          description: Gets or sets the source.
+        configuration:
+          $ref: '#/components/schemas/DscConfigurationAssociationProperty'
+          description: Gets or sets the configuration of the node.
+        incrementNodeConfigurationBuild:
+          type: boolean
+          description: If a new build version of NodeConfiguration is required.
       type: object
     DscNodeConfigurationCreateOrUpdateParametersProperties:
       properties:
@@ -4744,14 +5888,14 @@ components:
       description: The response model for the list source control sync jobs operation.
       type: object
     SourceControlSyncJobCreateParameters:
-      properties:
-        properties:
-          $ref: '#/components/schemas/SourceControlSyncJobCreateProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control sync job.
       required:
         - properties
       description: The parameters supplied to the create source control sync job operation.
+      properties:
+        commitId:
+          type: string
+          description: The commit id of the source control sync job. If not syncing to a commitId, enter an empty string.
+          minLength: 0
       type: object
     SourceControlSyncJobCreateProperties:
       properties:
@@ -4764,15 +5908,51 @@ components:
       description: Definition of create source control sync job properties.
       type: object
     SourceControlSyncJobById:
-      properties:
-        id:
-          type: string
-          description: The id of the job.
-        properties:
-          $ref: '#/components/schemas/SourceControlSyncJobByIdProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control sync job.
       description: Definition of the source control sync job.
+      properties:
+        sourceControlSyncJobId:
+          type: string
+          description: The source control sync job id.
+        creationTime:
+          type: string
+          format: date-time
+          nullable: false
+          readOnly: true
+          description: The creation time of the job.
+        provisioningState:
+          type: string
+          description: The provisioning state of the job.
+          enum:
+            - Completed
+            - Failed
+            - Running
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The start time of the job.
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The end time of the job.
+        syncType:
+          type: string
+          description: The sync type.
+          enum:
+            - PartialSync
+            - FullSync
+          x-ms-enum:
+            name: syncType
+            modelAsString: true
+        exception:
+          type: string
+          description: The exceptions that occurred while running the sync job.
       type: object
     SourceControlSyncJobByIdProperties:
       properties:
@@ -4822,24 +6002,48 @@ components:
       description: Definition of source control sync job properties.
       type: object
     SourceControlSyncJob:
-      properties:
-        name:
-          readOnly: true
-          type: string
-          description: Resource name.
-        type:
-          readOnly: true
-          type: string
-          description: Resource type.
-        id:
-          readOnly: true
-          type: string
-          description: Resource id.
-        properties:
-          $ref: '#/components/schemas/SourceControlSyncJobProperties'
-          x-ms-client-flatten: true
-          description: The properties of the source control sync job.
       description: Definition of the source control sync job.
+      properties:
+        sourceControlSyncJobId:
+          type: string
+          description: The source control sync job id.
+        creationTime:
+          type: string
+          format: date-time
+          nullable: false
+          readOnly: true
+          description: The creation time of the job.
+        provisioningState:
+          type: string
+          description: The provisioning state of the job.
+          enum:
+            - Completed
+            - Failed
+            - Running
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The start time of the job.
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: The end time of the job.
+        syncType:
+          type: string
+          description: The sync type.
+          enum:
+            - PartialSync
+            - FullSync
+          x-ms-enum:
+            name: syncType
+            modelAsString: true
       type: object
     SourceControlSyncJobProperties:
       properties:
@@ -4920,20 +6124,66 @@ components:
     softwareUpdateConfigurationRun:
       description: Software update configuration Run properties.
       x-ms-azure-resource: false
-      type: object
       properties:
-        name:
-          readOnly: true
+        softwareUpdateConfiguration:
+          description: software update configuration triggered this run
+          $ref: '#/components/schemas/updateConfigurationNavigation'
+        status:
           type: string
-          description: Name of the software update configuration run.
-        id:
+          description: Status of the software update configuration run.
           readOnly: true
+        configuredDuration:
           type: string
-          description: Resource Id of the software update configuration run
-        properties:
-          x-ms-client-flatten: true
-          description: Software update configuration Run properties.
-          $ref: '#/components/schemas/softwareUpdateConfigurationRunProperties'
+          description: Configured duration for the software update configuration run.
+          readOnly: true
+        osType:
+          type: string
+          description: Operating system target of the software update configuration triggered this run
+          readOnly: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: false
+          description: Start time of the software update configuration run.
+          readOnly: true
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: End time of the software update configuration run.
+          readOnly: true
+        computerCount:
+          type: integer
+          description: Number of computers in the software update configuration run.
+          readOnly: true
+        failedCount:
+          type: integer
+          description: Number of computers with failed status.
+          readOnly: true
+        creationTime:
+          type: string
+          description: Creation time of the resource, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        createdBy:
+          type: string
+          description: CreatedBy property, which only appears in the response.
+          readOnly: true
+        lastModifiedTime:
+          type: string
+          description: Last time resource was modified, which only appears in the response.
+          format: date-time
+          nullable: false
+          readOnly: true
+        lastModifiedBy:
+          type: string
+          description: LastModifiedBy property, which only appears in the response.
+          readOnly: true
+        tasks:
+          description: Software update configuration tasks triggered in this run
+          $ref: '#/components/schemas/softwareUpdateConfigurationRunTasks'
+      type: object
     softwareUpdateConfigurationRunProperties:
       description: Software update configuration properties.
       properties:
@@ -5031,88 +6281,6 @@ components:
           type: string
           description: link to next page of results.
       type: object
-  parameters:
-    PrivateEndpointConnectionNameParameter:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Gets subscription credentials which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: Name of an Azure Resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[-\w\._]+$
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    CountTypeParameter:
-      name: countType
-      in: path
-      description: The type of counts to retrieve
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - status
-          - nodeconfiguration
-        x-ms-enum:
-          name: CountType
-          modelAsString: true
-        type: string
-    AutomationAccountNameParameter:
-      name: automationAccountName
-      in: path
-      description: The name of the automation account.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    clientRequestId:
-      name: clientRequestId
-      in: header
-      description: Identifies this specific client request.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Automation/automationAccounts/{automationAccountName}/agentRegistrationInformation/?api-version=2020-01-13-preview:
     get:

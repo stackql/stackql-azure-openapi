@@ -188,14 +188,74 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         outputDoc.info.version = versionDate;
 
         outputDoc.security = inputDoc.security;
-        outputDoc.components = inputDoc.components;
-        // fix schemas with no types
-        debug ? logger.debug(`Fixing schemas with no type...`): null;
-        Object.keys(outputDoc.components.schemas).forEach(schemaName => {
-            if(outputDoc.components.schemas[schemaName].properties){
-                outputDoc.components.schemas[schemaName].type = 'object';
+
+        outputDoc.components = {};
+        inputDoc.components.securitySchemes ? outputDoc.components.securitySchemes = inputDoc.components.securitySchemes : null;
+        inputDoc.components.parameters ? outputDoc.components.parameters = inputDoc.components.parameters : null;
+        
+        // clean response schemas
+        outputDoc.components.schemas = {};
+        debug ? logger.debug(`Cleaning response schemas...`): null;
+        Object.keys(inputDoc.components.schemas).forEach(schemaName => {
+            debug ? logger.debug(`Processing ${schemaName}...`): null;
+            // check if the schema is an object
+            if (!inputDoc.components.schemas[schemaName].type || inputDoc.components.schemas[schemaName].type == 'object'){
+                // check for acceptable cases
+                if (
+                    inputDoc.components.schemas[schemaName]['properties'] &&
+                    !inputDoc.components.schemas[schemaName]['properties']['properties'] && 
+                    !inputDoc.components.schemas[schemaName]['allOf'] 
+                    ){
+                        // object is all good, nothing to see here...
+                        debug ? logger.debug(`Bypassing ${schemaName}...`): null;
+                        outputDoc.components.schemas[schemaName] = inputDoc.components.schemas[schemaName];
+                        // its an object, if not explicitly defined as an object, set it to object 
+                        !outputDoc.components.schemas[schemaName].type ? outputDoc.components.schemas[schemaName]['type'] = 'object': null;
+                } else {
+                    let finalSchema = {};
+                    let finalProps = {};
+
+                    // go through each field in the object
+                    Object.keys(inputDoc.components.schemas[schemaName]).forEach(fieldName => {
+                        if (fieldName != 'properties' && fieldName != 'allOf' && fieldName != 'type'){
+                            // another top level key like 'required', 'description' or 'x-something'
+                            finalSchema[fieldName] = inputDoc.components.schemas[schemaName][fieldName];
+                        }
+
+                        if (fieldName == 'allOf'){
+                            for (let i in inputDoc.components.schemas[schemaName]['allOf']){
+                                // each item really should be a pointer here...
+                                if (inputDoc.components.schemas[schemaName]['allOf'][i]['$ref']){
+                                    let referredSchemaName = inputDoc.components.schemas[schemaName]['allOf'][i]['$ref'].split('/').pop();
+                                    finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
+                                }
+                            }
+                        }
+
+                        if (fieldName == 'properties'){
+                            if (inputDoc.components.schemas[schemaName]['properties']['properties']){
+                                // nested props
+                                if (inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
+                                    let referredSchemaName = inputDoc.components.schemas[schemaName]['properties']['properties']['$ref'].split('/').pop();
+                                    finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
+                                }
+                            } else {
+                                // un-nested props, add them as is
+                                finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};
+                            }
+                        }
+                    });
+
+                    finalSchema['properties'] = finalProps;
+                    finalSchema['type'] = 'object';
+                    
+                    outputDoc.components.schemas[schemaName] = finalSchema;
+                }
+            } else {
+                // its not an object, just push it through
+                outputDoc.components.schemas[schemaName] = inputDoc.components.schemas[schemaName];
             }
-        });    
+        });
 
         // add paths
         outputDoc.paths = {};

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,47 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000).
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to be used with the HTTP request (e.g. YYYY-MM-DD).
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -50,18 +91,34 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -78,19 +135,49 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
+      x-ms-azure-resource: true
       properties:
         managedBy:
           type: string
@@ -119,9 +206,22 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -528,47 +628,58 @@ components:
           type: string
           description: The extended location name.
     VMMServer:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/VMMServerProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       required:
         - location
         - properties
         - extendedLocation
       description: The VmmServers resource definition.
+      properties:
+        credentials:
+          type: object
+          description: Credentials to connect to VMMServer.
+          properties:
+            username:
+              type: string
+              description: Username to use to connect to VMMServer.
+            password:
+              type: string
+              description: Credentials to use to connect to VMMServer.
+              x-ms-mutability:
+                - create
+                - update
+              x-ms-secret: true
+        fqdn:
+          type: string
+          description: Fqdn is the hostname/ip of the vmmServer.
+          minLength: 1
+        port:
+          type: integer
+          format: int32
+          description: Port is the port on which the vmmServer is listening.
+          maximum: 65535
+          minimum: 1
+        connectionStatus:
+          type: string
+          description: Gets or sets the connection status to the vmmServer.
+          readOnly: true
+        errorMessage:
+          type: string
+          description: Gets or sets any error message if connection to vmmServer is having any issue.
+          readOnly: true
+        uuid:
+          type: string
+          description: Unique ID of vmmServer.
+          readOnly: true
+        version:
+          type: string
+          description: Version is the version of the vmmSever.
+          readOnly: true
+        provisioningState:
+          description: Gets or sets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     VMMServerListResult:
       type: object
       description: List of VmmServers.
@@ -628,47 +739,42 @@ components:
           description: Gets or sets the provisioning state.
           readOnly: true
     Cloud:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/CloudProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       required:
         - location
         - properties
         - extendedLocation
       description: The Clouds resource definition.
+      properties:
+        inventoryItemId:
+          description: Gets or sets the inventory Item ID for the resource.
+          type: string
+        uuid:
+          type: string
+          description: Unique ID of the cloud.
+          minLength: 1
+        vmmServerId:
+          type: string
+          description: ARM Id of the vmmServer resource in which this resource resides.
+        cloudName:
+          type: string
+          description: Name of the cloud in VMMServer.
+          readOnly: true
+        cloudCapacity:
+          $ref: '#/components/schemas/CloudCapacity'
+          description: Capacity of the cloud.
+          readOnly: true
+        storageQoSPolicies:
+          description: List of QoS policies available for the cloud.
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageQoSPolicy'
+          readOnly: true
+        provisioningState:
+          type: string
+          description: Gets or sets the provisioning state.
+          readOnly: true
+      type: object
     CloudListResult:
       type: object
       description: List of Clouds.
@@ -704,47 +810,32 @@ components:
           description: Gets or sets the provisioning state.
           readOnly: true
     VirtualNetwork:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/VirtualNetworkProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       required:
         - location
         - properties
         - extendedLocation
       description: The VirtualNetworks resource definition.
+      properties:
+        inventoryItemId:
+          description: Gets or sets the inventory Item ID for the resource.
+          type: string
+        uuid:
+          type: string
+          description: Unique ID of the virtual network.
+          minLength: 1
+        vmmServerId:
+          type: string
+          description: ARM Id of the vmmServer resource in which this resource resides.
+        networkName:
+          type: string
+          description: Name of the virtual network in vmmServer.
+          readOnly: true
+        provisioningState:
+          type: string
+          description: Gets or sets the provisioning state.
+          readOnly: true
+      type: object
     VirtualNetworkListResult:
       type: object
       description: List of VirtualNetworks.
@@ -773,43 +864,21 @@ components:
           description: Gets or sets the provisioning state.
           readOnly: true
     AvailabilitySet:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/AvailabilitySetProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       description: The AvailabilitySets resource definition.
+      properties:
+        availabilitySetName:
+          type: string
+          description: Name of the availability set.
+          minLength: 1
+        vmmServerId:
+          type: string
+          description: ARM Id of the vmmServer resource in which this resource resides.
+        provisioningState:
+          type: string
+          description: Gets or sets the provisioning state.
+          readOnly: true
+      type: object
     AvailabilitySetListResult:
       type: object
       description: List of AvailabilitySets.
@@ -1302,47 +1371,71 @@ components:
           description: ID of the checkpoint to be restored to.
           type: string
     VirtualMachine:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/VirtualMachineProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       required:
         - location
         - properties
         - extendedLocation
       description: The VirtualMachines resource definition.
+      properties:
+        inventoryItemId:
+          description: Gets or sets the inventory Item ID for the resource.
+          type: string
+        vmmServerId:
+          type: string
+          description: ARM Id of the vmmServer resource in which this resource resides.
+        cloudId:
+          type: string
+          description: ARM Id of the cloud resource to use for deploying the vm.
+        templateId:
+          type: string
+          description: ARM Id of the template resource to use for deploying the vm.
+        checkpointType:
+          type: string
+          description: Type of checkpoint supported for the vm.
+        checkpoints:
+          description: Checkpoints in the vm.
+          type: array
+          items:
+            description: Checkpoint properties
+            $ref: '#/components/schemas/Checkpoint'
+            readOnly: true
+          x-ms-identifiers:
+            - checkpointID
+        availabilitySets:
+          $ref: '#/components/schemas/AvailabilitySetList'
+        osProfile:
+          description: OS properties.
+          $ref: '#/components/schemas/OsProfile'
+        hardwareProfile:
+          description: Hardware properties.
+          $ref: '#/components/schemas/HardwareProfile'
+        networkProfile:
+          description: Network properties.
+          $ref: '#/components/schemas/NetworkProfile'
+        storageProfile:
+          description: Storage properties.
+          $ref: '#/components/schemas/StorageProfile'
+        vmName:
+          type: string
+          description: VMName is the name of VM on the SCVMM server.
+          minLength: 1
+        uuid:
+          type: string
+          description: Unique ID of the virtual machine.
+        generation:
+          type: integer
+          format: int32
+          description: Gets or sets the generation for the vm.
+        powerState:
+          description: Gets the power state of the virtual machine.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets or sets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     VirtualMachineListResult:
       type: object
       description: List of VirtualMachines.
@@ -1369,15 +1462,16 @@ components:
           $ref: '#/components/schemas/AvailabilitySetList'
     VirtualMachineUpdate:
       description: Defines the virtualMachineUpdate.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/VirtualMachineUpdateProperties'
-        tags:
-          description: Gets or sets the Resource tags.
-          type: object
-          additionalProperties:
-            type: string
+        hardwareProfile:
+          $ref: '#/components/schemas/HardwareProfileUpdate'
+        storageProfile:
+          $ref: '#/components/schemas/StorageProfileUpdate'
+        networkProfile:
+          $ref: '#/components/schemas/NetworkProfileUpdate'
+        availabilitySets:
+          $ref: '#/components/schemas/AvailabilitySetList'
+      type: object
     VirtualMachineTemplateProperties:
       description: Defines the resource properties.
       type: object
@@ -1486,47 +1580,117 @@ components:
           type: string
           readOnly: true
     VirtualMachineTemplate:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/VirtualMachineTemplateProperties'
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource Name
-        type:
-          type: string
-          readOnly: true
-          description: Resource Type
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location.
       required:
         - location
         - properties
         - extendedLocation
       description: The VirtualMachineTemplates resource definition.
+      properties:
+        inventoryItemId:
+          description: Gets or sets the inventory Item ID for the resource.
+          type: string
+        uuid:
+          type: string
+          description: Unique ID of the virtual machine template.
+          minLength: 1
+        vmmServerId:
+          type: string
+          description: ARM Id of the vmmServer resource in which this resource resides.
+        osType:
+          description: Gets or sets the type of the os.
+          $ref: '#/components/schemas/OsType'
+          readOnly: true
+        osName:
+          description: Gets or sets os name.
+          type: string
+          readOnly: true
+        computerName:
+          description: Gets or sets computer name.
+          type: string
+          readOnly: true
+        memoryMB:
+          type: integer
+          format: int32
+          description: MemoryMB is the desired size of a virtual machine's memory, in MB.
+          readOnly: true
+        cpuCount:
+          type: integer
+          description: Gets or sets the desired number of vCPUs for the vm.
+          format: int32
+          readOnly: true
+        limitCpuForMigration:
+          type: string
+          description: Gets or sets a value indicating whether to enable processor compatibility mode for live migration of VMs.
+          enum:
+            - 'false'
+            - 'true'
+          x-ms-enum:
+            modelAsString: true
+            name: LimitCpuForMigration
+          readOnly: true
+        dynamicMemoryEnabled:
+          type: string
+          description: Gets or sets a value indicating whether to enable dynamic memory or not.
+          enum:
+            - 'false'
+            - 'true'
+          x-ms-enum:
+            modelAsString: true
+            name: DynamicMemoryEnabled
+          readOnly: true
+        isCustomizable:
+          type: string
+          description: Gets or sets a value indicating whether the vm template is customizable or not.
+          enum:
+            - 'false'
+            - 'true'
+          x-ms-enum:
+            modelAsString: true
+            name: IsCustomizable
+          readOnly: true
+        dynamicMemoryMaxMB:
+          type: integer
+          format: int32
+          description: Gets or sets the max dynamic memory for the vm.
+          readOnly: true
+        dynamicMemoryMinMB:
+          type: integer
+          format: int32
+          description: Gets or sets the min dynamic memory for the vm.
+          readOnly: true
+        isHighlyAvailable:
+          description: Gets highly available property.
+          type: string
+          readOnly: true
+        generation:
+          type: integer
+          format: int32
+          description: Gets or sets the generation for the vm.
+          readOnly: true
+        networkInterfaces:
+          description: Gets or sets the network interfaces of the template.
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInterfaces'
+          x-ms-identifiers:
+            - name
+            - nicId
+          readOnly: true
+        disks:
+          description: Gets or sets the disks of the template.
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualDisk'
+          x-ms-identifiers:
+            - name
+            - diskId
+          readOnly: true
+        provisioningState:
+          description: Gets or sets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     VirtualMachineTemplateListResult:
       type: object
       description: List of VirtualMachineTemplates.
@@ -1557,22 +1721,28 @@ components:
       description: Defines the inventory item.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-          description: The resource model definition for an Azure Resource Manager proxy resource. It will have everything other than required location and tags.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Resource properties.
-          $ref: '#/components/schemas/InventoryItemProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        kind:
-          type: string
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
       x-ms-azure-resource: true
+      properties:
+        inventoryType:
+          description: They inventory type.
+          $ref: '#/components/schemas/InventoryType'
+        managedResourceId:
+          description: Gets the tracked resource id corresponding to the inventory resource.
+          type: string
+          readOnly: true
+        uuid:
+          description: Gets the UUID (which is assigned by VMM) for the inventory item.
+          type: string
+          readOnly: true
+        inventoryItemName:
+          description: Gets the Managed Object name in VMM for the inventory item.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     InventoryItemProperties:
       description: Defines the resource properties.
       required:
@@ -1623,22 +1793,75 @@ components:
           type: string
     CloudInventoryItem:
       description: The Cloud inventory item.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/InventoryItemProperties'
       x-ms-discriminator-value: Cloud
+      properties:
+        inventoryType:
+          description: They inventory type.
+          $ref: '#/components/schemas/InventoryType'
+        managedResourceId:
+          description: Gets the tracked resource id corresponding to the inventory resource.
+          type: string
+          readOnly: true
+        uuid:
+          description: Gets the UUID (which is assigned by VMM) for the inventory item.
+          type: string
+          readOnly: true
+        inventoryItemName:
+          description: Gets the Managed Object name in VMM for the inventory item.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     VirtualNetworkInventoryItem:
       description: The Virtual network inventory item.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/InventoryItemProperties'
       x-ms-discriminator-value: VirtualNetwork
+      properties:
+        inventoryType:
+          description: They inventory type.
+          $ref: '#/components/schemas/InventoryType'
+        managedResourceId:
+          description: Gets the tracked resource id corresponding to the inventory resource.
+          type: string
+          readOnly: true
+        uuid:
+          description: Gets the UUID (which is assigned by VMM) for the inventory item.
+          type: string
+          readOnly: true
+        inventoryItemName:
+          description: Gets the Managed Object name in VMM for the inventory item.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets the provisioning state.
+          type: string
+          readOnly: true
+      type: object
     VirtualMachineTemplateInventoryItem:
       description: The Virtual machine template inventory item.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/InventoryItemProperties'
+      x-ms-discriminator-value: VirtualMachineTemplate
       properties:
+        inventoryType:
+          description: They inventory type.
+          $ref: '#/components/schemas/InventoryType'
+        managedResourceId:
+          description: Gets the tracked resource id corresponding to the inventory resource.
+          type: string
+          readOnly: true
+        uuid:
+          description: Gets the UUID (which is assigned by VMM) for the inventory item.
+          type: string
+          readOnly: true
+        inventoryItemName:
+          description: Gets the Managed Object name in VMM for the inventory item.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets the provisioning state.
+          type: string
+          readOnly: true
         cpuCount:
           type: integer
           description: Gets or sets the desired number of vCPUs for the vm.
@@ -1657,13 +1880,30 @@ components:
           description: Gets or sets os name.
           type: string
           readOnly: true
-      x-ms-discriminator-value: VirtualMachineTemplate
+      type: object
     VirtualMachineInventoryItem:
       description: The Virtual machine inventory item.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/InventoryItemProperties'
+      x-ms-discriminator-value: VirtualMachine
       properties:
+        inventoryType:
+          description: They inventory type.
+          $ref: '#/components/schemas/InventoryType'
+        managedResourceId:
+          description: Gets the tracked resource id corresponding to the inventory resource.
+          type: string
+          readOnly: true
+        uuid:
+          description: Gets the UUID (which is assigned by VMM) for the inventory item.
+          type: string
+          readOnly: true
+        inventoryItemName:
+          description: Gets the Managed Object name in VMM for the inventory item.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Gets the provisioning state.
+          type: string
+          readOnly: true
         osType:
           description: Gets or sets the type of the os.
           $ref: '#/components/schemas/OsType'
@@ -1684,7 +1924,7 @@ components:
         cloud:
           description: Cloud inventory resource details where the VM is present.
           $ref: '#/components/schemas/InventoryItemDetails'
-      x-ms-discriminator-value: VirtualMachine
+      type: object
     ResourceProviderOperation:
       type: object
       properties:
@@ -1764,47 +2004,6 @@ components:
             type: string
           description: Resource tags.
       description: Object containing tags updates for patch operations.
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000).
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to be used with the HTTP request (e.g. YYYY-MM-DD).
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ScVmm/vmmServers/{vmmServerName}/?api-version=2020-06-05-preview:
     get:

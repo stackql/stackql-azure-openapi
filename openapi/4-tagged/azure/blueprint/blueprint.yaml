@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,23 +22,147 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    ScopeParameter:
+      name: resourceScope
+      in: path
+      description: 'The scope of the resource. Valid scopes are: management group (format: ''/providers/Microsoft.Management/managementGroups/{managementGroup}''), subscription (format: ''/subscriptions/{subscriptionId}'').'
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    AssignmentNameParameter:
+      name: assignmentName
+      in: path
+      description: Name of the blueprint assignment.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client API Version.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    AssignmentOperationNameParameter:
+      name: assignmentOperationName
+      in: path
+      description: Name of the blueprint assignment operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    BlueprintNameParameter:
+      name: blueprintName
+      in: path
+      description: Name of the blueprint definition.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ArtifactNameParameter:
+      name: artifactName
+      in: path
+      description: Name of the blueprint artifact.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    PublishedBlueprintVersionIdParameter:
+      name: versionId
+      in: path
+      description: Version of the published blueprint definition.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Assignment:
-      type: object
       description: Represents a blueprint assignment.
-      properties:
-        identity:
-          description: Managed identity for this blueprint assignment.
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-        properties:
-          description: Properties for blueprint assignment object.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AssignmentProperties'
       required:
         - identity
         - properties
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        blueprintId:
+          type: string
+          description: ID of the published version of a blueprint definition.
+        scope:
+          type: string
+          description: 'The target subscription scope of the blueprint assignment (format: ''/subscriptions/{subscriptionId}''). For management group level assignments, the property is required.'
+        parameters:
+          type: object
+          description: Blueprint assignment parameter values.
+          additionalProperties:
+            description: Key/Value pair of parameter fulfillment.
+            $ref: '#/components/schemas/ParameterValue'
+        resourceGroups:
+          description: Names and locations of resource group placeholders.
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ResourceGroupValue'
+        status:
+          description: Status of blueprint assignment. This field is readonly.
+          readOnly: true
+          $ref: '#/components/schemas/AssignmentStatus'
+        locks:
+          description: Defines how resources deployed by a blueprint assignment are locked.
+          $ref: '#/components/schemas/AssignmentLockSettings'
+        provisioningState:
+          type: string
+          readOnly: true
+          description: State of the blueprint assignment.
+          enum:
+            - creating
+            - validating
+            - waiting
+            - deploying
+            - cancelling
+            - locking
+            - succeeded
+            - failed
+            - canceled
+            - deleting
+          x-ms-enum:
+            name: AssignmentProvisioningState
+            modelAsString: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     AssignmentList:
       type: object
       description: List of blueprint assignments
@@ -92,7 +216,6 @@ components:
         - type
     AssignmentStatus:
       description: The status of a blueprint assignment. This field is readonly.
-      type: object
       properties:
         managedResources:
           type: array
@@ -100,8 +223,17 @@ components:
           readOnly: true
           items:
             type: string
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourceStatusBase'
+        timeCreated:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Creation time of this blueprint definition.
+        lastModified:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Last modified time of this blueprint definition.
+      type: object
     AssignmentLockSettings:
       description: Defines how resources deployed by a blueprint assignment are locked.
       type: object
@@ -127,8 +259,10 @@ components:
           items:
             type: string
     AssignmentProperties:
-      type: object
       description: Detailed properties for a blueprint assignment.
+      required:
+        - parameters
+        - resourceGroups
       properties:
         blueprintId:
           type: string
@@ -172,11 +306,15 @@ components:
           x-ms-enum:
             name: AssignmentProvisioningState
             modelAsString: true
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourcePropertiesBase'
-      required:
-        - parameters
-        - resourceGroups
+        displayName:
+          type: string
+          description: One-liner string explain this resource.
+          maxLength: 256
+        description:
+          type: string
+          description: Multi-line explain this resource.
+          maxLength: 500
+      type: object
     ParameterValue:
       description: Value for the specified parameter. Can be either 'value' or 'reference' but not both.
       type: object
@@ -228,7 +366,8 @@ components:
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -245,10 +384,19 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     AzureResourceBase:
       description: Common properties for all Azure resources.
       type: object
@@ -322,20 +470,41 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -672,15 +841,41 @@ components:
           description: The client ID of the identity which will be used to access key vault.
           type: string
     AssignmentOperation:
-      type: object
       description: Represents underlying deployment detail for each update to the blueprint assignment.
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceBase'
       properties:
-        properties:
-          description: Properties for AssignmentOperation.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AssignmentOperationProperties'
+        id:
+          readOnly: true
+          type: string
+          description: String Id used to locate any resource on Azure.
+        type:
+          readOnly: true
+          type: string
+          description: Type of this resource.
+        name:
+          readOnly: true
+          type: string
+          description: Name of this resource.
+        blueprintVersion:
+          type: string
+          description: The published version of the blueprint definition used for the blueprint assignment operation.
+        assignmentState:
+          type: string
+          description: State of this blueprint assignment operation.
+        timeCreated:
+          type: string
+          description: Create time of this blueprint assignment operation.
+        timeStarted:
+          type: string
+          description: Start time of the underlying deployment.
+        timeFinished:
+          type: string
+          description: Finish time of the overall underlying deployments.
+        deployments:
+          type: array
+          description: List of jobs in this blueprint assignment operation.
+          items:
+            $ref: '#/components/schemas/AssignmentDeploymentJob'
+      type: object
     AssignmentOperationList:
       type: object
       description: List of AssignmentOperation.
@@ -758,17 +953,21 @@ components:
           items:
             $ref: '#/components/schemas/AssignmentJobCreatedResource'
     AssignmentJobCreatedResource:
-      type: object
       description: Azure resource created from deployment job.
       properties:
-        properties:
-          type: object
-          description: Additional properties in a dictionary.
-          additionalProperties:
-            type: string
-            description: property value
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceBase'
+        id:
+          readOnly: true
+          type: string
+          description: String Id used to locate any resource on Azure.
+        type:
+          readOnly: true
+          type: string
+          description: Type of this resource.
+        name:
+          readOnly: true
+          type: string
+          description: Name of this resource.
+      type: object
     AzureResourceManagerError:
       type: object
       description: Error code and message
@@ -780,25 +979,49 @@ components:
           type: string
           description: Error message.
     Blueprint:
-      type: object
       description: Represents a Blueprint definition.
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceBase'
-      properties:
-        properties:
-          description: Detailed properties for blueprint definition.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/BlueprintProperties'
       required:
         - properties
-    Artifact:
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: String Id used to locate any resource on Azure.
+        type:
+          readOnly: true
+          type: string
+          description: Type of this resource.
+        name:
+          readOnly: true
+          type: string
+          description: Name of this resource.
+        versions:
+          type: object
+          description: Published versions of this blueprint definition.
+        layout:
+          type: object
+          readOnly: true
+          description: Layout view of the blueprint definition for UI reference.
       type: object
+    Artifact:
       discriminator:
         propertyName: kind
       description: Represents a blueprint artifact.
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceBase'
+      required:
+        - kind
       properties:
+        id:
+          readOnly: true
+          type: string
+          description: String Id used to locate any resource on Azure.
+        type:
+          readOnly: true
+          type: string
+          description: Type of this resource.
+        name:
+          readOnly: true
+          type: string
+          description: Name of this resource.
         kind:
           type: string
           description: Specifies the kind of blueprint artifact.
@@ -809,20 +1032,32 @@ components:
           x-ms-enum:
             name: ArtifactKind
             modelAsString: true
-      required:
-        - kind
-    PublishedBlueprint:
       type: object
+    PublishedBlueprint:
       description: Represents a published blueprint.
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceBase'
-      properties:
-        properties:
-          description: Detailed properties for published blueprint.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PublishedBlueprintProperties'
       required:
         - properties
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: String Id used to locate any resource on Azure.
+        type:
+          readOnly: true
+          type: string
+          description: Type of this resource.
+        name:
+          readOnly: true
+          type: string
+          description: Name of this resource.
+        blueprintName:
+          description: Name of the published blueprint definition.
+          type: string
+        changeNotes:
+          description: Version-specific change notes.
+          type: string
+          maxLength: 500
+      type: object
     BlueprintList:
       type: object
       title: BlueprintList
@@ -899,7 +1134,6 @@ components:
       type: object
     SharedBlueprintProperties:
       description: Shared Schema for both blueprintProperties and publishedBlueprintProperties.
-      type: object
       x-ms-external: true
       properties:
         status:
@@ -932,15 +1166,51 @@ components:
           additionalProperties:
             description: Named collection for resourceGroupDefinition.
             $ref: '#/components/schemas/ResourceGroupDefinition'
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourcePropertiesBase'
+        displayName:
+          type: string
+          description: One-liner string explain this resource.
+          maxLength: 256
+        description:
+          type: string
+          description: Multi-line explain this resource.
+          maxLength: 500
+      type: object
     BlueprintProperties:
       description: Schema for blueprint definition properties.
-      type: object
       x-ms-external: true
-      allOf:
-        - $ref: '#/components/schemas/SharedBlueprintProperties'
+      required:
+        - targetScope
       properties:
+        status:
+          description: Status of the blueprint. This field is readonly.
+          readOnly: true
+          $ref: '#/components/schemas/BlueprintStatus'
+        targetScope:
+          type: string
+          description: The scope where this blueprint definition can be assigned.
+          enum:
+            - subscription
+            - managementGroup
+          x-ms-enum:
+            name: BlueprintTargetScope
+            modelAsString: true
+            values:
+              - value: subscription
+                description: The blueprint targets a subscription during blueprint assignment.
+              - value: managementGroup
+                description: The blueprint targets a management group during blueprint assignment. This is reserved for future use.
+        parameters:
+          description: Parameters required by this blueprint definition.
+          type: object
+          additionalProperties:
+            description: Named collection of parameter metadata.
+            $ref: '#/components/schemas/ParameterDefinition'
+        resourceGroups:
+          description: Resource group placeholders defined by this blueprint definition.
+          type: object
+          additionalProperties:
+            description: Named collection for resourceGroupDefinition.
+            $ref: '#/components/schemas/ResourceGroupDefinition'
         versions:
           type: object
           description: Published versions of this blueprint definition.
@@ -948,15 +1218,41 @@ components:
           type: object
           readOnly: true
           description: Layout view of the blueprint definition for UI reference.
-      required:
-        - targetScope
+      type: object
     PublishedBlueprintProperties:
       description: Schema for published blueprint definition properties.
-      type: object
       x-ms-external: true
-      allOf:
-        - $ref: '#/components/schemas/SharedBlueprintProperties'
       properties:
+        status:
+          description: Status of the blueprint. This field is readonly.
+          readOnly: true
+          $ref: '#/components/schemas/BlueprintStatus'
+        targetScope:
+          type: string
+          description: The scope where this blueprint definition can be assigned.
+          enum:
+            - subscription
+            - managementGroup
+          x-ms-enum:
+            name: BlueprintTargetScope
+            modelAsString: true
+            values:
+              - value: subscription
+                description: The blueprint targets a subscription during blueprint assignment.
+              - value: managementGroup
+                description: The blueprint targets a management group during blueprint assignment. This is reserved for future use.
+        parameters:
+          description: Parameters required by this blueprint definition.
+          type: object
+          additionalProperties:
+            description: Named collection of parameter metadata.
+            $ref: '#/components/schemas/ParameterDefinition'
+        resourceGroups:
+          description: Resource group placeholders defined by this blueprint definition.
+          type: object
+          additionalProperties:
+            description: Named collection for resourceGroupDefinition.
+            $ref: '#/components/schemas/ResourceGroupDefinition'
         blueprintName:
           description: Name of the published blueprint definition.
           type: string
@@ -964,15 +1260,26 @@ components:
           description: Version-specific change notes.
           type: string
           maxLength: 500
+      type: object
     BlueprintStatus:
       description: The status of the blueprint. This field is readonly.
+      properties:
+        timeCreated:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Creation time of this blueprint definition.
+        lastModified:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Last modified time of this blueprint definition.
       type: object
-      properties: {}
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourceStatusBase'
     TemplateArtifactProperties:
-      type: object
       description: Properties of a Resource Manager template blueprint artifact.
+      required:
+        - template
+        - parameters
       properties:
         template:
           type: object
@@ -986,28 +1293,55 @@ components:
           additionalProperties:
             description: Key/Value pair of parameter fulfillment.
             $ref: '#/components/schemas/ParameterValue'
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourcePropertiesBase'
-        - $ref: '#/components/schemas/ArtifactPropertiesBase'
-      required:
-        - template
-        - parameters
+        displayName:
+          type: string
+          description: One-liner string explain this resource.
+          maxLength: 256
+        description:
+          type: string
+          description: Multi-line explain this resource.
+          maxLength: 500
+        dependsOn:
+          type: array
+          description: Artifacts which need to be deployed before the specified artifact.
+          items:
+            type: string
+            description: ID of peer artifact.
+      type: object
     TemplateArtifact:
       description: Blueprint artifact that deploys a Resource Manager template.
-      type: object
       x-ms-discriminator-value: template
-      properties:
-        properties:
-          description: Properties for a Resource Manager template blueprint artifact.
-          $ref: '#/components/schemas/TemplateArtifactProperties'
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Artifact'
       required:
         - properties
-    RoleAssignmentArtifactProperties:
+      properties:
+        template:
+          type: object
+          description: The Resource Manager template blueprint artifact body.
+        resourceGroup:
+          type: string
+          description: If applicable, the name of the resource group placeholder to which the Resource Manager template blueprint artifact will be deployed.
+        parameters:
+          type: object
+          description: Resource Manager template blueprint artifact parameter values.
+          additionalProperties:
+            description: Key/Value pair of parameter fulfillment.
+            $ref: '#/components/schemas/ParameterValue'
+        kind:
+          type: string
+          description: Specifies the kind of blueprint artifact.
+          enum:
+            - template
+            - roleAssignment
+            - policyAssignment
+          x-ms-enum:
+            name: ArtifactKind
+            modelAsString: true
       type: object
+    RoleAssignmentArtifactProperties:
       description: Properties of a Role assignment blueprint artifact.
+      required:
+        - roleDefinitionId
+        - principalIds
       properties:
         roleDefinitionId:
           type: string
@@ -1017,28 +1351,51 @@ components:
         resourceGroup:
           type: string
           description: RoleAssignment will be scope to this resourceGroup. If empty, it scopes to the subscription.
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourcePropertiesBase'
-        - $ref: '#/components/schemas/ArtifactPropertiesBase'
-      required:
-        - roleDefinitionId
-        - principalIds
+        displayName:
+          type: string
+          description: One-liner string explain this resource.
+          maxLength: 256
+        description:
+          type: string
+          description: Multi-line explain this resource.
+          maxLength: 500
+        dependsOn:
+          type: array
+          description: Artifacts which need to be deployed before the specified artifact.
+          items:
+            type: string
+            description: ID of peer artifact.
+      type: object
     RoleAssignmentArtifact:
       description: Blueprint artifact that applies a Role assignment.
-      type: object
       x-ms-discriminator-value: roleAssignment
-      properties:
-        properties:
-          description: Properties for a Role assignment blueprint artifact.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RoleAssignmentArtifactProperties'
-      allOf:
-        - $ref: '#/components/schemas/Artifact'
       required:
         - properties
-    PolicyAssignmentArtifactProperties:
+      properties:
+        roleDefinitionId:
+          type: string
+          description: Azure resource ID of the RoleDefinition.
+        principalIds:
+          description: Array of user or group identities in Azure Active Directory. The roleDefinition will apply to each identity.
+        resourceGroup:
+          type: string
+          description: RoleAssignment will be scope to this resourceGroup. If empty, it scopes to the subscription.
+        kind:
+          type: string
+          description: Specifies the kind of blueprint artifact.
+          enum:
+            - template
+            - roleAssignment
+            - policyAssignment
+          x-ms-enum:
+            name: ArtifactKind
+            modelAsString: true
       type: object
+    PolicyAssignmentArtifactProperties:
       description: Properties of a Policy assignment blueprint artifact.
+      required:
+        - policyDefinitionId
+        - parameters
       properties:
         policyDefinitionId:
           type: string
@@ -1052,25 +1409,50 @@ components:
         resourceGroup:
           type: string
           description: Name of the resource group placeholder to which the policy will be assigned.
-      allOf:
-        - $ref: '#/components/schemas/BlueprintResourcePropertiesBase'
-        - $ref: '#/components/schemas/ArtifactPropertiesBase'
-      required:
-        - policyDefinitionId
-        - parameters
+        displayName:
+          type: string
+          description: One-liner string explain this resource.
+          maxLength: 256
+        description:
+          type: string
+          description: Multi-line explain this resource.
+          maxLength: 500
+        dependsOn:
+          type: array
+          description: Artifacts which need to be deployed before the specified artifact.
+          items:
+            type: string
+            description: ID of peer artifact.
+      type: object
     PolicyAssignmentArtifact:
       description: Blueprint artifact that applies a Policy assignment.
-      type: object
       x-ms-discriminator-value: policyAssignment
-      properties:
-        properties:
-          description: properties for policyAssignment Artifact
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PolicyAssignmentArtifactProperties'
-      allOf:
-        - $ref: '#/components/schemas/Artifact'
       required:
         - properties
+      properties:
+        policyDefinitionId:
+          type: string
+          description: Azure resource ID of the policy definition.
+        parameters:
+          type: object
+          description: Parameter values for the policy definition.
+          additionalProperties:
+            description: Key/Value pair of parameter fulfillment.
+            $ref: '#/components/schemas/ParameterValue'
+        resourceGroup:
+          type: string
+          description: Name of the resource group placeholder to which the policy will be assigned.
+        kind:
+          type: string
+          description: Specifies the kind of blueprint artifact.
+          enum:
+            - template
+            - roleAssignment
+            - policyAssignment
+          x-ms-enum:
+            name: ArtifactKind
+            modelAsString: true
+      type: object
     ParameterDefinition:
       description: Represent a parameter with constrains and metadata.
       type: object
@@ -1160,82 +1542,6 @@ components:
         error:
           $ref: '#/components/schemas/ErrorResponse'
       type: object
-  parameters:
-    ScopeParameter:
-      name: resourceScope
-      in: path
-      description: 'The scope of the resource. Valid scopes are: management group (format: ''/providers/Microsoft.Management/managementGroups/{managementGroup}''), subscription (format: ''/subscriptions/{subscriptionId}'').'
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    AssignmentNameParameter:
-      name: assignmentName
-      in: path
-      description: Name of the blueprint assignment.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client API Version.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    AssignmentOperationNameParameter:
-      name: assignmentOperationName
-      in: path
-      description: Name of the blueprint assignment operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    BlueprintNameParameter:
-      name: blueprintName
-      in: path
-      description: Name of the blueprint definition.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ArtifactNameParameter:
-      name: artifactName
-      in: path
-      description: Name of the blueprint artifact.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PublishedBlueprintVersionIdParameter:
-      name: versionId
-      in: path
-      description: Version of the published blueprint definition.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /{resourceScope}/providers/Microsoft.Blueprint/blueprintAssignments/{assignmentName}/?api-version=2018-11-01-preview:
     put:

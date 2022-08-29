@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,82 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    apiVersionParameter:
+      name: api-version
+      in: query
+      description: Version of the API to be used with the client request. Current version is 2021-10-01
+      required: true
+      schema:
+        type: string
+    subscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription Id.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    aliasNameParameter:
+      name: aliasName
+      in: path
+      description: AliasName is the name for the subscription creation request. Note that this is not the same as subscription name and this doesn’t have any other lifecycle need beyond the request for subscription creation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    billingAccountIdParameter:
+      name: billingAccountId
+      in: path
+      description: Billing Account Id.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Location:
       properties:
@@ -178,18 +254,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -206,16 +293,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -640,11 +747,24 @@ components:
           description: New subscription name
     PutAliasRequest:
       description: The parameters required to create a new subscription.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/PutAliasRequestProperties'
-          description: Put alias request properties.
+        displayName:
+          description: The friendly name of the subscription.
+          type: string
+        workload:
+          $ref: '#/components/schemas/Workload'
+        billingScope:
+          $ref: '#/components/schemas/BillingScope'
+        subscriptionId:
+          description: This parameter can be used to create alias for existing subscription Id
+          type: string
+        resellerId:
+          description: Reseller Id
+          type: string
+        additionalProperties:
+          $ref: '#/components/schemas/PutAliasRequestAdditionalProperties'
+          description: Put alias request additional properties.
+      type: object
     PutAliasRequestProperties:
       description: Put subscription properties.
       type: object
@@ -685,27 +805,53 @@ components:
             type: string
     SubscriptionAliasResponse:
       description: Subscription Information with the alias.
-      type: object
-      properties:
-        id:
-          description: Fully qualified ID for the alias resource.
-          readOnly: true
-          type: string
-        name:
-          description: Alias ID.
-          readOnly: true
-          type: string
-        type:
-          description: Resource type, Microsoft.Subscription/aliases.
-          readOnly: true
-          type: string
-        properties:
-          $ref: '#/components/schemas/SubscriptionAliasResponseProperties'
-          description: Subscription Alias response properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
       x-ms-azure-resource: true
+      properties:
+        subscriptionId:
+          description: Newly created subscription Id.
+          readOnly: true
+          type: string
+        displayName:
+          description: The display name of the subscription.
+          type: string
+        provisioningState:
+          type: string
+          description: The provisioning state of the resource.
+          enum:
+            - Accepted
+            - Succeeded
+            - Failed
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        acceptOwnershipUrl:
+          description: Url to accept ownership of the subscription.
+          type: string
+          readOnly: true
+        acceptOwnershipState:
+          $ref: '#/components/schemas/AcceptOwnershipState'
+        billingScope:
+          $ref: '#/components/schemas/BillingScope'
+        workload:
+          $ref: '#/components/schemas/Workload'
+        resellerId:
+          description: Reseller Id
+          type: string
+        subscriptionOwnerId:
+          description: Owner Id of the subscription
+          type: string
+        managementGroupId:
+          description: The Management Group Id.
+          type: string
+        createdTime:
+          description: Created Time
+          type: string
+        tags:
+          description: Tags for the subscription
+          type: object
+          additionalProperties:
+            type: string
+      type: object
     SubscriptionAliasResponseProperties:
       description: Put subscription creation result properties.
       type: object
@@ -770,11 +916,19 @@ components:
           readOnly: true
     AcceptOwnershipRequest:
       description: The parameters required to accept subscription ownership.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/AcceptOwnershipRequestProperties'
-          description: Accept subscription ownership request properties.
+        displayName:
+          description: The friendly name of the subscription.
+          type: string
+        managementGroupId:
+          description: Management group Id for the subscription.
+          type: string
+        tags:
+          description: Tags for the subscription
+          type: object
+          additionalProperties:
+            type: string
+      type: object
     AcceptOwnershipRequestProperties:
       description: Accept subscription ownership request properties.
       type: object
@@ -836,27 +990,26 @@ components:
             example: 00000000-0000-0000-0000-000000000000
     GetTenantPolicyResponse:
       description: Tenant policy Information.
-      type: object
-      properties:
-        id:
-          description: Policy Id.
-          readOnly: true
-          type: string
-        name:
-          description: Policy name.
-          readOnly: true
-          type: string
-        type:
-          description: Resource type.
-          readOnly: true
-          type: string
-        properties:
-          $ref: '#/components/schemas/TenantPolicy'
-          description: Tenant policy properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
       x-ms-azure-resource: true
+      properties:
+        policyId:
+          description: Policy Id.
+          type: string
+          readOnly: true
+        blockSubscriptionsLeavingTenant:
+          description: Blocks the leaving of subscriptions from user's tenant.
+          type: boolean
+        blockSubscriptionsIntoTenant:
+          description: Blocks the entering of subscriptions into user's tenant.
+          type: boolean
+        exemptedPrincipals:
+          description: List of user objectIds that are exempted from the set subscription tenant policies for the user's tenant.
+          type: array
+          items:
+            format: uuid
+            type: string
+            example: 00000000-0000-0000-0000-000000000000
+      type: object
     GetTenantPolicyListResponse:
       description: Tenant policy information list.
       type: object
@@ -873,27 +1026,19 @@ components:
           readOnly: true
     BillingAccountPoliciesResponse:
       description: Billing account policies information.
-      type: object
-      properties:
-        id:
-          description: Fully qualified ID for the policy.
-          readOnly: true
-          type: string
-        name:
-          description: Policy name.
-          readOnly: true
-          type: string
-        type:
-          description: Resource type.
-          readOnly: true
-          type: string
-        properties:
-          $ref: '#/components/schemas/BillingAccountPoliciesResponseProperties'
-          description: Billing account policies response properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
       x-ms-azure-resource: true
+      properties:
+        serviceTenants:
+          description: Service tenant for the billing account.
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/ServiceTenantResponse'
+            description: Billing account service tenant.
+        allowTransfers:
+          description: Determine if the transfers are allowed for the billing account
+          type: boolean
+      type: object
     BillingAccountPoliciesResponseProperties:
       description: Put billing account policies response properties.
       type: object
@@ -966,82 +1111,6 @@ components:
         tenantName:
           description: Service tenant name.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    apiVersionParameter:
-      name: api-version
-      in: query
-      description: Version of the API to be used with the client request. Current version is 2021-10-01
-      required: true
-      schema:
-        type: string
-    subscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription Id.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    aliasNameParameter:
-      name: aliasName
-      in: path
-      description: AliasName is the name for the subscription creation request. Note that this is not the same as subscription name and this doesn’t have any other lifecycle need beyond the request for subscription creation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    billingAccountIdParameter:
-      name: billingAccountId
-      in: path
-      description: Billing Account Id.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/locations/?api-version=2016-06-01:
     get:

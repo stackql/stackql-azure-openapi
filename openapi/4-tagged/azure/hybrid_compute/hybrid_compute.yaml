@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,84 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    PrivateLinkScopeName:
+      name: scopeName
+      in: path
+      description: The name of the Azure Arc PrivateLinkScope resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    PrivateLinkScopeId:
+      name: privateLinkScopeId
+      in: path
+      description: The id (Guid) of the Azure Arc PrivateLinkScope resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    GroupNameParameter:
+      name: groupName
+      in: path
+      description: The name of the private link resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    MachineNameParameter:
+      name: machineName
+      in: path
+      description: The name of the target machine to get the private link scope validation details for.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +123,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +162,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -433,18 +542,49 @@ components:
           description: Resource tags
       description: A container holding only the Tags for a resource, allowing the user to update the tags on a PrivateLinkScope instance.
     HybridComputePrivateLinkScope:
-      type: object
-      properties:
-        properties:
-          description: Properties that define a Azure Arc PrivateLinkScope resource.
-          $ref: '#/components/schemas/HybridComputePrivateLinkScopeProperties'
-        systemData:
-          readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/PrivateLinkScopesResource'
       description: An Azure Arc PrivateLinkScope definition.
+      properties:
+        publicNetworkAccess:
+          description: Indicates whether machines associated with the private link scope can also use public Azure Arc service endpoints.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        provisioningState:
+          type: string
+          description: 'Current state of this PrivateLinkScope: whether or not is has been provisioned within the resource group it is defined. Users cannot change this value but are able to read from it. Values will include Provisioning ,Succeeded, Canceled and Failed.'
+          readOnly: true
+        privateLinkScopeId:
+          readOnly: true
+          description: The Guid id of the private link scope.
+          type: string
+        privateEndpointConnections:
+          readOnly: true
+          description: The collection of associated Private Endpoint Connections.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnectionDataModel'
+        id:
+          type: string
+          readOnly: true
+          description: Azure resource Id
+        name:
+          type: string
+          description: Azure resource name
+          readOnly: true
+        type:
+          type: string
+          readOnly: true
+          description: Azure resource type
+        location:
+          type: string
+          description: Resource location
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+      type: object
     PrivateLinkScopeValidationDetails:
       type: object
       properties:
@@ -533,18 +673,25 @@ components:
           type: string
           readOnly: true
     PrivateLinkResource:
-      type: object
       description: A private link resource
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-        systemData:
+        groupId:
+          description: The private link resource group id.
+          type: string
           readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          description: Required DNS zone names of the the private link resource.
+          type: array
+          items:
+            type: string
+          readOnly: true
+      type: object
     PrivateLinkResourceProperties:
       type: object
       description: Properties of a private link resource.
@@ -566,24 +713,25 @@ components:
             type: string
           readOnly: true
     PrivateEndpointConnectionDataModel:
-      type: object
       description: The Data Model for a Private Endpoint Connection associated with a Private Link Scope
       properties:
-        id:
-          description: The ARM Resource Id of the Private Endpoint.
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection state of the private endpoint connection.
+        provisioningState:
+          description: State of the private endpoint connection.
           type: string
           readOnly: true
-        name:
-          description: The Name of the Private Endpoint.
-          type: string
+        groupIds:
+          description: List of group IDs.
+          type: array
+          items:
+            type: string
           readOnly: true
-        type:
-          type: string
-          readOnly: true
-          description: Azure resource type
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: The Private Endpoint Connection properties.
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       description: Properties of a private endpoint connection.
@@ -629,18 +777,25 @@ components:
           type: string
           readOnly: true
     PrivateEndpointConnection:
-      type: object
       description: A private endpoint connection
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Resource properties.
-        systemData:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection state of the private endpoint connection.
+        provisioningState:
+          description: State of the private endpoint connection.
+          type: string
           readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
+        groupIds:
+          description: List of group IDs.
+          type: array
+          items:
+            type: string
+          readOnly: true
+      type: object
     PrivateEndpointConnectionListResult:
       type: object
       description: A list of private endpoint connections.
@@ -850,10 +1005,11 @@ components:
       description: Specifies the operating system settings for the hybrid machine.
     DetectedProperties:
       readOnly: true
-      type: object
       additionalProperties:
         type: string
       description: Detected properties from the machine.
+      properties: {}
+      type: object
     MachineProperties:
       type: object
       properties:
@@ -981,37 +1137,151 @@ components:
           description: The resource id of the private link scope this machine is assigned to, if any.
       description: Describes the ARM updatable properties of a hybrid machine.
     Machine:
-      type: object
+      description: Describes a hybrid machine.
       properties:
-        properties:
-          $ref: '#/components/schemas/MachineProperties'
-          description: Hybrid Compute Machine properties
-        resources:
+        locationData:
+          $ref: '#/components/schemas/locationData'
+        agentConfiguration:
+          $ref: '#/components/schemas/AgentConfiguration'
+          description: Configurable properties that the user can set locally via the azcmagent config command, or remotely via ARM.
+        serviceStatuses:
+          $ref: '#/components/schemas/ServiceStatuses'
+          description: Statuses of dependent services that are reported back to ARM.
+        cloudMetadata:
+          $ref: '#/components/schemas/CloudMetadata'
+          description: The metadata of the cloud environment (Azure/GCP/AWS/OCI...).
+        osProfile:
+          $ref: '#/components/schemas/OSProfile'
+          description: Specifies the operating system settings for the hybrid machine.
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The provisioning state, which only appears in the response.
+        status:
+          readOnly: true
+          type: string
+          description: The status of the hybrid machine agent.
+          enum:
+            - Connected
+            - Disconnected
+            - Error
+          x-ms-enum:
+            name: StatusTypes
+            modelAsString: true
+        lastStatusChange:
+          readOnly: true
+          type: string
+          format: date-time
+          description: The time of the last status change.
+        errorDetails:
           readOnly: true
           type: array
           items:
-            $ref: '#/components/schemas/MachineExtension'
-          description: The list of extensions affiliated to the machine
-        identity:
-          $ref: '#/components/schemas/Identity'
-        systemData:
+            $ref: '#/components/schemas/ErrorDetail'
+          description: Details about the error state.
+          x-ms-identifiers: []
+        agentVersion:
           readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Describes a hybrid machine.
-    MachineUpdate:
+          type: string
+          description: The hybrid machine agent full version.
+        vmId:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Specifies the hybrid machine unique ID.
+        displayName:
+          readOnly: true
+          type: string
+          description: Specifies the hybrid machine display name.
+        machineFqdn:
+          readOnly: true
+          type: string
+          description: Specifies the hybrid machine FQDN.
+        clientPublicKey:
+          type: string
+          description: Public Key that the client provides to be used during initial resource onboarding
+        osName:
+          readOnly: true
+          type: string
+          description: The Operating System running on the hybrid machine.
+        osVersion:
+          readOnly: true
+          type: string
+          description: The version of Operating System running on the hybrid machine.
+        osType:
+          type: string
+          description: The type of Operating System (windows/linux).
+        vmUuid:
+          readOnly: true
+          type: string
+          description: Specifies the Arc Machine's unique SMBIOS ID
+        osSku:
+          readOnly: true
+          type: string
+          description: Specifies the Operating System product SKU.
+        domainName:
+          readOnly: true
+          type: string
+          description: Specifies the Windows domain name.
+        adFqdn:
+          readOnly: true
+          type: string
+          description: Specifies the AD fully qualified display name.
+        dnsFqdn:
+          readOnly: true
+          type: string
+          description: Specifies the DNS fully qualified display name.
+        privateLinkScopeResourceId:
+          type: string
+          description: The resource id of the private link scope this machine is assigned to, if any.
+        parentClusterResourceId:
+          type: string
+          description: The resource id of the parent cluster (Azure HCI) this machine is assigned to, if any.
+        mssqlDiscovered:
+          type: string
+          description: Specifies whether any MS SQL instance is discovered on the machine.
+        detectedProperties:
+          $ref: '#/components/schemas/DetectedProperties'
+          description: Detected properties from the machine.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
       type: object
-      properties:
-        identity:
-          $ref: '#/components/schemas/Identity'
-        properties:
-          $ref: '#/components/schemas/MachineUpdateProperties'
-          description: Hybrid Compute Machine properties
-      allOf:
-        - $ref: '#/components/schemas/ResourceUpdate'
+    MachineUpdate:
       description: Describes a hybrid machine Update.
+      properties:
+        locationData:
+          $ref: '#/components/schemas/locationData'
+        osProfile:
+          $ref: '#/components/schemas/OSProfile'
+        cloudMetadata:
+          $ref: '#/components/schemas/CloudMetadata'
+          description: The metadata of the cloud environment (Azure/GCP/AWS/OCI...).
+        parentClusterResourceId:
+          type: string
+          description: The resource id of the parent cluster (Azure HCI) this machine is assigned to, if any.
+        privateLinkScopeResourceId:
+          type: string
+          description: The resource id of the private link scope this machine is assigned to, if any.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+      type: object
     MachineListResult:
       type: object
       properties:
@@ -1036,27 +1306,92 @@ components:
             type: string
           description: Resource tags
     MachineExtension:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/MachineExtensionProperties'
-          description: Describes Machine Extension Properties.
-        systemData:
-          readOnly: true
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Describes a Machine Extension.
-    MachineExtensionUpdate:
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/MachineExtensionUpdateProperties'
-          description: Describes Machine Extension Update Properties.
-      allOf:
-        - $ref: '#/components/schemas/ResourceUpdate'
+        forceUpdateTag:
+          type: string
+          description: How the extension handler should be forced to update even if the extension configuration has not changed.
+        publisher:
+          type: string
+          description: The name of the extension handler publisher.
+        type:
+          type: string
+          description: Specifies the type of the extension; an example is "CustomScriptExtension".
+        typeHandlerVersion:
+          type: string
+          description: Specifies the version of the script handler.
+        enableAutomaticUpgrade:
+          type: boolean
+          description: Indicates whether the extension should be automatically upgraded by the platform if there is a newer version available.
+        autoUpgradeMinorVersion:
+          type: boolean
+          description: Indicates whether the extension should use a newer minor version if one is available at deployment time. Once deployed, however, the extension will not upgrade minor versions unless redeployed, even with this property set to true.
+        settings:
+          type: object
+          additionalProperties: {}
+          description: Json formatted public settings for the extension.
+        protectedSettings:
+          type: object
+          additionalProperties: {}
+          description: The extension can contain either protectedSettings or protectedSettingsFromKeyVault or no protected settings at all.
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The provisioning state, which only appears in the response.
+        instanceView:
+          $ref: '#/components/schemas/MachineExtensionInstanceView'
+          description: The machine extension instance view.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
+    MachineExtensionUpdate:
       description: Describes a Machine Extension Update.
+      properties:
+        forceUpdateTag:
+          type: string
+          description: How the extension handler should be forced to update even if the extension configuration has not changed.
+        publisher:
+          type: string
+          description: The name of the extension handler publisher.
+        type:
+          type: string
+          description: Specifies the type of the extension; an example is "CustomScriptExtension".
+        typeHandlerVersion:
+          type: string
+          description: Specifies the version of the script handler.
+        enableAutomaticUpgrade:
+          type: boolean
+          description: Indicates whether the extension should be automatically upgraded by the platform if there is a newer version available.
+        autoUpgradeMinorVersion:
+          type: boolean
+          description: Indicates whether the extension should use a newer minor version if one is available at deployment time. Once deployed, however, the extension will not upgrade minor versions unless redeployed, even with this property set to true.
+        settings:
+          type: object
+          additionalProperties: {}
+          description: Json formatted public settings for the extension.
+        protectedSettings:
+          type: object
+          additionalProperties: {}
+          description: The extension can contain either protectedSettings or protectedSettingsFromKeyVault or no protected settings at all.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+      type: object
     MachineExtensionProperties:
       type: object
       properties:
@@ -1188,11 +1523,12 @@ components:
           description: Properties for the specified Extension to Upgrade.
       description: Describes the Machine Extension Target Version Properties
     ExtensionTarget:
-      type: object
       additionalProperties:
         type: object
         $ref: '#/components/schemas/ExtensionTargetProperties'
       description: Describes the Machine Extension Target Properties
+      properties: {}
+      type: object
     MachineExtensionUpgrade:
       type: object
       properties:
@@ -1297,84 +1633,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    PrivateLinkScopeName:
-      name: scopeName
-      in: path
-      description: The name of the Azure Arc PrivateLinkScope resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PrivateLinkScopeId:
-      name: privateLinkScopeId
-      in: path
-      description: The id (Guid) of the Azure Arc PrivateLinkScope resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    GroupNameParameter:
-      name: groupName
-      in: path
-      description: The name of the private link resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    MachineNameParameter:
-      name: machineName
-      in: path
-      description: The name of the target machine to get the private link scope validation details for.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.HybridCompute/privateLinkScopes/?api-version=2022-05-10-preview:
     get:

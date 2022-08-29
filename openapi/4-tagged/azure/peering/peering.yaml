@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,21 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The client API version.
+      required: true
+      schema:
+        type: string
   schemas:
     CdnPeeringPrefixListResult:
       description: The paginated list of CDN peering prefixes.
@@ -37,14 +52,40 @@ components:
           type: string
     CdnPeeringPrefix:
       description: The CDN peering prefix
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/CdnPeeringPrefixProperties'
-          description: The properties that define a cdn peering prefix.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        prefix:
+          description: The prefix.
+          type: string
+          readOnly: true
+        azureRegion:
+          description: The Azure region.
+          type: string
+          readOnly: true
+        azureService:
+          description: The Azure service.
+          type: string
+          readOnly: true
+        isPrimaryRegion:
+          description: The flag that indicates whether or not this is the primary region.
+          type: boolean
+          readOnly: true
+        bgpCommunity:
+          description: The BGP Community
+          type: string
+          readOnly: true
+      type: object
     CdnPeeringPrefixProperties:
       description: The properties that define a CDN peering prefix
       type: object
@@ -97,37 +138,41 @@ components:
         - sku
         - kind
         - location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        sku:
-          $ref: '#/components/schemas/PeeringSku'
-          description: The SKU that defines the tier and kind of the peering.
-        kind:
-          description: The kind of the peering.
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        direct:
+          $ref: '#/components/schemas/PeeringPropertiesDirect'
+          description: The properties that define a direct peering.
+        exchange:
+          $ref: '#/components/schemas/PeeringPropertiesExchange'
+          description: The properties that define an exchange peering.
+        peeringLocation:
+          description: The location of the peering.
+          type: string
+        provisioningState:
+          description: The provisioning state of the resource.
           enum:
-            - Direct
-            - Exchange
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
           type: string
+          readOnly: true
           x-ms-enum:
-            name: kind
+            name: provisioningState
             modelAsString: true
-        properties:
-          $ref: '#/components/schemas/PeeringProperties'
-          description: The properties that define a peering.
-          x-ms-client-flatten: true
-        location:
-          description: The location of the resource.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          description: The resource tags.
-          type: object
-          additionalProperties:
-            type: string
+      type: object
     PeeringSku:
       description: The SKU that defines the tier and kind of the peering.
       type: object
@@ -440,25 +485,12 @@ components:
           type: string
     Operation:
       description: The peering API operation.
-      type: object
       properties:
-        name:
-          description: The name of the operation.
-          type: string
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecification'
+          description: Service specification payload.
           readOnly: true
-        display:
-          $ref: '#/components/schemas/OperationDisplayInfo'
-          description: The information related to the operation.
-          readOnly: true
-        isDataAction:
-          description: The flag that indicates whether the operation applies to data plane.
-          type: boolean
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/OperationProperties'
-          description: The properties of the operation.
-          readOnly: true
-          x-ms-client-flatten: true
+      type: object
     OperationDisplayInfo:
       description: The information related to the operation.
       type: object
@@ -547,14 +579,48 @@ components:
           readOnly: true
     PeerAsn:
       description: The essential information related to the peer's ASN.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeerAsnProperties'
-          description: The properties that define a peer's ASN.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        peerAsn:
+          format: int32
+          description: The Autonomous System Number (ASN) of the peer.
+          type: integer
+        peerContactDetail:
+          description: The contact details of the peer.
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactDetail'
+        peerName:
+          description: The name of the peer.
+          type: string
+        validationState:
+          description: The validation state of the ASN associated with the peer.
+          enum:
+            - None
+            - Pending
+            - Approved
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: validationState
+            modelAsString: true
+        errorMessage:
+          description: The error message for the validation state
+          type: string
+          readOnly: true
+      type: object
     PeerAsnProperties:
       description: The properties that define a peer's ASN.
       type: object
@@ -636,23 +702,35 @@ components:
           type: string
     PeeringLocation:
       description: Peering location is where connectivity could be established to the Microsoft Cloud Edge.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        kind:
-          description: The kind of peering that the peering location supports.
-          enum:
-            - Direct
-            - Exchange
+        name:
+          description: The name of the resource.
           type: string
-          x-ms-enum:
-            name: kind
-            modelAsString: true
-        properties:
-          $ref: '#/components/schemas/PeeringLocationProperties'
-          description: The properties that define a peering location.
-          x-ms-client-flatten: true
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        direct:
+          $ref: '#/components/schemas/PeeringLocationPropertiesDirect'
+          description: The properties that define a direct peering location.
+        exchange:
+          $ref: '#/components/schemas/PeeringLocationPropertiesExchange'
+          description: The properties that define an exchange peering location.
+        peeringLocation:
+          description: The name of the peering location.
+          type: string
+        country:
+          description: The country in which the peering location exists.
+          type: string
+        azureRegion:
+          description: The Azure region associated with the peering location.
+          type: string
+      type: object
     PeeringLocationProperties:
       description: The properties that define a peering location.
       type: object
@@ -767,14 +845,40 @@ components:
           type: string
     PeeringRegisteredAsn:
       description: The customer's ASN that is registered by the peering service provider.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeeringRegisteredAsnProperties'
-          description: The properties that define a registered ASN.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        asn:
+          format: int32
+          description: The customer's ASN from which traffic originates.
+          type: integer
+        peeringServicePrefixKey:
+          description: The peering service prefix key that is to be shared with the customer.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          enum:
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+      type: object
     PeeringRegisteredAsnProperties:
       description: The properties that define a registered ASN.
       type: object
@@ -813,14 +917,58 @@ components:
           type: string
     PeeringRegisteredPrefix:
       description: The customer's prefix that is registered by the peering service provider.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeeringRegisteredPrefixProperties'
-          description: The properties that define a registered prefix.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        prefix:
+          description: The customer's prefix from which traffic originates.
+          type: string
+        prefixValidationState:
+          description: The prefix validation state.
+          enum:
+            - None
+            - Invalid
+            - Verified
+            - Failed
+            - Pending
+            - Warning
+            - Unknown
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: prefixValidationState
+            modelAsString: true
+        peeringServicePrefixKey:
+          description: The peering service prefix key that is to be shared with the customer.
+          type: string
+          readOnly: true
+        errorMessage:
+          description: The error message associated with the validation state, if any.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          enum:
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+      type: object
     PeeringRegisteredPrefixProperties:
       description: The properties that define a registered prefix.
       type: object
@@ -930,14 +1078,56 @@ components:
           readOnly: true
     ConnectionMonitorTest:
       description: The Connection Monitor Test class.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ConnectionMonitorTestProperties'
-          description: The properties that define a Connection Monitor Test.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        sourceAgent:
+          description: The Connection Monitor test source agent
+          type: string
+        destination:
+          description: The Connection Monitor test destination
+          type: string
+        destinationPort:
+          format: int32
+          description: The Connection Monitor test destination port
+          type: integer
+        testFrequencyInSec:
+          format: int32
+          description: The Connection Monitor test frequency in seconds
+          type: integer
+        isTestSuccessful:
+          description: The flag that indicates if the Connection Monitor test is successful or not.
+          type: boolean
+          readOnly: true
+        path:
+          description: The path representing the Connection Monitor test.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          enum:
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+      type: object
     ConnectionMonitorTestProperties:
       description: The properties that define a Connection Monitor Test.
       type: object
@@ -1004,10 +1194,20 @@ components:
           type: string
     PeeringServiceCountry:
       description: The peering service country.
+      properties:
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties: {}
     PeeringServiceLocationListResult:
       description: The paginated list of peering service locations.
       type: object
@@ -1022,14 +1222,29 @@ components:
           type: string
     PeeringServiceLocation:
       description: The peering service location.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeeringServiceLocationProperties'
-          description: The properties that define a peering service location.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        country:
+          description: Country of the customer
+          type: string
+        state:
+          description: State of the customer
+          type: string
+        azureRegion:
+          description: Azure region for the location
+          type: string
+      type: object
     PeeringServiceLocationProperties:
       description: The properties that define connectivity to the Peering Service Location.
       type: object
@@ -1045,14 +1260,74 @@ components:
           type: string
     PeeringServicePrefix:
       description: The peering service prefix class.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeeringServicePrefixProperties'
-          description: Gets or sets the peering prefix properties.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        prefix:
+          description: The prefix from which your traffic originates.
+          type: string
+        prefixValidationState:
+          description: The prefix validation state
+          enum:
+            - None
+            - Invalid
+            - Verified
+            - Failed
+            - Pending
+            - Warning
+            - Unknown
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: prefixValidationState
+            modelAsString: true
+        learnedType:
+          description: The prefix learned type
+          enum:
+            - None
+            - ViaServiceProvider
+            - ViaSession
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: learnedType
+            modelAsString: true
+        errorMessage:
+          description: The error message for validation state
+          type: string
+          readOnly: true
+        events:
+          description: The list of events for peering service prefix
+          type: array
+          items:
+            $ref: '#/components/schemas/PeeringServicePrefixEvent'
+          readOnly: true
+        peeringServicePrefixKey:
+          description: The peering service prefix key
+          type: string
+        provisioningState:
+          description: The provisioning state of the resource.
+          enum:
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+      type: object
     PeeringServicePrefixProperties:
       description: The peering service prefix properties class.
       type: object
@@ -1162,14 +1437,28 @@ components:
           type: string
     PeeringServiceProvider:
       description: PeeringService provider
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PeeringServiceProviderProperties'
-          description: The properties that define a peering service provider.
-          x-ms-client-flatten: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        serviceProviderName:
+          description: The name of the service provider.
+          type: string
+        peeringLocations:
+          description: The list of locations at which the service provider peers with Microsoft.
+          type: array
+          items:
+            type: string
+      type: object
     PeeringServiceProviderProperties:
       description: The properties that define connectivity to the Peering Service Provider.
       type: object
@@ -1186,28 +1475,47 @@ components:
       description: Peering Service
       required:
         - location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        sku:
-          $ref: '#/components/schemas/PeeringServiceSku'
-          description: The SKU that defines the type of the peering service.
-        properties:
-          $ref: '#/components/schemas/PeeringServiceProperties'
-          description: The properties that define a peering service.
-          x-ms-client-flatten: true
-        location:
-          description: The location of the resource.
+        name:
+          description: The name of the resource.
           type: string
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          description: The resource tags.
-          type: object
-          additionalProperties:
-            type: string
+          readOnly: true
+        id:
+          description: The ID of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
+        peeringServiceLocation:
+          description: The location (state/province) of the customer.
+          type: string
+        peeringServiceProvider:
+          description: The name of the service provider.
+          type: string
+        provisioningState:
+          description: The provisioning state of the resource.
+          enum:
+            - Succeeded
+            - Updating
+            - Deleting
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+        providerPrimaryPeeringLocation:
+          description: The primary peering (Microsoft/service provider) location to be used for customer traffic.
+          type: string
+        providerBackupPeeringLocation:
+          description: The backup peering (Microsoft/service provider) location to be used for customer traffic.
+          type: string
+        logAnalyticsWorkspaceProperties:
+          $ref: '#/components/schemas/LogAnalyticsWorkspaceProperties'
+          description: The Log Analytics Workspace Properties
+      type: object
     PeeringServiceSku:
       description: The SKU that defines the type of the peering service.
       type: object
@@ -1312,21 +1620,6 @@ components:
           type: string
           readOnly: true
       x-ms-azure-resource: true
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The client API version.
-      required: true
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.Peering/cdnPeeringPrefixes/?api-version=2022-06-01:
     get:

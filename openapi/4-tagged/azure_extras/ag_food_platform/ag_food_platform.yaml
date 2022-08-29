@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,67 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    FarmBeatsResourceNameParameter:
+      name: farmBeatsResourceName
+      in: path
+      description: FarmBeats resource name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ExtensionIdParameter:
+      name: extensionId
+      in: path
+      description: Id of extension resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +106,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +145,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -518,20 +610,31 @@ components:
           readOnly: true
     Extension:
       description: Extension resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+      x-ms-azure-resource: true
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-        properties:
-          $ref: '#/components/schemas/ExtensionProperties'
-          x-ms-client-flatten: true
-        eTag:
-          description: The ETag value to implement optimistic concurrency.
+        extensionId:
+          description: Extension Id.
+          pattern: ^[a-zA-Z]{3,50}[.][a-zA-Z]{3,100}$
           type: string
           readOnly: true
-      x-ms-azure-resource: true
+        extensionCategory:
+          description: Extension category. e.g. weather/sensor/satellite.
+          type: string
+          readOnly: true
+        installedExtensionVersion:
+          description: Installed extension version.
+          pattern: ^([1-9]|10).\d$
+          type: string
+          readOnly: true
+        extensionAuthLink:
+          description: Extension auth link.
+          type: string
+          readOnly: true
+        extensionApiDocsLink:
+          description: Extension api docs link.
+          type: string
+          readOnly: true
+      type: object
     ExtensionListResponse:
       description: Paged response contains list of requested objects and a URL link to get the next set of results.
       type: object
@@ -651,16 +754,67 @@ components:
           readOnly: true
     FarmBeatsExtension:
       description: FarmBeats extension resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-        properties:
-          $ref: '#/components/schemas/FarmBeatsExtensionProperties'
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        targetResourceType:
+          description: Target ResourceType of the farmBeatsExtension.
+          type: string
+          readOnly: true
+        farmBeatsExtensionId:
+          description: FarmBeatsExtension ID.
+          maxLength: 100
+          minLength: 2
+          pattern: ^[a-zA-Z]{3,50}[.][a-zA-Z]{3,100}$
+          type: string
+          readOnly: true
+        farmBeatsExtensionName:
+          description: FarmBeatsExtension name.
+          maxLength: 100
+          minLength: 2
+          type: string
+          readOnly: true
+        farmBeatsExtensionVersion:
+          description: FarmBeatsExtension version.
+          maxLength: 100
+          minLength: 2
+          pattern: ^([1-9]|10).\d$
+          type: string
+          readOnly: true
+        publisherId:
+          description: Publisher ID.
+          maxLength: 100
+          minLength: 2
+          type: string
+          readOnly: true
+        description:
+          description: Textual description.
+          maxLength: 500
+          minLength: 2
+          type: string
+          readOnly: true
+        extensionCategory:
+          description: Category of the extension. e.g. weather/sensor/satellite.
+          maxLength: 100
+          minLength: 2
+          type: string
+          readOnly: true
+        extensionAuthLink:
+          description: FarmBeatsExtension auth link.
+          type: string
+          readOnly: true
+        extensionApiDocsLink:
+          description: FarmBeatsExtension api docs link.
+          type: string
+          readOnly: true
+        detailedInformation:
+          description: "Detailed information which shows summary of requested data.\r\nUsed in descriptive get extension metadata call.\r\nInformation for weather category per api included are apisSupported,\r\ncustomParameters, PlatformParameters and Units supported."
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailedInformation'
+          x-ms-identifiers:
+            - apiName
+          readOnly: true
+      type: object
     FarmBeatsExtensionListResponse:
       description: Paged response contains list of requested objects and a URL link to get the next set of results.
       type: object
@@ -695,16 +849,39 @@ components:
             modelAsString: true
     FarmBeats:
       description: FarmBeats ARM Resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-        properties:
-          $ref: '#/components/schemas/FarmBeatsProperties'
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        instanceUri:
+          format: uri
+          description: Uri of the FarmBeats instance.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: FarmBeats instance provisioning state.
+          enum:
+            - Succeeded
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+      type: object
     FarmBeatsUpdateRequestModel:
       description: FarmBeats update request.
       type: object
@@ -731,67 +908,6 @@ components:
           description: Continuation link (absolute URI) to the next page of results in the list.
           type: string
           readOnly: true
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    FarmBeatsResourceNameParameter:
-      name: farmBeatsResourceName
-      in: path
-      description: FarmBeats resource name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ExtensionIdParameter:
-      name: extensionId
-      in: path
-      description: Id of extension resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AgFoodPlatform/farmBeats/{farmBeatsResourceName}/extensions/{extensionId}/?api-version=2020-05-12-preview:
     put:

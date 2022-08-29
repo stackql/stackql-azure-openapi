@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,42 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Azure subscription ID.
+      required: true
+      schema:
+        type: string
+    ResourceGroupParameter:
+      name: resourceGroupName
+      in: path
+      description: Resource group to which the resource belongs.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 90
+        minLength: 1
+        type: string
+    NameParameter:
+      name: name
+      in: path
+      description: Name of the resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 63
+        minLength: 1
+        pattern: ^[a-zA-Z0-9]([_-]*[a-zA-Z0-9])*$
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client API version.
+      required: true
+      schema:
+        type: string
   schemas:
     ContainerHostMapping:
       description: Container host mapping object specifying the Container host resource ID and its associated Controller resource.
@@ -36,9 +72,19 @@ components:
       type: object
     TrackedResource:
       description: The resource model definition for a ARM tracked top level resource.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
+        id:
+          description: Fully qualified resource Id for the resource.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource.
+          type: string
+          readOnly: true
         tags:
           description: Tags for the Azure resource.
           type: object
@@ -95,14 +141,60 @@ components:
         - properties
         - sku
         - location
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ControllerProperties'
-          x-ms-client-flatten: true
-        sku:
-          $ref: '#/components/schemas/Sku'
+        tags:
+          description: Tags for the Azure resource.
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+        location:
+          description: Region where the Azure resource is located.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        provisioningState:
+          description: Provisioning state of the Azure Dev Spaces Controller.
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Updating
+            - Creating
+            - Deleting
+            - Deleted
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        hostSuffix:
+          description: DNS suffix for public endpoints running in the Azure Dev Spaces Controller.
+          type: string
+          readOnly: true
+        dataPlaneFqdn:
+          description: DNS name for accessing DataPlane services
+          type: string
+          readOnly: true
+        targetContainerHostApiServerFqdn:
+          description: DNS of the target container host's API server
+          type: string
+          readOnly: true
+        targetContainerHostResourceId:
+          description: Resource ID of the target container host
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        targetContainerHostCredentialsBase64:
+          description: Credentials of the target container host (base64).
+          type: string
+          x-ms-mutability:
+            - create
       type: object
     ControllerProperties:
       required:
@@ -173,13 +265,9 @@ components:
     ControllerUpdateParameters:
       description: Parameters for updating an Azure Dev Spaces Controller.
       properties:
-        tags:
-          description: Tags for the Azure Dev Spaces Controller.
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/ControllerUpdateParametersProperties'
-          x-ms-client-flatten: true
+        targetContainerHostCredentialsBase64:
+          description: Credentials of the target container host (base64).
+          type: string
       type: object
     ControllerUpdateParametersProperties:
       properties:
@@ -250,13 +338,15 @@ components:
       type: object
     KubernetesConnectionDetails:
       description: Contains information used to connect to a Kubernetes cluster
-      allOf:
-        - $ref: '#/components/schemas/OrchestratorSpecificConnectionDetails'
+      x-ms-discriminator-value: Kubernetes
       properties:
+        instanceType:
+          description: Gets the Instance type.
+          type: string
+          readOnly: true
         kubeConfig:
           description: Gets the kubeconfig for the cluster.
           type: string
-      x-ms-discriminator-value: Kubernetes
       type: object
     DevSpacesErrorResponse:
       description: Error response indicates that the service is not able to process the incoming request. The reason is provided in the error message.
@@ -280,42 +370,6 @@ components:
           type: string
           readOnly: true
       type: object
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Azure subscription ID.
-      required: true
-      schema:
-        type: string
-    ResourceGroupParameter:
-      name: resourceGroupName
-      in: path
-      description: Resource group to which the resource belongs.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 90
-        minLength: 1
-        type: string
-    NameParameter:
-      name: name
-      in: path
-      description: Name of the resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 63
-        minLength: 1
-        pattern: ^[a-zA-Z0-9]([_-]*[a-zA-Z0-9])*$
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client API version.
-      required: true
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevSpaces/locations/{location}/checkContainerHostMapping/?api-version=2019-04-01:
     post:

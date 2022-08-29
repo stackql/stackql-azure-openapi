@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,67 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    StorageSyncServiceNameParameter:
+      name: storageSyncServiceName
+      in: path
+      description: The name of the storage sync service name within the specified resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     StorageSyncError:
       type: object
@@ -97,59 +158,106 @@ components:
           type: string
           description: Call stack of the inner error.
     SubscriptionState:
-      type: object
       description: Subscription State object.
-      properties:
-        state:
-          type: string
-          description: State of Azure Subscription
-          enum:
-            - Registered
-            - Unregistered
-            - Warned
-            - Suspended
-            - Deleted
-          x-ms-enum:
-            name: Reason
-            modelAsString: true
-        istransitioning:
-          type: boolean
-          description: Is Transitioning
-          readOnly: true
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SubscriptionStateProperties'
-          description: Subscription state properties.
+      properties: {}
+      type: object
     StorageSyncService:
-      type: object
       description: Storage Sync Service object.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/StorageSyncServiceProperties'
-          description: Storage Sync Service properties.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        incomingTrafficPolicy:
+          $ref: '#/components/schemas/IncomingTrafficPolicy'
+          description: Incoming Traffic Policy
+        storageSyncServiceStatus:
+          type: integer
+          description: Storage Sync service status.
+          readOnly: true
+        storageSyncServiceUid:
+          type: string
+          description: Storage Sync service Uid
+          readOnly: true
+        provisioningState:
+          readOnly: true
+          type: string
+          description: StorageSyncService Provisioning State
+        lastWorkflowId:
+          readOnly: true
+          type: string
+          description: StorageSyncService lastWorkflowId
+        lastOperationName:
+          readOnly: true
+          type: string
+          description: Resource Last Operation Name
+        privateEndpointConnections:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: List of private endpoint connection associated with the specified storage sync service
+      type: object
     SyncGroup:
-      type: object
       description: Sync Group object.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SyncGroupProperties'
-          description: SyncGroup properties.
-    CloudEndpoint:
+        uniqueId:
+          type: string
+          description: Unique Id
+          readOnly: true
+        syncGroupStatus:
+          type: string
+          description: Sync group status
+          readOnly: true
       type: object
+    CloudEndpoint:
       description: Cloud Endpoint object.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CloudEndpointProperties'
-          description: Cloud Endpoint properties.
+        storageAccountResourceId:
+          type: string
+          description: Storage Account Resource Id
+        azureFileShareName:
+          type: string
+          description: Azure file share name
+        storageAccountTenantId:
+          type: string
+          description: Storage Account Tenant Id
+        partnershipId:
+          type: string
+          description: Partnership Id
+        friendlyName:
+          type: string
+          description: Friendly Name
+        backupEnabled:
+          type: string
+          description: Backup Enabled
+          readOnly: true
+        provisioningState:
+          type: string
+          description: CloudEndpoint Provisioning State
+        lastWorkflowId:
+          type: string
+          description: CloudEndpoint lastWorkflowId
+        lastOperationName:
+          type: string
+          description: Resource Last Operation Name
+        changeEnumerationStatus:
+          type: object
+          $ref: '#/components/schemas/CloudEndpointChangeEnumerationStatus'
+          description: Cloud endpoint change enumeration status
+          readOnly: true
+      type: object
     TriggerChangeDetectionParameters:
       properties:
         directoryPath:
@@ -182,47 +290,38 @@ components:
       description: The parameters used when calling recall action on server endpoint.
       type: object
     StorageSyncServiceCreateParameters:
-      properties:
-        location:
-          type: string
-          description: Required. Gets or sets the location of the resource. This will be one of the supported and registered Azure Geo Regions (e.g. West US, East US, Southeast Asia, etc.). The geo region of a resource cannot be changed once it is created, but if an identical geo region is specified on update, the request will succeed.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Gets or sets a list of key value pairs that describe the resource. These tags can be used for viewing and grouping this resource (across resource groups). A maximum of 15 tags can be provided for a resource. Each tag must have a key with a length no greater than 128 characters and a value with a length no greater than 256 characters.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/StorageSyncServiceCreateParametersProperties'
-          description: The parameters used to create the storage sync service.
       required:
         - location
       description: The parameters used when creating a storage sync service.
+      properties:
+        incomingTrafficPolicy:
+          $ref: '#/components/schemas/IncomingTrafficPolicy'
+          description: Incoming Traffic Policy
       type: object
     SyncGroupCreateParameters:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SyncGroupCreateParametersProperties'
-          description: The parameters used to create the sync group
       description: The parameters used when creating a sync group.
+      properties: {}
+      type: object
     SyncGroupCreateParametersProperties:
       type: object
       description: Sync Group Create Properties object.
       properties: {}
     CloudEndpointCreateParameters:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CloudEndpointCreateParametersProperties'
-          description: The parameters used to create the cloud endpoint.
       description: The parameters used when creating a cloud endpoint.
+      properties:
+        storageAccountResourceId:
+          type: string
+          description: Storage Account Resource Id
+        azureFileShareName:
+          type: string
+          description: Azure file share name
+        storageAccountTenantId:
+          type: string
+          description: Storage Account Tenant Id
+        friendlyName:
+          type: string
+          description: Friendly Name
+      type: object
     StorageSyncServiceCreateParametersProperties:
       description: StorageSyncService Properties object.
       properties:
@@ -247,15 +346,51 @@ components:
           description: Friendly Name
       type: object
     ServerEndpointCreateParameters:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ServerEndpointCreateParametersProperties'
-          description: The parameters used to create the server endpoint.
       description: The parameters used when creating a server endpoint.
+      properties:
+        serverLocalPath:
+          $ref: '#/components/schemas/PhysicalPath'
+          description: Server Local path.
+        cloudTiering:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Cloud Tiering.
+        volumeFreeSpacePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Level of free space to be maintained by Cloud Tiering if it is enabled.
+          default: 20
+        tierFilesOlderThanDays:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: Tier files older than days.
+          default: 0
+        friendlyName:
+          type: string
+          description: Friendly Name
+        serverResourceId:
+          $ref: '#/components/schemas/ResourceId'
+          description: Server Resource Id.
+        offlineDataTransfer:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Offline data transfer
+        offlineDataTransferShareName:
+          type: string
+          description: Offline data transfer share name
+        initialDownloadPolicy:
+          $ref: '#/components/schemas/InitialDownloadPolicy'
+          description: Policy for how namespace and files are recalled during FastDr.
+          default: NamespaceThenModifiedFiles
+        localCacheMode:
+          $ref: '#/components/schemas/LocalCacheMode'
+          description: 'Policy for enabling follow-the-sun business models: link local cache to cloud behavior to pre-populate before local access.'
+          default: UpdateLocallyCachedFiles
+        initialUploadPolicy:
+          $ref: '#/components/schemas/InitialUploadPolicy'
+          description: Policy for how the initial upload sync session is performed.
+          default: Merge
+      type: object
     ServerEndpointCreateParametersProperties:
       description: ServerEndpoint Properties object.
       properties:
@@ -310,15 +445,36 @@ components:
           type: string
           description: Certificate Data
     RegisteredServerCreateParameters:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RegisteredServerCreateParametersProperties'
-          description: The parameters used to create the registered server.
       description: The parameters used when creating a registered server.
+      properties:
+        serverCertificate:
+          type: string
+          description: Registered Server Certificate
+        agentVersion:
+          type: string
+          description: Registered Server Agent Version
+        serverOSVersion:
+          type: string
+          description: Registered Server OS Version
+        lastHeartBeat:
+          type: string
+          description: Registered Server last heart beat
+        serverRole:
+          type: string
+          description: Registered Server serverRole
+        clusterId:
+          type: string
+          description: Registered Server clusterId
+        clusterName:
+          type: string
+          description: Registered Server clusterName
+        serverId:
+          type: string
+          description: Registered Server serverId
+        friendlyName:
+          type: string
+          description: Friendly Name
+      type: object
     RegisteredServerCreateParametersProperties:
       description: RegisteredServer Create Properties object.
       properties:
@@ -351,33 +507,188 @@ components:
           description: Friendly Name
       type: object
     ServerEndpointUpdateParameters:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ServerEndpointUpdateProperties'
-          description: The properties of the server endpoint.
       description: Parameters for updating an Server Endpoint.
+      properties:
+        cloudTiering:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Cloud Tiering.
+        volumeFreeSpacePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Level of free space to be maintained by Cloud Tiering if it is enabled.
+        tierFilesOlderThanDays:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: Tier files older than days.
+        offlineDataTransfer:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Offline data transfer
+        offlineDataTransferShareName:
+          type: string
+          description: Offline data transfer share name
+        localCacheMode:
+          $ref: '#/components/schemas/LocalCacheMode'
+          description: 'Policy for enabling follow-the-sun business models: link local cache to cloud behavior to pre-populate before local access.'
       type: object
     ServerEndpoint:
-      type: object
       description: Server Endpoint object.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ServerEndpointProperties'
-          description: Server Endpoint properties.
-    RegisteredServer:
+        serverLocalPath:
+          $ref: '#/components/schemas/PhysicalPath'
+          description: Server Local path.
+        cloudTiering:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Cloud Tiering.
+        volumeFreeSpacePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Level of free space to be maintained by Cloud Tiering if it is enabled.
+        tierFilesOlderThanDays:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: Tier files older than days.
+        friendlyName:
+          type: string
+          description: Friendly Name
+        serverResourceId:
+          $ref: '#/components/schemas/ResourceId'
+          description: Server Resource Id.
+        provisioningState:
+          type: string
+          description: ServerEndpoint Provisioning State
+          readOnly: true
+        lastWorkflowId:
+          type: string
+          description: ServerEndpoint lastWorkflowId
+          readOnly: true
+        lastOperationName:
+          type: string
+          description: Resource Last Operation Name
+          readOnly: true
+        syncStatus:
+          type: object
+          $ref: '#/components/schemas/ServerEndpointSyncStatus'
+          description: Server Endpoint sync status
+          readOnly: true
+        offlineDataTransfer:
+          $ref: '#/components/schemas/FeatureStatus'
+          description: Offline data transfer
+        offlineDataTransferStorageAccountResourceId:
+          type: string
+          description: Offline data transfer storage account resource ID
+          readOnly: true
+        offlineDataTransferStorageAccountTenantId:
+          type: string
+          description: Offline data transfer storage account tenant ID
+          readOnly: true
+        offlineDataTransferShareName:
+          type: string
+          description: Offline data transfer share name
+        cloudTieringStatus:
+          type: object
+          $ref: '#/components/schemas/ServerEndpointCloudTieringStatus'
+          description: Cloud tiering status. Only populated if cloud tiering is enabled.
+          readOnly: true
+        recallStatus:
+          type: object
+          $ref: '#/components/schemas/ServerEndpointRecallStatus'
+          description: Recall status. Only populated if cloud tiering is enabled.
+          readOnly: true
+        initialDownloadPolicy:
+          $ref: '#/components/schemas/InitialDownloadPolicy'
+          description: Policy for how namespace and files are recalled during FastDr.
+        localCacheMode:
+          $ref: '#/components/schemas/LocalCacheMode'
+          description: 'Policy for enabling follow-the-sun business models: link local cache to cloud behavior to pre-populate before local access.'
+        initialUploadPolicy:
+          $ref: '#/components/schemas/InitialUploadPolicy'
+          description: Policy for how the initial upload sync session is performed.
+        serverName:
+          type: string
+          description: Server name
+          readOnly: true
       type: object
+    RegisteredServer:
       description: Registered Server resource.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RegisteredServerProperties'
-          description: RegisteredServer properties.
+        serverCertificate:
+          type: string
+          description: Registered Server Certificate
+        agentVersion:
+          type: string
+          description: Registered Server Agent Version
+        agentVersionStatus:
+          $ref: '#/components/schemas/RegisteredServerAgentVersionStatus'
+          description: Registered Server Agent Version Status
+          readOnly: true
+        agentVersionExpirationDate:
+          type: string
+          format: date-time
+          description: Registered Server Agent Version Expiration Date
+          readOnly: true
+        serverOSVersion:
+          type: string
+          description: Registered Server OS Version
+        serverManagementErrorCode:
+          type: integer
+          description: Registered Server Management Error Code
+        lastHeartBeat:
+          type: string
+          description: Registered Server last heart beat
+        provisioningState:
+          type: string
+          description: Registered Server Provisioning State
+        serverRole:
+          type: string
+          description: Registered Server serverRole
+        clusterId:
+          type: string
+          description: Registered Server clusterId
+        clusterName:
+          type: string
+          description: Registered Server clusterName
+        serverId:
+          type: string
+          description: Registered Server serverId
+        storageSyncServiceUid:
+          type: string
+          description: Registered Server storageSyncServiceUid
+        lastWorkflowId:
+          type: string
+          description: Registered Server lastWorkflowId
+        lastOperationName:
+          type: string
+          description: Resource Last Operation Name
+        discoveryEndpointUri:
+          type: string
+          description: Resource discoveryEndpointUri
+        resourceLocation:
+          type: string
+          description: Resource Location
+        serviceLocation:
+          type: string
+          description: Service Location
+        friendlyName:
+          type: string
+          description: Friendly Name
+        managementEndpointUri:
+          type: string
+          description: Management Endpoint Uri
+        monitoringEndpointUri:
+          type: string
+          description: Telemetry Endpoint Uri
+        monitoringConfiguration:
+          type: string
+          description: Monitoring Configuration
+        serverName:
+          type: string
+          description: Server name
+          readOnly: true
+      type: object
     ResourcesMoveInfo:
       type: object
       description: Resource Move Info.
@@ -391,15 +702,38 @@ components:
           items:
             $ref: '#/components/schemas/ResourceId'
     Workflow:
-      type: object
       description: Workflow resource.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/WorkflowProperties'
-          description: Workflow properties.
+        lastStepName:
+          type: string
+          description: last step name
+        status:
+          $ref: '#/components/schemas/WorkflowStatus'
+          description: workflow status.
+        operation:
+          $ref: '#/components/schemas/OperationDirection'
+          description: operation direction.
+        steps:
+          type: string
+          description: workflow steps
+        lastOperationId:
+          type: string
+          description: workflow last operation identifier.
+        commandName:
+          type: string
+          description: workflow command name.
+          readOnly: true
+        createdTimestamp:
+          type: string
+          format: date-time
+          description: workflow created timestamp.
+          readOnly: true
+        lastStatusTimestamp:
+          type: string
+          format: date-time
+          description: workflow last status timestamp.
+          readOnly: true
+      type: object
     OperationEntityListResult:
       description: The list of storage sync operations.
       type: object
@@ -416,20 +750,11 @@ components:
             - name
     OperationEntity:
       description: The operation supported by storage sync.
-      type: object
       properties:
-        name:
-          description: 'Operation name: {provider}/{resource}/{operation}.'
-          type: string
-        display:
-          $ref: '#/components/schemas/OperationDisplayInfo'
-          description: The operation supported by storage sync.
-        origin:
-          type: string
-          description: The origin.
-        properties:
-          $ref: '#/components/schemas/OperationProperties'
-          description: Properties of the operations resource.
+        serviceSpecification:
+          $ref: '#/components/schemas/OperationResourceServiceSpecification'
+          description: Service specification for the operations resource.
+      type: object
     OperationDisplayInfo:
       description: The operation supported by storage sync.
       type: object
@@ -716,8 +1041,9 @@ components:
           items:
             $ref: '#/components/schemas/Workflow'
     SubscriptionStateProperties:
-      type: object
       description: Subscription State properties.
+      properties: {}
+      type: object
     PostBackupResponseProperties:
       type: object
       description: Post Backup Response Properties object.
@@ -727,17 +1053,11 @@ components:
           description: cloud endpoint Name.
           readOnly: true
     StorageSyncServiceUpdateParameters:
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: The user-specified tags associated with the storage sync service.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/StorageSyncServiceUpdateProperties'
-          description: The properties of the server endpoint.
       description: Parameters for updating an Storage sync service.
+      properties:
+        incomingTrafficPolicy:
+          $ref: '#/components/schemas/IncomingTrafficPolicy'
+          description: Incoming Traffic Policy
       type: object
     StorageSyncServiceUpdateProperties:
       type: object
@@ -1264,8 +1584,9 @@ components:
       type: string
       description: Arm resource identifier.
     TagsObject:
-      type: object
       description: Tags object.
+      properties: {}
+      type: object
     FeatureStatus:
       type: string
       description: Type of the Feature Status
@@ -1836,15 +2157,35 @@ components:
           description: The ARM identifier for Private Endpoint
       description: The Private Endpoint resource.
     PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          x-ms-client-flatten: true
-          description: Resource properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: The Private Endpoint Connection resource.
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private end point.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+        provisioningState:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
+          description: The provisioning state of the private endpoint connection resource.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       properties:
@@ -1896,15 +2237,41 @@ components:
         name: PrivateEndpointConnectionProvisioningState
         modelAsString: true
     PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: A private link resource
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource Private link DNS zone name.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     PrivateLinkResourceProperties:
       type: object
       properties:
@@ -1969,18 +2336,34 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -1997,19 +2380,49 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
+      x-ms-azure-resource: true
       properties:
         managedBy:
           type: string
@@ -2038,9 +2451,22 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     SkuTier:
       type: string
       enum:
@@ -2387,67 +2813,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    StorageSyncServiceNameParameter:
-      name: storageSyncServiceName
-      in: path
-      description: The name of the storage sync service name within the specified resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.StorageSync/operations/?api-version=2020-09-01:
     get:

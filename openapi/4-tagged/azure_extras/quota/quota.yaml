@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,74 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdInParameters:
+      name: subscriptionId
+      in: path
+      description: Azure subscription ID.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceNameInParameters:
+      name: resourceName
+      in: path
+      description: "Resource name for a given resource provider. For example:\r\n- SKU name for Microsoft.Compute\r\n- SKU or TotalLowPriorityCores for Microsoft.MachineLearningServices\r\n For Microsoft.Network PublicIPAddresses."
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ResourceDimensionTypeInParameter:
+      name: resourceDimension
+      in: path
+      description: "Resource dimension type for a resource provider. For example:\r\n- locations and SKUs for Microsoft.Compute\r\n- resource groups, batch accounts, and SKUs for Microsoft.Batch"
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    RequestIdInParameters:
+      name: id
+      in: path
+      description: Quota request ID.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    TopQueryParameter:
+      name: $top
+      in: query
+      description: Number of records to return.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int32
+        minimum: 1
+        type: integer
+    SkipTokenParameter:
+      name: $skiptoken
+      in: query
+      description: The **Skiptoken** parameter is used only if a previous operation returned a partial result. If a previous response contains a **nextLink** element, its value includes a **skiptoken** parameter that specifies a starting point to use for subsequent calls.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ScopeInPath:
+      name: scope
+      in: path
+      description: The target Azure resource URI. For example, `/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/qms-test/providers/Microsoft.Batch/batchAccounts/testAccount/`. This is the target Azure resource URI for the List GET operation. If a `{resourceName}` is added after `/quotas`, then it's the target Azure resource URI in the GET operation for the specific resource.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     OperationList:
       type: object
@@ -76,28 +144,8 @@ components:
           readOnly: true
           description: 'Resource type. Example: "Microsoft.Quota/quotas"'
     CurrentUsagesBase:
-      type: object
       description: Resource usage.
       x-ms-azure-resource: true
-      properties:
-        id:
-          description: The resource ID.
-          type: string
-          readOnly: true
-        type:
-          description: The resource type.
-          type: string
-          readOnly: true
-        name:
-          description: The resource name.
-          type: string
-          readOnly: true
-        properties:
-          description: Usage properties for the specified resource.
-          $ref: '#/components/schemas/UsagesProperties'
-    UsagesProperties:
-      description: Usage properties for the specified resource.
-      type: object
       properties:
         usages:
           description: The quota limit properties for this resource.
@@ -123,6 +171,11 @@ components:
         properties:
           description: Additional properties for the specific resource provider.
           type: object
+      type: object
+    UsagesProperties:
+      description: Usage properties for the specified resource.
+      properties: {}
+      type: object
     UsagesLimits:
       type: object
       description: Quota limits.
@@ -136,28 +189,8 @@ components:
           description: The URI used to fetch the next page of quota limits. When there are no more pages, this is null.
           type: string
     CurrentQuotaLimitBase:
-      type: object
       description: Quota limit.
       x-ms-azure-resource: true
-      properties:
-        id:
-          description: The resource ID.
-          type: string
-          readOnly: true
-        type:
-          description: The resource type.
-          type: string
-          readOnly: true
-        name:
-          description: The resource name.
-          type: string
-          readOnly: true
-        properties:
-          description: Quota properties for the specified resource, based on the API called, Quotas or Usages.
-          $ref: '#/components/schemas/QuotaProperties'
-    QuotaProperties:
-      description: Quota properties for the specified resource.
-      type: object
       properties:
         limit:
           description: Resource quota limit properties.
@@ -183,6 +216,11 @@ components:
         properties:
           description: Additional properties for the specific resource provider.
           type: object
+      type: object
+    QuotaProperties:
+      description: Quota properties for the specified resource.
+      properties: {}
+      type: object
     ResourceName:
       type: object
       description: Name of the resource provided by the resource Provider. When requesting quota, use this property name.
@@ -306,174 +344,22 @@ components:
         - value
     LimitObject:
       description: The resource quota limit value.
-      type: object
       x-ms-discriminator-value: LimitValue
-      allOf:
-        - $ref: '#/components/schemas/LimitJsonObject'
+      required:
+        - value
       properties:
+        limitObjectType:
+          $ref: '#/components/schemas/LimitObjectTypes'
         value:
           type: integer
           format: int32
           description: The quota/limit value
         limitType:
           $ref: '#/components/schemas/LimitTypes'
-      required:
-        - value
+      type: object
     QuotaRequestOneResourceSubmitResponse:
       description: Quota request response.
-      type: object
       x-ms-azure-resource: true
-      properties:
-        id:
-          description: Quota request ID.
-          type: string
-          readOnly: true
-        name:
-          description: The name of the quota request.
-          type: string
-          readOnly: true
-        type:
-          type: string
-          readOnly: true
-          description: Resource type. "Microsoft.Quota/ServiceLimitRequests"
-        properties:
-          description: Quota request details.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/quotaRequestOneResourceProperties'
-    QuotaRequestSubmitResponse:
-      description: Quota request response.
-      type: object
-      x-ms-azure-resource: true
-      properties:
-        id:
-          description: Quota request ID.
-          type: string
-          readOnly: true
-        name:
-          description: Quota request name.
-          type: string
-          readOnly: true
-        properties:
-          description: Quota request details.
-          type: object
-          $ref: '#/components/schemas/QuotaRequestProperties'
-        type:
-          type: string
-          readOnly: true
-          description: Resource type. "Microsoft.Quota/quotas".
-    QuotaRequestSubmitResponse202:
-      description: The quota request response with the quota request ID.
-      type: object
-      properties:
-        id:
-          description: The quota request ID. To check the request status, use the **id** value in a [Quota Request Status](https://docs.microsoft.com/en-us/rest/api/reserved-vm-instances/quotarequeststatus/get) GET operation.
-          type: string
-          readOnly: true
-        name:
-          description: Operation ID.
-          type: string
-          readOnly: true
-        type:
-          description: Resource type.
-          type: string
-          readOnly: true
-        properties:
-          description: Quota request status.
-          $ref: '#/components/schemas/QuotaRequestStatusDetails'
-          x-ms-client-flatten: true
-    QuotaRequestStatusDetails:
-      description: Quota request status details.
-      type: object
-      properties:
-        provisioningState:
-          description: Quota request status.
-          $ref: '#/components/schemas/QuotaRequestState'
-          readOnly: true
-        message:
-          description: User-friendly message.
-          type: string
-          readOnly: true
-        limit:
-          description: Resource quota limit properties.
-          $ref: '#/components/schemas/LimitObject'
-        unit:
-          description: ' The quota limit units, such as Count and Bytes. When requesting quota, use the **unit** value returned in the GET response in the request body of your PUT operation.'
-          type: string
-          readOnly: false
-        name:
-          description: Resource name provided by the resource provider. Use this property name when requesting quota.
-          $ref: '#/components/schemas/ResourceName'
-        resourceType:
-          description: Resource type name.
-          $ref: '#/components/schemas/ResourceTypesName'
-        quotaPeriod:
-          description: "The time period over which the quota usage values are summarized. For example:\r\n*P1D (per one day)\n*PT1M (per one minute)\n*PT1S (per one second).\r\nThis parameter is optional because, for some resources like compute, the period is irrelevant."
-          type: string
-          readOnly: true
-        properties:
-          description: Additional properties for the specific resource provider.
-          type: object
-    QuotaRequestDetails:
-      type: object
-      description: List of quota requests with details.
-      properties:
-        id:
-          description: Quota request ID.
-          type: string
-          readOnly: true
-        name:
-          description: Quota request name.
-          type: string
-          readOnly: true
-        type:
-          type: string
-          readOnly: true
-          description: Resource type. "Microsoft.Quota/quotas".
-        properties:
-          description: Quota request details.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/QuotaRequestProperties'
-    QuotaRequestDetailsList:
-      description: Quota request information.
-      type: object
-      properties:
-        value:
-          description: Quota request details.
-          type: array
-          items:
-            $ref: '#/components/schemas/QuotaRequestDetails'
-        nextLink:
-          description: The URI for fetching the next page of quota limits. When there are no more pages, this string is null.
-          type: string
-    QuotaRequestProperties:
-      type: object
-      description: Quota request properties.
-      properties:
-        provisioningState:
-          description: The quota request status.
-          $ref: '#/components/schemas/QuotaRequestState'
-        message:
-          description: User-friendly status message.
-          type: string
-          readOnly: true
-        error:
-          description: Error details of the quota request.
-          $ref: '#/components/schemas/ServiceErrorDetail'
-        requestSubmitTime:
-          description: 'The quota request submission time. The date conforms to the following format specified by the ISO 8601 standard: yyyy-MM-ddTHH:mm:ssZ'
-          type: string
-          readOnly: true
-          format: date-time
-        value:
-          description: Quota request details.
-          type: array
-          items:
-            $ref: '#/components/schemas/SubRequest'
-          x-ms-identifiers:
-            - subRequestId
-    quotaRequestOneResourceProperties:
-      type: object
-      description: Quota request.
       properties:
         provisioningState:
           description: Quota request status.
@@ -520,6 +406,138 @@ components:
         properties:
           description: Additional properties for the specific resource provider.
           type: object
+      type: object
+    QuotaRequestSubmitResponse:
+      description: Quota request response.
+      x-ms-azure-resource: true
+      properties:
+        provisioningState:
+          description: The quota request status.
+          $ref: '#/components/schemas/QuotaRequestState'
+        message:
+          description: User-friendly status message.
+          type: string
+          readOnly: true
+        error:
+          description: Error details of the quota request.
+          $ref: '#/components/schemas/ServiceErrorDetail'
+        requestSubmitTime:
+          description: 'The quota request submission time. The date conforms to the following format specified by the ISO 8601 standard: yyyy-MM-ddTHH:mm:ssZ'
+          type: string
+          readOnly: true
+          format: date-time
+        value:
+          description: Quota request details.
+          type: array
+          items:
+            $ref: '#/components/schemas/SubRequest'
+          x-ms-identifiers:
+            - subRequestId
+      type: object
+    QuotaRequestSubmitResponse202:
+      description: The quota request response with the quota request ID.
+      properties:
+        provisioningState:
+          description: Quota request status.
+          $ref: '#/components/schemas/QuotaRequestState'
+          readOnly: true
+        message:
+          description: User-friendly message.
+          type: string
+          readOnly: true
+        limit:
+          description: Resource quota limit properties.
+          $ref: '#/components/schemas/LimitObject'
+        unit:
+          description: ' The quota limit units, such as Count and Bytes. When requesting quota, use the **unit** value returned in the GET response in the request body of your PUT operation.'
+          type: string
+          readOnly: false
+        name:
+          description: Resource name provided by the resource provider. Use this property name when requesting quota.
+          $ref: '#/components/schemas/ResourceName'
+        resourceType:
+          description: Resource type name.
+          $ref: '#/components/schemas/ResourceTypesName'
+        quotaPeriod:
+          description: "The time period over which the quota usage values are summarized. For example:\r\n*P1D (per one day)\n*PT1M (per one minute)\n*PT1S (per one second).\r\nThis parameter is optional because, for some resources like compute, the period is irrelevant."
+          type: string
+          readOnly: true
+        properties:
+          description: Additional properties for the specific resource provider.
+          type: object
+      type: object
+    QuotaRequestStatusDetails:
+      description: Quota request status details.
+      properties: {}
+      type: object
+    QuotaRequestDetails:
+      description: List of quota requests with details.
+      properties:
+        provisioningState:
+          description: The quota request status.
+          $ref: '#/components/schemas/QuotaRequestState'
+        message:
+          description: User-friendly status message.
+          type: string
+          readOnly: true
+        error:
+          description: Error details of the quota request.
+          $ref: '#/components/schemas/ServiceErrorDetail'
+        requestSubmitTime:
+          description: 'The quota request submission time. The date conforms to the following format specified by the ISO 8601 standard: yyyy-MM-ddTHH:mm:ssZ'
+          type: string
+          readOnly: true
+          format: date-time
+        value:
+          description: Quota request details.
+          type: array
+          items:
+            $ref: '#/components/schemas/SubRequest'
+          x-ms-identifiers:
+            - subRequestId
+      type: object
+    QuotaRequestDetailsList:
+      description: Quota request information.
+      type: object
+      properties:
+        value:
+          description: Quota request details.
+          type: array
+          items:
+            $ref: '#/components/schemas/QuotaRequestDetails'
+        nextLink:
+          description: The URI for fetching the next page of quota limits. When there are no more pages, this string is null.
+          type: string
+    QuotaRequestProperties:
+      type: object
+      description: Quota request properties.
+      properties:
+        provisioningState:
+          description: The quota request status.
+          $ref: '#/components/schemas/QuotaRequestState'
+        message:
+          description: User-friendly status message.
+          type: string
+          readOnly: true
+        error:
+          description: Error details of the quota request.
+          $ref: '#/components/schemas/ServiceErrorDetail'
+        requestSubmitTime:
+          description: 'The quota request submission time. The date conforms to the following format specified by the ISO 8601 standard: yyyy-MM-ddTHH:mm:ssZ'
+          type: string
+          readOnly: true
+          format: date-time
+        value:
+          description: Quota request details.
+          type: array
+          items:
+            $ref: '#/components/schemas/SubRequest'
+          x-ms-identifiers:
+            - subRequestId
+    quotaRequestOneResourceProperties:
+      description: Quota request.
+      properties: {}
+      type: object
     QuotaRequestState:
       description: Quota request status.
       enum:
@@ -574,74 +592,6 @@ components:
           type: string
           readOnly: true
           description: Error message.
-  parameters:
-    SubscriptionIdInParameters:
-      name: subscriptionId
-      in: path
-      description: Azure subscription ID.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceNameInParameters:
-      name: resourceName
-      in: path
-      description: "Resource name for a given resource provider. For example:\r\n- SKU name for Microsoft.Compute\r\n- SKU or TotalLowPriorityCores for Microsoft.MachineLearningServices\r\n For Microsoft.Network PublicIPAddresses."
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ResourceDimensionTypeInParameter:
-      name: resourceDimension
-      in: path
-      description: "Resource dimension type for a resource provider. For example:\r\n- locations and SKUs for Microsoft.Compute\r\n- resource groups, batch accounts, and SKUs for Microsoft.Batch"
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    RequestIdInParameters:
-      name: id
-      in: path
-      description: Quota request ID.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    TopQueryParameter:
-      name: $top
-      in: query
-      description: Number of records to return.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int32
-        minimum: 1
-        type: integer
-    SkipTokenParameter:
-      name: $skiptoken
-      in: query
-      description: The **Skiptoken** parameter is used only if a previous operation returned a partial result. If a previous response contains a **nextLink** element, its value includes a **skiptoken** parameter that specifies a starting point to use for subsequent calls.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ScopeInPath:
-      name: scope
-      in: path
-      description: The target Azure resource URI. For example, `/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/qms-test/providers/Microsoft.Batch/batchAccounts/testAccount/`. This is the target Azure resource URI for the List GET operation. If a `{resourceName}` is added after `/quotas`, then it's the target Azure resource URI in the GET operation for the specific resource.
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /{scope}/providers/Microsoft.Quota/usages/{resourceName}/?api-version=2021-03-15-preview:
     get:

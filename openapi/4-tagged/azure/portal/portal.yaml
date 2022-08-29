@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,70 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to be used with the HTTP request.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The configuration name. Value must be 'default'
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - default
+        x-ms-enum:
+          name: configurationName
+          modelAsString: true
+        type: string
+    DashboardNameParameter:
+      name: dashboardName
+      in: path
+      description: The name of the dashboard.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 3
+        maxLength: 64
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +109,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +148,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -502,15 +597,12 @@ components:
           description: The URL to use for getting the next set of results.
       description: List of tenant configurations.
     Configuration:
-      type: object
       description: Tenant configuration.
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ConfigurationProperties'
-          description: Tenant configuration properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
+        enforcePrivateMarkdownStorage:
+          type: boolean
+          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
+      type: object
     ConfigurationProperties:
       type: object
       description: Tenant configuration properties.
@@ -612,12 +704,12 @@ components:
       discriminator:
         propertyName: type
     MarkdownPartMetadata:
-      type: object
       description: Markdown part metadata.
       x-ms-discriminator-value: Extension/HubsExtension/PartType/MarkdownPart
-      allOf:
-        - $ref: '#/components/schemas/DashboardPartMetadata'
       properties:
+        type:
+          type: string
+          description: The type of dashboard part.
         inputs:
           type: array
           description: Input to dashboard part.
@@ -652,6 +744,7 @@ components:
                     markdownUri:
                       type: string
                       description: The uri of markdown content.
+      type: object
     DashboardLens:
       type: object
       description: A dashboard lens.
@@ -690,55 +783,41 @@ components:
           additionalProperties:
             type: object
     Dashboard:
-      type: object
       description: The shared dashboard resource definition.
       x-ms-azure-resource: true
       x-ms-client-flatten: true
       required:
         - location
       properties:
-        properties:
-          description: The shared dashboard properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DashboardProperties'
-        id:
-          readOnly: true
-          type: string
-          description: Resource Id
-        name:
-          readOnly: true
-          type: string
-          description: Resource name
-        type:
-          readOnly: true
-          type: string
-          description: Resource type
-        location:
-          type: string
-          description: Resource location
-          x-ms-mutability:
-            - read
-            - create
-        tags:
+        lenses:
+          type: array
+          description: The dashboard lenses.
+          items:
+            $ref: '#/components/schemas/DashboardLens'
+          x-ms-identifiers: []
+        metadata:
+          description: The dashboard metadata.
           type: object
           additionalProperties:
-            type: string
-          description: Resource tags
-    PatchableDashboard:
+            type: object
       type: object
+    PatchableDashboard:
       description: The shared dashboard resource definition.
       x-ms-azure-resource: true
       x-ms-client-flatten: true
       properties:
-        properties:
-          description: The shared dashboard properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DashboardProperties'
-        tags:
+        lenses:
+          type: array
+          description: The dashboard lenses.
+          items:
+            $ref: '#/components/schemas/DashboardLens'
+          x-ms-identifiers: []
+        metadata:
+          description: The dashboard metadata.
           type: object
           additionalProperties:
-            type: string
-          description: Resource tags
+            type: object
+      type: object
     ResourceProviderOperationList:
       type: object
       description: Results of the request to list operations.
@@ -801,70 +880,6 @@ components:
           x-ms-identifiers:
             - code
           readOnly: true
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to be used with the HTTP request.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The configuration name. Value must be 'default'
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - default
-        x-ms-enum:
-          name: configurationName
-          modelAsString: true
-        type: string
-    DashboardNameParameter:
-      name: dashboardName
-      in: path
-      description: The name of the dashboard.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 3
-        maxLength: 64
-        type: string
 paths:
   /providers/Microsoft.Portal/tenantConfigurations/?api-version=2020-09-01-preview:
     get:

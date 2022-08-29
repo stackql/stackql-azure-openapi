@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,86 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    addressNameParameter:
+      name: addressName
+      in: path
+      description: The name of the address Resource within the specified resource group. address names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 24
+        minLength: 3
+        pattern: ^[-\w\.]+$
+        type: string
+    locationParameter:
+      name: location
+      in: path
+      description: The location of the resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    orderNameParameter:
+      name: orderName
+      in: path
+      description: The name of the order
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    orderItemNameParameter:
+      name: orderItemName
+      in: path
+      description: The name of the order item
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     AddressDetails:
       description: Address details for an order item.
@@ -70,18 +150,47 @@ components:
       description: Address Resource.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/AddressProperties'
-          description: Properties of an address.
-          x-ms-client-flatten: true
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Represents resource creation and update time
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping details for the address
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for the address
+        addressValidationStatus:
+          description: Status of address validation
+          enum:
+            - Valid
+            - Invalid
+            - Ambiguous
+          type: string
           readOnly: true
+          x-ms-enum:
+            name: AddressValidationStatus
+            modelAsString: true
+            values:
+              - value: Valid
+                description: Address provided is valid.
+              - value: Invalid
+                description: Address provided is invalid or not supported.
+              - value: Ambiguous
+                description: Address provided is ambiguous, please choose one of the alternate addresses returned.
+      type: object
     AddressResourceList:
       description: Address Resource Collection
       type: object
@@ -98,17 +207,14 @@ components:
           type: string
     AddressUpdateParameter:
       description: The Address update parameters
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/AddressUpdateProperties'
-          description: Properties of a address to be updated.
-          x-ms-client-flatten: true
-        tags:
-          description: The list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups).
-          type: object
-          additionalProperties:
-            type: string
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping details for the address
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for the address
+      type: object
     AddressUpdateProperties:
       description: Address Properties
       type: object
@@ -229,10 +335,34 @@ components:
           type: string
     CommonProperties:
       description: Represents common properties across product hierarchy
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/BasicInformation'
       properties:
+        displayName:
+          description: Display Name for the product system.
+          type: string
+          readOnly: true
+        description:
+          $ref: '#/components/schemas/Description'
+          description: Description related to the product system.
+          readOnly: true
+        imageInformation:
+          description: Image information for the product system.
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageInformation'
+          readOnly: true
+        costInformation:
+          $ref: '#/components/schemas/CostInformation'
+          description: Cost information for the product system.
+          readOnly: true
+        availabilityInformation:
+          $ref: '#/components/schemas/AvailabilityInformation'
+          description: Availability information of the product system.
+          readOnly: true
+        hierarchyInformation:
+          $ref: '#/components/schemas/HierarchyInformation'
+          description: Hierarchy information of a product.
+          readOnly: true
         filterableProperties:
           description: list of filters supported for a product
           uniqueItems: false
@@ -240,15 +370,22 @@ components:
           items:
             $ref: '#/components/schemas/FilterableProperty'
           readOnly: true
+      type: object
     Configuration:
       description: Configuration object.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ConfigurationProperties'
-          description: Properties of configuration
+        specifications:
+          description: Specifications of the configuration
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/Specification'
           readOnly: true
-          x-ms-client-flatten: true
+        dimensions:
+          $ref: '#/components/schemas/Dimensions'
+          description: Dimensions of the configuration
+          readOnly: true
+      type: object
     ConfigurationFilters:
       description: Configuration filters
       required:
@@ -266,10 +403,14 @@ components:
             $ref: '#/components/schemas/FilterableProperty'
     ConfigurationProperties:
       description: Properties of configuration
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CommonProperties'
       properties:
+        filterableProperties:
+          description: list of filters supported for a product
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterableProperty'
+          readOnly: true
         specifications:
           description: Specifications of the configuration
           uniqueItems: false
@@ -281,6 +422,7 @@ components:
           $ref: '#/components/schemas/Dimensions'
           description: Dimensions of the configuration
           readOnly: true
+      type: object
     Configurations:
       description: The list of configurations.
       type: object
@@ -758,18 +900,26 @@ components:
       description: Specifies the properties or parameters for an order. Order is a grouping of one or more order items.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/OrderProperties'
-          description: Order properties
-          x-ms-client-flatten: true
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Represents resource creation and update time
+        orderItemIds:
+          description: List of order item ARM Ids which are part of an order.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
           readOnly: true
+        currentStage:
+          $ref: '#/components/schemas/StageDetails'
+          description: Order current status.
+          readOnly: true
+        orderStageHistory:
+          description: Order status history.
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/StageDetails'
+          readOnly: true
+      type: object
     OrderItemResourceList:
       description: List of orderItems.
       type: object
@@ -936,18 +1086,37 @@ components:
       description: Represents order item contract
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/OrderItemProperties'
-          description: Order item properties
-          x-ms-client-flatten: true
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Represents resource creation and update time
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        orderItemDetails:
+          $ref: '#/components/schemas/OrderItemDetails'
+          description: Represents order item details.
+        addressDetails:
+          $ref: '#/components/schemas/AddressDetails'
+          description: Represents shipping and return address for order item
+        startTime:
+          format: date-time
+          description: Start time of order item
+          type: string
           readOnly: true
+        orderId:
+          description: Id of the order to which order item belongs to
+          type: string
+      type: object
     OrderResourceList:
       description: List of orders.
       type: object
@@ -1049,17 +1218,20 @@ components:
           readOnly: true
     OrderItemUpdateParameter:
       description: Updates order item parameters.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/OrderItemUpdateProperties'
-          description: Order item update properties
-          x-ms-client-flatten: true
-        tags:
-          description: The list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups).
-          type: object
-          additionalProperties:
+        forwardAddress:
+          $ref: '#/components/schemas/AddressProperties'
+          description: Updates forward shipping address and contact details.
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+          description: Customer preference.
+        notificationEmailList:
+          description: Additional notification email list.
+          uniqueItems: false
+          type: array
+          items:
             type: string
+      type: object
     OrderItemUpdateProperties:
       description: Order item update properties.
       type: object
@@ -1080,15 +1252,47 @@ components:
       description: Billing type PAV2 meter details
       required:
         - billingType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/MeterDetails'
+      x-ms-discriminator-value: Pav2
       properties:
+        billingType:
+          description: Represents billing type.
+          enum:
+            - Pav2
+            - Purchase
+          type: string
+          x-ms-enum:
+            name: BillingType
+            modelAsString: true
+            values:
+              - value: Pav2
+                description: PaV2 billing.
+              - value: Purchase
+                description: Purchase billing.
+        multiplier:
+          format: double
+          description: Billing unit applicable for Pav2 billing
+          type: number
+          readOnly: true
+        chargingType:
+          description: Charging type.
+          enum:
+            - PerOrder
+            - PerDevice
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ChargingType
+            modelAsString: true
+            values:
+              - value: PerOrder
+                description: Per order charging type.
+              - value: PerDevice
+                description: Per device charging type.
         meterGuid:
           description: Validation status of requested data center and transport.
           type: string
           readOnly: true
-      x-ms-discriminator-value: Pav2
+      type: object
     Preferences:
       description: Preferences related to the order
       type: object
@@ -1110,13 +1314,15 @@ components:
           description: Preferences related to the Management resource.
     Product:
       description: List of Products
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ProductProperties'
-          description: Properties of product
+        configurations:
+          description: List of configurations for the product
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/Configuration'
           readOnly: true
-          x-ms-client-flatten: true
+      type: object
     ProductDetails:
       description: Represents product details
       required:
@@ -1187,13 +1393,21 @@ components:
           readOnly: true
     ProductFamiliesMetadataDetails:
       description: Product families metadata details.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ProductFamilyProperties'
-          description: Product family properties
+        productLines:
+          description: List of product lines supported in the product family
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductLine'
           readOnly: true
-          x-ms-client-flatten: true
+        resourceProviderDetails:
+          description: Contains details related to resource provider
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceProviderDetails'
+      type: object
     ProductFamiliesRequest:
       description: The filters for showing the product families.
       required:
@@ -1213,18 +1427,6 @@ components:
           description: Customer subscription properties. Clients can display available products to unregistered customers by explicitly passing subscription details
     ProductFamily:
       description: Product Family
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ProductFamilyProperties'
-          description: Properties of product family
-          readOnly: true
-          x-ms-client-flatten: true
-    ProductFamilyProperties:
-      description: Properties of product family
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CommonProperties'
       properties:
         productLines:
           description: List of product lines supported in the product family
@@ -1239,20 +1441,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceProviderDetails'
+      type: object
+    ProductFamilyProperties:
+      description: Properties of product family
+      properties:
+        filterableProperties:
+          description: list of filters supported for a product
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterableProperty'
+          readOnly: true
+        productLines:
+          description: List of product lines supported in the product family
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductLine'
+          readOnly: true
+        resourceProviderDetails:
+          description: Contains details related to resource provider
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceProviderDetails'
+      type: object
     ProductLine:
       description: Product line
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ProductLineProperties'
-          description: Properties of product line
-          readOnly: true
-          x-ms-client-flatten: true
-    ProductLineProperties:
-      description: Properties of product line
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CommonProperties'
       properties:
         products:
           description: List of products in the product line
@@ -1261,12 +1476,35 @@ components:
           items:
             $ref: '#/components/schemas/Product'
           readOnly: true
+      type: object
+    ProductLineProperties:
+      description: Properties of product line
+      properties:
+        filterableProperties:
+          description: list of filters supported for a product
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterableProperty'
+          readOnly: true
+        products:
+          description: List of products in the product line
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+          readOnly: true
+      type: object
     ProductProperties:
       description: Properties of products
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CommonProperties'
       properties:
+        filterableProperties:
+          description: list of filters supported for a product
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterableProperty'
+          readOnly: true
         configurations:
           description: List of configurations for the product
           uniqueItems: false
@@ -1274,14 +1512,47 @@ components:
           items:
             $ref: '#/components/schemas/Configuration'
           readOnly: true
+      type: object
     PurchaseMeterDetails:
       description: Billing type Purchase meter details
       required:
         - billingType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/MeterDetails'
+      x-ms-discriminator-value: Purchase
       properties:
+        billingType:
+          description: Represents billing type.
+          enum:
+            - Pav2
+            - Purchase
+          type: string
+          x-ms-enum:
+            name: BillingType
+            modelAsString: true
+            values:
+              - value: Pav2
+                description: PaV2 billing.
+              - value: Purchase
+                description: Purchase billing.
+        multiplier:
+          format: double
+          description: Billing unit applicable for Pav2 billing
+          type: number
+          readOnly: true
+        chargingType:
+          description: Charging type.
+          enum:
+            - PerOrder
+            - PerDevice
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ChargingType
+            modelAsString: true
+            values:
+              - value: PerOrder
+                description: Per order charging type.
+              - value: PerDevice
+                description: Per device charging type.
         productId:
           description: Product Id
           type: string
@@ -1294,7 +1565,7 @@ components:
           description: Term Id
           type: string
           readOnly: true
-      x-ms-discriminator-value: Purchase
+      type: object
     ResourceIdentity:
       description: Msi identity details of the resource
       type: object
@@ -1514,18 +1785,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -1542,16 +1824,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -1959,86 +2261,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    addressNameParameter:
-      name: addressName
-      in: path
-      description: The name of the address Resource within the specified resource group. address names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 24
-        minLength: 3
-        pattern: ^[-\w\.]+$
-        type: string
-    locationParameter:
-      name: location
-      in: path
-      description: The location of the resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    orderNameParameter:
-      name: orderName
-      in: path
-      description: The name of the order
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    orderItemNameParameter:
-      name: orderItemName
-      in: path
-      description: The name of the order item
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.EdgeOrder/operations/?api-version=2021-12-01:
     get:

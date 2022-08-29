@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,68 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    FilterParameter:
+      name: $filter
+      in: query
+      description: 'The query used to filter the search results using OData syntax. Filtering is permitted on the ''name'' property only and with limited number of OData operations. These operations are: the ''contains'' function as well as the following logical operations: not, and, or, eq (for equal), and ne (for not equal). No arithmetic operations are supported. The following is a valid filter example: $filter=contains(namE, ''PATTERN'') and name ne ''PATTERN-1''. The following is not a valid filter example: $filter=location eq ''westus''.'
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    TopParameter:
+      name: $top
+      in: query
+      description: The number of results to return per page for the list operation. Valid range for top parameter is 1 to 100. If not specified, the default number of results to be returned is 20 items per page.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int32
+        type: integer
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     ChannelProperties:
       description: Properties of the Channel.
@@ -122,26 +184,72 @@ components:
           type: string
     Channel:
       description: Channel info.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ChannelProperties'
-          description: Properties of the Channel.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Channel resource.
-          type: object
+        id:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        channelType:
+          description: The type of the event channel which represents the direction flow of events.
+          enum:
+            - PartnerTopic
+          type: string
+          x-ms-enum:
+            name: ChannelType
+            modelAsString: true
+        partnerTopicInfo:
+          $ref: '#/components/schemas/PartnerTopicInfo'
+          description: This property should be populated when channelType is PartnerTopic and represents information about the partner topic resource corresponding to the channel.
+        messageForActivation:
+          description: Context or helpful message that can be used during the approval process by the subscriber.
+          type: string
+        provisioningState:
+          description: Provisioning state of the channel.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+            - IdleDueToMirroredPartnerTopicDeletion
+          type: string
+          x-ms-enum:
+            name: ChannelProvisioningState
+            modelAsString: true
+        readinessState:
+          description: The readiness state of the corresponding partner topic.
+          enum:
+            - NeverActivated
+            - Activated
+          type: string
+          x-ms-enum:
+            name: ReadinessState
+            modelAsString: true
+        expirationTimeIfNotActivatedUtc:
+          format: date-time
+          description: "Expiration time of the channel. If this timer expires while the corresponding partner topic is never activated,\r\nthe channel and corresponding partner topic are deleted."
+          type: string
+      type: object
     ChannelUpdateParameters:
       description: Properties of the Channel update.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ChannelUpdateParametersProperties'
-          x-ms-client-flatten: true
+        expirationTimeIfNotActivatedUtc:
+          format: date-time
+          description: "Expiration time of the channel. If this timer expires while the corresponding partner topic or partner destination is never activated,\r\nthe channel and corresponding partner topic or partner destination are deleted."
+          type: string
+        partnerTopicInfo:
+          $ref: '#/components/schemas/PartnerUpdateTopicInfo'
+          description: Partner topic properties which can be updated if the channel is of type PartnerTopic.
+      type: object
     ChannelUpdateParametersProperties:
       description: Properties of the channel update parameters.
       type: object
@@ -420,15 +528,35 @@ components:
           type: string
     JsonInputSchemaMapping:
       description: This enables publishing to Event Grid using a custom input schema. This can be used to map properties from a custom input JSON schema to the Event Grid event schema.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/InputSchemaMapping'
-      properties:
-        properties:
-          $ref: '#/components/schemas/JsonInputSchemaMappingProperties'
-          description: JSON Properties of the input schema mapping
-          x-ms-client-flatten: true
       x-ms-discriminator-value: Json
+      properties:
+        inputSchemaMappingType:
+          description: Type of the custom mapping
+          enum:
+            - Json
+          type: string
+          x-ms-enum:
+            name: InputSchemaMappingType
+            modelAsString: true
+        id:
+          $ref: '#/components/schemas/JsonField'
+          description: The mapping information for the Id property of the Event Grid Event.
+        topic:
+          $ref: '#/components/schemas/JsonField'
+          description: The mapping information for the Topic property of the Event Grid Event.
+        eventTime:
+          $ref: '#/components/schemas/JsonField'
+          description: The mapping information for the EventTime property of the Event Grid Event.
+        eventType:
+          $ref: '#/components/schemas/JsonFieldWithDefault'
+          description: The mapping information for the EventType property of the Event Grid Event.
+        subject:
+          $ref: '#/components/schemas/JsonFieldWithDefault'
+          description: The mapping information for the Subject property of the Event Grid Event.
+        dataVersion:
+          $ref: '#/components/schemas/JsonFieldWithDefault'
+          description: The mapping information for the DataVersion property of the Event Grid Event.
+      type: object
     InputSchemaMapping:
       description: By default, Event Grid expects events to be in the Event Grid event schema. Specifying an input schema mapping enables publishing to Event Grid using a custom input schema. Currently, the only supported type of InputSchemaMapping is 'JsonInputSchemaMapping'.
       required:
@@ -446,18 +574,49 @@ components:
       discriminator:
         propertyName: inputSchemaMappingType
     PrivateEndpointConnection:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Properties of the PrivateEndpointConnection.
-          x-ms-client-flatten: true
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The Private Endpoint resource for this Connection.
+        groupIds:
+          description: GroupIds from the private link service resource.
+          type: array
+          items:
+            type: string
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/ConnectionState'
+          description: Details about the state of the connection.
+        provisioningState:
+          description: Provisioning state of the Private Endpoint Connection.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          x-ms-enum:
+            name: ResourceProvisioningState
+            modelAsString: true
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -474,44 +633,155 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     Domain:
       description: EventGrid Domain.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/DomainProperties'
-          description: Properties of the Event Grid Domain resource.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to the Event Grid Domain resource.
-          type: object
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Identity information for the Event Grid Domain resource.
-    DomainUpdateParameters:
-      description: Properties of the Domain update.
-      type: object
       properties:
         tags:
-          description: Tags of the domains resource.
           type: object
           additionalProperties:
             type: string
-        properties:
-          $ref: '#/components/schemas/DomainUpdateParameterProperties'
-          description: Properties of the resource.
-          x-ms-client-flatten: true
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Identity information for the resource.
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        privateEndpointConnections:
+          description: List of private endpoint connections.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+        provisioningState:
+          description: Provisioning state of the Event Grid Domain Resource.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DomainProvisioningState
+            modelAsString: true
+        endpoint:
+          description: Endpoint for the Event Grid Domain Resource which is used for publishing the events.
+          type: string
+          readOnly: true
+        inputSchema:
+          description: This determines the format that Event Grid should expect for incoming events published to the Event Grid Domain Resource.
+          enum:
+            - EventGridSchema
+            - CustomEventSchema
+            - CloudEventSchemaV1_0
+          type: string
+          x-ms-enum:
+            name: InputSchema
+            modelAsString: true
+          default: EventGridSchema
+        inputSchemaMapping:
+          $ref: '#/components/schemas/InputSchemaMapping'
+          description: Information about the InputSchemaMapping which specified the info about mapping event payload.
+        metricResourceId:
+          description: Metric resource id for the Event Grid Domain Resource.
+          type: string
+          readOnly: true
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled.\r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.DomainProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the domain.
+          default: false
+          type: boolean
+        autoCreateTopicWithFirstSubscription:
+          description: "This Boolean is used to specify the creation mechanism for 'all' the Event Grid Domain Topics associated with this Event Grid Domain resource.\r\nIn this context, creation of domain topic can be auto-managed (when true) or self-managed (when false). The default value for this property is true.\r\nWhen this property is null or set to true, Event Grid is responsible of automatically creating the domain topic when the first event subscription is\r\ncreated at the scope of the domain topic. If this property is set to false, then creating the first event subscription will require creating a domain topic\r\nby the user. The self-management mode can be used if the user wants full control of when the domain topic is created, while auto-managed mode provides the\r\nflexibility to perform less operations and manage fewer resources by the user. Also, note that in auto-managed creation mode, user is allowed to create the\r\ndomain topic on demand if needed."
+          default: true
+          type: boolean
+        autoDeleteTopicWithLastSubscription:
+          description: "This Boolean is used to specify the deletion mechanism for 'all' the Event Grid Domain Topics associated with this Event Grid Domain resource.\r\nIn this context, deletion of domain topic can be auto-managed (when true) or self-managed (when false). The default value for this property is true.\r\nWhen this property is set to true, Event Grid is responsible of automatically deleting the domain topic when the last event subscription at the scope\r\nof the domain topic is deleted. If this property is set to false, then the user needs to manually delete the domain topic when it is no longer needed\r\n(e.g., when last event subscription is deleted and the resource needs to be cleaned up). The self-management mode can be used if the user wants full\r\ncontrol of when the domain topic needs to be deleted, while auto-managed mode provides the flexibility to perform less operations and manage fewer\r\nresources by the user."
+          default: true
+          type: boolean
+        dataResidencyBoundary:
+          description: Data Residency Boundary of the resource.
+          enum:
+            - WithinGeopair
+            - WithinRegion
+          type: string
+          x-ms-enum:
+            name: DataResidencyBoundary
+            modelAsString: true
+      type: object
+    DomainUpdateParameters:
+      description: Properties of the Domain update.
+      properties:
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled. \r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.DomainUpdateParameterProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the domain.
+          type: boolean
+        autoCreateTopicWithFirstSubscription:
+          description: "This Boolean is used to specify the creation mechanism for 'all' the Event Grid Domain Topics associated with this Event Grid Domain resource.\r\nIn this context, creation of domain topic can be auto-managed (when true) or self-managed (when false). The default value for this property is true.\r\nWhen this property is null or set to true, Event Grid is responsible of automatically creating the domain topic when the first event subscription is\r\ncreated at the scope of the domain topic. If this property is set to false, then creating the first event subscription will require creating a domain topic\r\nby the user. The self-management mode can be used if the user wants full control of when the domain topic is created, while auto-managed mode provides the\r\nflexibility to perform less operations and manage fewer resources by the user. Also, note that in auto-managed creation mode, user is allowed to create the\r\ndomain topic on demand if needed."
+          type: boolean
+        autoDeleteTopicWithLastSubscription:
+          description: "This Boolean is used to specify the deletion mechanism for 'all' the Event Grid Domain Topics associated with this Event Grid Domain resource.\r\nIn this context, deletion of domain topic can be auto-managed (when true) or self-managed (when false). The default value for this property is true.\r\nWhen this property is set to true, Event Grid is responsible of automatically deleting the domain topic when the last event subscription at the scope\r\nof the domain topic is deleted. If this property is set to false, then the user needs to manually delete the domain topic when it is no longer needed\r\n(e.g., when last event subscription is deleted and the resource needs to be cleaned up). The self-management mode can be used if the user wants full\r\ncontrol of when the domain topic needs to be deleted, while auto-managed mode provides the flexibility to perform less operations and manage fewer\r\nresources by the user."
+          type: boolean
+        dataResidencyBoundary:
+          description: The data residency boundary for the domain.
+          enum:
+            - WithinGeopair
+            - WithinRegion
+          type: string
+          x-ms-enum:
+            name: DataResidencyBoundary
+            modelAsString: true
+      type: object
     DomainUpdateParameterProperties:
       description: Information of domain update parameter properties.
       type: object
@@ -602,20 +872,34 @@ components:
             modelAsString: true
     DomainTopic:
       description: Domain Topic.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/DomainTopicProperties'
-          description: Properties of the Domain Topic.
+        id:
           readOnly: true
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Domain Topic resource.
-          type: object
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        provisioningState:
+          description: Provisioning state of the domain topic.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DomainTopicProvisioningState
+            modelAsString: true
+      type: object
     DomainTopicsListResult:
       description: Result of the List Domain Topics operation.
       type: object
@@ -778,15 +1062,29 @@ components:
           x-ms-secret: true
     StaticDeliveryAttributeMapping:
       description: Static delivery attribute mapping details.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DeliveryAttributeMapping'
-      properties:
-        properties:
-          $ref: '#/components/schemas/StaticDeliveryAttributeMappingProperties'
-          description: Properties of static delivery attribute mapping.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: Static
+      properties:
+        name:
+          description: Name of the delivery attribute or header.
+          type: string
+        type:
+          description: Type of the delivery attribute or header name.
+          enum:
+            - Static
+            - Dynamic
+          type: string
+          x-ms-enum:
+            name: DeliveryAttributeMappingType
+            modelAsString: true
+        value:
+          description: Value of the delivery attribute.
+          type: string
+        isSecret:
+          description: Boolean flag to tell if the attribute contains sensitive information .
+          type: boolean
+          default: false
+          x-ms-secret: true
+      type: object
     DynamicDeliveryAttributeMappingProperties:
       description: Properties of dynamic delivery attribute mapping.
       type: object
@@ -796,15 +1094,24 @@ components:
           type: string
     DynamicDeliveryAttributeMapping:
       description: Dynamic delivery attribute mapping details.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DeliveryAttributeMapping'
-      properties:
-        properties:
-          $ref: '#/components/schemas/DynamicDeliveryAttributeMappingProperties'
-          description: Properties of dynamic delivery attribute mapping.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: Dynamic
+      properties:
+        name:
+          description: Name of the delivery attribute or header.
+          type: string
+        type:
+          description: Type of the delivery attribute or header name.
+          enum:
+            - Static
+            - Dynamic
+          type: string
+          x-ms-enum:
+            name: DeliveryAttributeMappingType
+            modelAsString: true
+        sourceField:
+          description: JSON path in the event which contains attribute value.
+          type: string
+      type: object
     DeliveryAttributeMapping:
       description: Delivery attribute mapping details.
       required:
@@ -841,161 +1148,524 @@ components:
           type: string
     NumberInAdvancedFilter:
       description: NumberIn Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberIn
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             format: double
             type: number
-      x-ms-discriminator-value: NumberIn
+      type: object
     StorageBlobDeadLetterDestination:
       description: Information about the storage blob based dead letter destination.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DeadLetterDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/StorageBlobDeadLetterDestinationProperties'
-          description: The properties of the Storage Blob based deadletter destination
-          x-ms-client-flatten: true
       x-ms-discriminator-value: StorageBlob
+      properties:
+        endpointType:
+          description: Type of the endpoint for the dead letter destination
+          enum:
+            - StorageBlob
+          type: string
+          x-ms-enum:
+            name: DeadLetterEndPointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource ID of the storage account that is the destination of the deadletter events
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Storage/storageAccounts
+        blobContainerName:
+          description: The name of the Storage blob container that is the destination of the deadletter events
+          type: string
+      type: object
     NumberNotInAdvancedFilter:
       description: NumberNotIn Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberNotIn
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             format: double
             type: number
-      x-ms-discriminator-value: NumberNotIn
+      type: object
     NumberLessThanAdvancedFilter:
       description: NumberLessThan Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberLessThan
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         value:
           format: double
           description: The filter value.
           type: number
-      x-ms-discriminator-value: NumberLessThan
+      type: object
     NumberGreaterThanAdvancedFilter:
       description: NumberGreaterThan Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberGreaterThan
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         value:
           format: double
           description: The filter value.
           type: number
-      x-ms-discriminator-value: NumberGreaterThan
+      type: object
     NumberLessThanOrEqualsAdvancedFilter:
       description: NumberLessThanOrEquals Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberLessThanOrEquals
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         value:
           format: double
           description: The filter value.
           type: number
-      x-ms-discriminator-value: NumberLessThanOrEquals
+      type: object
     NumberGreaterThanOrEqualsAdvancedFilter:
       description: NumberGreaterThanOrEquals Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberGreaterThanOrEquals
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         value:
           format: double
           description: The filter value.
           type: number
-      x-ms-discriminator-value: NumberGreaterThanOrEquals
+      type: object
     BoolEqualsAdvancedFilter:
       description: BoolEquals Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: BoolEquals
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         value:
           description: The boolean filter value.
           type: boolean
-      x-ms-discriminator-value: BoolEquals
+      type: object
     StringInAdvancedFilter:
       description: StringIn Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringIn
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringIn
+      type: object
     StringNotInAdvancedFilter:
       description: StringNotIn Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringNotIn
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringNotIn
+      type: object
     StringBeginsWithAdvancedFilter:
       description: StringBeginsWith Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringBeginsWith
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringBeginsWith
+      type: object
     StringEndsWithAdvancedFilter:
       description: StringEndsWith Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringEndsWith
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringEndsWith
+      type: object
     StringContainsAdvancedFilter:
       description: StringContains Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringContains
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringContains
+      type: object
     NumberInRangeAdvancedFilter:
       description: NumberInRange Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberInRange
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
@@ -1004,13 +1674,40 @@ components:
             items:
               format: double
               type: number
-      x-ms-discriminator-value: NumberInRange
+      type: object
     NumberNotInRangeAdvancedFilter:
       description: NumberNotInRange Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: NumberNotInRange
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
@@ -1019,57 +1716,192 @@ components:
             items:
               format: double
               type: number
-      x-ms-discriminator-value: NumberNotInRange
+      type: object
     StringNotBeginsWithAdvancedFilter:
       description: StringNotBeginsWith Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringNotBeginsWith
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringNotBeginsWith
+      type: object
     StringNotEndsWithAdvancedFilter:
       description: StringNotEndsWith Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringNotEndsWith
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringNotEndsWith
+      type: object
     StringNotContainsAdvancedFilter:
       description: StringNotContains Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
+      x-ms-discriminator-value: StringNotContains
       properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
         values:
           description: The set of filter values.
           type: array
           items:
             type: string
-      x-ms-discriminator-value: StringNotContains
+      type: object
     IsNullOrUndefinedAdvancedFilter:
       description: IsNullOrUndefined Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
-      properties: {}
       x-ms-discriminator-value: IsNullOrUndefined
+      properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
+      type: object
     IsNotNullAdvancedFilter:
       description: IsNotNull Advanced Filter.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AdvancedFilter'
-      properties: {}
       x-ms-discriminator-value: IsNotNull
+      properties:
+        operatorType:
+          description: The operator type used for filtering, e.g., NumberIn, StringContains, BoolEquals and others.
+          enum:
+            - NumberIn
+            - NumberNotIn
+            - NumberLessThan
+            - NumberGreaterThan
+            - NumberLessThanOrEquals
+            - NumberGreaterThanOrEquals
+            - BoolEquals
+            - StringIn
+            - StringNotIn
+            - StringBeginsWith
+            - StringEndsWith
+            - StringContains
+            - NumberInRange
+            - NumberNotInRange
+            - StringNotBeginsWith
+            - StringNotEndsWith
+            - StringNotContains
+            - IsNullOrUndefined
+            - IsNotNull
+          type: string
+          x-ms-enum:
+            name: AdvancedFilterOperatorType
+            modelAsString: true
+        key:
+          description: The field/property in the event based on which you want to filter.
+          type: string
+      type: object
     AdvancedFilter:
       description: This is the base type that represents an advanced filter. To configure an advanced filter, do not directly instantiate an object of this class. Instead, instantiate an object of a derived class such as BoolEqualsAdvancedFilter, NumberInAdvancedFilter, StringEqualsAdvancedFilter etc. depending on the type of the key based on which you want to filter.
       required:
@@ -1145,15 +1977,52 @@ components:
           type: string
     WebHookEventSubscriptionDestination:
       description: Information about the webhook destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/WebHookEventSubscriptionDestinationProperties'
-          description: WebHook Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: WebHook
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        endpointUrl:
+          description: The URL that represents the endpoint of the destination of an event subscription.
+          type: string
+          x-ms-secret: true
+        endpointBaseUrl:
+          description: The base URL that represents the endpoint of the destination of an event subscription.
+          type: string
+          readOnly: true
+        maxEventsPerBatch:
+          format: int32
+          description: Maximum number of events per batch.
+          default: 1
+          type: integer
+        preferredBatchSizeInKilobytes:
+          format: int32
+          description: Preferred batch size in Kilobytes.
+          default: 64
+          type: integer
+        azureActiveDirectoryTenantId:
+          description: The Azure Active Directory Tenant ID to get the access token that will be included as the bearer token in delivery requests.
+          type: string
+        azureActiveDirectoryApplicationIdOrUri:
+          description: The Azure Active Directory Application ID or URI to get the access token that will be included as the bearer token in delivery requests.
+          type: string
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     DeadLetterDestination:
       description: Information about the dead letter destination for an event subscription. To configure a deadletter destination, do not directly instantiate an object of this class. Instead, instantiate an object of a derived class. Currently, StorageBlobDeadLetterDestination is the only class that derives from this class.
       type: object
@@ -1185,15 +2054,32 @@ components:
             $ref: '#/components/schemas/DeliveryAttributeMapping'
     EventHubEventSubscriptionDestination:
       description: Information about the event hub destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/EventHubEventSubscriptionDestinationProperties'
-          description: Event Hub Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: EventHub
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource Id that represents the endpoint of an Event Hub destination of an event subscription.
+          type: string
+          format: arm-id
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     StorageQueueEventSubscriptionDestinationProperties:
       description: The properties for a storage queue destination.
       type: object
@@ -1214,15 +2100,37 @@ components:
           type: integer
     StorageQueueEventSubscriptionDestination:
       description: Information about the storage queue destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/StorageQueueEventSubscriptionDestinationProperties'
-          description: Storage Queue Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: StorageQueue
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource ID of the storage account that contains the queue that is the destination of an event subscription.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Storage/storageAccounts
+        queueName:
+          description: The name of the Storage queue under a storage account that is the destination of an event subscription.
+          type: string
+        queueMessageTimeToLiveInSeconds:
+          format: int64
+          description: Storage queue message time to live in seconds.
+          type: integer
+      type: object
     HybridConnectionEventSubscriptionDestinationProperties:
       description: The properties for a hybrid connection destination.
       type: object
@@ -1238,15 +2146,32 @@ components:
             $ref: '#/components/schemas/DeliveryAttributeMapping'
     HybridConnectionEventSubscriptionDestination:
       description: Information about the HybridConnection destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/HybridConnectionEventSubscriptionDestinationProperties'
-          description: Hybrid connection Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: HybridConnection
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource ID of an hybrid connection that is the destination of an event subscription.
+          type: string
+          format: arm-id
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     ServiceBusQueueEventSubscriptionDestinationProperties:
       description: The properties that represent the Service Bus destination of an event subscription.
       type: object
@@ -1265,15 +2190,35 @@ components:
             $ref: '#/components/schemas/DeliveryAttributeMapping'
     ServiceBusQueueEventSubscriptionDestination:
       description: Information about the service bus destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/ServiceBusQueueEventSubscriptionDestinationProperties'
-          description: Service Bus Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: ServiceBusQueue
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource Id that represents the endpoint of the Service Bus destination of an event subscription.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.ServiceBus/namespaces/queues
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     ServiceBusTopicEventSubscriptionDestinationProperties:
       description: The properties that represent the Service Bus Topic destination of an event subscription.
       type: object
@@ -1292,15 +2237,35 @@ components:
             $ref: '#/components/schemas/DeliveryAttributeMapping'
     ServiceBusTopicEventSubscriptionDestination:
       description: Information about the service bus topic destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/ServiceBusTopicEventSubscriptionDestinationProperties'
-          description: Service Bus Topic Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: ServiceBusTopic
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource Id that represents the endpoint of the Service Bus Topic destination of an event subscription.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.ServiceBus/namespaces/topics
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     AzureFunctionEventSubscriptionDestinationProperties:
       description: The properties that represent the Azure Function destination of an event subscription.
       type: object
@@ -1329,15 +2294,45 @@ components:
             $ref: '#/components/schemas/DeliveryAttributeMapping'
     AzureFunctionEventSubscriptionDestination:
       description: Information about the azure function destination for an event subscription.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/EventSubscriptionDestination'
-      properties:
-        properties:
-          $ref: '#/components/schemas/AzureFunctionEventSubscriptionDestinationProperties'
-          description: Azure Function Properties of the event subscription destination.
-          x-ms-client-flatten: true
       x-ms-discriminator-value: AzureFunction
+      properties:
+        endpointType:
+          description: Type of the endpoint for the event subscription destination.
+          enum:
+            - WebHook
+            - EventHub
+            - StorageQueue
+            - HybridConnection
+            - ServiceBusQueue
+            - ServiceBusTopic
+            - AzureFunction
+          type: string
+          x-ms-enum:
+            name: EndpointType
+            modelAsString: true
+        resourceId:
+          description: The Azure Resource Id that represents the endpoint of the Azure Function destination of an event subscription.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Web/sites/functions
+        maxEventsPerBatch:
+          format: int32
+          description: Maximum number of events per batch.
+          default: 1
+          type: integer
+        preferredBatchSizeInKilobytes:
+          format: int32
+          description: Preferred batch size in Kilobytes.
+          default: 64
+          type: integer
+        deliveryAttributeMappings:
+          description: Delivery attribute details.
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryAttributeMapping'
+      type: object
     EventSubscriptionDestination:
       description: Information about the destination for an event subscription.
       required:
@@ -1362,19 +2357,77 @@ components:
         propertyName: endpointType
     EventSubscription:
       description: Event Subscription
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/EventSubscriptionProperties'
-          description: Properties of the event subscription.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Event Subscription resource.
-          type: object
+        id:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        topic:
+          description: Name of the topic of the event subscription.
+          type: string
+          readOnly: true
+        provisioningState:
+          description: Provisioning state of the event subscription.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+            - AwaitingManualAction
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: EventSubscriptionProvisioningState
+            modelAsString: true
+        destination:
+          $ref: '#/components/schemas/EventSubscriptionDestination'
+          description: "Information about the destination where events have to be delivered for the event subscription.\r\nUses Azure Event Grid's identity to acquire the authentication tokens being used during delivery / dead-lettering."
+        deliveryWithResourceIdentity:
+          $ref: '#/components/schemas/DeliveryWithResourceIdentity'
+          description: "Information about the destination where events have to be delivered for the event subscription.\r\nUses the managed identity setup on the parent resource (namely, topic or domain) to acquire the authentication tokens being used during delivery / dead-lettering."
+        filter:
+          $ref: '#/components/schemas/EventSubscriptionFilter'
+          description: Information about the filter for the event subscription.
+        labels:
+          description: List of user defined labels.
+          type: array
+          items:
+            type: string
+        expirationTimeUtc:
+          format: date-time
+          description: Expiration time of the event subscription.
+          type: string
+        eventDeliverySchema:
+          description: The event delivery schema for the event subscription.
+          default: EventGridSchema
+          enum:
+            - EventGridSchema
+            - CustomInputSchema
+            - CloudEventSchemaV1_0
+          type: string
+          x-ms-enum:
+            name: EventDeliverySchema
+            modelAsString: true
+        retryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+          description: The retry policy for events. This can be used to configure maximum number of delivery attempts and time to live for events.
+        deadLetterDestination:
+          $ref: '#/components/schemas/DeadLetterDestination'
+          description: "The dead letter destination of the event subscription. Any event that cannot be delivered to its' destination is sent to the dead letter destination.\r\nUses Azure Event Grid's identity to acquire the authentication tokens being used during delivery / dead-lettering."
+        deadLetterWithResourceIdentity:
+          $ref: '#/components/schemas/DeadLetterWithResourceIdentity'
+          description: "The dead letter destination of the event subscription. Any event that cannot be delivered to its' destination is sent to the dead letter destination.\r\nUses the managed identity setup on the parent resource (namely, topic or domain) to acquire the authentication tokens being used during delivery / dead-lettering."
+      type: object
     EventSubscriptionUpdateParameters:
       description: Properties of the Event Subscription update.
       type: object
@@ -1573,40 +2626,44 @@ components:
           type: string
     PartnerConfiguration:
       description: Partner configuration information
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PartnerConfigurationProperties'
-          description: Properties of the partner configuration.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to partner configuration resource.
-          type: object
+        id:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        location:
-          description: Location of the resource.
           type: string
-        tags:
-          description: Tags of the resource.
-          type: object
-          additionalProperties:
-            type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        partnerAuthorization:
+          $ref: '#/components/schemas/PartnerAuthorization'
+          description: The details of authorized partners.
+        provisioningState:
+          description: Provisioning state of the partner configuration.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          x-ms-enum:
+            name: PartnerConfigurationProvisioningState
+            modelAsString: true
+      type: object
     PartnerConfigurationUpdateParameters:
       description: Properties of the partner configuration update.
-      type: object
       properties:
-        tags:
-          description: Tags of the partner configuration resource.
-          type: object
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/PartnerConfigurationUpdateParameterProperties'
-          description: Properties of the Topic resource.
-          x-ms-client-flatten: true
+        defaultMaximumExpirationTimeInDays:
+          format: int32
+          description: The default time used to validate the maximum expiration time for each authorized partners in days. Allowed values ar between 1 and 365 days.
+          type: integer
+      type: object
     PartnerConfigurationUpdateParameterProperties:
       description: Information of partner configuration update parameter properties.
       type: object
@@ -1689,32 +2746,102 @@ components:
             modelAsString: true
     PartnerNamespace:
       description: EventGrid Partner Namespace.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/PartnerNamespaceProperties'
-          description: Properties of the Partner Namespace.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Partner Namespace resource.
-          type: object
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
-    PartnerNamespaceUpdateParameters:
-      description: Properties of the Partner Namespace update.
-      type: object
       properties:
         tags:
-          description: Tags of the Partner Namespace.
           type: object
           additionalProperties:
             type: string
-        properties:
-          $ref: '#/components/schemas/PartnerNamespaceUpdateParameterProperties'
-          description: Properties of the Partner Namespace.
-          x-ms-client-flatten: true
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        privateEndpointConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+        provisioningState:
+          description: Provisioning state of the partner namespace.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: PartnerNamespaceProvisioningState
+            modelAsString: true
+        partnerRegistrationFullyQualifiedId:
+          description: "The fully qualified ARM Id of the partner registration that should be associated with this partner namespace. This takes the following format:\r\n/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.EventGrid/partnerRegistrations/{partnerRegistrationName}."
+          type: string
+        endpoint:
+          description: Endpoint for the partner namespace.
+          type: string
+          readOnly: true
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled.\r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.PartnerNamespaceProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the partner namespace.
+          default: false
+          type: boolean
+        partnerTopicRoutingMode:
+          description: "This determines if events published to this partner namespace should use the source attribute in the event payload\r\nor use the channel name in the header when matching to the partner topic. If none is specified, source attribute routing will be used to match the partner topic."
+          default: SourceEventAttribute
+          enum:
+            - SourceEventAttribute
+            - ChannelNameHeader
+          type: string
+          x-ms-enum:
+            name: PartnerTopicRoutingMode
+            modelAsString: true
+      type: object
+    PartnerNamespaceUpdateParameters:
+      description: Properties of the Partner Namespace update.
+      properties:
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled. \r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.PartnerNamespaceUpdateParameterProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the partner namespace.
+          type: boolean
+      type: object
     PartnerNamespaceUpdateParameterProperties:
       description: Information of Partner Namespace update parameter properties.
       type: object
@@ -1793,19 +2920,41 @@ components:
           type: string
     PartnerRegistration:
       description: Information about a partner registration.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PartnerRegistrationProperties'
-          description: Properties of the partner registration.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Partner Registration resource.
+        tags:
           type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        provisioningState:
+          description: Provisioning state of the partner registration.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          x-ms-enum:
+            name: PartnerRegistrationProvisioningState
+            modelAsString: true
+        partnerRegistrationImmutableId:
+          format: uuid
+          description: "The immutableId of the corresponding partner registration.\r\nNote: This property is marked for deprecation and is not supported in any future GA API version"
+          type: string
+      type: object
     PartnerRegistrationUpdateParameters:
       description: Properties of the Partner Registration update.
       type: object
@@ -1878,22 +3027,68 @@ components:
           type: string
     PartnerTopic:
       description: Event Grid Partner Topic.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/PartnerTopicProperties'
-          description: Properties of the Partner Topic.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Partner Topic resource.
+        tags:
           type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        partnerRegistrationImmutableId:
+          format: uuid
+          description: The immutableId of the corresponding partner registration.
+          type: string
+        source:
+          description: Source associated with this partner topic. This represents a unique partner resource.
+          type: string
+        eventTypeInfo:
+          $ref: '#/components/schemas/EventTypeInfo'
+          description: Event Type information from the corresponding event channel.
+        expirationTimeIfNotActivatedUtc:
+          format: date-time
+          description: "Expiration time of the partner topic. If this timer expires while the partner topic is still never activated,\r\nthe partner topic and corresponding event channel are deleted."
+          type: string
+        provisioningState:
+          description: Provisioning state of the partner topic.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+            - IdleDueToMirroredChannelResourceDeletion
+          type: string
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Identity information for the Partner Topic resource.
+          x-ms-enum:
+            name: PartnerTopicProvisioningState
+            modelAsString: true
+        activationState:
+          description: Activation state of the partner topic.
+          enum:
+            - NeverActivated
+            - Activated
+            - Deactivated
+          type: string
+          x-ms-enum:
+            name: PartnerTopicActivationState
+            modelAsString: true
+        partnerTopicFriendlyDescription:
+          description: "Friendly description about the topic. This can be set by the publisher/partner to show custom description for the customer partner topic.\r\nThis will be helpful to remove any ambiguity of the origin of creation of the partner topic for the customer."
+          type: string
+        messageForActivation:
+          description: Context or helpful message that can be used during the approval process by the subscriber.
+          type: string
+      type: object
     PartnerTopicUpdateParameters:
       description: Properties of the Partner Topic update.
       type: object
@@ -1932,21 +3127,20 @@ components:
           type: string
     PrivateLinkResource:
       description: Information of the private link resource.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Properties of the private link resource.
-          x-ms-client-flatten: true
-        id:
-          description: Fully qualified identifier of the resource.
+        groupId:
           type: string
-        name:
-          description: Name of the resource.
+        displayName:
           type: string
-        type:
-          description: Type of the resource.
-          type: string
+        requiredMembers:
+          type: array
+          items:
+            type: string
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+      type: object
     PrivateLinkResourceProperties:
       type: object
       properties:
@@ -2004,22 +3198,47 @@ components:
           readOnly: true
     SystemTopic:
       description: EventGrid System Topic.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/SystemTopicProperties'
-          description: Properties of the system topic.
-          x-ms-client-flatten: true
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Identity information for the resource.
-        systemData:
-          description: The system metadata relating to System Topic resource.
+        tags:
           type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        provisioningState:
+          description: Provisioning state of the system topic.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          x-ms-enum:
+            name: ResourceProvisioningState
+            modelAsString: true
+        source:
+          description: Source for the system topic.
+          type: string
+        topicType:
+          description: TopicType for the system topic.
+          type: string
+        metricResourceId:
+          description: Metric resource id for the system topic.
+          type: string
+          readOnly: true
+      type: object
     SystemTopicUpdateParameters:
       description: Properties of the System Topic update.
       type: object
@@ -2120,38 +3339,125 @@ components:
             modelAsString: true
     Topic:
       description: EventGrid Topic
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/TopicProperties'
-          description: Properties of the topic.
-          x-ms-client-flatten: true
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Identity information for the resource.
-        systemData:
-          description: The system metadata relating to Topic resource.
-          type: object
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
-    TopicUpdateParameters:
-      description: Properties of the Topic update
-      type: object
       properties:
         tags:
-          description: Tags of the Topic resource.
           type: object
           additionalProperties:
             type: string
-        identity:
-          $ref: '#/components/schemas/IdentityInfo'
-          description: Topic resource identity information.
-        properties:
-          $ref: '#/components/schemas/TopicUpdateParameterProperties'
-          description: Properties of the Topic resource.
-          x-ms-client-flatten: true
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        privateEndpointConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+        provisioningState:
+          description: Provisioning state of the topic.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: TopicProvisioningState
+            modelAsString: true
+        endpoint:
+          description: Endpoint for the topic.
+          type: string
+          readOnly: true
+        inputSchema:
+          description: This determines the format that Event Grid should expect for incoming events published to the topic.
+          enum:
+            - EventGridSchema
+            - CustomEventSchema
+            - CloudEventSchemaV1_0
+          type: string
+          x-ms-enum:
+            name: InputSchema
+            modelAsString: true
+          default: EventGridSchema
+        inputSchemaMapping:
+          $ref: '#/components/schemas/InputSchemaMapping'
+          description: This enables publishing using custom event schemas. An InputSchemaMapping can be specified to map various properties of a source schema to various required properties of the EventGridEvent schema.
+        metricResourceId:
+          description: Metric resource id for the topic.
+          type: string
+          readOnly: true
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled. \r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.TopicProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the topic.
+          default: false
+          type: boolean
+        dataResidencyBoundary:
+          description: Data Residency Boundary of the resource.
+          enum:
+            - WithinGeopair
+            - WithinRegion
+          type: string
+          x-ms-enum:
+            name: DataResidencyBoundary
+            modelAsString: true
+      type: object
+    TopicUpdateParameters:
+      description: Properties of the Topic update
+      properties:
+        publicNetworkAccess:
+          description: "This determines if traffic is allowed over public network. By default it is enabled. \r\nYou can further restrict to specific IPs by configuring <seealso cref=\"P:Microsoft.Azure.Events.ResourceProvider.Common.Contracts.TopicUpdateParameterProperties.InboundIpRules\" />"
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          default: Enabled
+        inboundIpRules:
+          description: 'This can be used to restrict traffic from specific IPs instead of all IPs. Note: These are considered only if PublicNetworkAccess is enabled.'
+          type: array
+          items:
+            $ref: '#/components/schemas/InboundIpRule'
+          x-ms-identifiers: []
+        disableLocalAuth:
+          description: This boolean is used to enable or disable local auth. Default value is false. When the property is set to true, only AAD token will be used to authenticate if user is allowed to publish to the topic.
+          type: boolean
+        dataResidencyBoundary:
+          description: The data residency boundary for the topic.
+          enum:
+            - WithinGeopair
+            - WithinRegion
+          type: string
+          x-ms-enum:
+            name: DataResidencyBoundary
+            modelAsString: true
+      type: object
     TopicUpdateParameterProperties:
       description: Information of topic update parameter properties.
       type: object
@@ -2227,19 +3533,26 @@ components:
           type: string
     ExtensionTopic:
       description: Event grid Extension Topic. This is used for getting Event Grid related metrics for Azure resources.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ExtensionTopicProperties'
-          description: Properties of the extension topic
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Extension Topic resource.
-          type: object
+        id:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        description:
+          description: Description of the extension topic.
+          type: string
+        systemTopic:
+          description: System topic resource id which is mapped to the source.
+          type: string
+      type: object
     EventTypesListResult:
       description: Result of the List Event Types operation
       type: object
@@ -2267,14 +3580,32 @@ components:
           type: boolean
     EventType:
       description: Event Type for a subject under a topic
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/EventTypeProperties'
-          description: Properties of the event type.
-          x-ms-client-flatten: true
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        displayName:
+          description: Display name of the event type.
+          type: string
+        description:
+          description: Description of the event type.
+          type: string
+        schemaUrl:
+          description: Url of the schema for this event type.
+          type: string
+        isInDefaultSet:
+          description: IsInDefaultSet flag of the event type.
+          type: boolean
+      type: object
     TopicTypesListResult:
       description: Result of the List Topic Types operation
       type: object
@@ -2342,14 +3673,72 @@ components:
               modelAsString: true
     TopicTypeInfo:
       description: Properties of a topic type info.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/TopicTypeProperties'
-          description: Properties of the topic type info
-          x-ms-client-flatten: true
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        provider:
+          description: Namespace of the provider of the topic type.
+          type: string
+        displayName:
+          description: Display Name for the topic type.
+          type: string
+        description:
+          description: Description of the topic type.
+          type: string
+        resourceRegionType:
+          description: Region type of the resource.
+          enum:
+            - RegionalResource
+            - GlobalResource
+          type: string
+          x-ms-enum:
+            name: ResourceRegionType
+            modelAsString: true
+        provisioningState:
+          description: Provisioning state of the topic type
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          x-ms-enum:
+            name: TopicTypeProvisioningState
+            modelAsString: true
+        supportedLocations:
+          description: List of locations supported by this topic type.
+          type: array
+          items:
+            type: string
+        sourceResourceFormat:
+          description: Source resource format.
+          type: string
+        supportedScopesForSource:
+          description: Supported source scopes.
+          type: array
+          items:
+            enum:
+              - Resource
+              - ResourceGroup
+              - AzureSubscription
+              - ManagementGroup
+            type: string
+            x-ms-enum:
+              name: TopicTypeSourceScope
+              modelAsString: true
+      type: object
     VerifiedPartnerProperties:
       description: Properties of the verified partner.
       type: object
@@ -2395,19 +3784,46 @@ components:
           type: string
     VerifiedPartner:
       description: Verified partner information
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/VerifiedPartnerProperties'
-          description: Properties of the verified partner.
-          x-ms-client-flatten: true
-        systemData:
-          description: The system metadata relating to Verified Partner resource.
-          type: object
+        id:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        partnerRegistrationImmutableId:
+          format: uuid
+          description: ImmutableId of the corresponding partner registration.
+          type: string
+        organizationName:
+          description: Official name of the Partner.
+          type: string
+        partnerDisplayName:
+          description: Display name of the verified partner.
+          type: string
+        partnerTopicDetails:
+          $ref: '#/components/schemas/PartnerDetails'
+          description: Details of the partner topic scenario.
+        provisioningState:
+          description: Provisioning state of the verified partner.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Canceled
+            - Failed
+          type: string
+          x-ms-enum:
+            name: VerifiedPartnerProvisioningState
+            modelAsString: true
+      type: object
     VerifiedPartnersListResult:
       description: Result of the List verified partners operation
       type: object
@@ -2424,20 +3840,41 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -2792,68 +4229,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    FilterParameter:
-      name: $filter
-      in: query
-      description: 'The query used to filter the search results using OData syntax. Filtering is permitted on the ''name'' property only and with limited number of OData operations. These operations are: the ''contains'' function as well as the following logical operations: not, and, or, eq (for equal), and ne (for not equal). No arithmetic operations are supported. The following is a valid filter example: $filter=contains(namE, ''PATTERN'') and name ne ''PATTERN-1''. The following is not a valid filter example: $filter=location eq ''westus''.'
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    TopParameter:
-      name: $top
-      in: query
-      description: The number of results to return per page for the list operation. Valid range for top parameter is 1 to 100. If not specified, the default number of results to be returned is 20 items per page.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int32
-        type: integer
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.EventGrid/partnerNamespaces/{partnerNamespaceName}/channels/{channelName}/?api-version=2022-06-15:
     get:

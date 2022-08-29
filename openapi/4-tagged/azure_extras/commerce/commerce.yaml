@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,21 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: It uniquely identifies Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
   schemas:
     InfoField:
       properties:
@@ -75,21 +90,48 @@ components:
       description: Describes a sample of the usageAggregation.
       type: object
     UsageAggregation:
-      properties:
-        id:
-          type: string
-          description: Unique Id for the usage aggregate.
-        name:
-          type: string
-          description: Name of the usage aggregate.
-        type:
-          type: string
-          description: Type of the resource being returned.
-        properties:
-          $ref: '#/components/schemas/UsageSample'
-          x-ms-client-flatten: true
-          description: Usage data.
       description: Describes the usageAggregation.
+      properties:
+        subscriptionId:
+          type: string
+          format: uuid
+          description: The subscription identifier for the Azure user.
+        meterId:
+          type: string
+          description: Unique ID for the resource that was consumed (aka ResourceID).
+        usageStartTime:
+          type: string
+          format: date-time
+          description: UTC start time for the usage bucket to which this usage aggregate belongs.
+        usageEndTime:
+          type: string
+          format: date-time
+          description: UTC end time for the usage bucket to which this usage aggregate belongs.
+        quantity:
+          type: number
+          format: float
+          description: The amount of the resource consumption that occurred in this time frame.
+        unit:
+          type: string
+          description: The unit in which the usage for this resource is being counted, e.g. Hours, GB.
+        meterName:
+          type: string
+          description: Friendly name of the resource being consumed.
+        meterCategory:
+          type: string
+          description: Category of the consumed resource.
+        meterSubCategory:
+          type: string
+          description: Sub-category of the consumed resource.
+        meterRegion:
+          type: string
+          description: Region of the meterId used for billing purposes
+        infoFields:
+          $ref: '#/components/schemas/InfoField'
+          description: Key-value pairs of instance details (legacy format).
+        instanceData:
+          type: string
+          description: Key-value pairs of instance details represented as a string.
       type: object
     UsageAggregationListResult:
       properties:
@@ -219,9 +261,21 @@ components:
     MonetaryCredit:
       x-ms-discriminator-value: Monetary Credit
       description: Indicates that this is a monetary credit offer.
-      allOf:
-        - $ref: '#/components/schemas/OfferTermInfo'
       properties:
+        Name:
+          description: Name of the offer term
+          type: string
+          enum:
+            - Recurring Charge
+            - Monetary Commitment
+            - Monetary Credit
+          x-ms-enum:
+            name: OfferTermInfo
+            modelAsString: false
+        EffectiveDate:
+          description: Indicates the date from which the offer term is effective.
+          type: string
+          format: date-time
         Credit:
           description: The amount of credit provided under the terms of the given offer level.
           type: number
@@ -236,9 +290,21 @@ components:
     MonetaryCommitment:
       x-ms-discriminator-value: Monetary Commitment
       description: Indicates that a monetary commitment is required for this offer
-      allOf:
-        - $ref: '#/components/schemas/OfferTermInfo'
       properties:
+        Name:
+          description: Name of the offer term
+          type: string
+          enum:
+            - Recurring Charge
+            - Monetary Commitment
+            - Monetary Credit
+          x-ms-enum:
+            name: OfferTermInfo
+            modelAsString: false
+        EffectiveDate:
+          description: Indicates the date from which the offer term is effective.
+          type: string
+          format: date-time
         TieredDiscount:
           description: The list of key/value pairs for the tiered meter rates, in the format 'key':'value' where key = price, and value = the corresponding discount percentage. This field is used only by offer terms of type 'Monetary Commitment'.
           type: object
@@ -255,9 +321,21 @@ components:
     RecurringCharge:
       x-ms-discriminator-value: Recurring Charge
       description: Indicates a recurring charge is present for this offer.
-      allOf:
-        - $ref: '#/components/schemas/OfferTermInfo'
       properties:
+        Name:
+          description: Name of the offer term
+          type: string
+          enum:
+            - Recurring Charge
+            - Monetary Commitment
+            - Monetary Credit
+          x-ms-enum:
+            name: OfferTermInfo
+            modelAsString: false
+        EffectiveDate:
+          description: Indicates the date from which the offer term is effective.
+          type: string
+          format: date-time
         RecurringCharge:
           description: The amount of recurring charge as per the offer term.
           type: integer
@@ -272,21 +350,6 @@ components:
         message:
           description: Error message indicating why the operation failed.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: It uniquely identifies Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.Commerce/UsageAggregates/?api-version=2015-06-01-preview:
     get:

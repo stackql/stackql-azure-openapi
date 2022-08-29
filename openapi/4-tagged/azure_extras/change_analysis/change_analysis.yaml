@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,84 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ResourceIdParameter:
+      name: resourceId
+      in: path
+      description: The identifier of the resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    StartTimeParameter:
+      name: $startTime
+      in: query
+      description: Specifies the start time of the changes request.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: date-time
+        type: string
+    EndTimeParameter:
+      name: $endTime
+      in: query
+      description: Specifies the end time of the changes request.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: date-time
+        type: string
+    SkipTokenParameter:
+      name: $skipToken
+      in: query
+      description: A skip token is used to continue retrieving items after an operation returns a partial result. If a previous response contains a nextLink element, the value of the nextLink element will include a skipToken parameter that specifies a starting point to use for subsequent calls.
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +123,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +162,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -609,12 +718,28 @@ components:
           x-ms-identifiers: []
     Change:
       description: The detected change.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/ChangeProperties'
+        resourceId:
+          description: The resource id that the change is attached to.
+          type: string
+        timeStamp:
+          format: date-time
+          description: The time when the change is detected.
+          type: string
+        initiatedByList:
+          description: "The list of identities who might initiated the change.\r\nThe identity could be user name (email address) or the object ID of the Service Principal."
+          type: array
+          items:
+            type: string
+        changeType:
+          $ref: '#/components/schemas/ChangeType'
+        propertyChanges:
+          description: The list of detailed changes at json property level.
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyChange'
+          x-ms-identifiers: []
+      type: object
     ChangeList:
       description: The list of detected changes.
       type: object
@@ -627,84 +752,6 @@ components:
         nextLink:
           description: The URI that can be used to request the next page of changes.
           type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ResourceIdParameter:
-      name: resourceId
-      in: path
-      description: The identifier of the resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    StartTimeParameter:
-      name: $startTime
-      in: query
-      description: Specifies the start time of the changes request.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        format: date-time
-        type: string
-    EndTimeParameter:
-      name: $endTime
-      in: query
-      description: Specifies the end time of the changes request.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        format: date-time
-        type: string
-    SkipTokenParameter:
-      name: $skipToken
-      in: query
-      description: A skip token is used to continue retrieving items after an operation returns a partial result. If a previous response contains a nextLink element, the value of the nextLink element will include a skipToken parameter that specifies a starting point to use for subsequent calls.
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /providers/Microsoft.ChangeAnalysis/operations/?api-version=2021-04-01:
     get:

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,65 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Gets subscription Id which uniquely identify the Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group that contains the resource. You can obtain this value from the Azure Resource Manager API or the portal.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ResourceName:
+      name: resourceName
+      in: path
+      description: The name of the resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       description: The core properties of ARM resources.
@@ -44,20 +103,39 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          description: Fully qualified resource Id for the resource.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource - e.g. "Microsoft.SignalRService/SignalR"
+          type: string
+          readOnly: true
+      type: object
     TrackedResource:
       description: The resource model definition for a ARM tracked top level resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
+        id:
+          description: Fully qualified resource Id for the resource.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource - e.g. "Microsoft.SignalRService/SignalR"
+          type: string
+          readOnly: true
         location:
           description: The GEO location of the resource. e.g. West US | East US | North Central US | South Central US.
           type: string
@@ -69,11 +147,23 @@ components:
           type: object
           additionalProperties:
             type: string
+      type: object
     ProxyResource:
       description: The resource model definition for a ARM proxy resource. It will have everything other than required location and tags
+      properties:
+        id:
+          description: Fully qualified resource Id for the resource.
+          type: string
+          readOnly: true
+        name:
+          description: The name of the resource.
+          type: string
+          readOnly: true
+        type:
+          description: The type of the resource - e.g. "Microsoft.SignalRService/SignalR"
+          type: string
+          readOnly: true
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -248,22 +338,10 @@ components:
       description: The resource management error additional info.
     Operation:
       description: REST API operation supported by resource provider.
-      type: object
       properties:
-        name:
-          description: 'Name of the operation with format: {provider}/{resource}/{operation}'
-          type: string
-        isDataAction:
-          description: If the operation is a data action. (for data plane rbac)
-          type: boolean
-        display:
-          $ref: '#/components/schemas/OperationDisplay'
-        origin:
-          description: Optional. The intended executor of the operation; governs the display of the operation in the RBAC UX and the audit logs UX.
-          type: string
-        properties:
-          x-ms-client-flatten: false
-          $ref: '#/components/schemas/OperationProperties'
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecification'
+      type: object
     OperationListResult:
       description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
@@ -443,16 +521,29 @@ components:
       description: A custom certificate.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
+        provisioningState:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CustomCertificateProperties'
+          $ref: '#/components/schemas/ProvisioningState'
+        keyVaultBaseUri:
+          description: Base uri of the KeyVault that stores certificate.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        keyVaultSecretName:
+          description: Certificate secret name.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        keyVaultSecretVersion:
+          description: Certificate secret version.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+      type: object
     CustomCertificateList:
       description: Custom certificates list.
       type: object
@@ -498,16 +589,16 @@ components:
       description: A custom domain
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
+        provisioningState:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CustomDomainProperties'
+          $ref: '#/components/schemas/ProvisioningState'
+        domainName:
+          description: The custom domain name.
+          type: string
+        customCertificate:
+          $ref: '#/components/schemas/ResourceReference'
+      type: object
     CustomDomainList:
       description: Custom domains list
       type: object
@@ -762,25 +853,41 @@ components:
       description: ACL for a private endpoint
       required:
         - name
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/NetworkACL'
       properties:
+        allow:
+          description: 'Allowed request types. The value can be one or more of: ClientConnection, ServerConnection, RESTAPI.'
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalRRequestType'
+          x-ms-identifiers: []
+        deny:
+          description: 'Denied request types. The value can be one or more of: ClientConnection, ServerConnection, RESTAPI.'
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalRRequestType'
+          x-ms-identifiers: []
         name:
           description: Name of the private endpoint connection
           type: string
+      type: object
     PrivateEndpointConnection:
       description: A private endpoint connection to an azure resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
+        provisioningState:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          $ref: '#/components/schemas/ProvisioningState'
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+        groupIds:
+          description: Group IDs
+          type: array
+          items:
+            type: string
+          readOnly: true
+          x-ms-identifiers: []
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+      type: object
     PrivateEndpointConnectionList:
       description: A list of private endpoint connections
       type: object
@@ -814,13 +921,29 @@ components:
           $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
     PrivateLinkResource:
       description: Private link resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+        groupId:
+          description: Group Id of the private link resource
+          type: string
+        requiredMembers:
+          description: Required members of the private link resource
+          type: array
+          items:
+            type: string
+          x-ms-identifiers: []
+        requiredZoneNames:
+          description: Required private DNS zone names
+          type: array
+          items:
+            type: string
+          x-ms-identifiers: []
+        shareablePrivateLinkResourceTypes:
+          description: The list of resources that are onboarded to private link service
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareablePrivateLinkResourceType'
+          x-ms-identifiers: []
+      type: object
     PrivateLinkResourceList:
       description: Contains a list of PrivateLinkResource and a possible link to query more results
       type: object
@@ -1014,25 +1137,36 @@ components:
           type: string
     ShareablePrivateLinkResourceType:
       description: Describes a  resource type that has been onboarded to private link service
-      type: object
       properties:
-        name:
-          description: The name of the resource type that has been onboarded to private link service
+        description:
+          description: The description of the resource type that has been onboarded to private link service
           type: string
-        properties:
-          $ref: '#/components/schemas/ShareablePrivateLinkResourceProperties'
+        groupId:
+          description: The resource provider group id for the resource that has been onboarded to private link service
+          type: string
+        type:
+          description: The resource provider type for the resource that has been onboarded to private link service
+          type: string
+      type: object
     SharedPrivateLinkResource:
       description: Describes a Shared Private Link Resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
+        groupId:
+          description: The group id from the provider of resource the shared private link resource is for
+          type: string
+        privateLinkResourceId:
+          description: The resource id of the resource the shared private link resource is for
+          type: string
+        provisioningState:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SharedPrivateLinkResourceProperties'
+          $ref: '#/components/schemas/ProvisioningState'
+        requestMessage:
+          description: The request message for requesting approval of the shared private link resource
+          type: string
+        status:
+          readOnly: true
+          $ref: '#/components/schemas/SharedPrivateLinkResourceStatus'
+      type: object
     SharedPrivateLinkResourceList:
       description: A list of shared private link resources
       type: object
@@ -1095,20 +1229,8 @@ components:
       required:
         - flag
         - value
+      properties: {}
       type: object
-      properties:
-        flag:
-          $ref: '#/components/schemas/FeatureFlags'
-        value:
-          description: Value of the feature flag. See Azure SignalR service document https://docs.microsoft.com/azure/azure-signalr/ for allowed values.
-          maxLength: 128
-          minLength: 1
-          type: string
-        properties:
-          description: Optional properties related to this feature.
-          type: object
-          additionalProperties:
-            type: string
     SignalRKeys:
       description: A class represents the access keys of the resource.
       type: object
@@ -1233,25 +1355,92 @@ components:
         modelAsString: true
     SignalRResource:
       description: A class represent a resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        sku:
-          $ref: '#/components/schemas/ResourceSku'
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SignalRProperties'
-        kind:
+        location:
+          description: The GEO location of the resource. e.g. West US | East US | North Central US | South Central US.
+          type: string
           x-ms-mutability:
             - read
             - create
-          $ref: '#/components/schemas/ServiceKind'
-        identity:
-          $ref: '#/components/schemas/ManagedIdentity'
-        systemData:
+        tags:
+          description: Tags of the service which is a list of key value pairs that describe the resource.
+          type: object
+          additionalProperties:
+            type: string
+        provisioningState:
           readOnly: true
-          $ref: '#/components/schemas/systemData'
+          $ref: '#/components/schemas/ProvisioningState'
+        externalIP:
+          description: The publicly accessible IP of the resource.
+          type: string
+          readOnly: true
+        hostName:
+          description: FQDN of the service instance.
+          type: string
+          readOnly: true
+        publicPort:
+          format: int32
+          description: The publicly accessible port of the resource which is designed for browser/client side usage.
+          type: integer
+          readOnly: true
+        serverPort:
+          format: int32
+          description: The publicly accessible port of the resource which is designed for customer server side usage.
+          type: integer
+          readOnly: true
+        version:
+          description: Version of the resource. Probably you need the same or higher version of client SDKs.
+          type: string
+          readOnly: true
+        privateEndpointConnections:
+          description: Private endpoint connections to the resource.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+          x-ms-identifiers: []
+        sharedPrivateLinkResources:
+          description: The list of shared private link resources.
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedPrivateLinkResource'
+          readOnly: true
+          x-ms-identifiers: []
+        tls:
+          $ref: '#/components/schemas/SignalRTlsSettings'
+        hostNamePrefix:
+          description: Deprecated.
+          type: string
+          readOnly: true
+        features:
+          description: "List of the featureFlags.\r\n\r\nFeatureFlags that are not included in the parameters for the update operation will not be modified.\r\nAnd the response will only include featureFlags that are explicitly set. \r\nWhen a featureFlag is not explicitly set, its globally default value will be used\r\nBut keep in mind, the default value doesn't mean \"false\". It varies in terms of different FeatureFlags."
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalRFeature'
+          x-ms-identifiers: []
+        liveTraceConfiguration:
+          $ref: '#/components/schemas/LiveTraceConfiguration'
+        resourceLogConfiguration:
+          $ref: '#/components/schemas/ResourceLogConfiguration'
+        cors:
+          $ref: '#/components/schemas/SignalRCorsSettings'
+        upstream:
+          $ref: '#/components/schemas/ServerlessUpstreamSettings'
+        networkACLs:
+          $ref: '#/components/schemas/SignalRNetworkACLs'
+        publicNetworkAccess:
+          description: "Enable or disable public network access. Default to \"Enabled\".\r\nWhen it's Enabled, network ACLs still apply.\r\nWhen it's Disabled, public network access is always disabled no matter what you set in network ACLs."
+          default: Enabled
+          type: string
+        disableLocalAuth:
+          description: "DisableLocalAuth\r\nEnable or disable local auth with AccessKey\r\nWhen set as true, connection with AccessKey=xxx won't work."
+          default: false
+          type: boolean
+        disableAadAuth:
+          description: "DisableLocalAuth\r\nEnable or disable aad auth\r\nWhen set as true, connection with AuthType=aad won't work."
+          default: false
+          type: boolean
+      type: object
     SignalRResourceList:
       description: Object that includes an array of resources and a possible link for next set.
       type: object
@@ -1421,65 +1610,6 @@ components:
           description: Get the client id for the user assigned identity
           type: string
           readOnly: true
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Gets subscription Id which uniquely identify the Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group that contains the resource. You can obtain this value from the Azure Resource Manager API or the portal.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ResourceName:
-      name: resourceName
-      in: path
-      description: The name of the resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /providers/Microsoft.SignalRService/operations/?api-version=2022-02-01:
     get:

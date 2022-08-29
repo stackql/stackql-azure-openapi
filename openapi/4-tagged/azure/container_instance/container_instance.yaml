@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,21 +22,144 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription credentials which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The identifier for the physical azure location.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client API version
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ContainerGroupNameParameter:
+      name: containerGroupName
+      in: path
+      description: The name of the container group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    VirtualNetworkNameParameter:
+      name: virtualNetworkName
+      in: path
+      description: The name of the virtual network.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubnetNameParameter:
+      name: subnetName
+      in: path
+      description: The name of the subnet.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The operation Id.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Container:
       description: A container instance.
-      type: object
       required:
         - properties
         - name
       properties:
-        name:
-          description: The user-provided name of the container instance.
+        image:
+          description: The name of the image used to create the container instance.
           type: string
-        properties:
-          x-ms-client-flatten: true
-          description: The properties of the container instance.
-          $ref: '#/components/schemas/ContainerProperties'
+        command:
+          description: The commands to execute within the container instance in exec form.
+          type: array
+          items:
+            type: string
+        ports:
+          description: The exposed ports on the container instance.
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainerPort'
+          x-ms-identifiers:
+            - port
+        environmentVariables:
+          description: The environment variables to set in the container instance.
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentVariable'
+          x-ms-identifiers:
+            - name
+        instanceView:
+          description: The instance view of the container instance. Only valid in response.
+          readOnly: true
+          type: object
+          properties:
+            restartCount:
+              readOnly: true
+              type: integer
+              format: int32
+              description: The number of times that the container instance has been restarted.
+            currentState:
+              readOnly: true
+              description: Current container instance state.
+              $ref: '#/components/schemas/ContainerState'
+            previousState:
+              readOnly: true
+              description: Previous container instance state.
+              $ref: '#/components/schemas/ContainerState'
+            events:
+              readOnly: true
+              description: The events of the container instance.
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+              x-ms-identifiers:
+                - name
+                - type
+        resources:
+          description: The resource requirements of the container instance.
+          $ref: '#/components/schemas/ResourceRequirements'
+        volumeMounts:
+          description: The volume mounts available to the container instance.
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeMount'
+          x-ms-identifiers:
+            - name
+        livenessProbe:
+          description: The liveness probe.
+          $ref: '#/components/schemas/ContainerProbe'
+        readinessProbe:
+          description: The readiness probe.
+          $ref: '#/components/schemas/ContainerProbe'
+      type: object
     ContainerProperties:
       description: The container instance properties.
       type: object
@@ -260,9 +383,10 @@ components:
       properties: {}
     SecretVolume:
       description: The secret volume.
-      type: object
       additionalProperties:
         type: string
+      properties: {}
+      type: object
     GitRepoVolume:
       description: Represents a volume that is populated with the contents of a git repository
       required:
@@ -385,15 +509,32 @@ components:
           format: int32
     ContainerGroup:
       description: A container group.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-        - $ref: '#/components/schemas/ContainerGroupProperties'
-    ContainerGroupProperties:
-      description: The container group properties
-      type: object
-      required:
-        - properties
       properties:
+        id:
+          readOnly: true
+          type: string
+          description: The resource id.
+        name:
+          readOnly: true
+          type: string
+          description: The resource name.
+        type:
+          readOnly: true
+          type: string
+          description: The resource type.
+        location:
+          type: string
+          description: The resource location.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: The resource tags.
+        zones:
+          description: The zones for the container group.
+          type: array
+          items:
+            type: string
         identity:
           $ref: '#/components/schemas/ContainerGroupIdentity'
           description: The identity of the container group, if configured.
@@ -498,6 +639,13 @@ components:
           required:
             - containers
             - osType
+      type: object
+    ContainerGroupProperties:
+      description: The container group properties
+      required:
+        - properties
+      properties: {}
+      type: object
     ContainerGroupIdentity:
       description: Identity for the container group.
       properties:
@@ -728,43 +876,11 @@ components:
           description: The URI to fetch the next page of operations.
     Operation:
       description: An operation for Azure Container Instance service.
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the operation.
-        display:
-          description: The display information of the operation.
-          type: object
-          properties:
-            provider:
-              description: The name of the provider of the operation.
-              type: string
-            resource:
-              type: string
-              description: The name of the resource type of the operation.
-            operation:
-              description: The friendly name of the operation.
-              type: string
-            description:
-              description: The description of the operation.
-              type: string
-        properties:
-          type: object
-          description: The additional properties.
-          x-ms-client-flatten: true
-        origin:
-          type: string
-          description: The intended executor of the operation.
-          enum:
-            - User
-            - System
-          x-ms-enum:
-            name: ContainerInstanceOperationsOrigin
-            modelAsString: true
       required:
         - name
         - display
+      properties: {}
+      type: object
     UsageListResult:
       description: The response containing the usage data
       type: object
@@ -1040,18 +1156,60 @@ components:
         - keyVersion
     InitContainerDefinition:
       description: The init container definition.
-      type: object
-      properties:
-        name:
-          description: The name for the init container.
-          type: string
-        properties:
-          description: The properties for the init container.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/InitContainerPropertiesDefinition'
       required:
         - name
         - properties
+      properties:
+        image:
+          description: The image of the init container.
+          type: string
+        command:
+          description: The command to execute within the init container in exec form.
+          type: array
+          items:
+            type: string
+        environmentVariables:
+          description: The environment variables to set in the init container.
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentVariable'
+          x-ms-identifiers:
+            - name
+        instanceView:
+          description: The instance view of the init container. Only valid in response.
+          readOnly: true
+          type: object
+          properties:
+            restartCount:
+              readOnly: true
+              type: integer
+              format: int32
+              description: The number of times that the init container has been restarted.
+            currentState:
+              readOnly: true
+              description: The current state of the init container.
+              $ref: '#/components/schemas/ContainerState'
+            previousState:
+              readOnly: true
+              description: The previous state of the init container.
+              $ref: '#/components/schemas/ContainerState'
+            events:
+              readOnly: true
+              description: The events of the init container.
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+              x-ms-identifiers:
+                - name
+                - type
+        volumeMounts:
+          description: The volume mounts available to the init container.
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeMount'
+          x-ms-identifiers:
+            - name
+      type: object
     InitContainerPropertiesDefinition:
       description: The init container definition properties.
       type: object
@@ -1138,71 +1296,6 @@ components:
       description: Response for network dependencies, always empty list.
       type: array
       items:
-        type: string
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription credentials which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The identifier for the physical azure location.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client API version
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ContainerGroupNameParameter:
-      name: containerGroupName
-      in: path
-      description: The name of the container group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    VirtualNetworkNameParameter:
-      name: virtualNetworkName
-      in: path
-      description: The name of the virtual network.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubnetNameParameter:
-      name: subnetName
-      in: path
-      description: The name of the subnet.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The operation Id.
-      required: true
-      x-ms-parameter-location: method
-      schema:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.ContainerInstance/containerGroups/?api-version=2021-10-01:

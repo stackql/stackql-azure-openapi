@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,51 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +90,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +129,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -502,31 +578,96 @@ components:
           description: Detailed reason why the given name is available.
           type: string
     Device:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DevicePropertiesFormat'
-          description: Device properties.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Device resource.
+      properties:
+        status:
+          type: string
+          readOnly: true
+          description: The current device status.
+          enum:
+            - Unknown
+            - NotRegistered
+            - Registered
+            - Deleted
+          x-ms-enum:
+            name: Status
+            modelAsString: true
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the device resource.
+        deviceType:
+          type: string
+          description: The type of the device.
+          enum:
+            - Unknown
+            - AzureStackEdge
+          x-ms-enum:
+            name: DeviceType
+            modelAsString: true
+        networkFunctions:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/SubResource'
+          description: The list of network functions deployed on the device.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     AzureStackEdgeFormat:
       description: The reference to the Azure stack edge device.
       required:
         - azureStackEdge
       x-ms-discriminator-value: AzureStackEdge
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DevicePropertiesFormat'
       properties:
+        status:
+          type: string
+          readOnly: true
+          description: The current device status.
+          enum:
+            - Unknown
+            - NotRegistered
+            - Registered
+            - Deleted
+          x-ms-enum:
+            name: Status
+            modelAsString: true
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the device resource.
+        deviceType:
+          type: string
+          description: The type of the device.
+          enum:
+            - Unknown
+            - AzureStackEdge
+          x-ms-enum:
+            name: DeviceType
+            modelAsString: true
+        networkFunctions:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/SubResource'
+          description: The list of network functions deployed on the device.
         azureStackEdge:
           $ref: '#/components/schemas/SubResource'
           description: The reference to the Azure stack edge device.
+      type: object
     DevicePropertiesFormat:
       type: object
       description: Device properties.
@@ -588,19 +729,19 @@ components:
           description: The URL to get the next set of results.
       description: Response for devices API service call.
     Vendor:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorPropertiesFormat'
-          description: Vendor properties.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Vendor resource.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the vendor resource.
+        skus:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubResource'
+          readOnly: true
+          description: A list of IDs of the vendor skus offered by the vendor.
+      type: object
     VendorPropertiesFormat:
       type: object
       description: Vendor properties.
@@ -616,19 +757,48 @@ components:
           readOnly: true
           description: A list of IDs of the vendor skus offered by the vendor.
     VendorSku:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorSkuPropertiesFormat'
-          description: Vendor sku details.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Sku sub resource.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the vendor sku sub resource.
+        skuType:
+          $ref: '#/components/schemas/SkuType'
+          description: The sku type.
+        deploymentMode:
+          type: string
+          description: The sku deployment mode.
+          enum:
+            - Unknown
+            - Azure
+            - PrivateEdgeZone
+          x-ms-enum:
+            name: SkuDeploymentMode
+            modelAsString: true
+        networkFunctionType:
+          type: string
+          description: The network function type.
+          enum:
+            - Unknown
+            - VirtualNetworkFunction
+            - ContainerizedNetworkFunction
+          x-ms-enum:
+            name: NetworkFunctionType
+            modelAsString: true
+        preview:
+          type: boolean
+          description: Indicates if the vendor sku is in preview mode.
+        managedApplicationParameters:
+          $ref: '#/components/schemas/ManagedApplicationParameters'
+          description: The parameters for the managed application to be supplied by the vendor.
+        managedApplicationTemplate:
+          type: object
+          description: The template for the managed application deployment.
+        networkFunctionTemplate:
+          $ref: '#/components/schemas/NetworkFunctionTemplate'
+          description: The template definition of the network function.
+      type: object
     VendorSkuPropertiesFormat:
       type: object
       description: Sku properties
@@ -879,30 +1049,14 @@ components:
           description: Path for metadata configuration.
       description: Specifies the custom settings for the virtual machine.
     PreviewSubscription:
-      type: object
       x-ms-azure-resource: true
       description: Customer subscription which can use a sku.
       properties:
-        name:
-          type: string
+        provisioningState:
           readOnly: true
-          description: The preview subscription ID.
-        id:
-          type: string
-          readOnly: true
-          description: The ARM ID of the resource.
-        type:
-          type: string
-          readOnly: true
-          description: The type of the resource.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PreviewSubscriptionProperties'
-          description: The Preview Subscription properties.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the PreviewSubscription resource.
+      type: object
     PreviewSubscriptionProperties:
       description: PreviewSubscription properties
       type: object
@@ -961,19 +1115,30 @@ components:
           description: The URL to get the next set of results.
       description: Response for vendors API service call.
     VendorNetworkFunction:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorNetworkFunctionPropertiesFormat'
-          description: Network function details.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Vendor network function sub resource.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the vendor network function sub resource.
+        vendorProvisioningState:
+          $ref: '#/components/schemas/VendorProvisioningState'
+          description: The vendor controlled provisioning state of the vendor network function.
+        skuName:
+          readOnly: true
+          type: string
+          description: The name of the sku. Once set, it cannot be updated.
+        skuType:
+          $ref: '#/components/schemas/SkuType'
+          description: The sku type.
+          readOnly: true
+        networkFunctionVendorConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionVendorConfiguration'
+          x-ms-identifiers: []
+          description: An array of network function vendor configurations.
+      type: object
     VendorNetworkFunctionPropertiesFormat:
       type: object
       description: Vendor network function properties.
@@ -1034,27 +1199,26 @@ components:
           type: string
           description: The URL to get the next set of results.
     RoleInstance:
-      type: object
       x-ms-azure-resource: true
-      properties:
-        name:
-          type: string
-          description: The role instance name.
-        id:
-          type: string
-          description: The ARM ID of the resource.
-        type:
-          type: string
-          description: The type of the resource.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RoleInstanceProperties'
-          description: The role instance properties.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
       description: The role instance sub resource.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the RoleInstance resource.
+        operationalState:
+          type: string
+          description: The operational state of the role instance.
+          enum:
+            - Unknown
+            - Stopped
+            - Running
+            - Stopping
+            - Starting
+          x-ms-enum:
+            name: OperationalState
+            modelAsString: true
+      type: object
     RoleInstanceProperties:
       type: object
       properties:
@@ -1185,14 +1349,17 @@ components:
           items:
             type: string
     UserDataTemplate:
-      type: object
       description: The user data template.
+      properties: {}
+      type: object
     UserDataParameters:
-      type: object
       description: The user data parameters.
-    ManagedApplicationParameters:
+      properties: {}
       type: object
+    ManagedApplicationParameters:
       description: The parameters for the managed application.
+      properties: {}
+      type: object
     SkuType:
       type: string
       description: Sku type.
@@ -1290,13 +1457,18 @@ components:
           description: The network function sku list.
       description: The network function vendor details.
     NetworkFunctionVendor:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorDetails'
-          description: Vendors of Hybrid Network service provider.
       description: The network function vendor.
+      properties:
+        vendorName:
+          type: string
+          description: The network function vendor name.
+        skuList:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkuOverview'
+          x-ms-identifiers: []
+          description: The network function sku list.
+      type: object
     NetworkFunctionVendorListResult:
       type: object
       properties:
@@ -1345,22 +1517,65 @@ components:
           description: The URL to get the next set of results.
       description: A list of available network function skus.
     NetworkFunction:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/NetworkFunctionPropertiesFormat'
-          description: Network function properties.
-        etag:
-          type: string
-          description: A unique read-only string that changes whenever the resource is updated.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Network function resource response.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the network function resource.
+        device:
+          $ref: '#/components/schemas/SubResource'
+          description: The reference to the device resource. Once set, it cannot be updated.
+        skuName:
+          type: string
+          description: The sku name for the network function. Once set, it cannot be updated.
+        skuType:
+          readOnly: true
+          $ref: '#/components/schemas/SkuType'
+          description: The sku type for the network function.
+        vendorName:
+          type: string
+          description: The vendor name for the network function. Once set, it cannot be updated.
+        serviceKey:
+          type: string
+          readOnly: true
+          description: The service key for the network function resource.
+        vendorProvisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/VendorProvisioningState'
+          description: The vendor provisioning state for the network function resource.
+        managedApplication:
+          readOnly: true
+          $ref: '#/components/schemas/SubResource'
+          description: The resource URI of the managed application.
+        managedApplicationParameters:
+          $ref: '#/components/schemas/ManagedApplicationParameters'
+          description: The parameters for the managed application.
+        networkFunctionContainerConfigurations:
+          type: object
+          description: The network function container configurations from the user.
+        networkFunctionUserConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionUserConfiguration'
+          x-ms-identifiers: []
+          description: The network function configurations from the user.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     NetworkFunctionPropertiesFormat:
       type: object
       description: Network function properties.
@@ -1485,51 +1700,6 @@ components:
         - httpMethod
         - serializedBody
       description: Request metadata of execute request post call payload.
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/devices/{deviceName}/?api-version=2022-01-01-preview:
     delete:

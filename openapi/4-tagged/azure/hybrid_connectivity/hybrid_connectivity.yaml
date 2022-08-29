@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,81 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    ResourceUriParameter:
+      name: resourceUri
+      in: path
+      description: The fully qualified Azure Resource manager identifier of the resource to be connected.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    EndpointNameParameter:
+      name: endpointName
+      in: path
+      description: The endpoint name.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    AccessTokenExpirationParameter:
+      name: expiresin
+      in: query
+      description: The is how long the endpoint access token is valid (in seconds).
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int64
+        default: 10800
+        minimum: 600
+        maximum: 10800
+        type: integer
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     RelayNamespaceAccessProperties:
       type: object
@@ -119,18 +194,24 @@ components:
           description: The resource provisioning state.
     EndpointResource:
       description: The endpoint for the target resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
-          description: System data of endpoint resource
-          $ref: '#/components/schemas/systemData'
-          x-ms-client-flatten: true
-        properties:
-          description: The endpoint properties.
-          $ref: '#/components/schemas/EndpointProperties'
-          x-ms-client-flatten: true
+        type:
+          type: string
+          description: The type of endpoint.
+          enum:
+            - default
+            - custom
+          x-ms-enum:
+            name: type
+            modelAsString: true
+        resourceId:
+          type: string
+          description: The resource Id of the connectivity endpoint (optional).
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The resource provisioning state.
+      type: object
     EndpointsList:
       description: The list of endpoints.
       type: object
@@ -191,18 +272,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -219,16 +311,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -636,81 +748,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    ResourceUriParameter:
-      name: resourceUri
-      in: path
-      description: The fully qualified Azure Resource manager identifier of the resource to be connected.
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    EndpointNameParameter:
-      name: endpointName
-      in: path
-      description: The endpoint name.
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    AccessTokenExpirationParameter:
-      name: expiresin
-      in: query
-      description: The is how long the endpoint access token is valid (in seconds).
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int64
-        default: 10800
-        minimum: 600
-        maximum: 10800
-        type: integer
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.HybridConnectivity/operations/?api-version=2022-05-01-preview:
     get:

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,90 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    api-version:
+      name: api-version
+      in: query
+      description: Specifies the API version to use for this request.
+      required: true
+      schema:
+        type: string
+    subscriptionId:
+      name: subscriptionId
+      in: path
+      description: The subscription ID for the Azure user.
+      required: true
+      schema:
+        type: string
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The resource group name uniquely identifies the resource group within the user subscription.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    Accept-Language:
+      name: Accept-Language
+      in: header
+      description: Specifies the preferred language for the response.
+      required: false
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    x-ms-client-tenant-id:
+      name: x-ms-client-tenant-id
+      in: header
+      description: The tenant ID of the client making the request.
+      required: false
+      x-ms-client-name: ClientTenantId
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     ErrorResponse:
       title: Error response
@@ -34,15 +118,66 @@ components:
     PutJobParameters:
       description: Put Job parameters
       properties:
-        location:
+        storageAccountId:
           type: string
-          description: Specifies the supported Azure location where the job should be created
-        tags:
-          type: object
-          description: Specifies the tags that will be assigned to the job.
-        properties:
-          $ref: '#/components/schemas/JobDetails'
-          description: Specifies the job properties
+          description: The resource identifier of the storage account where data will be imported to or exported from.
+        jobType:
+          type: string
+          description: The type of job
+        returnAddress:
+          description: 'Specifies the return address information for the job. '
+          $ref: '#/components/schemas/ReturnAddress'
+        returnShipping:
+          description: 'Specifies the return carrier and customer''s account with the carrier. '
+          $ref: '#/components/schemas/ReturnShipping'
+        shippingInformation:
+          description: 'Contains information about the Microsoft datacenter to which the drives should be shipped. '
+          $ref: '#/components/schemas/ShippingInformation'
+        deliveryPackage:
+          description: 'Contains information about the package being shipped by the customer to the Microsoft data center. '
+          $ref: '#/components/schemas/DeliveryPackageInformation'
+        returnPackage:
+          description: 'Contains information about the package being shipped from the Microsoft data center to the customer to return the drives. The format is the same as the deliveryPackage property above. This property is not included if the drives have not yet been returned. '
+          $ref: '#/components/schemas/PackageInformation'
+        diagnosticsPath:
+          type: string
+          description: The virtual blob directory to which the copy logs and backups of drive manifest files (if enabled) will be stored.
+        logLevel:
+          type: string
+          description: Default value is Error. Indicates whether error logging or verbose logging will be enabled.
+        backupDriveManifest:
+          type: boolean
+          description: Default value is false. Indicates whether the manifest files on the drives should be copied to block blobs.
+          default: false
+        state:
+          type: string
+          description: Current state of the job.
+          default: Creating
+        cancelRequested:
+          type: boolean
+          description: Indicates whether a request has been submitted to cancel the job.
+          default: false
+        percentComplete:
+          type: integer
+          format: int64
+          description: Overall percentage completed for the job.
+        incompleteBlobListUri:
+          type: string
+          description: A blob path that points to a block blob containing a list of blob names that were not exported due to insufficient drive space. If all blobs were exported successfully, then this element is not included in the response.
+        driveList:
+          description: List of up to ten drives that comprise the job. The drive list is a required element for an import job; it is not specified for export jobs.
+          type: array
+          items:
+            $ref: '#/components/schemas/DriveStatus'
+        export:
+          description: A property containing information about the blobs to be exported for an export job. This property is included for export jobs only.
+          $ref: '#/components/schemas/Export'
+        provisioningState:
+          type: string
+          description: Specifies the provisioning state of the job.
+        encryptionKey:
+          description: Contains information about the encryption key.
+          $ref: '#/components/schemas/EncryptionKeyDetails'
       type: object
     JobDetails:
       description: Specifies the job properties
@@ -153,42 +288,7 @@ components:
       type: object
     UpdateJobParameters:
       description: Update Job parameters
-      properties:
-        tags:
-          type: object
-          description: Specifies the tags that will be assigned to the job
-        properties:
-          x-ms-client-flatten: true
-          properties:
-            cancelRequested:
-              type: boolean
-              description: 'If specified, the value must be true. The service will attempt to cancel the job. '
-              default: false
-            state:
-              type: string
-              description: 'If specified, the value must be Shipping, which tells the Import/Export service that the package for the job has been shipped. The ReturnAddress and DeliveryPackage properties must have been set either in this request or in a previous request, otherwise the request will fail. '
-            returnAddress:
-              description: Specifies the return address information for the job.
-              $ref: '#/components/schemas/ReturnAddress'
-            returnShipping:
-              description: Specifies the return carrier and customer's account with the carrier.
-              $ref: '#/components/schemas/ReturnShipping'
-            deliveryPackage:
-              description: Contains information about the package being shipped by the customer to the Microsoft data center.
-              $ref: '#/components/schemas/DeliveryPackageInformation'
-            logLevel:
-              type: string
-              description: Indicates whether error logging or verbose logging is enabled.
-            backupDriveManifest:
-              type: boolean
-              description: Indicates whether the manifest files on the drives should be copied to block blobs.
-              default: false
-            driveList:
-              description: List of drives that comprise the job.
-              type: array
-              items:
-                $ref: '#/components/schemas/DriveStatus'
-          description: Specifies the properties of a UpdateJob.
+      properties: {}
       type: object
     ListJobsResponse:
       description: List jobs response
@@ -206,34 +306,66 @@ components:
       x-ms-azure-resource: true
       description: Contains the job information.
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: SystemData of ImportExport Jobs.
-          readOnly: true
-        id:
+        storageAccountId:
           type: string
-          description: Specifies the resource identifier of the job.
-          readOnly: true
-        name:
+          description: The resource identifier of the storage account where data will be imported to or exported from.
+        jobType:
           type: string
-          description: Specifies the name of the job.
-          readOnly: true
-        type:
+          description: The type of job
+        returnAddress:
+          description: 'Specifies the return address information for the job. '
+          $ref: '#/components/schemas/ReturnAddress'
+        returnShipping:
+          description: 'Specifies the return carrier and customer''s account with the carrier. '
+          $ref: '#/components/schemas/ReturnShipping'
+        shippingInformation:
+          description: 'Contains information about the Microsoft datacenter to which the drives should be shipped. '
+          $ref: '#/components/schemas/ShippingInformation'
+        deliveryPackage:
+          description: 'Contains information about the package being shipped by the customer to the Microsoft data center. '
+          $ref: '#/components/schemas/DeliveryPackageInformation'
+        returnPackage:
+          description: 'Contains information about the package being shipped from the Microsoft data center to the customer to return the drives. The format is the same as the deliveryPackage property above. This property is not included if the drives have not yet been returned. '
+          $ref: '#/components/schemas/PackageInformation'
+        diagnosticsPath:
           type: string
-          description: Specifies the type of the job resource.
-          readOnly: true
-        location:
+          description: The virtual blob directory to which the copy logs and backups of drive manifest files (if enabled) will be stored.
+        logLevel:
           type: string
-          description: Specifies the Azure location where the job is created.
-        tags:
-          type: object
-          description: Specifies the tags that are assigned to the job.
-        properties:
-          $ref: '#/components/schemas/JobDetails'
-          description: Specifies the job properties
-        identity:
-          $ref: '#/components/schemas/IdentityDetails'
-          description: Specifies the job identity details
+          description: Default value is Error. Indicates whether error logging or verbose logging will be enabled.
+        backupDriveManifest:
+          type: boolean
+          description: Default value is false. Indicates whether the manifest files on the drives should be copied to block blobs.
+          default: false
+        state:
+          type: string
+          description: Current state of the job.
+          default: Creating
+        cancelRequested:
+          type: boolean
+          description: Indicates whether a request has been submitted to cancel the job.
+          default: false
+        percentComplete:
+          type: integer
+          format: int64
+          description: Overall percentage completed for the job.
+        incompleteBlobListUri:
+          type: string
+          description: A blob path that points to a block blob containing a list of blob names that were not exported due to insufficient drive space. If all blobs were exported successfully, then this element is not included in the response.
+        driveList:
+          description: List of up to ten drives that comprise the job. The drive list is a required element for an import job; it is not specified for export jobs.
+          type: array
+          items:
+            $ref: '#/components/schemas/DriveStatus'
+        export:
+          description: A property containing information about the blobs to be exported for an export job. This property is included for export jobs only.
+          $ref: '#/components/schemas/Export'
+        provisioningState:
+          type: string
+          description: Specifies the provisioning state of the job.
+        encryptionKey:
+          description: Contains information about the encryption key.
+          $ref: '#/components/schemas/EncryptionKeyDetails'
       type: object
     Operation:
       title: REST API Operation
@@ -290,57 +422,7 @@ components:
             modelAsString: true
     Location:
       description: Provides information about an Azure data center location.
-      properties:
-        id:
-          description: 'Specifies the resource identifier of the location. '
-          type: string
-        name:
-          description: 'Specifies the name of the location. Use List Locations to get all supported locations. '
-          type: string
-        type:
-          description: 'Specifies the type of the location. '
-          type: string
-        properties:
-          x-ms-client-flatten: true
-          description: location properties
-          properties:
-            recipientName:
-              description: 'The recipient name to use when shipping the drives to the Azure data center. '
-              type: string
-            streetAddress1:
-              description: 'The first line of the street address to use when shipping the drives to the Azure data center. '
-              type: string
-            streetAddress2:
-              description: 'The second line of the street address to use when shipping the drives to the Azure data center. '
-              type: string
-            city:
-              description: 'The city name to use when shipping the drives to the Azure data center. '
-              type: string
-            stateOrProvince:
-              description: 'The state or province to use when shipping the drives to the Azure data center. '
-              type: string
-            postalCode:
-              description: 'The postal code to use when shipping the drives to the Azure data center. '
-              type: string
-            countryOrRegion:
-              description: 'The country or region to use when shipping the drives to the Azure data center. '
-              type: string
-            phone:
-              description: 'The phone number for the Azure data center. '
-              type: string
-            additionalShippingInformation:
-              description: Additional shipping information for customer, specific to datacenter to which customer should send their disks.
-              type: string
-            supportedCarriers:
-              type: array
-              description: 'A list of carriers that are supported at this location. '
-              items:
-                type: string
-            alternateLocations:
-              type: array
-              description: 'A list of location IDs that should be used to ship shipping drives to for jobs created against the current location. If the current location is active, it will be part of the list. If it is temporarily closed due to maintenance, this list may contain other locations. '
-              items:
-                type: string
+      properties: {}
       type: object
     ReturnAddress:
       description: Specifies the return address information for the job.
@@ -602,18 +684,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -630,16 +723,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -986,90 +1099,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    api-version:
-      name: api-version
-      in: query
-      description: Specifies the API version to use for this request.
-      required: true
-      schema:
-        type: string
-    subscriptionId:
-      name: subscriptionId
-      in: path
-      description: The subscription ID for the Azure user.
-      required: true
-      schema:
-        type: string
-    resourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The resource group name uniquely identifies the resource group within the user subscription.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    Accept-Language:
-      name: Accept-Language
-      in: header
-      description: Specifies the preferred language for the response.
-      required: false
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    x-ms-client-tenant-id:
-      name: x-ms-client-tenant-id
-      in: header
-      description: The tenant ID of the client making the request.
-      required: false
-      x-ms-client-name: ClientTenantId
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.ImportExport/locations/?api-version=2021-01-01:
     get:

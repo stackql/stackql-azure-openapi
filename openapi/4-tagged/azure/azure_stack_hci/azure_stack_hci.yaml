@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,75 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ClusterNameParameter:
+      name: clusterName
+      in: path
+      description: The name of the cluster.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ArcSettingNameParameter:
+      name: arcSettingName
+      in: path
+      description: The name of the proxy resource holding details of HCI ArcSetting information.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ExtensionNameParameter:
+      name: extensionName
+      in: path
+      description: The name of the machine extension.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +114,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +153,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -506,17 +606,13 @@ components:
           readOnly: true
     ArcSettingsPatch:
       description: ArcSetting details to update.
-      type: object
       properties:
-        tags:
-          description: Resource tags.
+        connectivityProperties:
+          description: contains connectivity related configuration for ARC resources
           type: object
-          additionalProperties:
-            type: string
-        properties:
-          description: ArcSettings properties.
-          $ref: '#/components/schemas/ArcSettingsPatchProperties'
-          x-ms-client-flatten: true
+          items:
+            $ref: '#/components/schemas/ArcConnectivityProperties'
+      type: object
     ArcSettingsPatchProperties:
       description: ArcSettings properties.
       type: object
@@ -528,19 +624,70 @@ components:
             $ref: '#/components/schemas/ArcConnectivityProperties'
     ArcSetting:
       description: ArcSetting details.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
-          description: System data of ArcSetting resource
-          $ref: '#/components/schemas/systemData'
-          x-ms-client-flatten: true
+        provisioningState:
+          description: Provisioning state of the ArcSetting proxy resource.
+          type: string
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+            - Provisioning
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
           readOnly: true
-        properties:
-          description: ArcSetting properties.
-          $ref: '#/components/schemas/ArcSettingProperties'
-          x-ms-client-flatten: true
+        arcInstanceResourceGroup:
+          description: The resource group that hosts the Arc agents, ie. Hybrid Compute Machine resources.
+          type: string
+        arcApplicationClientId:
+          description: App id of arc AAD identity.
+          type: string
+        arcApplicationTenantId:
+          description: Tenant id of arc AAD identity.
+          type: string
+        arcServicePrincipalObjectId:
+          description: Object id of arc AAD service principal.
+          type: string
+        arcApplicationObjectId:
+          description: Object id of arc AAD identity.
+          type: string
+        aggregateState:
+          description: Aggregate state of Arc agent across the nodes in this HCI cluster.
+          type: string
+          enum:
+            - NotSpecified
+            - Error
+            - Succeeded
+            - Canceled
+            - Failed
+            - Connected
+            - Disconnected
+            - Deleted
+            - Creating
+            - Updating
+            - Deleting
+            - Moving
+            - PartiallySucceeded
+            - PartiallyConnected
+            - InProgress
+          x-ms-enum:
+            name: ArcSettingAggregateState
+            modelAsString: true
+          readOnly: true
+        perNodeDetails:
+          description: State of Arc agent in each of the nodes.
+          type: array
+          items:
+            $ref: '#/components/schemas/PerNodeState'
+          readOnly: true
+        connectivityProperties:
+          description: contains connectivity related configuration for ARC resources
+          type: object
+          items:
+            $ref: '#/components/schemas/ArcConnectivityProperties'
+      type: object
     ArcSettingProperties:
       description: ArcSetting properties.
       type: object
@@ -662,12 +809,16 @@ components:
       readOnly: true
     ArcIdentityResponse:
       description: ArcIdentity details.
-      type: object
       properties:
-        properties:
-          description: ArcIdentity properties.
-          $ref: '#/components/schemas/ArcIdentityResponseProperties'
-          x-ms-client-flatten: true
+        arcApplicationClientId:
+          type: string
+        arcApplicationTenantId:
+          type: string
+        arcServicePrincipalObjectId:
+          type: string
+        arcApplicationObjectId:
+          type: string
+      type: object
     ArcIdentityResponseProperties:
       type: object
       properties:
@@ -695,32 +846,118 @@ components:
           readOnly: true
     Cluster:
       description: Cluster details.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        systemData:
-          description: System data of Cluster resource
-          $ref: '#/components/schemas/systemData'
-          x-ms-client-flatten: true
-          readOnly: true
-        properties:
-          description: Cluster properties.
-          $ref: '#/components/schemas/ClusterProperties'
-          x-ms-client-flatten: true
-    ClusterPatch:
-      description: Cluster details to update.
-      type: object
       properties:
         tags:
-          description: Resource tags.
           type: object
           additionalProperties:
             type: string
-        properties:
-          description: Cluster properties.
-          $ref: '#/components/schemas/ClusterPatchProperties'
-          x-ms-client-flatten: true
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        provisioningState:
+          description: Provisioning state.
+          type: string
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+            - Provisioning
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+          readOnly: true
+        status:
+          description: Status of the cluster agent.
+          type: string
+          enum:
+            - NotYetRegistered
+            - ConnectedRecently
+            - NotConnectedRecently
+            - Disconnected
+            - Error
+          x-ms-enum:
+            name: Status
+            modelAsString: true
+          readOnly: true
+        cloudId:
+          description: Unique, immutable resource id.
+          type: string
+          readOnly: true
+        cloudManagementEndpoint:
+          description: Endpoint configured for management from the Azure portal.
+          type: string
+        aadClientId:
+          description: App id of cluster AAD identity.
+          type: string
+        aadTenantId:
+          description: Tenant id of cluster AAD identity.
+          type: string
+        aadApplicationObjectId:
+          description: Object id of cluster AAD identity.
+          type: string
+        aadServicePrincipalObjectId:
+          description: Id of cluster identity service principal.
+          type: string
+        desiredProperties:
+          description: Desired properties of the cluster.
+          $ref: '#/components/schemas/ClusterDesiredProperties'
+        reportedProperties:
+          description: Properties reported by cluster agent.
+          $ref: '#/components/schemas/ClusterReportedProperties'
+          readOnly: true
+        trialDaysRemaining:
+          description: Number of days remaining in the trial period.
+          type: number
+          readOnly: true
+        billingModel:
+          description: Type of billing applied to the resource.
+          type: string
+          readOnly: true
+        registrationTimestamp:
+          description: First cluster sync timestamp.
+          type: string
+          format: date-time
+          readOnly: true
+        lastSyncTimestamp:
+          description: Most recent cluster sync timestamp.
+          type: string
+          format: date-time
+          readOnly: true
+        lastBillingTimestamp:
+          description: Most recent billing meter timestamp.
+          type: string
+          format: date-time
+          readOnly: true
+        serviceEndpoint:
+          description: Region specific DataPath Endpoint of the cluster.
+          type: string
+          readOnly: true
+      type: object
+    ClusterPatch:
+      description: Cluster details to update.
+      properties:
+        cloudManagementEndpoint:
+          description: Endpoint configured for management from the Azure portal
+          type: string
+        aadClientId:
+          description: App id of cluster AAD identity.
+          type: string
+        aadTenantId:
+          description: Tenant id of cluster AAD identity.
+          type: string
+        desiredProperties:
+          description: Desired properties of the cluster.
+          $ref: '#/components/schemas/ClusterDesiredProperties'
+      type: object
     ClusterProperties:
       description: Cluster properties.
       type: object
@@ -948,18 +1185,24 @@ components:
           items:
             type: string
     UploadCertificateRequest:
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/RawCertificateData'
+        certificates:
+          type: array
+          items:
+            type: string
+      type: object
     ClusterIdentityResponse:
       description: Cluster Identity details.
-      type: object
       properties:
-        properties:
-          description: Cluster identity properties.
-          $ref: '#/components/schemas/ClusterIdentityResponseProperties'
-          x-ms-client-flatten: true
+        aadClientId:
+          type: string
+        aadTenantId:
+          type: string
+        aadServicePrincipalObjectId:
+          type: string
+        aadApplicationObjectId:
+          type: string
+      type: object
     ClusterIdentityResponseProperties:
       type: object
       properties:
@@ -974,19 +1217,54 @@ components:
       readOnly: true
     Extension:
       description: Details of a particular extension in HCI Cluster.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
-          description: System data of Extension resource.
-          $ref: '#/components/schemas/systemData'
-          x-ms-client-flatten: true
+        provisioningState:
+          description: Provisioning state of the Extension proxy resource.
+          type: string
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+            - Provisioning
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
           readOnly: true
-        properties:
-          description: Describes Machine Extension Properties.
-          $ref: '#/components/schemas/ExtensionProperties'
+        extensionParameters:
+          description: Parameters specific to this extension type.
+          $ref: '#/components/schemas/ExtensionParameters'
           x-ms-client-flatten: true
+        aggregateState:
+          description: Aggregate state of Arc Extensions across the nodes in this HCI cluster.
+          type: string
+          enum:
+            - NotSpecified
+            - Error
+            - Succeeded
+            - Canceled
+            - Failed
+            - Connected
+            - Disconnected
+            - Deleted
+            - Creating
+            - Updating
+            - Deleting
+            - Moving
+            - PartiallySucceeded
+            - PartiallyConnected
+            - InProgress
+          x-ms-enum:
+            name: ExtensionAggregateState
+            modelAsString: true
+          readOnly: true
+        perNodeExtensionDetails:
+          description: State of Arc Extension in each of the nodes.
+          type: array
+          items:
+            $ref: '#/components/schemas/PerNodeExtensionState'
+          readOnly: true
+      type: object
     ExtensionProperties:
       description: Status of Arc Extension for a particular node in HCI Cluster.
       type: object
@@ -1109,75 +1387,6 @@ components:
           type: object
           description: Protected settings (may contain secrets).
           x-ms-secret: true
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ClusterNameParameter:
-      name: clusterName
-      in: path
-      description: The name of the cluster.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ArcSettingNameParameter:
-      name: arcSettingName
-      in: path
-      description: The name of the proxy resource holding details of HCI ArcSetting information.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ExtensionNameParameter:
-      name: extensionName
-      in: path
-      description: The name of the machine extension.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureStackHCI/clusters/{clusterName}/arcSettings/?api-version=2022-05-01:
     get:

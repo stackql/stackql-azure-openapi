@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,17 +22,53 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionId:
+      name: subscriptionId
+      in: path
+      description: The subscription Id.
+      required: true
+      schema:
+        type: string
+    ResourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group where the backup vault is present.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    VaultName:
+      name: vaultName
+      in: path
+      description: The name of the backup vault.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ApiVersion:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
   schemas:
     AbsoluteDeleteOption:
-      allOf:
-        - $ref: '#/components/schemas/DeleteOption'
       description: Delete option with duration
       required:
         - duration
         - objectType
       title: AbsoluteDeleteOption
-      type: object
       x-ms-discriminator-value: AbsoluteDeleteOption
+      properties:
+        duration:
+          description: Duration of deletion after given timespan
+          type: string
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+      type: object
     RecoveryPointsFilters:
       type: object
       properties:
@@ -76,19 +112,20 @@ components:
       title: AdhocBasedTaggingCriteria
       type: object
     AdhocBasedTriggerContext:
-      allOf:
-        - $ref: '#/components/schemas/TriggerContext'
       description: Adhoc trigger context
-      properties:
-        taggingCriteria:
-          $ref: '#/components/schemas/AdhocBasedTaggingCriteria'
-          description: Tagging Criteria containing retention tag for adhoc backup.
       required:
         - objectType
         - taggingCriteria
       title: AdhocBasedTriggerContext
-      type: object
       x-ms-discriminator-value: AdhocBasedTriggerContext
+      properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+        taggingCriteria:
+          $ref: '#/components/schemas/AdhocBasedTaggingCriteria'
+          description: Tagging Criteria containing retention tag for adhoc backup.
+      type: object
     AuthCredentials:
       description: Base class for different types of authentication credentials.
       required:
@@ -102,10 +139,14 @@ components:
       discriminator:
         propertyName: objectType
     AzureBackupDiscreteRecoveryPoint:
-      allOf:
-        - $ref: '#/components/schemas/AzureBackupRecoveryPoint'
       description: Azure backup discrete RecoveryPoint
+      required:
+        - recoveryPointTime
+      title: AzureBackupDiscreteRecoveryPoint
+      x-ms-discriminator-value: AzureBackupDiscreteRecoveryPoint
       properties:
+        objectType:
+          type: string
         friendlyName:
           type: string
         recoveryPointDataStoresDetails:
@@ -127,11 +168,7 @@ components:
           type: string
         retentionTagVersion:
           type: string
-      required:
-        - recoveryPointTime
-      title: AzureBackupDiscreteRecoveryPoint
       type: object
-      x-ms-discriminator-value: AzureBackupDiscreteRecoveryPoint
     AzureBackupFindRestorableTimeRangesRequest:
       description: List Restore Ranges Request
       required:
@@ -156,9 +193,29 @@ components:
           type: string
     AzureBackupFindRestorableTimeRangesRequestResource:
       description: List Restore Ranges Request
-      allOf:
-        - $ref: '#/components/schemas/DppWorkerRequest'
       properties:
+        subscriptionId:
+          type: string
+        uri:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        supportedGroupVersions:
+          type: array
+          items:
+            type: string
+        cultureInfo:
+          type: string
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+        httpMethod:
+          type: string
         content:
           $ref: '#/components/schemas/AzureBackupFindRestorableTimeRangesRequest'
           description: AzureBackupFindRestorableTimeRangesRequestResource content
@@ -177,12 +234,29 @@ components:
           type: string
     AzureBackupFindRestorableTimeRangesResponseResource:
       description: List Restore Ranges Response
-      allOf:
-        - $ref: '#/components/schemas/DppResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/AzureBackupFindRestorableTimeRangesResponse'
-          description: AzureBackupFindRestorableTimeRangesResponseResource properties
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        restorableTimeRanges:
+          description: Returns the Restore Ranges available on the Backup Instance.
+          type: array
+          items:
+            $ref: '#/components/schemas/RestorableTimeRange'
+          x-ms-identifiers: []
+        objectType:
+          type: string
       type: object
     AzureBackupJob:
       description: AzureBackup Job Class
@@ -309,20 +383,131 @@ components:
         - supportedActions
       type: object
     AzureBackupJobResource:
-      allOf:
-        - $ref: '#/components/schemas/DppResource'
       description: AzureBackup Job Resource Class
       properties:
-        properties:
-          $ref: '#/components/schemas/AzureBackupJob'
-          description: AzureBackupJobResource properties
-          type: object
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        activityID:
+          description: Job Activity Id
+          type: string
+        backupInstanceFriendlyName:
+          description: Name of the Backup Instance
+          type: string
+        backupInstanceId:
+          description: ARM ID of the Backup Instance
+          readOnly: true
+          type: string
+        dataSourceId:
+          description: ARM ID of the DataSource
+          type: string
+        dataSourceLocation:
+          description: Location of the DataSource
+          type: string
+        dataSourceName:
+          description: User Friendly Name of the DataSource
+          type: string
+        dataSourceSetName:
+          description: Data Source Set Name of the DataSource
+          type: string
+        dataSourceType:
+          description: Type of DataSource
+          type: string
+        duration:
+          description: Total run time of the job. ISO 8601 format.
+          type: string
+        endTime:
+          description: EndTime of the job(in UTC)
+          format: date-time
+          readOnly: true
+          type: string
+        errorDetails:
+          description: A List, detailing the errors related to the job
+          items:
+            $ref: '#/components/schemas/UserFacingError'
+          x-ms-identifiers: []
+          readOnly: true
+          type: array
+        extendedInfo:
+          $ref: '#/components/schemas/JobExtendedInfo'
+          description: Extended Information about the job
+          readOnly: true
+        isUserTriggered:
+          description: Indicated that whether the job is adhoc(true) or scheduled(false)
+          type: boolean
+        operation:
+          description: It indicates the type of Job i.e. Backup:full/log/diff ;Restore:ALR/OLR; Tiering:Backup/Archive ; Management:ConfigureProtection/UnConfigure
+          type: string
+        operationCategory:
+          description: It indicates the type of Job i.e. Backup/Restore/Tiering/Management
+          type: string
+        policyId:
+          description: ARM ID of the policy
+          readOnly: true
+          type: string
+        policyName:
+          description: Name of the policy
+          readOnly: true
+          type: string
+        progressEnabled:
+          description: Indicated whether progress is enabled for the job
+          type: boolean
+        progressUrl:
+          description: Url which contains job's progress
+          readOnly: true
+          type: string
+        restoreType:
+          description: It indicates the sub type of operation i.e. in case of Restore it can be ALR/OLR
+          readOnly: true
+          type: string
+        sourceResourceGroup:
+          description: Resource Group Name of the Datasource
+          type: string
+        sourceSubscriptionID:
+          description: SubscriptionId corresponding to the DataSource
+          type: string
+        startTime:
+          description: StartTime of the job(in UTC)
+          format: date-time
+          type: string
+        status:
+          description: Status of the job like InProgress/Success/Failed/Cancelled/SuccessWithWarning
+          type: string
+        subscriptionId:
+          description: Subscription Id of the corresponding backup vault
+          type: string
+        supportedActions:
+          description: List of supported actions
+          items:
+            type: string
+          type: array
+        vaultName:
+          description: Name of the vault
+          type: string
+        etag:
+          type: string
+        sourceDataStoreName:
+          type: string
+        destinationDataStoreName:
+          type: string
       type: object
     AzureBackupJobResourceList:
-      allOf:
-        - $ref: '#/components/schemas/DppResourceList'
       description: List of AzureBackup Job resources
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           items:
@@ -330,19 +515,20 @@ components:
           type: array
       type: object
     AzureBackupParams:
-      allOf:
-        - $ref: '#/components/schemas/BackupParameters'
       description: Azure backup parameters
-      properties:
-        backupType:
-          description: BackupType ; Full/Incremental etc
-          type: string
       required:
         - backupType
         - objectType
       title: AzureBackupParams
-      type: object
       x-ms-discriminator-value: AzureBackupParams
+      properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+        backupType:
+          description: BackupType ; Full/Incremental etc
+          type: string
+      type: object
     AzureBackupRecoveryPoint:
       description: Azure backup recoveryPoint
       discriminator:
@@ -355,38 +541,66 @@ components:
       title: AzureBackupRecoveryPoint
       type: object
     AzureBackupRecoveryPointBasedRestoreRequest:
-      allOf:
-        - $ref: '#/components/schemas/AzureBackupRestoreRequest'
       description: Azure backup recoveryPoint based restore request
-      properties:
-        recoveryPointId:
-          type: string
       required:
         - recoveryPointId
       title: AzureBackupRecoveryPointBasedRestoreRequest
-      type: object
       x-ms-discriminator-value: AzureBackupRecoveryPointBasedRestoreRequest
-    AzureBackupRecoveryPointResource:
-      allOf:
-        - $ref: '#/components/schemas/DppResource'
-      description: Azure backup recoveryPoint resource
       properties:
-        properties:
-          $ref: '#/components/schemas/AzureBackupRecoveryPoint'
-          description: AzureBackupRecoveryPointResource properties
+        objectType:
+          type: string
+        restoreTargetInfo:
+          $ref: '#/components/schemas/RestoreTargetInfoBase'
+          description: Gets or sets the restore target information.
+        sourceDataStoreType:
+          description: Gets or sets the type of the source data store.
+          enum:
+            - ArchiveStore
+            - SnapshotStore
+            - VaultStore
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: SourceDataStoreType
+        sourceResourceId:
+          description: Fully qualified Azure Resource Manager ID of the datasource which is being recovered.
+          type: string
+        recoveryPointId:
+          type: string
+      type: object
+    AzureBackupRecoveryPointResource:
+      description: Azure backup recoveryPoint resource
       title: AzureBackupRecoveryPointResource
+      properties:
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        objectType:
+          type: string
       type: object
     AzureBackupRecoveryPointResourceList:
-      allOf:
-        - $ref: '#/components/schemas/DppResourceList'
       description: Azure backup recoveryPoint resource list
+      title: AzureBackupRecoveryPointResourceList
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           items:
             $ref: '#/components/schemas/AzureBackupRecoveryPointResource'
           type: array
-      title: AzureBackupRecoveryPointResourceList
       type: object
     AzureBackupRehydrationRequest:
       description: Azure Backup Rehydrate Request
@@ -435,54 +649,72 @@ components:
       title: AzureBackupRestoreRequest
       type: object
     AzureBackupRestoreWithRehydrationRequest:
-      allOf:
-        - $ref: '#/components/schemas/AzureBackupRecoveryPointBasedRestoreRequest'
       description: AzureBackup Restore with Rehydration Request
+      required:
+        - rehydrationPriority
+        - rehydrationRetentionDuration
+      title: AzureBackupRestoreWithRehydrationRequest
+      x-ms-discriminator-value: AzureBackupRestoreWithRehydrationRequest
       properties:
+        recoveryPointId:
+          type: string
         rehydrationPriority:
           description: Priority to be used for rehydration. Values High or Standard
           $ref: '#/components/schemas/RehydrationPriority'
         rehydrationRetentionDuration:
           description: Retention duration in ISO 8601 format i.e P10D .
           type: string
-      required:
-        - rehydrationPriority
-        - rehydrationRetentionDuration
-      title: AzureBackupRestoreWithRehydrationRequest
       type: object
-      x-ms-discriminator-value: AzureBackupRestoreWithRehydrationRequest
     AzureBackupRecoveryTimeBasedRestoreRequest:
-      allOf:
-        - $ref: '#/components/schemas/AzureBackupRestoreRequest'
       description: AzureBackup RecoveryPointTime Based Restore Request
-      properties:
-        recoveryPointTime:
-          description: The recovery time in ISO 8601 format example - 2020-08-14T17:30:00.0000000Z.
-          type: string
       required:
         - recoveryPointTime
       title: AzureBackupRecoveryTimeBasedRestoreRequest
-      type: object
       x-ms-discriminator-value: AzureBackupRecoveryTimeBasedRestoreRequest
-    AzureBackupRule:
-      allOf:
-        - $ref: '#/components/schemas/BasePolicyRule'
-      description: Azure backup rule
       properties:
-        backupParameters:
-          $ref: '#/components/schemas/BackupParameters'
-        dataStore:
-          $ref: '#/components/schemas/DataStoreInfoBase'
-        trigger:
-          $ref: '#/components/schemas/TriggerContext'
+        objectType:
+          type: string
+        restoreTargetInfo:
+          $ref: '#/components/schemas/RestoreTargetInfoBase'
+          description: Gets or sets the restore target information.
+        sourceDataStoreType:
+          description: Gets or sets the type of the source data store.
+          enum:
+            - ArchiveStore
+            - SnapshotStore
+            - VaultStore
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: SourceDataStoreType
+        sourceResourceId:
+          description: Fully qualified Azure Resource Manager ID of the datasource which is being recovered.
+          type: string
+        recoveryPointTime:
+          description: The recovery time in ISO 8601 format example - 2020-08-14T17:30:00.0000000Z.
+          type: string
+      type: object
+    AzureBackupRule:
+      description: Azure backup rule
       required:
         - dataStore
         - name
         - objectType
         - trigger
       title: AzureBackupRule
-      type: object
       x-ms-discriminator-value: AzureBackupRule
+      properties:
+        name:
+          type: string
+        objectType:
+          type: string
+        backupParameters:
+          $ref: '#/components/schemas/BackupParameters'
+        dataStore:
+          $ref: '#/components/schemas/DataStoreInfoBase'
+        trigger:
+          $ref: '#/components/schemas/TriggerContext'
+      type: object
     AzureMonitorAlertSettings:
       type: object
       description: Settings for Azure Monitor based alerts
@@ -500,19 +732,39 @@ components:
       required:
         - objectType
         - dataStoreType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DataStoreParameters'
+      x-ms-discriminator-value: AzureOperationalStoreParameters
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+          readOnly: false
+        dataStoreType:
+          description: type of datastore; Operational/Vault/Archive
+          enum:
+            - OperationalStore
+            - VaultStore
+            - ArchiveStore
+          type: string
+          x-ms-enum:
+            name: DataStoreTypes
+            modelAsString: true
         resourceGroupId:
           description: Gets or sets the Snapshot Resource Group Uri.
           type: string
-      x-ms-discriminator-value: AzureOperationalStoreParameters
+      type: object
     AzureRetentionRule:
-      allOf:
-        - $ref: '#/components/schemas/BasePolicyRule'
       description: Azure retention rule
+      required:
+        - lifecycles
+        - name
+        - objectType
+      title: AzureRetentionRule
+      x-ms-discriminator-value: AzureRetentionRule
       properties:
+        name:
+          type: string
+        objectType:
+          type: string
         isDefault:
           type: boolean
         lifecycles:
@@ -520,13 +772,7 @@ components:
             $ref: '#/components/schemas/SourceLifeCycle'
           x-ms-identifiers: []
           type: array
-      required:
-        - lifecycles
-        - name
-        - objectType
-      title: AzureRetentionRule
       type: object
-      x-ms-discriminator-value: AzureRetentionRule
     BackupCriteria:
       description: BackupCriteria base class
       discriminator:
@@ -606,26 +852,99 @@ components:
         objectType:
           type: string
     BackupInstanceResource:
-      allOf:
-        - $ref: '#/components/schemas/DppProxyResource'
       description: BackupInstance Resource
-      properties:
-        properties:
-          $ref: '#/components/schemas/BackupInstance'
-          description: BackupInstanceResource properties
       title: BackupInstanceResource
+      properties:
+        id:
+          description: Proxy Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        name:
+          description: Proxy Resource name associated with the resource.
+          readOnly: true
+          type: string
+        type:
+          description: Proxy Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        tags:
+          additionalProperties:
+            type: string
+          description: Proxy Resource tags.
+          type: object
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        friendlyName:
+          description: Gets or sets the Backup Instance friendly name.
+          type: string
+        dataSourceInfo:
+          $ref: '#/components/schemas/Datasource'
+          description: Gets or sets the data source information.
+        dataSourceSetInfo:
+          $ref: '#/components/schemas/DatasourceSet'
+          description: Gets or sets the data source set information.
+        policyInfo:
+          $ref: '#/components/schemas/PolicyInfo'
+          description: Gets or sets the policy information.
+        protectionStatus:
+          $ref: '#/components/schemas/ProtectionStatusDetails'
+          description: Specifies the protection status of the resource
+          readOnly: true
+        currentProtectionState:
+          description: Specifies the current protection state of the resource
+          enum:
+            - Invalid
+            - NotProtected
+            - ConfiguringProtection
+            - ProtectionConfigured
+            - BackupSchedulesSuspended
+            - RetentionSchedulesSuspended
+            - ProtectionStopped
+            - ProtectionError
+            - ConfiguringProtectionFailed
+            - SoftDeleting
+            - SoftDeleted
+            - UpdatingProtection
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: CurrentProtectionState
+            modelAsString: true
+        protectionErrorDetails:
+          $ref: '#/components/schemas/UserFacingError'
+          description: Specifies the protection error of the resource
+          readOnly: true
+        provisioningState:
+          description: Specifies the provisioning state of the resource i.e. provisioning/updating/Succeeded/Failed
+          type: string
+          readOnly: true
+        datasourceAuthCredentials:
+          $ref: '#/components/schemas/AuthCredentials'
+          description: Credentials to use to authenticate with data source provider.
+        validationType:
+          description: Specifies the type of validation. In case of DeepValidation, all validations from /validateForBackup API will run again.
+          enum:
+            - ShallowValidation
+            - DeepValidation
+          type: string
+          x-ms-enum:
+            name: ValidationType
+            modelAsString: true
+        objectType:
+          type: string
       type: object
     BackupInstanceResourceList:
-      allOf:
-        - $ref: '#/components/schemas/DppResourceList'
       description: BackupInstance Resource list response
+      title: BackupInstanceResourceList
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           items:
             $ref: '#/components/schemas/BackupInstanceResource'
           type: array
-      title: BackupInstanceResourceList
       type: object
     BackupParameters:
       description: BackupParameters base
@@ -640,22 +959,27 @@ components:
       title: BackupParameters
       type: object
     BackupPolicy:
-      allOf:
-        - $ref: '#/components/schemas/BaseBackupPolicy'
       description: Rule based backup policy
+      required:
+        - datasourceTypes
+        - policyRules
+      title: BackupPolicy
+      x-ms-discriminator-value: BackupPolicy
       properties:
+        datasourceTypes:
+          description: Type of datasource for the backup management
+          items:
+            type: string
+          type: array
+        objectType:
+          type: string
         policyRules:
           description: Policy rule dictionary that contains rules for each backuptype i.e Full/Incremental/Logs etc
           items:
             $ref: '#/components/schemas/BasePolicyRule'
           x-ms-identifiers: []
           type: array
-      required:
-        - datasourceTypes
-        - policyRules
-      title: BackupPolicy
       type: object
-      x-ms-discriminator-value: BackupPolicy
     BackupSchedule:
       description: Schedule for backup
       properties:
@@ -723,29 +1047,97 @@ components:
       title: BackupVault
       type: object
     BackupVaultResource:
-      allOf:
-        - $ref: '#/components/schemas/DppTrackedResource'
       description: Backup Vault Resource
-      properties:
-        properties:
-          $ref: '#/components/schemas/BackupVault'
-          description: BackupVaultResource properties
       required:
         - location
         - properties
       title: BackupVault Resource
+      properties:
+        eTag:
+          description: Optional ETag.
+          type: string
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        identity:
+          $ref: '#/components/schemas/DppIdentityDetails'
+          description: Input Managed Identity Details
+        location:
+          description: Resource location.
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        tags:
+          additionalProperties:
+            type: string
+          description: Resource tags.
+          type: object
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        monitoringSettings:
+          $ref: '#/components/schemas/MonitoringSettings'
+          description: Monitoring Settings
+        provisioningState:
+          description: Provisioning state of the BackupVault resource
+          enum:
+            - Failed
+            - Provisioning
+            - Succeeded
+            - Unknown
+            - Updating
+          readOnly: true
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: ProvisioningState
+        resourceMoveState:
+          description: Resource move state for backup vault
+          enum:
+            - Unknown
+            - InProgress
+            - PrepareFailed
+            - CommitFailed
+            - Failed
+            - PrepareTimedout
+            - CommitTimedout
+            - CriticalFailure
+            - PartialSuccess
+            - MoveSucceeded
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ResourceMoveState
+            modelAsString: true
+        resourceMoveDetails:
+          $ref: '#/components/schemas/ResourceMoveDetails'
+          description: Resource move details for backup vault
+          readOnly: true
+        storageSettings:
+          description: Storage Settings
+          items:
+            $ref: '#/components/schemas/StorageSetting'
+          x-ms-identifiers: []
+          type: array
       type: object
     BackupVaultResourceList:
-      allOf:
-        - $ref: '#/components/schemas/DppResourceList'
       description: List of BackupVault resources
+      title: BackupVaultResourceList
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           items:
             $ref: '#/components/schemas/BackupVaultResource'
           type: array
-      title: BackupVaultResourceList
       type: object
     BaseBackupPolicy:
       description: BackupPolicy base
@@ -765,26 +1157,43 @@ components:
       title: BaseBackupPolicy
       type: object
     BaseBackupPolicyResource:
-      allOf:
-        - $ref: '#/components/schemas/DppResource'
       description: BaseBackupPolicy resource
-      properties:
-        properties:
-          $ref: '#/components/schemas/BaseBackupPolicy'
-          description: BaseBackupPolicyResource properties
       title: BaseBackupPolicyResource
+      properties:
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        datasourceTypes:
+          description: Type of datasource for the backup management
+          items:
+            type: string
+          type: array
+        objectType:
+          type: string
       type: object
     BaseBackupPolicyResourceList:
-      allOf:
-        - $ref: '#/components/schemas/DppResourceList'
       description: List of BaseBackupPolicy resources
+      title: BaseBackupPolicyResourceList
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           items:
             $ref: '#/components/schemas/BaseBackupPolicyResource'
           type: array
-      title: BaseBackupPolicyResourceList
       type: object
     BasePolicyRule:
       description: BasePolicy Rule
@@ -891,23 +1300,11 @@ components:
       type: object
     ClientDiscoveryValueForSingleApi:
       description: Available operation details.
-      properties:
-        display:
-          $ref: '#/components/schemas/ClientDiscoveryDisplay'
-          description: Contains the localized display information for this particular operation
-        name:
-          description: Name of the Operation.
-          type: string
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        origin:
-          description: The intended executor of the operation;governs the display of the operation in the RBAC UX and the audit logs UX
-          type: string
-        properties:
-          $ref: '#/components/schemas/ClientDiscoveryForProperties'
-          description: Properties for the given operation.
       title: ClientDiscoveryValueForSingleApi
+      properties:
+        serviceSpecification:
+          $ref: '#/components/schemas/ClientDiscoveryForServiceSpecification'
+          description: Operation properties.
       type: object
     CloudError:
       description: An error response from Azure Backup.
@@ -918,14 +1315,16 @@ components:
       x-ms-external: true
       type: object
     CopyOnExpiryOption:
-      allOf:
-        - $ref: '#/components/schemas/CopyOption'
       description: Copy on Expiry Option
       required:
         - objectType
       title: CopyOnExpiryOption
-      type: object
       x-ms-discriminator-value: CopyOnExpiryOption
+      properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+      type: object
     CopyOption:
       description: Options to copy
       discriminator:
@@ -939,18 +1338,19 @@ components:
       title: CopyOption
       type: object
     CustomCopyOption:
-      allOf:
-        - $ref: '#/components/schemas/CopyOption'
       description: Duration based custom options to copy
-      properties:
-        duration:
-          description: Data copied after given timespan
-          type: string
       required:
         - objectType
       title: CustomCopyOption
-      type: object
       x-ms-discriminator-value: CustomCopyOption
+      properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+        duration:
+          description: Data copied after given timespan
+          type: string
+      type: object
     Datasource:
       description: Datasource to be backed up
       properties:
@@ -1344,10 +1744,12 @@ components:
       type: object
     FeatureValidationRequest:
       description: Base class for feature object
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/FeatureValidationRequestBase'
+      x-ms-discriminator-value: FeatureValidationRequest
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+          readOnly: false
         featureType:
           description: backup support feature type.
           enum:
@@ -1360,7 +1762,7 @@ components:
         featureName:
           description: backup support feature name.
           type: string
-      x-ms-discriminator-value: FeatureValidationRequest
+      type: object
     FeatureValidationRequestBase:
       description: Base class for Backup Feature support
       required:
@@ -1375,10 +1777,12 @@ components:
         propertyName: objectType
     FeatureValidationResponse:
       description: Feature Validation Response
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/FeatureValidationResponseBase'
+      x-ms-discriminator-value: FeatureValidationResponse
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+          readOnly: false
         featureType:
           description: backup support feature type.
           enum:
@@ -1394,7 +1798,7 @@ components:
           items:
             $ref: '#/components/schemas/SupportedFeature'
           x-ms-identifiers: []
-      x-ms-discriminator-value: FeatureValidationResponse
+      type: object
     FeatureValidationResponseBase:
       description: Base class for Backup Feature support
       required:
@@ -1408,14 +1812,16 @@ components:
       discriminator:
         propertyName: objectType
     ImmediateCopyOption:
-      allOf:
-        - $ref: '#/components/schemas/CopyOption'
       description: Immediate copy Option
       required:
         - objectType
       title: ImmediateCopyOption
-      type: object
       x-ms-discriminator-value: ImmediateCopyOption
+      properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+      type: object
     InnerError:
       description: Inner Error
       properties:
@@ -1449,10 +1855,22 @@ components:
         - restoreCriteria
         - datasourceInfo
         - recoveryOption
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/RestoreTargetInfoBase'
+      x-ms-discriminator-value: ItemLevelRestoreTargetInfo
       properties:
+        objectType:
+          description: Type of Datasource object, used to initialize the right inherited type
+          type: string
+        recoveryOption:
+          description: Recovery Option
+          enum:
+            - FailIfExists
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: RecoveryOption
+        restoreLocation:
+          description: Target Restore region
+          type: string
         restoreCriteria:
           description: Restore Criteria
           type: array
@@ -1468,7 +1886,7 @@ components:
         datasourceAuthCredentials:
           $ref: '#/components/schemas/AuthCredentials'
           description: Credentials to use to authenticate with data source provider.
-      x-ms-discriminator-value: ItemLevelRestoreTargetInfo
+      type: object
     JobExtendedInfo:
       description: Extended Information about the job
       properties:
@@ -1552,42 +1970,24 @@ components:
       required:
         - objectType
     OperationJobExtendedInfo:
-      allOf:
-        - $ref: '#/components/schemas/OperationExtendedInfo'
       description: Operation Job Extended Info
+      title: OperationJobExtendedInfo
+      x-ms-discriminator-value: OperationJobExtendedInfo
       properties:
+        objectType:
+          description: This property will be used as the discriminator for deciding the specific types in the polymorphic chain of types.
+          type: string
         jobId:
           description: Arm Id of the job created for this operation.
           type: string
-      title: OperationJobExtendedInfo
       type: object
-      x-ms-discriminator-value: OperationJobExtendedInfo
     OperationResource:
       description: Operation Resource
-      properties:
-        endTime:
-          description: End time of the operation
-          format: date-time
-          type: string
-        error:
-          $ref: '#/components/schemas/Error'
-          description: "Required if status == failed or status == canceled. This is the OData v4 error format, used by the RPC and will go into the v2.2 Azure REST API guidelines.\r\nThe full set of optional properties (e.g. inner errors / details) can be found in the \"Error Response\" section."
-        id:
-          description: It should match what is used to GET the operation result
-          type: string
-        name:
-          description: It must match the last segment of the "id" field, and will typically be a GUID / system generated value
-          type: string
-        properties:
-          $ref: '#/components/schemas/OperationExtendedInfo'
-          description: End time of the operation
-        startTime:
-          description: Start time of the operation
-          format: date-time
-          type: string
-        status:
-          type: string
       title: OperationResource
+      properties:
+        objectType:
+          description: This property will be used as the discriminator for deciding the specific types in the polymorphic chain of types.
+          type: string
       type: object
     PatchBackupVaultInput:
       description: Backup Vault Contract for Patch Backup Vault API.
@@ -1598,19 +1998,11 @@ components:
           description: Monitoring Settings
     PatchResourceRequestInput:
       description: Patch Request content for Microsoft.DataProtection resources
-      properties:
-        identity:
-          $ref: '#/components/schemas/DppIdentityDetails'
-          description: Input Managed Identity Details
-        properties:
-          $ref: '#/components/schemas/PatchBackupVaultInput'
-          description: Resource properties.
-        tags:
-          additionalProperties:
-            type: string
-          description: Resource tags.
-          type: object
       title: PatchResourceRequestInput
+      properties:
+        monitoringSettings:
+          $ref: '#/components/schemas/MonitoringSettings'
+          description: Monitoring Settings
       type: object
     PolicyInfo:
       description: Policy Info in backupInstance
@@ -1663,43 +2055,46 @@ components:
       type: object
     RangeBasedItemLevelRestoreCriteria:
       description: Item Level target info for restore operation
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ItemLevelRestoreCriteria'
+      x-ms-discriminator-value: RangeBasedItemLevelRestoreCriteria
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
         minMatchingValue:
           description: minimum value for range prefix match
           type: string
         maxMatchingValue:
           description: maximum value for range prefix match
           type: string
-      x-ms-discriminator-value: RangeBasedItemLevelRestoreCriteria
+      type: object
     KubernetesStorageClassRestoreCriteria:
       description: Item Level kubernetes storage class target info for restore operation
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ItemLevelRestoreCriteria'
+      x-ms-discriminator-value: KubernetesStorageClassRestoreCriteria
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
         selectedStorageClassName:
           description: Selected storage class name
           type: string
         provisioner:
           description: Provisioner of the storage class
           type: string
-      x-ms-discriminator-value: KubernetesStorageClassRestoreCriteria
+      type: object
     KubernetesPVRestoreCriteria:
       description: Item Level kubernetes persistent volume target info for restore operation
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ItemLevelRestoreCriteria'
+      x-ms-discriminator-value: KubernetesPVRestoreCriteria
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
         name:
           description: Selected persistent volume claim name
           type: string
         storageClassName:
           description: Selected storage class name for restore operation
           type: string
-      x-ms-discriminator-value: KubernetesPVRestoreCriteria
+      type: object
     RecoveryPointDataStoreDetails:
       description: RecoveryPoint datastore details
       properties:
@@ -1748,18 +2143,30 @@ components:
         modelAsString: true
         name: RehydrationPriority
     RestoreFilesTargetInfo:
-      allOf:
-        - $ref: '#/components/schemas/RestoreTargetInfoBase'
       description: Class encapsulating restore as files target parameters
-      properties:
-        targetDetails:
-          $ref: '#/components/schemas/TargetDetails'
-          description: Destination of RestoreAsFiles operation, when destination is not a datasource
       required:
         - recoveryOption
         - targetDetails
-      type: object
       x-ms-discriminator-value: RestoreFilesTargetInfo
+      properties:
+        objectType:
+          description: Type of Datasource object, used to initialize the right inherited type
+          type: string
+        recoveryOption:
+          description: Recovery Option
+          enum:
+            - FailIfExists
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: RecoveryOption
+        restoreLocation:
+          description: Target Restore region
+          type: string
+        targetDetails:
+          $ref: '#/components/schemas/TargetDetails'
+          description: Destination of RestoreAsFiles operation, when destination is not a datasource
+      type: object
     RestoreJobRecoveryPointDetails:
       properties:
         recoveryPointID:
@@ -1769,10 +2176,26 @@ components:
           type: string
       type: object
     RestoreTargetInfo:
-      allOf:
-        - $ref: '#/components/schemas/RestoreTargetInfoBase'
       description: Class encapsulating restore target parameters
+      required:
+        - datasourceInfo
+        - recoveryOption
+      x-ms-discriminator-value: RestoreTargetInfo
       properties:
+        objectType:
+          description: Type of Datasource object, used to initialize the right inherited type
+          type: string
+        recoveryOption:
+          description: Recovery Option
+          enum:
+            - FailIfExists
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: RecoveryOption
+        restoreLocation:
+          description: Target Restore region
+          type: string
         datasourceInfo:
           $ref: '#/components/schemas/Datasource'
           description: Information of target DS
@@ -1782,11 +2205,7 @@ components:
         datasourceAuthCredentials:
           $ref: '#/components/schemas/AuthCredentials'
           description: Credentials to use to authenticate with data source provider.
-      required:
-        - datasourceInfo
-        - recoveryOption
       type: object
-      x-ms-discriminator-value: RestoreTargetInfo
     RestoreTargetInfoBase:
       description: Base class common to RestoreTargetInfo and RestoreFilesTargetInfo
       discriminator:
@@ -1862,10 +2281,15 @@ components:
       title: RetentionTag
       type: object
     ScheduleBasedBackupCriteria:
-      allOf:
-        - $ref: '#/components/schemas/BackupCriteria'
       description: Schedule based backup criteria
+      required:
+        - objectType
+      title: ScheduleBasedBackupCriteria
+      x-ms-discriminator-value: ScheduleBasedBackupCriteria
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
         absoluteCriteria:
           description: "it contains absolute values like \"AllBackup\" / \"FirstOfDay\" / \"FirstOfWeek\" / \"FirstOfMonth\"\r\nand should be part of AbsoluteMarker enum"
           items:
@@ -1943,16 +2367,19 @@ components:
               modelAsString: true
               name: WeekNumber
           type: array
+      type: object
+    ScheduleBasedTriggerContext:
+      description: Schedule based trigger context
       required:
         - objectType
-      title: ScheduleBasedBackupCriteria
-      type: object
-      x-ms-discriminator-value: ScheduleBasedBackupCriteria
-    ScheduleBasedTriggerContext:
-      allOf:
-        - $ref: '#/components/schemas/TriggerContext'
-      description: Schedule based trigger context
+        - schedule
+        - taggingCriteria
+      title: ScheduleBasedTriggerContext
+      x-ms-discriminator-value: ScheduleBasedTriggerContext
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
         schedule:
           $ref: '#/components/schemas/BackupSchedule'
           description: Schedule for this backup
@@ -1962,25 +2389,21 @@ components:
             $ref: '#/components/schemas/TaggingCriteria'
           x-ms-identifiers: []
           type: array
-      required:
-        - objectType
-        - schedule
-        - taggingCriteria
-      title: ScheduleBasedTriggerContext
       type: object
-      x-ms-discriminator-value: ScheduleBasedTriggerContext
     SecretStoreBasedAuthCredentials:
       description: Secret store based authentication credentials.
       required:
         - objectType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AuthCredentials'
+      x-ms-discriminator-value: SecretStoreBasedAuthCredentials
       properties:
+        objectType:
+          description: Type of the specific object - used for deserializing
+          type: string
+          readOnly: false
         secretStoreResource:
           $ref: '#/components/schemas/SecretStoreResource'
           description: Secret store resource
-      x-ms-discriminator-value: SecretStoreBasedAuthCredentials
+      type: object
     SecretStoreResource:
       description: Class representing a secret store resource.
       required:
@@ -2169,40 +2592,7 @@ components:
       type: object
     UserFacingError:
       description: Error object used by layers that have access to localized content, and propagate that to user
-      properties:
-        code:
-          description: Unique code for this error
-          type: string
-        details:
-          description: Additional related Errors
-          items:
-            $ref: '#/components/schemas/UserFacingError'
-          x-ms-identifiers: []
-          type: array
-        innerError:
-          $ref: '#/components/schemas/InnerError'
-          description: Inner Error
-        isRetryable:
-          description: Whether the operation will be retryable or not
-          type: boolean
-        isUserError:
-          description: Whether the operation is due to a user error or service error
-          type: boolean
-        properties:
-          description: Any key value pairs that can be injected inside error object
-          type: object
-          additionalProperties:
-            type: string
-        message:
-          type: string
-        recommendedAction:
-          description: RecommendedAction � localized.
-          items:
-            type: string
-          type: array
-        target:
-          description: Target of the error.
-          type: string
+      properties: {}
       type: object
     ValidateForBackupRequest:
       description: Validate for backup request
@@ -2272,55 +2662,81 @@ components:
           type: string
           readOnly: true
     ResourceGuardResource:
-      allOf:
-        - $ref: '#/components/schemas/DppTrackedResource'
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ResourceGuard'
-          description: ResourceGuardResource properties
+        eTag:
+          description: Optional ETag.
+          type: string
+        id:
+          description: Resource Id represents the complete path to the resource.
+          readOnly: true
+          type: string
+        identity:
+          $ref: '#/components/schemas/DppIdentityDetails'
+          description: Input Managed Identity Details
+        location:
+          description: Resource location.
+          type: string
+        name:
+          description: Resource name associated with the resource.
+          readOnly: true
+          type: string
+        tags:
+          additionalProperties:
+            type: string
+          description: Resource tags.
+          type: object
+        type:
+          description: Resource type represents the complete path of the form Namespace/ResourceType/ResourceType/...
+          readOnly: true
+          type: string
+        systemData:
+          $ref: '#/components/schemas/systemData'
+        provisioningState:
+          description: Provisioning state of the BackupVault resource
+          enum:
+            - Failed
+            - Provisioning
+            - Succeeded
+            - Unknown
+            - Updating
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        allowAutoApprovals:
+          description: This flag indicates whether auto approval is allowed or not.
+          type: boolean
+          readOnly: true
+        resourceGuardOperations:
+          description: '{readonly} List of operation details those are protected by the ResourceGuard resource'
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceGuardOperation'
+          x-ms-identifiers: []
+          readOnly: true
+        vaultCriticalOperationExclusionList:
+          description: List of critical operations which are not protected by this resourceGuard
+          type: array
+          items:
+            type: string
+        description:
+          description: Description about the pre-req steps to perform all the critical operations.
+          type: string
+          readOnly: true
+      type: object
     ResourceGuardResourceList:
       description: List of ResourceGuard resources
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DppTrackedResourceList'
       properties:
+        nextLink:
+          description: The uri to fetch the next page of resources. Call ListNext() fetches next page of resources.
+          type: string
         value:
           description: List of resources.
           type: array
           items:
             $ref: '#/components/schemas/ResourceGuardResource'
-  parameters:
-    SubscriptionId:
-      name: subscriptionId
-      in: path
-      description: The subscription Id.
-      required: true
-      schema:
-        type: string
-    ResourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group where the backup vault is present.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    VaultName:
-      name: vaultName
-      in: path
-      description: The name of the backup vault.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ApiVersion:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
+      type: object
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/backupVaults/?api-version=2022-05-01:
     get:

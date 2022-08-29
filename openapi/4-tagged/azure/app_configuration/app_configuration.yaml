@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,57 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Microsoft Azure subscription ID.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The client API version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group to which the container registry belongs.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The location in which uniqueness will be verified.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ConfigStoreNameParameter:
+      name: configStoreName
+      in: path
+      description: The name of the configuration store.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 50
+        minLength: 5
+        pattern: ^[a-zA-Z0-9_-]*$
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +96,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +135,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -486,23 +568,88 @@ components:
       required:
         - location
         - sku
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        identity:
-          $ref: '#/components/schemas/ResourceIdentity'
-          description: The managed identity information, if configured.
-        properties:
-          $ref: '#/components/schemas/ConfigurationStoreProperties'
-          description: The properties of a configuration store.
-          x-ms-client-flatten: true
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The sku of the configuration store.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Resource system metadata.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        provisioningState:
+          description: The provisioning state of the configuration store.
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Failed
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        creationDate:
+          format: date-time
+          description: The creation date of configuration store.
+          type: string
+          readOnly: true
+        endpoint:
+          description: The DNS endpoint where the configuration store API will be available.
+          type: string
+          readOnly: true
+        encryption:
+          $ref: '#/components/schemas/EncryptionProperties'
+          description: The encryption settings of the configuration store.
+        privateEndpointConnections:
+          description: The list of private endpoint connections that are set up for this resource.
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnectionReference'
+        publicNetworkAccess:
+          description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+        disableLocalAuth:
+          type: boolean
+          default: false
+          description: Disables all authentication methods other than AAD authentication.
+        softDeleteRetentionInDays:
+          type: integer
+          format: int32
+          default: 7
+          description: The amount of time in days that the configuration store will be retained when it is soft deleted.
+        enablePurgeProtection:
+          type: boolean
+          default: false
+          description: Property specifying whether protection against purge is enabled for this configuration store.
+        createMode:
+          type: string
+          description: Indicates whether the configuration store need to be recovered.
+          enum:
+            - Recover
+            - Default
+          x-ms-enum:
+            name: CreateMode
+            modelAsString: false
+          x-ms-mutability:
+            - create
+      type: object
     ConfigurationStoreProperties:
       description: The properties of a configuration store.
       type: object
@@ -580,44 +727,51 @@ components:
           $ref: '#/components/schemas/KeyVaultProperties'
           description: Key vault properties.
     PrivateEndpointConnectionReference:
-      type: object
       description: A reference to a related private endpoint connection.
       properties:
-        id:
-          description: The resource ID.
+        provisioningState:
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Failed
+            - Canceled
           type: string
           readOnly: true
-        name:
-          description: The name of the resource.
-          type: string
-          readOnly: true
-        type:
-          description: The type of the resource.
-          type: string
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: The properties of a private endpoint connection.
-          x-ms-client-flatten: true
+          description: The provisioning status of the private endpoint connection.
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private endpoint.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+      type: object
     ConfigurationStoreUpdateParameters:
       description: The parameters for updating a configuration store.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ConfigurationStorePropertiesUpdateParameters'
-          description: The properties for updating a configuration store.
-          x-ms-client-flatten: true
-        identity:
-          $ref: '#/components/schemas/ResourceIdentity'
-          description: The managed identity information for the configuration store.
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The SKU of the configuration store.
-        tags:
-          description: The ARM resource tags.
-          type: object
-          additionalProperties:
-            type: string
+        encryption:
+          $ref: '#/components/schemas/EncryptionProperties'
+          description: The encryption settings of the configuration store.
+        disableLocalAuth:
+          type: boolean
+          description: Disables all authentication methods other than AAD authentication.
+        publicNetworkAccess:
+          description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+        enablePurgeProtection:
+          type: boolean
+          description: Property specifying whether protection against purge is enabled for this configuration store.
+      type: object
     ConfigurationStorePropertiesUpdateParameters:
       description: The properties for updating a configuration store.
       type: object
@@ -736,25 +890,41 @@ components:
           type: string
     KeyValue:
       description: The key-value resource along with all resource properties.
-      type: object
-      properties:
-        id:
-          description: The resource ID.
-          type: string
-          readOnly: true
-        name:
-          description: The name of the resource.
-          type: string
-          readOnly: true
-        type:
-          description: The type of the resource.
-          type: string
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/KeyValueProperties'
-          description: All key-value properties.
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        key:
+          description: "The primary identifier of a key-value.\r\nThe key is used in unison with the label to uniquely identify a key-value."
+          type: string
+          readOnly: true
+        label:
+          description: "A value used to group key-values.\r\nThe label is used in unison with the key to uniquely identify a key-value."
+          type: string
+          readOnly: true
+        value:
+          description: The value of the key-value.
+          type: string
+        contentType:
+          description: "The content type of the key-value's value.\r\nProviding a proper content-type can enable transformations of values when they are retrieved by applications."
+          type: string
+        eTag:
+          description: An ETag indicating the state of a key-value within a configuration store.
+          type: string
+          readOnly: true
+        lastModified:
+          format: date-time
+          description: The last time a modifying operation was performed on the given key-value.
+          type: string
+          readOnly: true
+        locked:
+          description: "A value indicating whether the key-value is locked.\r\nA locked key-value may not be modified until it is unlocked."
+          type: boolean
+          readOnly: true
+        tags:
+          description: A dictionary of tags that can help identify what a key-value may be applicable for.
+          type: object
+          additionalProperties:
+            type: string
+      type: object
     KeyValueProperties:
       description: All key-value properties.
       type: object
@@ -807,23 +977,11 @@ components:
           type: string
     OperationDefinition:
       description: The definition of a configuration store operation.
-      type: object
       properties:
-        name:
-          description: 'Operation name: {provider}/{resource}/{operation}.'
-          type: string
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        display:
-          $ref: '#/components/schemas/OperationDefinitionDisplay'
-          description: The display information for the configuration store operation.
-        origin:
-          description: Origin of the operation
-          type: string
-        properties:
-          $ref: '#/components/schemas/OperationProperties'
-          description: Properties of the operation
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecification'
+          description: Service specifications of the operation
+      type: object
     OperationDefinitionDisplay:
       description: The display information for a configuration store operation.
       type: object
@@ -1000,25 +1158,29 @@ components:
           type: string
     PrivateEndpointConnection:
       description: A private endpoint connection
-      type: object
-      properties:
-        id:
-          description: The resource ID.
-          type: string
-          readOnly: true
-        name:
-          description: The name of the resource.
-          type: string
-          readOnly: true
-        type:
-          description: The type of the resource.
-          type: string
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: The properties of a private endpoint.
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        provisioningState:
+          enum:
+            - Creating
+            - Updating
+            - Deleting
+            - Succeeded
+            - Failed
+            - Canceled
+          type: string
+          readOnly: true
+          description: The provisioning status of the private endpoint connection.
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private endpoint.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       description: Properties of a private endpoint connection.
@@ -1093,25 +1255,25 @@ components:
           description: The URI that can be used to request the next set of paged results.
           type: string
     PrivateLinkResource:
-      type: object
       description: A resource that supports private link capabilities.
       properties:
-        id:
-          description: The resource ID.
+        groupId:
+          description: The private link resource group id.
           type: string
           readOnly: true
-        name:
-          description: The name of the resource.
-          type: string
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
           readOnly: true
-        type:
-          description: The type of the resource.
-          type: string
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
           readOnly: true
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Private link resource properties.
-          x-ms-client-flatten: true
+          description: The list of required DNS zone names of the private link resource.
+      type: object
     PrivateLinkResourceProperties:
       type: object
       properties:
@@ -1133,25 +1295,37 @@ components:
           description: The list of required DNS zone names of the private link resource.
       description: Properties of a private link resource.
     DeletedConfigurationStore:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The resource ID for the deleted configuration store.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the configuration store.
-        type:
-          readOnly: true
-          type: string
-          description: The resource type of the configuration store.
-        properties:
-          $ref: '#/components/schemas/DeletedConfigurationStoreProperties'
-          description: Properties of the deleted configuration store
-          x-ms-client-flatten: true
       description: Deleted configuration store information with extended details.
+      properties:
+        configurationStoreId:
+          readOnly: true
+          type: string
+          description: The resource id of the original configuration store.
+        location:
+          readOnly: true
+          type: string
+          description: The location of the original configuration store.
+        deletionDate:
+          readOnly: true
+          type: string
+          format: date-time
+          description: The deleted date.
+        scheduledPurgeDate:
+          readOnly: true
+          type: string
+          format: date-time
+          description: The scheduled purged date.
+        tags:
+          readOnly: true
+          type: object
+          additionalProperties:
+            type: string
+          description: Tags of the original configuration store.
+        purgeProtectionEnabled:
+          readOnly: true
+          type: boolean
+          description: Purge protection status of the original configuration store.
+      type: object
     DeletedConfigurationStoreProperties:
       type: object
       properties:
@@ -1196,57 +1370,6 @@ components:
           type: string
           description: The URL to get the next set of deleted configuration stores.
       description: List of deleted configuration stores
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Microsoft Azure subscription ID.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The client API version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group to which the container registry belongs.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The location in which uniqueness will be verified.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ConfigStoreNameParameter:
-      name: configStoreName
-      in: path
-      description: The name of the configuration store.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 50
-        minLength: 5
-        pattern: ^[a-zA-Z0-9_-]*$
-        type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/configurationStores/?api-version=2022-05-01:
     get:

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,26 +22,47 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    apiVersionParameter:
+      name: api-version
+      in: query
+      description: The API Version
+      required: true
+      schema:
+        type: string
+    dataManagerNameParameter:
+      name: dataManagerName
+      in: path
+      description: The name of the DataManager Resource within the specified resource group. DataManager names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 24
+        minLength: 3
+        pattern: ^[-\w\.]+$
+        type: string
+    resourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The Resource Group Name
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    subscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Subscription Id
+      required: true
+      schema:
+        type: string
   schemas:
     AvailableProviderOperation:
       description: Class represents provider operation
       required:
         - name
+      properties: {}
       type: object
-      properties:
-        name:
-          description: Gets or Sets Name of the operations
-          type: string
-        display:
-          $ref: '#/components/schemas/AvailableProviderOperationDisplay'
-          description: "Gets or sets Display information\r\nContains the localized display information for this particular operation/action"
-        origin:
-          description: "Gets or sets Origin\r\nThe intended executor of the operation; governs the display of the operation in the RBAC UX and the audit logs UX.\r\nDefault value is “user,system”"
-          type: string
-        properties:
-          $ref: '#/components/schemas/AvailableProviderOperationProperties'
-          description: "Gets or sets Properties\r\nReserved for future use"
-          x-ms-client-flatten: true
     AvailableProviderOperationDisplay:
       description: "Contains the localized display information for this particular operation / action. \r\nThese value will be used by several clients for \r\n(1) custom role definitions for RBAC; \r\n(2) complex query filters for the event service; and (3) audit history / records for management operations."
       type: object
@@ -101,13 +122,37 @@ components:
             modelAsString: false
     DataManager:
       description: The DataManager resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
+        id:
+          description: The Resource Id.
+          type: string
+          readOnly: true
+        name:
+          description: The Resource Name.
+          type: string
+          readOnly: true
+        type:
+          description: The Resource type.
+          type: string
+          readOnly: true
+        location:
+          description: "The location of the resource. This will be one of the supported and registered Azure Geo Regions (e.g. West US, East\r\nUS, Southeast Asia, etc.). The geo region of a resource cannot be changed once it is created, but if an identical geo\r\nregion is specified on update the request will succeed."
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        tags:
+          description: "The list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource\r\n(across resource groups)."
+          type: object
+          additionalProperties:
+            type: string
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: The sku type.
         etag:
           description: Etag of the Resource.
           type: string
+      type: object
     DataManagerList:
       description: DataManager resources Collection.
       type: object
@@ -136,14 +181,40 @@ components:
       description: Data Service.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        properties:
-          $ref: '#/components/schemas/DataServiceProperties'
-          description: DataService properties.
-          x-ms-client-flatten: true
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        state:
+          description: State of the data service.
+          enum:
+            - Disabled
+            - Enabled
+            - Supported
+          type: string
+          x-ms-enum:
+            name: State
+            modelAsString: false
+        supportedDataSinkTypes:
+          description: Supported data store types which can be used as a sink.
+          type: array
+          items:
+            type: string
+        supportedDataSourceTypes:
+          description: Supported data store types which can be used as a source.
+          type: array
+          items:
+            type: string
+      type: object
     DataServiceList:
       description: Data Service Collection.
       type: object
@@ -186,14 +257,44 @@ components:
       description: Data store.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        properties:
-          $ref: '#/components/schemas/DataStoreProperties'
-          description: DataStore properties.
-          x-ms-client-flatten: true
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        repositoryId:
+          description: Arm Id for the manager resource to which the data source is associated. This is optional.
+          type: string
+        state:
+          description: State of the data source.
+          enum:
+            - Disabled
+            - Enabled
+            - Supported
+          type: string
+          x-ms-enum:
+            name: State
+            modelAsString: false
+        extendedProperties:
+          description: A generic json used differently by each data source type.
+          type: object
+        dataStoreTypeId:
+          description: The arm id of the data store type.
+          type: string
+        customerSecrets:
+          description: List of customer secrets containing a key identifier and key value. The key identifier is a way for the specific data source to understand the key. Value contains customer secret encrypted by the encryptionKeys.
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSecret'
+      type: object
     DataStoreFilter:
       description: Contains the information about the filters for the DataStore.
       type: object
@@ -248,14 +349,43 @@ components:
       description: Data Store Type.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        properties:
-          $ref: '#/components/schemas/DataStoreTypeProperties'
-          description: DataStoreType properties.
-          x-ms-client-flatten: true
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        repositoryType:
+          description: Arm type for the manager resource to which the data source type is associated. This is optional.
+          type: string
+        state:
+          description: State of the data store type.
+          enum:
+            - Disabled
+            - Enabled
+            - Supported
+          type: string
+          x-ms-enum:
+            name: State
+            modelAsString: false
+        supportedDataServicesAsSink:
+          description: Supported data services where it can be used as a sink.
+          type: array
+          items:
+            type: string
+        supportedDataServicesAsSource:
+          description: Supported data services where it can be used as a source.
+          type: array
+          items:
+            type: string
+      type: object
     DataStoreTypeList:
       description: Data Store Type Collection.
       type: object
@@ -348,52 +478,149 @@ components:
         - status
         - startTime
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        status:
-          description: Status of the job.
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        isCancellable:
+          description: Describes whether the job is cancellable.
           enum:
-            - None
-            - InProgress
-            - Succeeded
-            - WaitingForAction
-            - Failed
-            - Cancelled
-            - Cancelling
-            - PartiallySucceeded
+            - NotCancellable
+            - Cancellable
           type: string
           x-ms-enum:
-            name: JobStatus
+            name: IsJobCancellable
             modelAsString: false
-        startTime:
-          format: date-time
-          description: Time at which the job was started in UTC ISO 8601 format.
+        bytesProcessed:
+          format: int64
+          description: Number of bytes processed by the job as of now.
+          type: integer
+        itemsProcessed:
+          format: int64
+          description: Number of items processed by the job as of now
+          type: integer
+        totalBytesToProcess:
+          format: int64
+          description: Number of bytes to be processed by the job in total.
+          type: integer
+        totalItemsToProcess:
+          format: int64
+          description: Number of items to be processed by the job in total
+          type: integer
+        details:
+          $ref: '#/components/schemas/JobDetails'
+          description: Details of a job run. This field will only be sent for expand details filter.
+        dataSourceName:
+          description: Name of the data source on which the job was triggered.
           type: string
-        endTime:
-          format: date-time
-          description: Time at which the job ended in UTC ISO 8601 format.
+        dataSinkName:
+          description: Name of the data sink on which the job was triggered.
           type: string
-        properties:
-          $ref: '#/components/schemas/JobProperties'
-          description: Job properties.
-          x-ms-client-flatten: true
-        error:
-          $ref: '#/components/schemas/Error'
-          description: Top level error for the job.
+      type: object
     JobDefinition:
       description: Job Definition.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        properties:
-          $ref: '#/components/schemas/JobDefinitionProperties'
-          description: JobDefinition properties.
-          x-ms-client-flatten: true
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        dataSourceId:
+          description: Data Source Id associated to the job definition.
+          type: string
+        dataSinkId:
+          description: Data Sink Id associated to the job definition.
+          type: string
+        schedules:
+          description: Schedule for running the job definition
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
+        state:
+          description: State of the job definition.
+          enum:
+            - Disabled
+            - Enabled
+            - Supported
+          type: string
+          x-ms-enum:
+            name: State
+            modelAsString: false
+        lastModifiedTime:
+          format: date-time
+          description: Last modified time of the job definition.
+          type: string
+        runLocation:
+          description: This is the preferred geo location for the job to run.
+          enum:
+            - none
+            - australiaeast
+            - australiasoutheast
+            - brazilsouth
+            - canadacentral
+            - canadaeast
+            - centralindia
+            - centralus
+            - eastasia
+            - eastus
+            - eastus2
+            - japaneast
+            - japanwest
+            - koreacentral
+            - koreasouth
+            - southeastasia
+            - southcentralus
+            - southindia
+            - northcentralus
+            - northeurope
+            - uksouth
+            - ukwest
+            - westcentralus
+            - westeurope
+            - westindia
+            - westus
+            - westus2
+          type: string
+          x-ms-enum:
+            name: RunLocation
+            modelAsString: false
+        userConfirmation:
+          description: Enum to detect if user confirmation is required. If not passed will default to NotRequired.
+          default: NotRequired
+          enum:
+            - NotRequired
+            - Required
+          type: string
+          x-ms-enum:
+            name: UserConfirmation
+            modelAsString: false
+        dataServiceInput:
+          description: A generic json used differently by each data service type.
+          type: object
+        customerSecrets:
+          description: List of customer secrets containing a key identifier and key value. The key identifier is a way for the specific data source to understand the key. Value contains customer secret encrypted by the encryptionKeys.
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSecret'
+      type: object
     JobDefinitionFilter:
       description: Contains the supported job definition filters.
       required:
@@ -665,14 +892,26 @@ components:
       description: Public key
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DmsBaseObject'
       properties:
-        properties:
-          $ref: '#/components/schemas/PublicKeyProperties'
-          description: Public key property.
-          x-ms-client-flatten: true
+        name:
+          description: Name of the object.
+          type: string
+          readOnly: true
+        id:
+          description: Id of the object.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the object.
+          type: string
+          readOnly: true
+        dataServiceLevel1Key:
+          $ref: '#/components/schemas/Key'
+          description: Level one public key for encryption
+        dataServiceLevel2Key:
+          $ref: '#/components/schemas/Key'
+          description: Level two public key for encryption
+      type: object
     PublicKeyList:
       description: PublicKey Collection
       type: object
@@ -775,40 +1014,6 @@ components:
         tier:
           description: The sku tier. This is based on the SKU name.
           type: string
-  parameters:
-    apiVersionParameter:
-      name: api-version
-      in: query
-      description: The API Version
-      required: true
-      schema:
-        type: string
-    dataManagerNameParameter:
-      name: dataManagerName
-      in: path
-      description: The name of the DataManager Resource within the specified resource group. DataManager names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 24
-        minLength: 3
-        pattern: ^[-\w\.]+$
-        type: string
-    resourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The Resource Group Name
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    subscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Subscription Id
-      required: true
-      schema:
-        type: string
 paths:
   /providers/Microsoft.HybridData/operations/?api-version=2019-06-01:
     get:

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,48 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    apiVersionParameter:
+      name: api-version
+      in: query
+      description: The API Version
+      required: true
+      schema:
+        type: string
+    jobNameParameter:
+      name: jobName
+      in: path
+      description: The name of the job Resource within the specified resource group. job names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        maxLength: 24
+        minLength: 3
+        pattern: ^[-\w\.]+$
+        type: string
+    locationParameter:
+      name: location
+      in: path
+      description: The location of the resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    resourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The Resource Group Name
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    subscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Subscription Id
+      required: true
+      schema:
+        type: string
   schemas:
     AccountCredentialDetails:
       description: Credential details of the account.
@@ -68,20 +110,6 @@ components:
       type: object
     AddressValidationOutput:
       description: Output of the address validation api.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/AddressValidationProperties'
-          description: The address validation properties.
-          readOnly: true
-          x-ms-client-flatten: true
-    AddressValidationProperties:
-      description: The address validation output.
-      required:
-        - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
       properties:
         validationStatus:
           description: The address validation status.
@@ -107,7 +135,68 @@ components:
           items:
             $ref: '#/components/schemas/ShippingAddress'
           readOnly: true
+      type: object
+    AddressValidationProperties:
+      description: The address validation output.
+      required:
+        - validationType
       x-ms-discriminator-value: ValidateAddress
+      properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
+        validationStatus:
+          description: The address validation status.
+          enum:
+            - Valid
+            - Invalid
+            - Ambiguous
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: AddressValidationStatus
+            modelAsExtensible: true
+            values:
+              - value: Valid
+                description: Address provided is valid.
+              - value: Invalid
+                description: Address provided is invalid or not supported.
+              - value: Ambiguous
+                description: Address provided is ambiguous, please choose one of the alternate addresses returned.
+        alternateAddresses:
+          description: List of alternate addresses.
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingAddress'
+          readOnly: true
+      type: object
     ApiError:
       required:
         - error
@@ -366,10 +455,99 @@ components:
         propertyName: copyLogDetailsType
     DataBoxCustomerDiskCopyProgress:
       description: DataBox CustomerDisk Copy Progress
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CopyProgress'
       properties:
+        storageAccountName:
+          description: Name of the storage account. This will be empty for data account types other than storage account.
+          type: string
+          readOnly: true
+        transferType:
+          description: Transfer type of data
+          enum:
+            - ImportToAzure
+            - ExportFromAzure
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: TransferType
+            modelAsExtensible: true
+            values:
+              - value: ImportToAzure
+                description: Import data to azure.
+              - value: ExportFromAzure
+                description: Export data from azure.
+        dataAccountType:
+          description: Data Account Type.
+          enum:
+            - StorageAccount
+            - ManagedDisk
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataAccountType
+            modelAsExtensible: true
+            values:
+              - value: StorageAccount
+                description: Storage Accounts .
+              - value: ManagedDisk
+                description: Azure Managed disk storage.
+        accountId:
+          description: Id of the account where the data needs to be uploaded.
+          type: string
+          readOnly: true
+        bytesProcessed:
+          format: int64
+          description: To indicate bytes transferred.
+          type: integer
+          readOnly: true
+        totalBytesToProcess:
+          format: int64
+          description: Total amount of data to be processed by the job.
+          type: integer
+          readOnly: true
+        filesProcessed:
+          format: int64
+          description: Number of files processed
+          type: integer
+          readOnly: true
+        totalFilesToProcess:
+          format: int64
+          description: Total files to process
+          type: integer
+          readOnly: true
+        invalidFilesProcessed:
+          format: int64
+          description: Number of files not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        invalidFileBytesUploaded:
+          format: int64
+          description: Total amount of data not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        renamedContainerCount:
+          format: int64
+          description: Number of folders not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        filesErroredOut:
+          format: int64
+          description: Number of files which could not be copied
+          type: integer
+          readOnly: true
+        directoriesErroredOut:
+          format: int64
+          description: To indicate directories errored out in the job.
+          type: integer
+          readOnly: true
+        invalidDirectoriesProcessed:
+          format: int64
+          description: To indicate directories renamed
+          type: integer
+          readOnly: true
+        isEnumerationInProgress:
+          description: "To indicate if enumeration of data is in progress. \r\nUntil this is true, the TotalBytesToProcess may not be valid."
+          type: boolean
+          readOnly: true
         serialNumber:
           description: Disk Serial Number.
           type: string
@@ -437,6 +615,7 @@ components:
                 description: Copy failed due to corrupted drive.
               - value: MetadataFilesModifiedOrRemoved
                 description: Copy failed due to modified or removed metadata files.
+      type: object
     DeviceErasureDetails:
       description: Device erasure details with erasure completion status and erasureordestructionlog sas key
       type: object
@@ -690,20 +869,58 @@ components:
       required:
         - validationCategory
         - individualRequestDetails
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationRequest'
-      properties: {}
       x-ms-discriminator-value: JobCreationValidation
+      properties:
+        validationCategory:
+          description: Identify the nature of validation.
+          enum:
+            - JobCreationValidation
+          type: string
+          x-ms-enum:
+            name: ValidationCategory
+            modelAsExtensible: true
+            values:
+              - value: JobCreationValidation
+                description: Identify request of pre-job creation validations.
+        individualRequestDetails:
+          description: List of request details contain validationType and its request as key and value respectively.
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationInputRequest'
+      type: object
     CreateOrderLimitForSubscriptionValidationRequest:
       description: Request to validate create order limit for current subscription.
       required:
         - deviceType
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
+      x-ms-discriminator-value: ValidateCreateOrderLimit
       properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
         deviceType:
           description: Device type to be used for the job.
           enum:
@@ -724,15 +941,43 @@ components:
                 description: Data Box Heavy.
               - value: DataBoxCustomerDisk
                 description: Data Box Customer Disk.
-      x-ms-discriminator-value: ValidateCreateOrderLimit
+      type: object
     CreateOrderLimitForSubscriptionValidationResponseProperties:
       description: Properties of create order limit for subscription validation response.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
+      x-ms-discriminator-value: ValidateCreateOrderLimit
       properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
         status:
           description: Create order limit validation status.
           enum:
@@ -751,16 +996,254 @@ components:
                 description: Validation is not successful
               - value: Skipped
                 description: Validation is skipped
-      x-ms-discriminator-value: ValidateCreateOrderLimit
+      type: object
     DataBoxCustomerDiskJobDetails:
       description: Customer disk job details.
       required:
         - jobDetailsType
         - returnToCustomerPackageDetails
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobDetails'
+      x-ms-discriminator-value: DataBoxCustomerDisk
       properties:
+        jobStages:
+          description: List of stages that run in the job.
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStages'
+          readOnly: true
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for notification and shipping.
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping address of the customer.
+        deliveryPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Delivery package shipping details.
+          readOnly: true
+        returnPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Return package shipping details.
+          readOnly: true
+        dataImportDetails:
+          description: Details of the data to be imported into azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataImportDetails'
+        dataExportDetails:
+          description: Details of the data to be exported from azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataExportDetails'
+        jobDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+          description: Preferences for the order.
+        copyLogDetails:
+          description: List of copy log details.
+          type: array
+          items:
+            $ref: '#/components/schemas/CopyLogDetails'
+          readOnly: true
+        reverseShipmentLabelSasKey:
+          description: Shared access key to download the return shipment label
+          type: string
+          readOnly: true
+        chainOfCustodySasKey:
+          description: Shared access key to download the chain of custody logs
+          type: string
+          readOnly: true
+        deviceErasureDetails:
+          $ref: '#/components/schemas/DeviceErasureDetails'
+          description: Holds device data erasure details
+          readOnly: true
+        keyEncryptionKey:
+          $ref: '#/components/schemas/KeyEncryptionKey'
+          description: Details about which key encryption type is being used.
+        expectedDataSizeInTeraBytes:
+          format: int32
+          description: The expected size of the data, which needs to be transferred in this job, in terabytes.
+          type: integer
+        actions:
+          description: Available actions on the job.
+          uniqueItems: false
+          type: array
+          items:
+            enum:
+              - None
+              - MoveToCleanUpDevice
+              - Resume
+              - Restart
+              - ReachOutToOperation
+            type: string
+            x-ms-enum:
+              name: CustomerResolutionCode
+              modelAsExtensible: true
+              values:
+                - value: None
+                  description: No Resolution Yet
+                - value: MoveToCleanUpDevice
+                  description: Clean the device
+                - value: Resume
+                  description: Resume the job to same stage
+                - description: Restart whole action.
+                  value: Restart
+                - description: Reach out to operation for further action.
+                  value: ReachOutToOperation
+          readOnly: true
+        lastMitigationActionOnJob:
+          $ref: '#/components/schemas/LastMitigationActionOnJob'
+          description: Last mitigation action performed on the job.
+          readOnly: true
+        datacenterAddress:
+          $ref: '#/components/schemas/DatacenterAddressResponse'
+          description: Datacenter address to ship to, for the given sku and storage location.
+          readOnly: true
+        dataCenterCode:
+          description: DataCenter code.
+          enum:
+            - Invalid
+            - BY2
+            - BY1
+            - ORK70
+            - AM2
+            - AMS20
+            - BY21
+            - BY24
+            - MWH01
+            - AMS06
+            - SSE90
+            - SYD03
+            - SYD23
+            - CBR20
+            - YTO20
+            - CWL20
+            - LON24
+            - BOM01
+            - BL20
+            - BL7
+            - SEL20
+            - TYO01
+            - BN1
+            - SN5
+            - CYS04
+            - TYO22
+            - YTO21
+            - YQB20
+            - FRA22
+            - MAA01
+            - CPQ02
+            - CPQ20
+            - SIN20
+            - HKG20
+            - SG2
+            - MEL23
+            - SEL21
+            - OSA20
+            - SHA03
+            - BJB
+            - JNB22
+            - JNB21
+            - MNZ21
+            - SN8
+            - AUH20
+            - ZRH20
+            - PUS20
+            - AdHoc
+            - CH1
+            - DSM05
+            - DUB07
+            - PNQ01
+            - SVG20
+            - OSA02
+            - OSA22
+            - PAR22
+            - BN7
+            - SN6
+            - BJS20
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataCenterCode
+            modelAsString: true
+            values:
+              - value: Invalid
+              - value: BY2
+              - value: BY1
+              - value: ORK70
+              - value: AM2
+              - value: AMS20
+              - value: BY21
+              - value: BY24
+              - value: MWH01
+              - value: AMS06
+              - value: SSE90
+              - value: SYD03
+              - value: SYD23
+              - value: CBR20
+              - value: YTO20
+              - value: CWL20
+              - value: LON24
+              - value: BOM01
+              - value: BL20
+              - value: BL7
+              - value: SEL20
+              - value: TYO01
+              - value: BN1
+              - value: SN5
+              - value: CYS04
+              - value: TYO22
+              - value: YTO21
+              - value: YQB20
+              - value: FRA22
+              - value: MAA01
+              - value: CPQ02
+              - value: CPQ20
+              - value: SIN20
+              - value: HKG20
+              - value: SG2
+              - value: MEL23
+              - value: SEL21
+              - value: OSA20
+              - value: SHA03
+              - value: BJB
+              - value: JNB22
+              - value: JNB21
+              - value: MNZ21
+              - value: SN8
+              - value: AUH20
+              - value: ZRH20
+              - value: PUS20
+              - value: AdHoc
+              - value: CH1
+              - value: DSM05
+              - value: DUB07
+              - value: PNQ01
+              - value: SVG20
+              - value: OSA02
+              - value: OSA22
+              - value: PAR22
+              - value: BN7
+              - value: SN6
+              - value: BJS20
         importDiskDetailsCollection:
           description: Contains the map of disk serial number to the disk details for import jobs.
           type: object
@@ -789,13 +1272,39 @@ components:
           description: Flag to indicate if disk manifest should be backed-up in the Storage Account.
           type: boolean
           default: false
-      x-ms-discriminator-value: DataBoxCustomerDisk
+      type: object
     CustomerDiskJobSecrets:
       description: The secrets related to customer disk job.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobSecrets'
+      x-ms-discriminator-value: DataBoxCustomerDisk
       properties:
+        jobSecretsType:
+          description: Used to indicate what type of job secrets object.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        dcAccessSecurityCode:
+          $ref: '#/components/schemas/DcAccessSecurityCode'
+          description: Dc Access Security Code for Customer Managed Shipping
+          readOnly: true
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error while fetching the secrets.
+          readOnly: true
         diskSecrets:
           description: Contains the list of secrets object for that device.
           type: array
@@ -807,7 +1316,7 @@ components:
           type: string
           readOnly: true
           x-ms-secret: true
-      x-ms-discriminator-value: DataBoxCustomerDisk
+      type: object
     DataAccountDetails:
       description: Account details of the data to be transferred
       required:
@@ -841,23 +1350,69 @@ components:
       description: Datacenter instruction for given storage location.
       required:
         - datacenterAddressType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DatacenterAddressResponse'
+      x-ms-discriminator-value: DatacenterAddressInstruction
       properties:
+        datacenterAddressType:
+          description: Data center address type
+          enum:
+            - DatacenterAddressLocation
+            - DatacenterAddressInstruction
+          type: string
+          x-ms-enum:
+            name: DatacenterAddressType
+            modelAsExtensible: false
+            values:
+              - value: DatacenterAddressLocation
+                description: Data center address location.
+              - value: DatacenterAddressInstruction
+                description: Data center address instruction.
+        supportedCarriersForReturnShipment:
+          description: List of supported carriers for return shipment.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+          readOnly: true
+        dataCenterAzureLocation:
+          description: Azure Location where the Data Center serves primarily.
+          type: string
+          readOnly: true
         communicationInstruction:
           description: Data center communication instruction
           type: string
           readOnly: true
-      x-ms-discriminator-value: DatacenterAddressInstruction
+      type: object
     DatacenterAddressLocationResponse:
       description: Datacenter address for given storage location.
       required:
         - datacenterAddressType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DatacenterAddressResponse'
+      x-ms-discriminator-value: DatacenterAddressLocation
       properties:
+        datacenterAddressType:
+          description: Data center address type
+          enum:
+            - DatacenterAddressLocation
+            - DatacenterAddressInstruction
+          type: string
+          x-ms-enum:
+            name: DatacenterAddressType
+            modelAsExtensible: false
+            values:
+              - value: DatacenterAddressLocation
+                description: Data center address location.
+              - value: DatacenterAddressInstruction
+                description: Data center address instruction.
+        supportedCarriersForReturnShipment:
+          description: List of supported carriers for return shipment.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+          readOnly: true
+        dataCenterAzureLocation:
+          description: Azure Location where the Data Center serves primarily.
+          type: string
+          readOnly: true
         contactPersonName:
           description: Contact person name
           type: string
@@ -910,7 +1465,7 @@ components:
           description: Special instruction for shipping
           type: string
           readOnly: true
-      x-ms-discriminator-value: DatacenterAddressLocation
+      type: object
     DatacenterAddressRequest:
       description: Request body to get the datacenter address.
       required:
@@ -978,10 +1533,28 @@ components:
       description: Copy log details for a storage account of a DataBox job
       required:
         - copyLogDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CopyLogDetails'
+      x-ms-discriminator-value: DataBox
       properties:
+        copyLogDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
         accountName:
           description: Account name.
           type: string
@@ -994,15 +1567,33 @@ components:
           description: Link for copy verbose logs. This will be set only when LogCollectionLevel is set to Verbose.
           type: string
           readOnly: true
-      x-ms-discriminator-value: DataBox
+      type: object
     DataBoxCustomerDiskCopyLogDetails:
       description: Copy Log Details for customer disk
       required:
         - copyLogDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CopyLogDetails'
+      x-ms-discriminator-value: DataBoxCustomerDisk
       properties:
+        copyLogDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
         serialNumber:
           description: Disk Serial Number.
           type: string
@@ -1015,15 +1606,33 @@ components:
           description: Link for copy verbose logs.
           type: string
           readOnly: true
-      x-ms-discriminator-value: DataBoxCustomerDisk
+      type: object
     DataBoxDiskCopyLogDetails:
       description: Copy Log Details for a disk
       required:
         - copyLogDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CopyLogDetails'
+      x-ms-discriminator-value: DataBoxDisk
       properties:
+        copyLogDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
         diskSerialNumber:
           description: Disk Serial Number.
           type: string
@@ -1036,15 +1645,33 @@ components:
           description: Link for copy verbose logs.
           type: string
           readOnly: true
-      x-ms-discriminator-value: DataBoxDisk
+      type: object
     DataBoxDiskGranularCopyLogDetails:
       description: Granular Copy Log Details for customer disk
       required:
         - copyLogDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/GranularCopyLogDetails'
+      x-ms-discriminator-value: DataBoxCustomerDisk
       properties:
+        copyLogDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
         serialNumber:
           description: Disk Serial Number.
           type: string
@@ -1061,7 +1688,7 @@ components:
           description: Link for copy verbose logs.
           type: string
           readOnly: true
-      x-ms-discriminator-value: DataBoxCustomerDisk
+      type: object
     DataBoxDiskCopyProgress:
       description: DataBox Disk Copy Progress
       type: object
@@ -1145,10 +1772,99 @@ components:
                 description: Copy failed due to modified  or removed metadata files.
     DataBoxDiskGranularCopyProgress:
       description: DataBox Disk Granular Copy Progress
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/GranularCopyProgress'
       properties:
+        storageAccountName:
+          description: Name of the storage account. This will be empty for data account types other than storage account.
+          type: string
+          readOnly: true
+        transferType:
+          description: Transfer type of data
+          enum:
+            - ImportToAzure
+            - ExportFromAzure
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: TransferType
+            modelAsExtensible: true
+            values:
+              - value: ImportToAzure
+                description: Import data to azure.
+              - value: ExportFromAzure
+                description: Export data from azure.
+        dataAccountType:
+          description: Data Account Type.
+          enum:
+            - StorageAccount
+            - ManagedDisk
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataAccountType
+            modelAsExtensible: true
+            values:
+              - value: StorageAccount
+                description: Storage Accounts .
+              - value: ManagedDisk
+                description: Azure Managed disk storage.
+        accountId:
+          description: Id of the account where the data needs to be uploaded.
+          type: string
+          readOnly: true
+        bytesProcessed:
+          format: int64
+          description: To indicate bytes transferred.
+          type: integer
+          readOnly: true
+        totalBytesToProcess:
+          format: int64
+          description: Total amount of data to be processed by the job.
+          type: integer
+          readOnly: true
+        filesProcessed:
+          format: int64
+          description: Number of files processed
+          type: integer
+          readOnly: true
+        totalFilesToProcess:
+          format: int64
+          description: Total files to process
+          type: integer
+          readOnly: true
+        invalidFilesProcessed:
+          format: int64
+          description: Number of files not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        invalidFileBytesUploaded:
+          format: int64
+          description: Total amount of data not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        renamedContainerCount:
+          format: int64
+          description: Number of folders not adhering to azure naming conventions which were processed by automatic renaming
+          type: integer
+          readOnly: true
+        filesErroredOut:
+          format: int64
+          description: Number of files which could not be copied
+          type: integer
+          readOnly: true
+        directoriesErroredOut:
+          format: int64
+          description: To indicate directories errored out in the job.
+          type: integer
+          readOnly: true
+        invalidDirectoriesProcessed:
+          format: int64
+          description: To indicate directories renamed
+          type: integer
+          readOnly: true
+        isEnumerationInProgress:
+          description: "To indicate if enumeration of data is in progress. \r\nUntil this is true, the TotalBytesToProcess may not be valid."
+          type: boolean
+          readOnly: true
         serialNumber:
           description: Disk Serial Number.
           type: string
@@ -1216,15 +1932,254 @@ components:
                 description: Copy failed due to corrupted drive.
               - value: MetadataFilesModifiedOrRemoved
                 description: Copy failed due to modified  or removed metadata files.
+      type: object
     DataBoxDiskJobDetails:
       description: DataBox Disk Job Details.
       required:
         - contactDetails
         - jobDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobDetails'
+      x-ms-discriminator-value: DataBoxDisk
       properties:
+        jobStages:
+          description: List of stages that run in the job.
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStages'
+          readOnly: true
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for notification and shipping.
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping address of the customer.
+        deliveryPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Delivery package shipping details.
+          readOnly: true
+        returnPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Return package shipping details.
+          readOnly: true
+        dataImportDetails:
+          description: Details of the data to be imported into azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataImportDetails'
+        dataExportDetails:
+          description: Details of the data to be exported from azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataExportDetails'
+        jobDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+          description: Preferences for the order.
+        copyLogDetails:
+          description: List of copy log details.
+          type: array
+          items:
+            $ref: '#/components/schemas/CopyLogDetails'
+          readOnly: true
+        reverseShipmentLabelSasKey:
+          description: Shared access key to download the return shipment label
+          type: string
+          readOnly: true
+        chainOfCustodySasKey:
+          description: Shared access key to download the chain of custody logs
+          type: string
+          readOnly: true
+        deviceErasureDetails:
+          $ref: '#/components/schemas/DeviceErasureDetails'
+          description: Holds device data erasure details
+          readOnly: true
+        keyEncryptionKey:
+          $ref: '#/components/schemas/KeyEncryptionKey'
+          description: Details about which key encryption type is being used.
+        expectedDataSizeInTeraBytes:
+          format: int32
+          description: The expected size of the data, which needs to be transferred in this job, in terabytes.
+          type: integer
+        actions:
+          description: Available actions on the job.
+          uniqueItems: false
+          type: array
+          items:
+            enum:
+              - None
+              - MoveToCleanUpDevice
+              - Resume
+              - Restart
+              - ReachOutToOperation
+            type: string
+            x-ms-enum:
+              name: CustomerResolutionCode
+              modelAsExtensible: true
+              values:
+                - value: None
+                  description: No Resolution Yet
+                - value: MoveToCleanUpDevice
+                  description: Clean the device
+                - value: Resume
+                  description: Resume the job to same stage
+                - description: Restart whole action.
+                  value: Restart
+                - description: Reach out to operation for further action.
+                  value: ReachOutToOperation
+          readOnly: true
+        lastMitigationActionOnJob:
+          $ref: '#/components/schemas/LastMitigationActionOnJob'
+          description: Last mitigation action performed on the job.
+          readOnly: true
+        datacenterAddress:
+          $ref: '#/components/schemas/DatacenterAddressResponse'
+          description: Datacenter address to ship to, for the given sku and storage location.
+          readOnly: true
+        dataCenterCode:
+          description: DataCenter code.
+          enum:
+            - Invalid
+            - BY2
+            - BY1
+            - ORK70
+            - AM2
+            - AMS20
+            - BY21
+            - BY24
+            - MWH01
+            - AMS06
+            - SSE90
+            - SYD03
+            - SYD23
+            - CBR20
+            - YTO20
+            - CWL20
+            - LON24
+            - BOM01
+            - BL20
+            - BL7
+            - SEL20
+            - TYO01
+            - BN1
+            - SN5
+            - CYS04
+            - TYO22
+            - YTO21
+            - YQB20
+            - FRA22
+            - MAA01
+            - CPQ02
+            - CPQ20
+            - SIN20
+            - HKG20
+            - SG2
+            - MEL23
+            - SEL21
+            - OSA20
+            - SHA03
+            - BJB
+            - JNB22
+            - JNB21
+            - MNZ21
+            - SN8
+            - AUH20
+            - ZRH20
+            - PUS20
+            - AdHoc
+            - CH1
+            - DSM05
+            - DUB07
+            - PNQ01
+            - SVG20
+            - OSA02
+            - OSA22
+            - PAR22
+            - BN7
+            - SN6
+            - BJS20
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataCenterCode
+            modelAsString: true
+            values:
+              - value: Invalid
+              - value: BY2
+              - value: BY1
+              - value: ORK70
+              - value: AM2
+              - value: AMS20
+              - value: BY21
+              - value: BY24
+              - value: MWH01
+              - value: AMS06
+              - value: SSE90
+              - value: SYD03
+              - value: SYD23
+              - value: CBR20
+              - value: YTO20
+              - value: CWL20
+              - value: LON24
+              - value: BOM01
+              - value: BL20
+              - value: BL7
+              - value: SEL20
+              - value: TYO01
+              - value: BN1
+              - value: SN5
+              - value: CYS04
+              - value: TYO22
+              - value: YTO21
+              - value: YQB20
+              - value: FRA22
+              - value: MAA01
+              - value: CPQ02
+              - value: CPQ20
+              - value: SIN20
+              - value: HKG20
+              - value: SG2
+              - value: MEL23
+              - value: SEL21
+              - value: OSA20
+              - value: SHA03
+              - value: BJB
+              - value: JNB22
+              - value: JNB21
+              - value: MNZ21
+              - value: SN8
+              - value: AUH20
+              - value: ZRH20
+              - value: PUS20
+              - value: AdHoc
+              - value: CH1
+              - value: DSM05
+              - value: DUB07
+              - value: PNQ01
+              - value: SVG20
+              - value: OSA02
+              - value: OSA22
+              - value: PAR22
+              - value: BN7
+              - value: SN6
+              - value: BJS20
         preferredDisks:
           description: User preference on what size disks are needed for the job. The map is from the disk size in TB to the count. Eg. {2,5} means 5 disks of 2 TB size. Key is string but will be checked against an int.
           type: object
@@ -1254,13 +2209,39 @@ components:
         passkey:
           description: User entered passkey for DataBox Disk job.
           type: string
-      x-ms-discriminator-value: DataBoxDisk
+      type: object
     DataBoxDiskJobSecrets:
       description: The secrets related to disk job.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobSecrets'
+      x-ms-discriminator-value: DataBoxDisk
       properties:
+        jobSecretsType:
+          description: Used to indicate what type of job secrets object.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        dcAccessSecurityCode:
+          $ref: '#/components/schemas/DcAccessSecurityCode'
+          description: Dc Access Security Code for Customer Managed Shipping
+          readOnly: true
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error while fetching the secrets.
+          readOnly: true
         diskSecrets:
           description: Contains the list of secrets object for that device.
           type: array
@@ -1275,15 +2256,33 @@ components:
           description: Whether passkey was provided by user.
           type: boolean
           readOnly: true
-      x-ms-discriminator-value: DataBoxDisk
+      type: object
     DataBoxHeavyAccountCopyLogDetails:
       description: Copy log details for a storage account for Databox heavy
       required:
         - copyLogDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CopyLogDetails'
+      x-ms-discriminator-value: DataBoxHeavy
       properties:
+        copyLogDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
         accountName:
           description: Account name.
           type: string
@@ -1300,16 +2299,254 @@ components:
           items:
             type: string
           readOnly: true
-      x-ms-discriminator-value: DataBoxHeavy
+      type: object
     DataBoxHeavyJobDetails:
       description: Databox Heavy Device Job Details
       required:
         - contactDetails
         - jobDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobDetails'
+      x-ms-discriminator-value: DataBoxHeavy
       properties:
+        jobStages:
+          description: List of stages that run in the job.
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStages'
+          readOnly: true
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for notification and shipping.
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping address of the customer.
+        deliveryPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Delivery package shipping details.
+          readOnly: true
+        returnPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Return package shipping details.
+          readOnly: true
+        dataImportDetails:
+          description: Details of the data to be imported into azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataImportDetails'
+        dataExportDetails:
+          description: Details of the data to be exported from azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataExportDetails'
+        jobDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+          description: Preferences for the order.
+        copyLogDetails:
+          description: List of copy log details.
+          type: array
+          items:
+            $ref: '#/components/schemas/CopyLogDetails'
+          readOnly: true
+        reverseShipmentLabelSasKey:
+          description: Shared access key to download the return shipment label
+          type: string
+          readOnly: true
+        chainOfCustodySasKey:
+          description: Shared access key to download the chain of custody logs
+          type: string
+          readOnly: true
+        deviceErasureDetails:
+          $ref: '#/components/schemas/DeviceErasureDetails'
+          description: Holds device data erasure details
+          readOnly: true
+        keyEncryptionKey:
+          $ref: '#/components/schemas/KeyEncryptionKey'
+          description: Details about which key encryption type is being used.
+        expectedDataSizeInTeraBytes:
+          format: int32
+          description: The expected size of the data, which needs to be transferred in this job, in terabytes.
+          type: integer
+        actions:
+          description: Available actions on the job.
+          uniqueItems: false
+          type: array
+          items:
+            enum:
+              - None
+              - MoveToCleanUpDevice
+              - Resume
+              - Restart
+              - ReachOutToOperation
+            type: string
+            x-ms-enum:
+              name: CustomerResolutionCode
+              modelAsExtensible: true
+              values:
+                - value: None
+                  description: No Resolution Yet
+                - value: MoveToCleanUpDevice
+                  description: Clean the device
+                - value: Resume
+                  description: Resume the job to same stage
+                - description: Restart whole action.
+                  value: Restart
+                - description: Reach out to operation for further action.
+                  value: ReachOutToOperation
+          readOnly: true
+        lastMitigationActionOnJob:
+          $ref: '#/components/schemas/LastMitigationActionOnJob'
+          description: Last mitigation action performed on the job.
+          readOnly: true
+        datacenterAddress:
+          $ref: '#/components/schemas/DatacenterAddressResponse'
+          description: Datacenter address to ship to, for the given sku and storage location.
+          readOnly: true
+        dataCenterCode:
+          description: DataCenter code.
+          enum:
+            - Invalid
+            - BY2
+            - BY1
+            - ORK70
+            - AM2
+            - AMS20
+            - BY21
+            - BY24
+            - MWH01
+            - AMS06
+            - SSE90
+            - SYD03
+            - SYD23
+            - CBR20
+            - YTO20
+            - CWL20
+            - LON24
+            - BOM01
+            - BL20
+            - BL7
+            - SEL20
+            - TYO01
+            - BN1
+            - SN5
+            - CYS04
+            - TYO22
+            - YTO21
+            - YQB20
+            - FRA22
+            - MAA01
+            - CPQ02
+            - CPQ20
+            - SIN20
+            - HKG20
+            - SG2
+            - MEL23
+            - SEL21
+            - OSA20
+            - SHA03
+            - BJB
+            - JNB22
+            - JNB21
+            - MNZ21
+            - SN8
+            - AUH20
+            - ZRH20
+            - PUS20
+            - AdHoc
+            - CH1
+            - DSM05
+            - DUB07
+            - PNQ01
+            - SVG20
+            - OSA02
+            - OSA22
+            - PAR22
+            - BN7
+            - SN6
+            - BJS20
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataCenterCode
+            modelAsString: true
+            values:
+              - value: Invalid
+              - value: BY2
+              - value: BY1
+              - value: ORK70
+              - value: AM2
+              - value: AMS20
+              - value: BY21
+              - value: BY24
+              - value: MWH01
+              - value: AMS06
+              - value: SSE90
+              - value: SYD03
+              - value: SYD23
+              - value: CBR20
+              - value: YTO20
+              - value: CWL20
+              - value: LON24
+              - value: BOM01
+              - value: BL20
+              - value: BL7
+              - value: SEL20
+              - value: TYO01
+              - value: BN1
+              - value: SN5
+              - value: CYS04
+              - value: TYO22
+              - value: YTO21
+              - value: YQB20
+              - value: FRA22
+              - value: MAA01
+              - value: CPQ02
+              - value: CPQ20
+              - value: SIN20
+              - value: HKG20
+              - value: SG2
+              - value: MEL23
+              - value: SEL21
+              - value: OSA20
+              - value: SHA03
+              - value: BJB
+              - value: JNB22
+              - value: JNB21
+              - value: MNZ21
+              - value: SN8
+              - value: AUH20
+              - value: ZRH20
+              - value: PUS20
+              - value: AdHoc
+              - value: CH1
+              - value: DSM05
+              - value: DUB07
+              - value: PNQ01
+              - value: SVG20
+              - value: OSA02
+              - value: OSA22
+              - value: PAR22
+              - value: BN7
+              - value: SN6
+              - value: BJS20
         copyProgress:
           description: Copy progress per account.
           type: array
@@ -1319,20 +2556,46 @@ components:
         devicePassword:
           description: 'Set Device password for unlocking Databox Heavy. Should not be passed for TransferType:ExportFromAzure jobs. If this is not passed, the service will generate password itself. This will not be returned in Get Call. Password Requirements :  Password must be minimum of 12 and maximum of 64 characters. Password must have at least one uppercase alphabet, one number and one special character. Password cannot have the following characters : IilLoO0 Password can have only alphabets, numbers and these characters : @#\-$%^!+=;:_()]+'
           type: string
-      x-ms-discriminator-value: DataBoxHeavy
+      type: object
     DataBoxHeavyJobSecrets:
       description: The secrets related to a databox heavy job.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobSecrets'
+      x-ms-discriminator-value: DataBoxHeavy
       properties:
+        jobSecretsType:
+          description: Used to indicate what type of job secrets object.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        dcAccessSecurityCode:
+          $ref: '#/components/schemas/DcAccessSecurityCode'
+          description: Dc Access Security Code for Customer Managed Shipping
+          readOnly: true
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error while fetching the secrets.
+          readOnly: true
         cabinetPodSecrets:
           description: Contains the list of secret objects for a databox heavy job.
           type: array
           items:
             $ref: '#/components/schemas/DataBoxHeavySecret'
           readOnly: true
-      x-ms-discriminator-value: DataBoxHeavy
+      type: object
     DataBoxHeavySecret:
       description: The secrets related to a databox heavy.
       type: object
@@ -1366,10 +2629,248 @@ components:
       required:
         - contactDetails
         - jobDetailsType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobDetails'
+      x-ms-discriminator-value: DataBox
       properties:
+        jobStages:
+          description: List of stages that run in the job.
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStages'
+          readOnly: true
+        contactDetails:
+          $ref: '#/components/schemas/ContactDetails'
+          description: Contact details for notification and shipping.
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+          description: Shipping address of the customer.
+        deliveryPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Delivery package shipping details.
+          readOnly: true
+        returnPackage:
+          $ref: '#/components/schemas/PackageShippingDetails'
+          description: Return package shipping details.
+          readOnly: true
+        dataImportDetails:
+          description: Details of the data to be imported into azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataImportDetails'
+        dataExportDetails:
+          description: Details of the data to be exported from azure.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataExportDetails'
+        jobDetailsType:
+          description: Indicates the type of job details.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+          description: Preferences for the order.
+        copyLogDetails:
+          description: List of copy log details.
+          type: array
+          items:
+            $ref: '#/components/schemas/CopyLogDetails'
+          readOnly: true
+        reverseShipmentLabelSasKey:
+          description: Shared access key to download the return shipment label
+          type: string
+          readOnly: true
+        chainOfCustodySasKey:
+          description: Shared access key to download the chain of custody logs
+          type: string
+          readOnly: true
+        deviceErasureDetails:
+          $ref: '#/components/schemas/DeviceErasureDetails'
+          description: Holds device data erasure details
+          readOnly: true
+        keyEncryptionKey:
+          $ref: '#/components/schemas/KeyEncryptionKey'
+          description: Details about which key encryption type is being used.
+        expectedDataSizeInTeraBytes:
+          format: int32
+          description: The expected size of the data, which needs to be transferred in this job, in terabytes.
+          type: integer
+        actions:
+          description: Available actions on the job.
+          uniqueItems: false
+          type: array
+          items:
+            enum:
+              - None
+              - MoveToCleanUpDevice
+              - Resume
+              - Restart
+              - ReachOutToOperation
+            type: string
+            x-ms-enum:
+              name: CustomerResolutionCode
+              modelAsExtensible: true
+              values:
+                - value: None
+                  description: No Resolution Yet
+                - value: MoveToCleanUpDevice
+                  description: Clean the device
+                - value: Resume
+                  description: Resume the job to same stage
+                - description: Restart whole action.
+                  value: Restart
+                - description: Reach out to operation for further action.
+                  value: ReachOutToOperation
+          readOnly: true
+        lastMitigationActionOnJob:
+          $ref: '#/components/schemas/LastMitigationActionOnJob'
+          description: Last mitigation action performed on the job.
+          readOnly: true
+        datacenterAddress:
+          $ref: '#/components/schemas/DatacenterAddressResponse'
+          description: Datacenter address to ship to, for the given sku and storage location.
+          readOnly: true
+        dataCenterCode:
+          description: DataCenter code.
+          enum:
+            - Invalid
+            - BY2
+            - BY1
+            - ORK70
+            - AM2
+            - AMS20
+            - BY21
+            - BY24
+            - MWH01
+            - AMS06
+            - SSE90
+            - SYD03
+            - SYD23
+            - CBR20
+            - YTO20
+            - CWL20
+            - LON24
+            - BOM01
+            - BL20
+            - BL7
+            - SEL20
+            - TYO01
+            - BN1
+            - SN5
+            - CYS04
+            - TYO22
+            - YTO21
+            - YQB20
+            - FRA22
+            - MAA01
+            - CPQ02
+            - CPQ20
+            - SIN20
+            - HKG20
+            - SG2
+            - MEL23
+            - SEL21
+            - OSA20
+            - SHA03
+            - BJB
+            - JNB22
+            - JNB21
+            - MNZ21
+            - SN8
+            - AUH20
+            - ZRH20
+            - PUS20
+            - AdHoc
+            - CH1
+            - DSM05
+            - DUB07
+            - PNQ01
+            - SVG20
+            - OSA02
+            - OSA22
+            - PAR22
+            - BN7
+            - SN6
+            - BJS20
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DataCenterCode
+            modelAsString: true
+            values:
+              - value: Invalid
+              - value: BY2
+              - value: BY1
+              - value: ORK70
+              - value: AM2
+              - value: AMS20
+              - value: BY21
+              - value: BY24
+              - value: MWH01
+              - value: AMS06
+              - value: SSE90
+              - value: SYD03
+              - value: SYD23
+              - value: CBR20
+              - value: YTO20
+              - value: CWL20
+              - value: LON24
+              - value: BOM01
+              - value: BL20
+              - value: BL7
+              - value: SEL20
+              - value: TYO01
+              - value: BN1
+              - value: SN5
+              - value: CYS04
+              - value: TYO22
+              - value: YTO21
+              - value: YQB20
+              - value: FRA22
+              - value: MAA01
+              - value: CPQ02
+              - value: CPQ20
+              - value: SIN20
+              - value: HKG20
+              - value: SG2
+              - value: MEL23
+              - value: SEL21
+              - value: OSA20
+              - value: SHA03
+              - value: BJB
+              - value: JNB22
+              - value: JNB21
+              - value: MNZ21
+              - value: SN8
+              - value: AUH20
+              - value: ZRH20
+              - value: PUS20
+              - value: AdHoc
+              - value: CH1
+              - value: DSM05
+              - value: DUB07
+              - value: PNQ01
+              - value: SVG20
+              - value: OSA02
+              - value: OSA22
+              - value: PAR22
+              - value: BN7
+              - value: SN6
+              - value: BJS20
         copyProgress:
           description: Copy progress per storage account.
           type: array
@@ -1379,29 +2880,79 @@ components:
         devicePassword:
           description: 'Set Device password for unlocking Databox. Should not be passed for TransferType:ExportFromAzure jobs. If this is not passed, the service will generate password itself. This will not be returned in Get Call. Password Requirements :  Password must be minimum of 12 and maximum of 64 characters. Password must have at least one uppercase alphabet, one number and one special character. Password cannot have the following characters : IilLoO0 Password can have only alphabets, numbers and these characters : @#\-$%^!+=;:_()]+'
           type: string
-      x-ms-discriminator-value: DataBox
+      type: object
     DataboxJobSecrets:
       description: The secrets related to a databox job.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/JobSecrets'
+      x-ms-discriminator-value: DataBox
       properties:
+        jobSecretsType:
+          description: Used to indicate what type of job secrets object.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: ClassDiscriminator
+            modelAsExtensible: false
+            values:
+              - value: DataBox
+                description: Data Box orders.
+              - value: DataBoxDisk
+                description: Data Box Disk orders.
+              - value: DataBoxHeavy
+                description: Data Box Heavy orders.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk orders.
+        dcAccessSecurityCode:
+          $ref: '#/components/schemas/DcAccessSecurityCode'
+          description: Dc Access Security Code for Customer Managed Shipping
+          readOnly: true
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error while fetching the secrets.
+          readOnly: true
         podSecrets:
           description: Contains the list of secret objects for a job.
           type: array
           items:
             $ref: '#/components/schemas/DataBoxSecret'
-      x-ms-discriminator-value: DataBox
+      type: object
     DataBoxScheduleAvailabilityRequest:
       description: Request body to get the availability for scheduling data box orders orders.
       required:
         - storageLocation
         - skuName
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ScheduleAvailabilityRequest'
-      properties: {}
       x-ms-discriminator-value: DataBox
+      properties:
+        storageLocation:
+          description: 'Location for data transfer. For locations check: https://management.azure.com/subscriptions/SUBSCRIPTIONID/locations?api-version=2018-01-01'
+          type: string
+        skuName:
+          description: Sku Name for which the order is to be scheduled.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: SkuName
+            modelAsExtensible: true
+            values:
+              - value: DataBox
+                description: Data Box.
+              - value: DataBoxDisk
+                description: Data Box Disk.
+              - value: DataBoxHeavy
+                description: Data Box Heavy.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk.
+        country:
+          description: Country in which storage location should be supported.
+          type: string
+      type: object
     DataBoxSecret:
       description: The secrets related to a DataBox.
       type: object
@@ -1500,10 +3051,34 @@ components:
         - deviceType
         - transferType
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
+      x-ms-discriminator-value: ValidateDataTransferDetails
       properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
         dataExportDetails:
           description: List of DataTransfer details to be used to export data from azure.
           type: array
@@ -1548,15 +3123,43 @@ components:
                 description: Import data to azure.
               - value: ExportFromAzure
                 description: Export data from azure.
-      x-ms-discriminator-value: ValidateDataTransferDetails
+      type: object
     DataTransferDetailsValidationResponseProperties:
       description: Properties of data transfer details validation response.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
+      x-ms-discriminator-value: ValidateDataTransferDetails
       properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
         status:
           description: Data transfer details validation status.
           enum:
@@ -1575,7 +3178,7 @@ components:
                 description: Validation is not successful
               - value: Skipped
                 description: Validation is skipped
-      x-ms-discriminator-value: ValidateDataTransferDetails
+      type: object
     DcAccessSecurityCode:
       description: Dc access security code
       type: object
@@ -1602,15 +3205,39 @@ components:
         - storageLocation
         - skuName
         - expectedDataSizeInTeraBytes
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ScheduleAvailabilityRequest'
+      x-ms-discriminator-value: DataBoxDisk
       properties:
+        storageLocation:
+          description: 'Location for data transfer. For locations check: https://management.azure.com/subscriptions/SUBSCRIPTIONID/locations?api-version=2018-01-01'
+          type: string
+        skuName:
+          description: Sku Name for which the order is to be scheduled.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: SkuName
+            modelAsExtensible: true
+            values:
+              - value: DataBox
+                description: Data Box.
+              - value: DataBoxDisk
+                description: Data Box Disk.
+              - value: DataBoxHeavy
+                description: Data Box Heavy.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk.
+        country:
+          description: Country in which storage location should be supported.
+          type: string
         expectedDataSizeInTeraBytes:
           format: int32
           description: The expected size of the data, which needs to be transferred in this job, in terabytes.
           type: integer
-      x-ms-discriminator-value: DataBoxDisk
+      type: object
     DiskSecret:
       description: Contains all the secrets of a Disk.
       type: object
@@ -1703,11 +3330,35 @@ components:
       required:
         - storageLocation
         - skuName
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ScheduleAvailabilityRequest'
-      properties: {}
       x-ms-discriminator-value: DataBoxHeavy
+      properties:
+        storageLocation:
+          description: 'Location for data transfer. For locations check: https://management.azure.com/subscriptions/SUBSCRIPTIONID/locations?api-version=2018-01-01'
+          type: string
+        skuName:
+          description: Sku Name for which the order is to be scheduled.
+          enum:
+            - DataBox
+            - DataBoxDisk
+            - DataBoxHeavy
+            - DataBoxCustomerDisk
+          type: string
+          x-ms-enum:
+            name: SkuName
+            modelAsExtensible: true
+            values:
+              - value: DataBox
+                description: Data Box.
+              - value: DataBoxDisk
+                description: Data Box Disk.
+              - value: DataBoxHeavy
+                description: Data Box Heavy.
+              - value: DataBoxCustomerDisk
+                description: Data Box Customer Disk.
+        country:
+          description: Country in which storage location should be supported.
+          type: string
+      type: object
     IdentityProperties:
       description: Managed identity properties.
       type: object
@@ -2147,30 +3798,165 @@ components:
       description: Job Resource.
       required:
         - properties
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/JobProperties'
-          description: Properties of a job.
-          x-ms-client-flatten: true
-        name:
-          description: Name of the object.
+        location:
+          description: The location of the resource. This will be one of the supported and registered Azure Regions (e.g. West US, East US, Southeast Asia, etc.). The region of a resource cannot be changed once it is created, but if an identical region is specified on update the request will succeed.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        tags:
+          description: The list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups).
+          type: object
+          additionalProperties:
+            type: string
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: The sku type.
+        identity:
+          $ref: '#/components/schemas/ResourceIdentity'
+          description: Msi identity of the resource
+        transferType:
+          description: Type of the data transfer.
+          enum:
+            - ImportToAzure
+            - ExportFromAzure
+          type: string
+          x-ms-enum:
+            name: TransferType
+            modelAsExtensible: true
+            values:
+              - value: ImportToAzure
+                description: Import data to azure.
+              - value: ExportFromAzure
+                description: Export data from azure.
+        isCancellable:
+          description: Describes whether the job is cancellable or not.
+          type: boolean
+          readOnly: true
+        isDeletable:
+          description: Describes whether the job is deletable or not.
+          type: boolean
+          readOnly: true
+        isShippingAddressEditable:
+          description: Describes whether the shipping address is editable or not.
+          type: boolean
+          readOnly: true
+        isPrepareToShipEnabled:
+          description: Is Prepare To Ship Enabled on this job
+          type: boolean
+          readOnly: true
+        status:
+          description: Name of the stage which is in progress.
+          enum:
+            - DeviceOrdered
+            - DevicePrepared
+            - Dispatched
+            - Delivered
+            - PickedUp
+            - AtAzureDC
+            - DataCopy
+            - Completed
+            - CompletedWithErrors
+            - Cancelled
+            - Failed_IssueReportedAtCustomer
+            - Failed_IssueDetectedAtAzureDC
+            - Aborted
+            - CompletedWithWarnings
+            - ReadyToDispatchFromAzureDC
+            - ReadyToReceiveAtAzureDC
+            - Created
+            - ShippedToAzureDC
+            - AwaitingShipmentDetails
+            - PreparingToShipFromAzureDC
+            - ShippedToCustomer
           type: string
           readOnly: true
-        id:
-          description: Id of the object.
+          x-ms-enum:
+            name: StageName
+            modelAsString: true
+            values:
+              - value: DeviceOrdered
+                description: An order has been created.
+              - value: DevicePrepared
+                description: A device has been prepared for the order.
+              - value: Dispatched
+                description: Device has been dispatched to the user of the order.
+              - value: Delivered
+                description: Device has been delivered to the user of the order.
+              - value: PickedUp
+                description: Device has been picked up from user and in transit to Azure datacenter.
+              - value: AtAzureDC
+                description: Device has been received at Azure datacenter from the user.
+              - value: DataCopy
+                description: Data copy from the device at Azure datacenter.
+              - value: Completed
+                description: Order has completed.
+              - value: CompletedWithErrors
+                description: Order has completed with errors.
+              - value: Cancelled
+                description: Order has been cancelled.
+              - value: Failed_IssueReportedAtCustomer
+                description: Order has failed due to issue reported by user.
+              - value: Failed_IssueDetectedAtAzureDC
+                description: Order has failed due to issue detected at Azure datacenter.
+              - value: Aborted
+                description: Order has been aborted.
+              - value: CompletedWithWarnings
+                description: Order has completed with warnings.
+              - value: ReadyToDispatchFromAzureDC
+                description: Device is ready to be handed to customer from Azure DC.
+              - value: ReadyToReceiveAtAzureDC
+                description: Device can be dropped off at Azure DC.
+              - value: Created
+                description: Job created by the customer.
+              - value: ShippedToAzureDC
+                description: User shipped the device to AzureDC.
+              - value: AwaitingShipmentDetails
+                description: Awaiting shipment details of device from customer.
+              - value: PreparingToShipFromAzureDC
+                description: Preparing the device to ship to customer.
+              - value: ShippedToCustomer
+                description: Shipped the device to customer.
+        startTime:
+          format: date-time
+          description: Time at which the job was started in UTC ISO 8601 format.
           type: string
           readOnly: true
-        type:
-          description: Type of the object.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Top level error for the job.
+          readOnly: true
+        details:
+          $ref: '#/components/schemas/JobDetails'
+          description: Details of a job run. This field will only be sent for expand details filter.
+        cancellationReason:
+          description: Reason for cancellation.
           type: string
           readOnly: true
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
+        deliveryType:
+          description: Delivery type of Job.
+          enum:
+            - NonScheduled
+            - Scheduled
+          type: string
+          x-ms-enum:
+            name: JobDeliveryType
+            modelAsExtensible: true
+            values:
+              - value: NonScheduled
+                description: Non Scheduled job.
+              - value: Scheduled
+                description: Scheduled job.
+          default: NonScheduled
+        deliveryInfo:
+          $ref: '#/components/schemas/JobDeliveryInfo'
+          description: Delivery Info of Job.
+        isCancellableWithoutFee:
+          description: Flag to indicate cancellation of scheduled job.
+          type: boolean
           readOnly: true
+      type: object
     JobResourceList:
       description: Job Resource Collection
       type: object
@@ -2185,20 +3971,11 @@ components:
           type: string
     JobResourceUpdateParameter:
       description: The JobResourceUpdateParameter.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/UpdateJobProperties'
-          description: Properties of a job to be updated.
-          x-ms-client-flatten: true
-        tags:
-          description: The list of key value pairs that describe the resource. These tags can be used in viewing and grouping this resource (across resource groups).
-          type: object
-          additionalProperties:
-            type: string
-        identity:
-          $ref: '#/components/schemas/ResourceIdentity'
-          description: Msi identity of the resource
+        details:
+          $ref: '#/components/schemas/UpdateJobDetails'
+          description: Details of a job to be updated.
+      type: object
     JobSecrets:
       description: The base class for the secrets
       required:
@@ -2408,17 +4185,36 @@ components:
         - resourceGroupId
         - stagingStorageAccountId
         - dataAccountType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DataAccountDetails'
+      x-ms-discriminator-value: ManagedDisk
       properties:
+        dataAccountType:
+          description: Account Type of the data to be transferred.
+          enum:
+            - StorageAccount
+            - ManagedDisk
+          type: string
+          x-ms-enum:
+            name: DataAccountType
+            modelAsExtensible: true
+            values:
+              - value: StorageAccount
+                description: Storage Accounts .
+              - value: ManagedDisk
+                description: Azure Managed disk storage.
+          default: StorageAccount
+        sharePassword:
+          description: 'Password for all the shares to be created on the device. Should not be passed for TransferType:ExportFromAzure jobs. If this is not passed, the service will generate password itself. This will not be returned in Get Call. Password Requirements :  Password must be minimum of 12 and maximum of 64 characters. Password must have at least one uppercase alphabet, one number and one special character. Password cannot have the following characters : IilLoO0 Password can have only alphabets, numbers and these characters : @#\-$%^!+=;:_()]+'
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
         resourceGroupId:
           description: Resource Group Id of the compute disks.
           type: string
         stagingStorageAccountId:
           description: Resource Id of the storage account that can be used to copy the vhd for staging.
           type: string
-      x-ms-discriminator-value: ManagedDisk
+      type: object
     MarkDevicesShippedRequest:
       description: The request body to provide the delivery package details of job
       required:
@@ -2536,28 +4332,8 @@ components:
           default: true
     Operation:
       description: Operation entity.
+      properties: {}
       type: object
-      properties:
-        name:
-          description: 'Name of the operation. Format: {resourceProviderNamespace}/{resourceType}/{read|write|delete|action}'
-          type: string
-          readOnly: true
-        display:
-          $ref: '#/components/schemas/OperationDisplay'
-          description: Operation display values.
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/OperationProperties'
-          description: Operation properties.
-          readOnly: true
-          x-ms-client-flatten: true
-        origin:
-          description: 'Origin of the operation. Can be : user|system|user,system'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
     OperationDisplay:
       description: Operation display
       type: object
@@ -2665,10 +4441,34 @@ components:
       required:
         - deviceType
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
+      x-ms-discriminator-value: ValidatePreferences
       properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
         preference:
           description: Preference of transport and data center.
           $ref: '#/components/schemas/Preferences'
@@ -2692,15 +4492,43 @@ components:
                 description: Data Box Heavy.
               - value: DataBoxCustomerDisk
                 description: Data Box Customer Disk.
-      x-ms-discriminator-value: ValidatePreferences
+      type: object
     PreferencesValidationResponseProperties:
       description: Properties of data center and transport preference validation response.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
+      x-ms-discriminator-value: ValidatePreferences
       properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
         status:
           description: Validation status of requested data center and transport.
           enum:
@@ -2719,7 +4547,7 @@ components:
                 description: Validation is not successful
               - value: Skipped
                 description: Validation is skipped
-      x-ms-discriminator-value: ValidatePreferences
+      type: object
     RegionConfigurationRequest:
       description: Request body to get the configuration for the region.
       type: object
@@ -3025,10 +4853,34 @@ components:
         - country
         - location
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
+      x-ms-discriminator-value: ValidateSkuAvailability
       properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
         deviceType:
           description: Device type to be used for the job.
           enum:
@@ -3069,15 +4921,43 @@ components:
         location:
           description: 'Location for data transfer. For locations check: https://management.azure.com/subscriptions/SUBSCRIPTIONID/locations?api-version=2018-01-01'
           type: string
-      x-ms-discriminator-value: ValidateSkuAvailability
+      type: object
     SkuAvailabilityValidationResponseProperties:
       description: Properties of sku availability validation response.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
+      x-ms-discriminator-value: ValidateSkuAvailability
       properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
         status:
           description: Sku availability validation status.
           enum:
@@ -3096,7 +4976,7 @@ components:
                 description: Validation is not successful
               - value: Skipped
                 description: Validation is skipped
-      x-ms-discriminator-value: ValidateSkuAvailability
+      type: object
     SkuCapacity:
       description: Capacity of the sku.
       type: object
@@ -3128,21 +5008,65 @@ components:
           readOnly: true
     SkuInformation:
       description: Information of the sku.
-      type: object
       properties:
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The Sku.
+        dataLocationToServiceLocationMap:
+          description: The map of data location to service location.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataLocationToServiceLocationMap'
           readOnly: true
-        enabled:
-          description: The sku is enabled or not.
-          type: boolean
+        capacity:
+          $ref: '#/components/schemas/SkuCapacity'
+          description: Capacity of the Sku.
           readOnly: true
-        properties:
-          $ref: '#/components/schemas/SkuProperties'
-          description: Properties of the sku.
+        costs:
+          description: Cost of the Sku.
+          type: array
+          items:
+            $ref: '#/components/schemas/SkuCost'
           readOnly: true
-          x-ms-client-flatten: true
+        apiVersions:
+          description: Api versions that support this Sku.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        disabledReason:
+          description: Reason why the Sku is disabled.
+          enum:
+            - None
+            - Country
+            - Region
+            - Feature
+            - OfferType
+            - NoSubscriptionInfo
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: SkuDisabledReason
+            modelAsExtensible: true
+            values:
+              - value: None
+                description: SKU is not disabled.
+              - value: Country
+                description: SKU is not available in the requested country.
+              - value: Region
+                description: SKU is not available to push data to the requested Azure region.
+              - value: Feature
+                description: Required features are not enabled for the SKU.
+              - value: OfferType
+                description: Subscription does not have required offer types for the SKU.
+              - value: NoSubscriptionInfo
+                description: Subscription has not registered to Microsoft.DataBox and Service does not have the subscription notification.
+        disabledReasonMessage:
+          description: Message for why the Sku is disabled.
+          type: string
+          readOnly: true
+        requiredFeature:
+          description: Required feature to access the sku.
+          type: string
+          readOnly: true
+      type: object
     SkuProperties:
       description: Properties of the sku.
       type: object
@@ -3209,31 +5133,102 @@ components:
       required:
         - storageAccountId
         - dataAccountType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DataAccountDetails'
+      x-ms-discriminator-value: StorageAccount
       properties:
+        dataAccountType:
+          description: Account Type of the data to be transferred.
+          enum:
+            - StorageAccount
+            - ManagedDisk
+          type: string
+          x-ms-enum:
+            name: DataAccountType
+            modelAsExtensible: true
+            values:
+              - value: StorageAccount
+                description: Storage Accounts .
+              - value: ManagedDisk
+                description: Azure Managed disk storage.
+          default: StorageAccount
+        sharePassword:
+          description: 'Password for all the shares to be created on the device. Should not be passed for TransferType:ExportFromAzure jobs. If this is not passed, the service will generate password itself. This will not be returned in Get Call. Password Requirements :  Password must be minimum of 12 and maximum of 64 characters. Password must have at least one uppercase alphabet, one number and one special character. Password cannot have the following characters : IilLoO0 Password can have only alphabets, numbers and these characters : @#\-$%^!+=;:_()]+'
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
         storageAccountId:
           description: Storage Account Resource Id.
           type: string
-      x-ms-discriminator-value: StorageAccount
+      type: object
     SubscriptionIsAllowedToCreateJobValidationRequest:
       description: Request to validate subscription permission to create jobs.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
-      properties: {}
       x-ms-discriminator-value: ValidateSubscriptionIsAllowedToCreateJob
+      properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+      type: object
     SubscriptionIsAllowedToCreateJobValidationResponseProperties:
       description: Properties of subscription permission to create job validation response.
       required:
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputResponse'
+      x-ms-discriminator-value: ValidateSubscriptionIsAllowedToCreateJob
       properties:
+        validationType:
+          description: Identifies the type of validation response.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
+        error:
+          $ref: '#/components/schemas/CloudError'
+          description: Error code and message of validation response.
+          readOnly: true
         status:
           description: Validation status of subscription permission to create job.
           enum:
@@ -3252,7 +5247,7 @@ components:
                 description: Validation is not successful
               - value: Skipped
                 description: Validation is skipped
-      x-ms-discriminator-value: ValidateSubscriptionIsAllowedToCreateJob
+      type: object
     systemData:
       description: Provides details about resource creation and update time
       type: object
@@ -3521,10 +5516,34 @@ components:
         - shippingAddress
         - deviceType
         - validationType
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ValidationInputRequest'
+      x-ms-discriminator-value: ValidateAddress
       properties:
+        validationType:
+          description: Identifies the type of validation request.
+          enum:
+            - ValidateAddress
+            - ValidateSubscriptionIsAllowedToCreateJob
+            - ValidatePreferences
+            - ValidateCreateOrderLimit
+            - ValidateSkuAvailability
+            - ValidateDataTransferDetails
+          type: string
+          x-ms-enum:
+            name: ValidationInputDiscriminator
+            modelAsExtensible: true
+            values:
+              - value: ValidateAddress
+                description: Identify request and response of address validation.
+              - value: ValidateSubscriptionIsAllowedToCreateJob
+                description: Identify request and response for validation of subscription permission to create job.
+              - value: ValidatePreferences
+                description: Identify request and response of preference validation.
+              - value: ValidateCreateOrderLimit
+                description: Identify request and response of create order limit for subscription validation.
+              - value: ValidateSkuAvailability
+                description: Identify request and response of active job limit for sku availability.
+              - value: ValidateDataTransferDetails
+                description: Identify request and response of data transfer details validation.
         shippingAddress:
           $ref: '#/components/schemas/ShippingAddress'
           description: Shipping address of the customer.
@@ -3551,7 +5570,7 @@ components:
         transportPreferences:
           $ref: '#/components/schemas/TransportPreferences'
           description: Preferences related to the shipment logistics of the sku.
-      x-ms-discriminator-value: ValidateAddress
+      type: object
     ValidationInputRequest:
       description: Minimum fields that must be present in any type of validation request.
       required:
@@ -3651,13 +5670,32 @@ components:
         propertyName: validationCategory
     ValidationResponse:
       description: Response of pre job creation validations.
-      type: object
       properties:
-        properties:
-          $ref: '#/components/schemas/ValidationResponseProperties'
-          description: Properties of pre job creation validation response.
+        status:
+          description: Overall validation status.
+          enum:
+            - AllValidToProceed
+            - InputsRevisitRequired
+            - CertainInputValidationsSkipped
+          type: string
           readOnly: true
-          x-ms-client-flatten: true
+          x-ms-enum:
+            name: OverallValidationStatus
+            modelAsExtensible: true
+            values:
+              - value: AllValidToProceed
+                description: Every input request is valid.
+              - value: InputsRevisitRequired
+                description: Some input requests are not valid.
+              - value: CertainInputValidationsSkipped
+                description: Certain input validations skipped.
+        individualResponseDetails:
+          description: List of response details contain validationType and its response as key and value respectively.
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationInputResponse'
+          readOnly: true
+      type: object
     ValidationResponseProperties:
       description: Properties of pre job creation validation response.
       type: object
@@ -3686,48 +5724,6 @@ components:
           items:
             $ref: '#/components/schemas/ValidationInputResponse'
           readOnly: true
-  parameters:
-    apiVersionParameter:
-      name: api-version
-      in: query
-      description: The API Version
-      required: true
-      schema:
-        type: string
-    jobNameParameter:
-      name: jobName
-      in: path
-      description: The name of the job Resource within the specified resource group. job names must be between 3 and 24 characters in length and use any alphanumeric and underscore only
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        maxLength: 24
-        minLength: 3
-        pattern: ^[-\w\.]+$
-        type: string
-    locationParameter:
-      name: location
-      in: path
-      description: The location of the resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    resourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The Resource Group Name
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    subscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Subscription Id
-      required: true
-      schema:
-        type: string
 paths:
   /providers/Microsoft.DataBox/operations/?api-version=2022-02-01:
     get:

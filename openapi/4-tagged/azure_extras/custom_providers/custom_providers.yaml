@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,39 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ResourceProviderNameParameter:
+      name: resourceProviderName
+      in: path
+      description: The name of the resource provider.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 3
+        maxLength: 64
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to be used with the HTTP request.
+      required: true
+      schema:
+        type: string
   schemas:
     ListByCustomRPManifest:
       properties:
@@ -60,8 +93,13 @@ components:
             name: ActionRouting
           enum:
             - Proxy
-      allOf:
-        - $ref: '#/components/schemas/CustomRPRouteDefinition'
+        name:
+          type: string
+          description: The name of the route definition. This becomes the name for the ARM extension (e.g. '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.CustomProviders/resourceProviders/{resourceProviderName}/{name}')
+        endpoint:
+          type: string
+          description: The route definition endpoint URI that the custom resource provider will proxy requests to. This can be in the form of a flat URI (e.g. 'https://testendpoint/') or can specify to route via a path (e.g. 'https://testendpoint/{requestPath}')
+          pattern: ^https://.+
       type: object
     CustomRPResourceTypeRouteDefinition:
       description: The route definition for a resource implemented by the custom resource provider.
@@ -75,8 +113,13 @@ components:
           enum:
             - Proxy
             - Proxy,Cache
-      allOf:
-        - $ref: '#/components/schemas/CustomRPRouteDefinition'
+        name:
+          type: string
+          description: The name of the route definition. This becomes the name for the ARM extension (e.g. '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.CustomProviders/resourceProviders/{resourceProviderName}/{name}')
+        endpoint:
+          type: string
+          description: The route definition endpoint URI that the custom resource provider will proxy requests to. This can be in the form of a flat URI (e.g. 'https://testendpoint/') or can specify to route via a path (e.g. 'https://testendpoint/{requestPath}')
+          pattern: ^https://.+
       type: object
     CustomRPValidations:
       description: A validation to apply on custom resource provider requests.
@@ -97,50 +140,31 @@ components:
           pattern: ^https://raw.githubusercontent.com/.+
       type: object
     CustomRPManifest:
-      properties:
-        properties:
-          type: object
-          x-ms-client-flatten: true
-          description: The manifest for the custom resource provider
-          properties:
-            actions:
-              type: array
-              description: A list of actions that the custom resource provider implements.
-              items:
-                $ref: '#/components/schemas/CustomRPActionRouteDefinition'
-              x-ms-identifiers:
-                - name
-                - endpoint
-            resourceTypes:
-              type: array
-              description: A list of resource types that the custom resource provider implements.
-              items:
-                $ref: '#/components/schemas/CustomRPResourceTypeRouteDefinition'
-              x-ms-identifiers:
-                - name
-                - endpoint
-            validations:
-              type: array
-              description: A list of validations to run on the custom resource provider's requests.
-              items:
-                $ref: '#/components/schemas/CustomRPValidations'
-              x-ms-identifiers: []
-            provisioningState:
-              type: string
-              description: The provisioning state of the resource provider.
-              readOnly: true
-              x-ms-enum:
-                modelAsString: true
-                name: ProvisioningState
-              enum:
-                - Accepted
-                - Deleting
-                - Running
-                - Succeeded
-                - Failed
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       description: A manifest file that defines the custom resource provider resources.
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Resource Id
+        name:
+          readOnly: true
+          type: string
+          description: Resource name
+        type:
+          readOnly: true
+          type: string
+          description: Resource type
+        location:
+          type: string
+          description: Resource location
+          x-ms-mutability:
+            - read
+            - create
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
       type: object
     ResourceProviderOperationList:
       description: Results of the request to list operations.
@@ -184,40 +208,7 @@ components:
       x-ms-azure-resource: true
       x-ms-client-flatten: true
       description: The resource definition of this association.
-      properties:
-        id:
-          type: string
-          readOnly: true
-          description: The association id.
-        name:
-          type: string
-          readOnly: true
-          description: The association name.
-        type:
-          type: string
-          readOnly: true
-          description: The association type.
-        properties:
-          type: object
-          description: The properties of the association.
-          x-ms-client-flatten: true
-          properties:
-            targetResourceId:
-              type: string
-              description: The REST resource instance of the target resource for this association.
-            provisioningState:
-              type: string
-              description: The provisioning state of the association.
-              readOnly: true
-              x-ms-enum:
-                modelAsString: true
-                name: ProvisioningState
-              enum:
-                - Accepted
-                - Deleting
-                - Running
-                - Succeeded
-                - Failed
+      properties: {}
       type: object
     AssociationsList:
       description: List of associations.
@@ -296,39 +287,6 @@ components:
           x-ms-identifiers: []
           readOnly: true
       type: object
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ResourceProviderNameParameter:
-      name: resourceProviderName
-      in: path
-      description: The name of the resource provider.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 3
-        maxLength: 64
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to be used with the HTTP request.
-      required: true
-      schema:
-        type: string
 paths:
   /providers/Microsoft.CustomProviders/operations/?api-version=2018-09-01-preview:
     get:

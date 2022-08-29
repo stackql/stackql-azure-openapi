@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,41 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    MultipleActivationKeyNameParameter:
+      name: multipleActivationKeyName
+      in: path
+      description: The name of the MAK key.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +80,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +119,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -351,83 +417,24 @@ components:
           type: string
     MultipleActivationKey:
       description: MAK key details.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          description: MAK key specific properties.
-          type: object
-          x-ms-client-flatten: true
-          properties:
-            multipleActivationKey:
-              description: MAK 5x5 key.
-              type: string
-              readOnly: true
-            expirationDate:
-              description: End of support of security updates activated by the MAK key.
-              format: date-time
-              type: string
-              readOnly: true
-            osType:
-              description: Type of OS for which the key is requested.
-              type: string
-              enum:
-                - Windows7
-                - WindowsServer2008
-                - WindowsServer2008R2
-              x-ms-enum:
-                name: OsType
-                modelAsString: true
-              x-ms-mutability:
-                - create
-                - read
-            supportType:
-              description: Type of support
-              type: string
-              enum:
-                - SupplementalServicing
-                - PremiumAssurance
-              default: SupplementalServicing
-              x-ms-enum:
-                name: SupportType
-                modelAsString: true
-              x-ms-mutability:
-                - create
-                - read
-            installedServerNumber:
-              description: Number of activations/servers using the MAK key.
-              type: integer
-              minimum: 1
-              maximum: 5000
-              x-ms-mutability:
-                - create
-                - read
-            agreementNumber:
-              description: Agreement number under which the key is requested.
-              type: string
-              x-ms-mutability:
-                - create
-                - read
-            isEligible:
-              description: <code> true </code> if user has eligible on-premises Windows physical or virtual machines, and that the requested key will only be used in their organization; <code> false </code> otherwise.
-              type: boolean
-              x-ms-mutability:
-                - create
-                - read
-            provisioningState:
-              type: string
-              enum:
-                - Succeeded
-                - Failed
-                - Canceled
-                - Accepted
-                - Provisioning
-              x-ms-enum:
-                name: ProvisioningState
-                modelAsString: true
-              readOnly: true
       x-ms-azure-resource: true
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     MultipleActivationKeyList:
       description: List of MAK keys.
       type: object
@@ -493,41 +500,6 @@ components:
             $ref: '#/components/schemas/ErrorDefinition'
           readOnly: true
       type: object
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    MultipleActivationKeyNameParameter:
-      name: multipleActivationKeyName
-      in: path
-      description: The name of the MAK key.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /providers/Microsoft.WindowsESU/operations/?api-version=2019-09-16-preview:
     get:

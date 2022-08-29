@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,32 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: A unique identifier for a Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The client API version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the Azure Resource group of which a given PowerBIDedicated capacity is part. This name must be at least 1 character in length, and no more than 90.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-\w\._\(\)]+$
+        minLength: 1
+        maxLength: 90
+        type: string
   schemas:
     OperationListResult:
       description: Result listing capacities. It contains a list of operations and a URL link to get the next set of results.
@@ -41,41 +67,8 @@ components:
       type: object
     Operation:
       description: Capacities REST API operation.
+      properties: {}
       type: object
-      properties:
-        name:
-          description: 'Operation name: {provider}/{resource}/{operation}.'
-          type: string
-          readOnly: true
-        display:
-          description: The object that represents the operation.
-          properties:
-            provider:
-              description: 'Service provider: Microsoft.PowerBIDedicated.'
-              type: string
-              readOnly: true
-            resource:
-              description: 'Resource on which the operation is performed: capacity, etc.'
-              type: string
-              readOnly: true
-            operation:
-              description: 'Operation type: create, update, delete, etc.'
-              type: string
-              readOnly: true
-            description:
-              type: string
-              description: Localized description of the operation.
-        origin:
-          type: string
-          description: Origin of the operation.
-          readOnly: true
-        properties:
-          type: object
-          description: Additional properties to expose performance metrics to shoebox.
-          properties:
-            serviceSpecification:
-              description: Service specification for exposing performance metrics to shoebox.
-              $ref: '#/components/schemas/ServiceSpecification'
     Resource:
       description: Represents an instance of an PowerBI Dedicated resource.
       type: object
@@ -111,49 +104,8 @@ components:
       x-ms-azure-resource: true
     DedicatedCapacity:
       description: Represents an instance of a Dedicated Capacity resource.
-      type: object
-      properties:
-        sku:
-          $ref: '#/components/schemas/CapacitySku'
-          description: The SKU of the PowerBI Dedicated capacity resource.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DedicatedCapacityProperties'
-          description: Properties of the provision operation request.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       required:
         - sku
-    DedicatedCapacities:
-      description: An array of Dedicated capacities resources.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/DedicatedCapacity'
-          description: An array of Dedicated capacities resources.
-      required:
-        - value
-    DedicatedCapacityUpdateParameters:
-      description: Provision request specification
-      type: object
-      properties:
-        sku:
-          $ref: '#/components/schemas/CapacitySku'
-          description: The SKU of the Dedicated capacity resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Key-value pairs of additional provisioning properties.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DedicatedCapacityMutableProperties'
-          description: Properties of the provision operation request.
-    DedicatedCapacityProperties:
-      description: Properties of Dedicated Capacity resource.
-      type: object
       properties:
         state:
           type: string
@@ -195,8 +147,132 @@ components:
             modelAsString: true
           readOnly: true
           description: The current deployment state of PowerBI Dedicated resource. The provisioningState is to indicate states for resource provisioning.
-      allOf:
-        - $ref: '#/components/schemas/DedicatedCapacityMutableProperties'
+        id:
+          type: string
+          readOnly: true
+          description: An identifier that represents the PowerBI Dedicated resource.
+        name:
+          type: string
+          readOnly: true
+          description: The name of the PowerBI Dedicated resource.
+        type:
+          type: string
+          readOnly: true
+          description: The type of the PowerBI Dedicated resource.
+        location:
+          type: string
+          description: Location of the PowerBI Dedicated resource.
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Key-value pairs of additional resource provisioning properties.
+        systemData:
+          $ref: '#/components/schemas/SystemData'
+          description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+    DedicatedCapacities:
+      description: An array of Dedicated capacities resources.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/DedicatedCapacity'
+          description: An array of Dedicated capacities resources.
+      required:
+        - value
+    DedicatedCapacityUpdateParameters:
+      description: Provision request specification
+      properties:
+        administration:
+          $ref: '#/components/schemas/DedicatedCapacityAdministrators'
+          description: A collection of Dedicated capacity administrators
+        mode:
+          description: Specifies the generation of the Power BI Embedded capacity. If no value is specified, the default value 'Gen2' is used. [Learn More](https://docs.microsoft.com/power-bi/developer/embedded/power-bi-embedded-generation-2)
+          type: string
+          enum:
+            - Gen1
+            - Gen2
+          x-ms-enum:
+            name: Mode
+            modelAsString: true
+        tenantId:
+          type: string
+          description: Tenant ID for the capacity. Used for creating Pro Plus capacity.
+          readOnly: true
+        friendlyName:
+          type: string
+          description: Capacity name
+          readOnly: true
+      type: object
+    DedicatedCapacityProperties:
+      description: Properties of Dedicated Capacity resource.
+      properties:
+        state:
+          type: string
+          enum:
+            - Deleting
+            - Succeeded
+            - Failed
+            - Paused
+            - Suspended
+            - Provisioning
+            - Updating
+            - Suspending
+            - Pausing
+            - Resuming
+            - Preparing
+            - Scaling
+          x-ms-enum:
+            name: State
+            modelAsString: true
+          readOnly: true
+          description: The current state of PowerBI Dedicated resource. The state is to indicate more states outside of resource provisioning.
+        provisioningState:
+          type: string
+          enum:
+            - Deleting
+            - Succeeded
+            - Failed
+            - Paused
+            - Suspended
+            - Provisioning
+            - Updating
+            - Suspending
+            - Pausing
+            - Resuming
+            - Preparing
+            - Scaling
+          x-ms-enum:
+            name: CapacityProvisioningState
+            modelAsString: true
+          readOnly: true
+          description: The current deployment state of PowerBI Dedicated resource. The provisioningState is to indicate states for resource provisioning.
+        administration:
+          $ref: '#/components/schemas/DedicatedCapacityAdministrators'
+          description: A collection of Dedicated capacity administrators
+        mode:
+          description: Specifies the generation of the Power BI Embedded capacity. If no value is specified, the default value 'Gen2' is used. [Learn More](https://docs.microsoft.com/power-bi/developer/embedded/power-bi-embedded-generation-2)
+          type: string
+          enum:
+            - Gen1
+            - Gen2
+          x-ms-enum:
+            name: Mode
+            modelAsString: true
+        tenantId:
+          type: string
+          description: Tenant ID for the capacity. Used for creating Pro Plus capacity.
+          readOnly: true
+        friendlyName:
+          type: string
+          description: Capacity name
+          readOnly: true
+      type: object
     CapacitySku:
       description: Represents the SKU name and Azure pricing tier for PowerBI Dedicated capacity resource.
       type: object
@@ -437,49 +513,8 @@ components:
         modelAsString: true
     AutoScaleVCore:
       description: Represents an instance of an auto scale v-core resource.
-      type: object
-      properties:
-        sku:
-          $ref: '#/components/schemas/AutoScaleVCoreSku'
-          description: The SKU of the auto scale v-core resource.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AutoScaleVCoreProperties'
-          description: Properties of an auto scale v-core resource.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       required:
         - sku
-    AutoScaleVCoreListResult:
-      description: An array of auto scale v-core resources.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/AutoScaleVCore'
-          description: An array of auto scale v-core resources.
-      required:
-        - value
-    AutoScaleVCoreUpdateParameters:
-      description: Update request specification
-      type: object
-      properties:
-        sku:
-          $ref: '#/components/schemas/AutoScaleVCoreSku'
-          description: The SKU of the auto scale v-core resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Key-value pairs of additional provisioning properties.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AutoScaleVCoreMutableProperties'
-          description: Properties of the update operation request.
-    AutoScaleVCoreProperties:
-      description: Properties of an auto scale v-core resource.
-      type: object
       properties:
         capacityObjectId:
           type: string
@@ -493,8 +528,72 @@ components:
             modelAsString: true
           readOnly: true
           description: The current deployment state of an auto scale v-core resource. The provisioningState is to indicate states for resource provisioning.
-      allOf:
-        - $ref: '#/components/schemas/AutoScaleVCoreMutableProperties'
+        id:
+          type: string
+          readOnly: true
+          description: An identifier that represents the PowerBI Dedicated resource.
+        name:
+          type: string
+          readOnly: true
+          description: The name of the PowerBI Dedicated resource.
+        type:
+          type: string
+          readOnly: true
+          description: The type of the PowerBI Dedicated resource.
+        location:
+          type: string
+          description: Location of the PowerBI Dedicated resource.
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Key-value pairs of additional resource provisioning properties.
+        systemData:
+          $ref: '#/components/schemas/SystemData'
+          description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+    AutoScaleVCoreListResult:
+      description: An array of auto scale v-core resources.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoScaleVCore'
+          description: An array of auto scale v-core resources.
+      required:
+        - value
+    AutoScaleVCoreUpdateParameters:
+      description: Update request specification
+      properties:
+        capacityLimit:
+          type: integer
+          format: int32
+          description: The maximum capacity of an auto scale v-core resource.
+      type: object
+    AutoScaleVCoreProperties:
+      description: Properties of an auto scale v-core resource.
+      properties:
+        capacityObjectId:
+          type: string
+          description: The object ID of the capacity resource associated with the auto scale v-core resource.
+        provisioningState:
+          type: string
+          enum:
+            - Succeeded
+          x-ms-enum:
+            name: VCoreProvisioningState
+            modelAsString: true
+          readOnly: true
+          description: The current deployment state of an auto scale v-core resource. The provisioningState is to indicate states for resource provisioning.
+        capacityLimit:
+          type: integer
+          format: int32
+          description: The maximum capacity of an auto scale v-core resource.
+      type: object
     AutoScaleVCoreMutableProperties:
       description: An object that represents a set of mutable auto scale v-core resource properties.
       type: object
@@ -524,32 +623,6 @@ components:
           description: The capacity of an auto scale v-core resource.
       required:
         - name
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: A unique identifier for a Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The client API version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the Azure Resource group of which a given PowerBIDedicated capacity is part. This name must be at least 1 character in length, and no more than 90.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[-\w\._\(\)]+$
-        minLength: 1
-        maxLength: 90
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.PowerBIDedicated/capacities/{dedicatedCapacityName}/?api-version=2021-01-01:
     get:

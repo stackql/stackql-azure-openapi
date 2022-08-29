@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,89 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    subscriptionId:
+      name: subscriptionId
+      in: path
+      description: The Subscription ID.
+      required: true
+      schema:
+        type: string
+    api-version:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The Resource Group Name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    moveCollectionName:
+      name: moveCollectionName
+      in: path
+      description: The Move Collection Name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    moveResourceName:
+      name: moveResourceName
+      in: path
+      description: The Move Resource Name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +128,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +167,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -680,27 +794,53 @@ components:
           readOnly: true
     MoveResource:
       description: Defines the move resource.
-      type: object
       x-ms-azure-resource: true
       properties:
-        id:
-          readOnly: true
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+        sourceId:
+          description: Gets or sets the Source ARM Id of the resource.
           type: string
-          description: Fully qualified resource Id for the resource.
-        name:
-          readOnly: true
+        targetId:
+          description: Gets or sets the Target ARM Id of the resource.
           type: string
-          description: The name of the resource
-        type:
           readOnly: true
+        existingTargetId:
+          description: Gets or sets the existing target ARM Id of the resource.
           type: string
-          description: The type of the resource.
-        properties:
-          $ref: '#/components/schemas/MoveResourceProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
+        resourceSettings:
+          description: Gets or sets the resource settings.
+          $ref: '#/components/schemas/ResourceSettings'
+        sourceResourceSettings:
+          description: Gets or sets the source resource settings.
+          $ref: '#/components/schemas/ResourceSettings'
           readOnly: true
-          description: Metadata pertaining to creation and last modification of the resource.
+        moveStatus:
+          description: Defines the move resource status.
+          allOf:
+            - $ref: '#/components/schemas/MoveResourceStatus'
+          readOnly: true
+        dependsOn:
+          description: Gets or sets the move resource dependencies.
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/MoveResourceDependency'
+        dependsOnOverrides:
+          description: Gets or sets the move resource dependencies overrides.
+          type: array
+          items:
+            $ref: '#/components/schemas/MoveResourceDependencyOverride'
+        isResolveRequired:
+          description: Gets a value indicating whether the resolve action is required over the move collection.
+          type: boolean
+          readOnly: true
+        errors:
+          description: Defines the move resource errors.
+          allOf:
+            - $ref: '#/components/schemas/MoveResourceError'
+          readOnly: true
+      type: object
     Summary:
       description: Summary item.
       type: object
@@ -748,48 +888,22 @@ components:
           readOnly: true
     MoveCollection:
       description: Define the move collection.
-      type: object
       x-ms-azure-resource: true
       properties:
-        id:
-          readOnly: true
+        sourceRegion:
+          description: Gets or sets the source region.
           type: string
-          description: Fully qualified resource Id for the resource.
-        name:
-          readOnly: true
+        targetRegion:
+          description: Gets or sets the target region.
           type: string
-          description: The name of the resource
-        type:
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+        errors:
+          description: Defines the move collection errors.
+          allOf:
+            - $ref: '#/components/schemas/MoveResourceError'
           readOnly: true
-          type: string
-          description: The type of the resource.
-        etag:
-          readOnly: true
-          type: string
-          description: The etag of the resource.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives.
-        identity:
-          $ref: '#/components/schemas/Identity'
-        properties:
-          $ref: '#/components/schemas/MoveCollectionProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-          description: Metadata pertaining to creation and last modification of the resource.
+      type: object
     UpdateMoveCollectionRequest:
       description: Defines the request body for updating move collection.
       type: object
@@ -882,8 +996,9 @@ components:
     MoveResourceFilter:
       description: Move resource filter.
       properties:
-        properties:
-          $ref: '#/components/schemas/MoveResourceFilterProperties'
+        provisioningState:
+          type: string
+          description: The provisioning state.
       type: object
     MoveResourceFilterProperties:
       properties:
@@ -894,8 +1009,10 @@ components:
     UnresolvedDependenciesFilter:
       description: Unresolved dependencies contract.
       properties:
-        properties:
-          $ref: '#/components/schemas/UnresolvedDependenciesFilterProperties'
+        count:
+          format: int32
+          type: integer
+          description: The count of the resource.
       type: object
     UnresolvedDependenciesFilterProperties:
       properties:
@@ -995,24 +1112,12 @@ components:
           type: string
     OperationsDiscoveryProperties:
       description: ClientDiscovery properties.
+      properties: {}
       type: object
     OperationsDiscovery:
       description: Operations discovery class.
+      properties: {}
       type: object
-      properties:
-        name:
-          description: "Gets or sets Name of the API.\r\nThe name of the operation being performed on this particular object. It should\r\nmatch the action name that appears in RBAC / the event service.\r\nExamples of operations include:\r\n* Microsoft.Compute/virtualMachine/capture/action\r\n* Microsoft.Compute/virtualMachine/restart/action\r\n* Microsoft.Compute/virtualMachine/write\r\n* Microsoft.Compute/virtualMachine/read\r\n* Microsoft.Compute/virtualMachine/delete\r\nEach action should include, in order:\r\n(1) Resource Provider Namespace\r\n(2) Type hierarchy for which the action applies (e.g. server/databases for a SQL\r\nAzure database)\r\n(3) Read, Write, Action or Delete indicating which type applies. If it is a PUT/PATCH\r\non a collection or named value, Write should be used.\r\nIf it is a GET, Read should be used. If it is a DELETE, Delete should be used. If it\r\nis a POST, Action should be used.\r\nAs a note: all resource providers would need to include the \"{Resource Provider\r\nNamespace}/register/action\" operation in their response.\r\nThis API is used to register for their service, and should include details about the\r\noperation (e.g. a localized name for the resource provider + any special\r\nconsiderations like PII release)."
-          type: string
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        display:
-          $ref: '#/components/schemas/Display'
-        origin:
-          description: "Gets or sets Origin.\r\nThe intended executor of the operation; governs the display of the operation in the\r\nRBAC UX and the audit logs UX.\r\nDefault value is \"user,system\"."
-          type: string
-        properties:
-          $ref: '#/components/schemas/OperationsDiscoveryProperties'
     OperationsDiscoveryCollection:
       description: Collection of ClientDiscovery details.
       type: object
@@ -1028,12 +1133,27 @@ components:
           description: Gets or sets the value of next link.
           type: string
     MoveResourceError:
-      properties:
-        properties:
-          type: object
-          description: The move resource error body.
-          $ref: '#/components/schemas/MoveResourceErrorBody'
       description: An error response from the azure resource mover service.
+      properties:
+        code:
+          type: string
+          readOnly: true
+          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
+        message:
+          type: string
+          readOnly: true
+          description: A message describing the error, intended to be suitable for display in a user interface.
+        target:
+          type: string
+          readOnly: true
+          description: The target of the particular error. For example, the name of the property in error.
+        details:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/MoveResourceErrorBody'
+          x-ms-identifiers: []
+          description: A list of additional details about the error.
       type: object
     MoveResourceErrorBody:
       properties:
@@ -1078,10 +1198,17 @@ components:
         propertyName: resourceType
     VirtualMachineResourceSettings:
       description: Gets or sets the virtual machine resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Compute/virtualMachines
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1109,13 +1236,20 @@ components:
         targetAvailabilitySetId:
           description: Gets or sets the target availability set id for virtual machines not in an availability set at source.
           type: string
-      x-ms-discriminator-value: Microsoft.Compute/virtualMachines
+      type: object
     AvailabilitySetResourceSettings:
       description: Gets or sets the availability set resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Compute/availabilitySets
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1134,7 +1268,7 @@ components:
           minimum: 1
           maximum: 20
           nullable: true
-      x-ms-discriminator-value: Microsoft.Compute/availabilitySets
+      type: object
     SubnetResourceSettings:
       description: Defines the virtual network subnets resource settings.
       type: object
@@ -1149,10 +1283,17 @@ components:
           $ref: '#/components/schemas/NsgReference'
     VirtualNetworkResourceSettings:
       description: Defines the virtual network resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Network/virtualNetworks
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1179,7 +1320,7 @@ components:
             $ref: '#/components/schemas/SubnetResourceSettings'
           x-ms-identifiers:
             - /networkSecurityGroup/sourceArmResourceId
-      x-ms-discriminator-value: Microsoft.Network/virtualNetworks
+      type: object
     AzureResourceReference:
       description: Defines reference to an Azure resource.
       required:
@@ -1191,19 +1332,27 @@ components:
           type: string
     ProxyResourceReference:
       description: Defines reference to a proxy resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceReference'
       properties:
+        sourceArmResourceId:
+          description: Gets the ARM resource ID of the tracked resource being referenced.
+          type: string
         name:
           description: Gets the name of the proxy resource on the target side.
           type: string
+      type: object
     NetworkInterfaceResourceSettings:
       description: Defines the network interface resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Network/networkInterfaces
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1220,37 +1369,42 @@ components:
           description: Gets or sets a value indicating whether accelerated networking is enabled.
           type: boolean
           nullable: true
-      x-ms-discriminator-value: Microsoft.Network/networkInterfaces
+      type: object
     SubnetReference:
       description: Defines reference to subnet.
+      properties:
+        name:
+          description: Gets the name of the proxy resource on the target side.
+          type: string
       type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResourceReference'
-      properties: {}
     LoadBalancerBackendAddressPoolReference:
       description: Defines reference to load balancer backend address pools.
+      properties:
+        name:
+          description: Gets the name of the proxy resource on the target side.
+          type: string
       type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResourceReference'
-      properties: {}
     LoadBalancerNatRuleReference:
       description: Defines reference to load balancer NAT rules.
+      properties:
+        name:
+          description: Gets the name of the proxy resource on the target side.
+          type: string
       type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResourceReference'
-      properties: {}
     NsgReference:
       description: Defines reference to NSG.
+      properties:
+        sourceArmResourceId:
+          description: Gets the ARM resource ID of the tracked resource being referenced.
+          type: string
       type: object
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceReference'
-      properties: {}
     PublicIpReference:
       description: Defines reference to a public IP.
+      properties:
+        sourceArmResourceId:
+          description: Gets the ARM resource ID of the tracked resource being referenced.
+          type: string
       type: object
-      allOf:
-        - $ref: '#/components/schemas/AzureResourceReference'
-      properties: {}
     NicIpConfigurationResourceSettings:
       description: Defines NIC IP configuration properties.
       type: object
@@ -1322,10 +1476,17 @@ components:
           type: string
     NetworkSecurityGroupResourceSettings:
       description: Defines the NSG resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Network/networkSecurityGroups
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1338,7 +1499,7 @@ components:
             $ref: '#/components/schemas/NsgSecurityRule'
           x-ms-identifiers:
             - name
-      x-ms-discriminator-value: Microsoft.Network/networkSecurityGroups
+      type: object
     LBFrontendIPConfigurationResourceSettings:
       description: Defines load balancer frontend IP configuration properties.
       type: object
@@ -1366,10 +1527,17 @@ components:
           type: string
     LoadBalancerResourceSettings:
       description: Defines the load balancer resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Network/loadBalancers
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1394,14 +1562,21 @@ components:
         zones:
           description: "Gets or sets the csv list of zones common for all frontend IP configurations. Note this is given\r\n precedence only if frontend IP configurations settings are not present."
           type: string
-      x-ms-discriminator-value: Microsoft.Network/loadBalancers
+      type: object
     SqlServerResourceSettings:
       description: Defines the SQL Server resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
-      properties: {}
       x-ms-discriminator-value: Microsoft.Sql/servers
+      properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
+      type: object
     ZoneRedundant:
       description: Defines the zone redundant resource setting.
       enum:
@@ -1413,10 +1588,17 @@ components:
         modelAsString: true
     SqlElasticPoolResourceSettings:
       description: Defines the Sql ElasticPool resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Sql/servers/elasticPools
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1424,13 +1606,20 @@ components:
             type: string
         zoneRedundant:
           $ref: '#/components/schemas/ZoneRedundant'
-      x-ms-discriminator-value: Microsoft.Sql/servers/elasticPools
+      type: object
     SqlDatabaseResourceSettings:
       description: Defines the Sql Database resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Sql/servers/databases
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1438,20 +1627,34 @@ components:
             type: string
         zoneRedundant:
           $ref: '#/components/schemas/ZoneRedundant'
-      x-ms-discriminator-value: Microsoft.Sql/servers/databases
+      type: object
     ResourceGroupResourceSettings:
       description: Defines the resource group resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
-      properties: {}
       x-ms-discriminator-value: resourceGroups
+      properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
+      type: object
     PublicIPAddressResourceSettings:
       description: Defines the public IP address resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
+      x-ms-discriminator-value: Microsoft.Network/publicIPAddresses
       properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
         tags:
           description: Gets or sets the Resource tags.
           type: object
@@ -1472,21 +1675,35 @@ components:
         zones:
           description: Gets or sets public IP zones.
           type: string
-      x-ms-discriminator-value: Microsoft.Network/publicIPAddresses
+      type: object
     KeyVaultResourceSettings:
       description: Defines the key vault resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
-      properties: {}
       x-ms-discriminator-value: Microsoft.KeyVault/vaults
+      properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
+      type: object
     DiskEncryptionSetResourceSettings:
       description: Defines the disk encryption set resource settings.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ResourceSettings'
-      properties: {}
       x-ms-discriminator-value: Microsoft.Compute/diskEncryptionSets
+      properties:
+        resourceType:
+          description: The resource type. For example, the value can be Microsoft.Compute/virtualMachines.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+        targetResourceName:
+          description: Gets or sets the target Resource name.
+          type: string
+      type: object
     CloudError:
       x-ms-external: true
       properties:
@@ -1517,36 +1734,8 @@ components:
       type: object
     OperationStatus:
       description: Operation status REST resource.
+      properties: {}
       type: object
-      properties:
-        id:
-          description: Resource Id.
-          type: string
-          readOnly: true
-        name:
-          description: Operation name.
-          type: string
-          readOnly: true
-        status:
-          description: Status of the operation. ARM expects the terminal status to be one of Succeeded/ Failed/ Canceled. All other values imply that the operation is still running.
-          type: string
-          readOnly: true
-        startTime:
-          description: Start time.
-          type: string
-          readOnly: true
-        endTime:
-          description: End time.
-          type: string
-          readOnly: true
-        error:
-          $ref: '#/components/schemas/OperationStatusError'
-          description: Error stating all error details for the operation.
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/OperationStatusProperties'
-          description: Custom data.
-          readOnly: true
     OperationStatusError:
       description: Class for operation status errors.
       type: object
@@ -1617,89 +1806,6 @@ components:
           description: The affected move resources.
           items:
             $ref: '#/components/schemas/AffectedMoveResource'
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    subscriptionId:
-      name: subscriptionId
-      in: path
-      description: The Subscription ID.
-      required: true
-      schema:
-        type: string
-    api-version:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
-    resourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The Resource Group Name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    moveCollectionName:
-      name: moveCollectionName
-      in: path
-      description: The Move Collection Name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    moveResourceName:
-      name: moveResourceName
-      in: path
-      description: The Move Resource Name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Migrate/moveCollections/{moveCollectionName}/?api-version=2021-08-01:
     put:

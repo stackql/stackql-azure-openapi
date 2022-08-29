@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,18 +22,111 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    ManagedClusterParameter:
+      name: managedClusterResource
+      in: query
+      description: The ManagedCluster resource associated with the workflows.
+      required: false
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    WorkflowNameParameter:
+      name: workflowName
+      in: path
+      description: The name of the workflow resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 63
+        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
+        type: string
+    GitHubOAuthCodeParameter:
+      name: code
+      in: query
+      description: The code response from authenticating the GitHub App.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    GitHubOAuthStateParameter:
+      name: state
+      in: query
+      description: The state response from authenticating the GitHub App.
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
   schemas:
     Workflow:
       title: Workflow
       description: Resource representation of a workflow
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        properties:
-          description: Properties of a workflow.
-          $ref: '#/components/schemas/WorkflowProperties'
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        githubWorkflowProfile:
+          description: Profile of a github workflow.
+          $ref: '#/components/schemas/GitHubWorkflowProfile'
           x-ms-client-flatten: true
+      type: object
     WorkflowProperties:
       type: object
       description: Workflow properties
@@ -259,15 +352,12 @@ components:
           description: The URL the client will redirect to on successful authentication. If empty, no redirect will occur.
       description: GitHubOAuth request object
     GitHubOAuthResponse:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          description: Properties of a workflow.
-          $ref: '#/components/schemas/GitHubOAuthProperties'
-          x-ms-client-flatten: true
       description: 'Singleton response of GitHubOAuth containing '
+      properties:
+        username:
+          type: string
+          description: user making request
+      type: object
     GitHubOAuthProperties:
       type: object
       properties:
@@ -311,18 +401,34 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -339,19 +445,49 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
+      x-ms-azure-resource: true
       properties:
         managedBy:
           type: string
@@ -380,9 +516,22 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     SkuTier:
       type: string
       enum:
@@ -729,86 +878,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-  parameters:
-    ManagedClusterParameter:
-      name: managedClusterResource
-      in: query
-      description: The ManagedCluster resource associated with the workflows.
-      required: false
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    WorkflowNameParameter:
-      name: workflowName
-      in: path
-      description: The name of the workflow resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 63
-        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
-        type: string
-    GitHubOAuthCodeParameter:
-      name: code
-      in: query
-      description: The code response from authenticating the GitHub App.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    GitHubOAuthStateParameter:
-      name: state
-      in: query
-      description: The state response from authenticating the GitHub App.
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.DevHub/operations/?api-version=2022-04-01-preview:
     get:

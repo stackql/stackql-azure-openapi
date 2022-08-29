@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,45 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client API version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: Name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SapMonitorNameParameter:
+      name: sapMonitorName
+      in: path
+      description: Name of the SAP monitor resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ProviderInstanceNameParameter:
+      name: providerInstanceName
+      in: path
+      description: Name of the provider instance.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -45,18 +84,29 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -73,16 +123,36 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -414,14 +484,61 @@ components:
       description: The response from the List SAP monitors operation.
       type: object
     SapMonitor:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SapMonitorProperties'
-          description: SAP monitor properties
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: SAP monitor info on Azure (ARM properties and SAP monitor properties)
+      properties:
+        provisioningState:
+          readOnly: true
+          type: string
+          enum:
+            - Accepted
+            - Creating
+            - Updating
+            - Failed
+            - Succeeded
+            - Deleting
+            - Migrating
+          x-ms-enum:
+            name: HanaProvisioningStatesEnum
+            modelAsString: true
+          description: State of provisioning of the HanaInstance
+        managedResourceGroupName:
+          readOnly: true
+          type: string
+          description: The name of the resource group the SAP Monitor resources get deployed into.
+        logAnalyticsWorkspaceArmId:
+          type: string
+          description: The ARM ID of the Log Analytics Workspace that is used for monitoring
+        enableCustomerAnalytics:
+          type: boolean
+          description: The value indicating whether to send analytics to Microsoft
+        logAnalyticsWorkspaceId:
+          type: string
+          description: The workspace ID of the log analytics workspace to be used for monitoring
+        logAnalyticsWorkspaceSharedKey:
+          type: string
+          description: The shared key of the log analytics workspace that is used for monitoring
+        sapMonitorCollectorVersion:
+          readOnly: true
+          type: string
+          description: The version of the payload running in the Collector VM
+        monitorSubnet:
+          type: string
+          description: The subnet which the SAP monitor will be deployed in
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
       type: object
     SapMonitorProperties:
       properties:
@@ -478,16 +595,7 @@ components:
       description: The response from the List provider instances operation.
       type: object
     ProviderInstance:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProviderInstanceProperties'
-          description: Provider Instance properties
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: A provider instance associated with a SAP monitor.
-      type: object
-    ProviderInstanceProperties:
       properties:
         type:
           type: string
@@ -513,47 +621,11 @@ components:
             name: HanaProvisioningStatesEnum
             modelAsString: true
           description: State of provisioning of the provider instance
-      description: Describes the properties of a provider instance.
       type: object
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client API version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: Name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SapMonitorNameParameter:
-      name: sapMonitorName
-      in: path
-      description: Name of the SAP monitor resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ProviderInstanceNameParameter:
-      name: providerInstanceName
-      in: path
-      description: Name of the provider instance.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
+    ProviderInstanceProperties:
+      description: Describes the properties of a provider instance.
+      properties: {}
+      type: object
 paths:
   /providers/Microsoft.HanaOnAzure/operations/?api-version=2020-02-07-preview:
     get:

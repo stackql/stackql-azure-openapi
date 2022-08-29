@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,64 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription credentials which uniquely identify Microsoft Azure subscription. The subscription Id forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: Location of the service.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ImageTemplateNameParameter:
+      name: imageTemplateName
+      in: path
+      description: The name of the image Template
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9-_.]{1,64}$
+        type: string
+    RunOutputNameParameter:
+      name: runOutputName
+      in: path
+      description: The name of the run output
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9-_.]{1,64}$
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -50,18 +108,34 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -78,19 +152,49 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
+      x-ms-azure-resource: true
       properties:
         managedBy:
           type: string
@@ -119,9 +223,22 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     SkuTier:
       type: string
       enum:
@@ -251,38 +368,8 @@ components:
       description: The resource management error additional info.
     Operation:
       title: A REST API operation
+      properties: {}
       type: object
-      properties:
-        name:
-          title: The operation name.
-          description: This is of the format {provider}/{resource}/{operation}
-          type: string
-        display:
-          type: object
-          title: The object that describes the operation.
-          properties:
-            provider:
-              title: Friendly name of the resource provider.
-              type: string
-            operation:
-              title: The operation type.
-              description: 'For example: read, write, delete, or listKeys/action'
-              type: string
-            resource:
-              title: The resource type on which the operation is performed.
-              type: string
-            description:
-              title: The friendly name of the operation
-              type: string
-        origin:
-          title: The intended executor of the operation.
-          type: string
-        properties:
-          title: Properties of the operation.
-          type: object
-        isDataAction:
-          title: The flag that indicates whether the operation applies to data plane.
-          type: boolean
     OperationListResult:
       type: object
       title: Result of the request to list REST API operations. It contains a list of operations and a URL nextLink to get the next set of results.
@@ -470,12 +557,12 @@ components:
       required:
         - type
     ImageTemplatePlatformImageSource:
-      type: object
       description: Describes an image source from [Azure Gallery Images](https://docs.microsoft.com/en-us/rest/api/compute/virtualmachineimages).
       x-ms-discriminator-value: PlatformImage
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateSource'
       properties:
+        type:
+          type: string
+          description: Specifies the type of source image you want to start with.
         publisher:
           type: string
           description: Image Publisher in [Azure Gallery Images](https://docs.microsoft.com/en-us/rest/api/compute/virtualmachineimages).
@@ -495,30 +582,33 @@ components:
         planInfo:
           $ref: '#/components/schemas/PlatformImagePurchasePlan'
           description: Optional configuration of purchase plan for platform image.
-    ImageTemplateManagedImageSource:
       type: object
+    ImageTemplateManagedImageSource:
       description: Describes an image source that is a managed image in customer subscription. This image must reside in the same subscription and region as the Image Builder template.
       x-ms-discriminator-value: ManagedImage
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateSource'
+      required:
+        - imageId
       properties:
+        type:
+          type: string
+          description: Specifies the type of source image you want to start with.
         imageId:
           type: string
           description: ARM resource id of the managed image in customer subscription
-      required:
-        - imageId
-    ImageTemplateSharedImageVersionSource:
       type: object
+    ImageTemplateSharedImageVersionSource:
       description: Describes an image source that is an image version in a shared image gallery.
       x-ms-discriminator-value: SharedImageVersion
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateSource'
+      required:
+        - imageVersionId
       properties:
+        type:
+          type: string
+          description: Specifies the type of source image you want to start with.
         imageVersionId:
           type: string
           description: ARM resource id of the image version in the shared image gallery
-      required:
-        - imageVersionId
+      type: object
     ImageTemplateInVMValidator:
       type: object
       description: Describes a unit of in-VM validation of image
@@ -534,12 +624,15 @@ components:
       required:
         - type
     ImageTemplateShellValidator:
-      type: object
       description: Runs the specified shell script during the validation phase (Linux). Corresponds to Packer shell provisioner. Exactly one of 'scriptUri' or 'inline' can be specified.
       x-ms-discriminator-value: Shell
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateInVMValidator'
       properties:
+        type:
+          type: string
+          description: The type of validation you want to use on the Image. For example, "Shell" can be shell validation
+        name:
+          type: string
+          description: Friendly Name to provide context on what this validation step does
         scriptUri:
           type: string
           description: URI of the shell script to be run for validation. It can be a github link, Azure Storage URI, etc
@@ -552,13 +645,17 @@ components:
           description: Array of shell commands to execute
           items:
             type: string
-    ImageTemplatePowerShellValidator:
       type: object
+    ImageTemplatePowerShellValidator:
       description: Runs the specified PowerShell script during the validation phase (Windows). Corresponds to Packer powershell provisioner. Exactly one of 'scriptUri' or 'inline' can be specified.
       x-ms-discriminator-value: PowerShell
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateInVMValidator'
       properties:
+        type:
+          type: string
+          description: The type of validation you want to use on the Image. For example, "Shell" can be shell validation
+        name:
+          type: string
+          description: Friendly Name to provide context on what this validation step does
         scriptUri:
           type: string
           description: URI of the PowerShell script to be run for validation. It can be a github link, Azure Storage URI, etc
@@ -585,6 +682,7 @@ components:
           items:
             type: integer
             format: int32
+      type: object
     ImageTemplateCustomizer:
       type: object
       description: Describes a unit of image customization
@@ -600,12 +698,15 @@ components:
       required:
         - type
     ImageTemplateShellCustomizer:
-      type: object
       description: Runs a shell script during the customization phase (Linux). Corresponds to Packer shell provisioner. Exactly one of 'scriptUri' or 'inline' can be specified.
       x-ms-discriminator-value: Shell
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateCustomizer'
       properties:
+        type:
+          type: string
+          description: The type of customization tool you want to use on the Image. For example, "Shell" can be shell customizer
+        name:
+          type: string
+          description: Friendly Name to provide context on what this customization step does
         scriptUri:
           type: string
           description: URI of the shell script to be run for customizing. It can be a github link, SAS URI for Azure Storage, etc
@@ -618,13 +719,17 @@ components:
           description: Array of shell commands to execute
           items:
             type: string
-    ImageTemplateRestartCustomizer:
       type: object
+    ImageTemplateRestartCustomizer:
       description: Reboots a VM and waits for it to come back online (Windows). Corresponds to Packer windows-restart provisioner
       x-ms-discriminator-value: WindowsRestart
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateCustomizer'
       properties:
+        type:
+          type: string
+          description: The type of customization tool you want to use on the Image. For example, "Shell" can be shell customizer
+        name:
+          type: string
+          description: Friendly Name to provide context on what this customization step does
         restartCommand:
           type: string
           description: 'Command to execute the restart [Default: ''shutdown /r /f /t 0 /c "packer restart"'']'
@@ -634,13 +739,17 @@ components:
         restartTimeout:
           type: string
           description: 'Restart timeout specified as a string of magnitude and unit, e.g. ''5m'' (5 minutes) or ''2h'' (2 hours) [Default: ''5m'']'
-    ImageTemplateWindowsUpdateCustomizer:
       type: object
+    ImageTemplateWindowsUpdateCustomizer:
       description: Installs Windows Updates. Corresponds to Packer Windows Update Provisioner (https://github.com/rgl/packer-provisioner-windows-update)
       x-ms-discriminator-value: WindowsUpdate
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateCustomizer'
       properties:
+        type:
+          type: string
+          description: The type of customization tool you want to use on the Image. For example, "Shell" can be shell customizer
+        name:
+          type: string
+          description: Friendly Name to provide context on what this customization step does
         searchCriteria:
           type: string
           description: Criteria to search updates. Omit or specify empty string to use the default (search all). Refer to above link for examples and detailed description of this field.
@@ -654,13 +763,17 @@ components:
           format: int32
           minimum: 0
           description: Maximum number of updates to apply at a time. Omit or specify 0 to use the default (1000)
-    ImageTemplatePowerShellCustomizer:
       type: object
+    ImageTemplatePowerShellCustomizer:
       description: Runs the specified PowerShell on the VM (Windows). Corresponds to Packer powershell provisioner. Exactly one of 'scriptUri' or 'inline' can be specified.
       x-ms-discriminator-value: PowerShell
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateCustomizer'
       properties:
+        type:
+          type: string
+          description: The type of customization tool you want to use on the Image. For example, "Shell" can be shell customizer
+        name:
+          type: string
+          description: Friendly Name to provide context on what this customization step does
         scriptUri:
           type: string
           description: URI of the PowerShell script to be run for customizing. It can be a github link, SAS URI for Azure Storage, etc
@@ -687,13 +800,17 @@ components:
           items:
             type: integer
             format: int32
-    ImageTemplateFileCustomizer:
       type: object
+    ImageTemplateFileCustomizer:
       description: Uploads files to VMs (Linux, Windows). Corresponds to Packer file provisioner
       x-ms-discriminator-value: File
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateCustomizer'
       properties:
+        type:
+          type: string
+          description: The type of customization tool you want to use on the Image. For example, "Shell" can be shell customizer
+        name:
+          type: string
+          description: Friendly Name to provide context on what this customization step does
         sourceUri:
           type: string
           description: The URI of the file to be uploaded for customizing the VM. It can be a github link, SAS URI for Azure Storage, etc
@@ -704,6 +821,7 @@ components:
         destination:
           type: string
           description: The absolute path to a file (with nested directory structures already created) where the file (from sourceUri) will be uploaded to in the VM
+      type: object
     ImageTemplateDistributor:
       type: object
       description: Generic distribution object
@@ -728,26 +846,48 @@ components:
     ImageTemplateManagedImageDistributor:
       x-ms-discriminator-value: ManagedImage
       description: Distribute as a Managed Disk Image.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateDistributor'
+      required:
+        - imageId
+        - location
       properties:
+        type:
+          type: string
+          description: Type of distribution.
+        runOutputName:
+          type: string
+          description: The name to be used for the associated RunOutput.
+          pattern: ^[A-Za-z0-9-_.]{1,64}$
+        artifactTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Tags that will be applied to the artifact once it has been created/updated by the distributor.
         imageId:
           type: string
           description: Resource Id of the Managed Disk Image
         location:
           type: string
           description: Azure location for the image, should match if image already exists
-      required:
-        - imageId
-        - location
+      type: object
     ImageTemplateSharedImageDistributor:
       x-ms-discriminator-value: SharedImage
       description: Distribute via Shared Image Gallery.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateDistributor'
+      required:
+        - galleryImageId
+        - replicationRegions
       properties:
+        type:
+          type: string
+          description: Type of distribution.
+        runOutputName:
+          type: string
+          description: The name to be used for the associated RunOutput.
+          pattern: ^[A-Za-z0-9-_.]{1,64}$
+        artifactTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Tags that will be applied to the artifact once it has been created/updated by the distributor.
         galleryImageId:
           type: string
           description: Resource Id of the Shared Image Gallery image
@@ -769,15 +909,24 @@ components:
             name: SharedImageStorageAccountType
             modelAsString: true
           description: Storage account type to be used to store the shared image. Omit to use the default (Standard_LRS).
-      required:
-        - galleryImageId
-        - replicationRegions
+      type: object
     ImageTemplateVhdDistributor:
       x-ms-discriminator-value: VHD
       description: Distribute via VHD in a storage account.
+      properties:
+        type:
+          type: string
+          description: Type of distribution.
+        runOutputName:
+          type: string
+          description: The name to be used for the associated RunOutput.
+          pattern: ^[A-Za-z0-9-_.]{1,64}$
+        artifactTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Tags that will be applied to the artifact once it has been created/updated by the distributor.
       type: object
-      allOf:
-        - $ref: '#/components/schemas/ImageTemplateDistributor'
     PlatformImagePurchasePlan:
       type: object
       description: Purchase plan configuration for platform image.
@@ -1020,20 +1169,88 @@ components:
           description: Provisioning state of the resource
           readOnly: true
     ImageTemplate:
-      type: object
       description: Image template is an ARM resource managed by Microsoft.VirtualMachineImages provider
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ImageTemplateProperties'
-          description: The properties of the image template
-        identity:
-          $ref: '#/components/schemas/ImageTemplateIdentity'
-          description: The identity of the image template, if configured.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       required:
         - identity
+      properties:
+        source:
+          $ref: '#/components/schemas/ImageTemplateSource'
+          description: Specifies the properties used to describe the source image.
+        customize:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageTemplateCustomizer'
+          x-ms-identifiers: []
+          description: Specifies the properties used to describe the customization steps of the image, like Image source etc
+        validate:
+          type: object
+          description: Configuration options and list of validations to be performed on the resulting image.
+          properties:
+            continueDistributeOnFailure:
+              type: boolean
+              default: false
+              description: 'If validation fails and this field is set to false, output image(s) will not be distributed. This is the default behavior. If validation fails and this field is set to true, output image(s) will still be distributed. Please use this option with caution as it may result in bad images being distributed for use. In either case (true or false), the end to end image run will be reported as having failed in case of a validation failure. [Note: This field has no effect if validation succeeds.]'
+            sourceValidationOnly:
+              type: boolean
+              default: false
+              description: If this field is set to true, the image specified in the 'source' section will directly be validated. No separate build will be run to generate and then validate a customized image.
+            inVMValidations:
+              type: array
+              items:
+                $ref: '#/components/schemas/ImageTemplateInVMValidator'
+              x-ms-identifiers: []
+              description: List of validations to be performed.
+        distribute:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageTemplateDistributor'
+          x-ms-identifiers: []
+          description: The distribution targets where the image output needs to go to.
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+          description: Provisioning state of the resource
+          readOnly: true
+        provisioningError:
+          $ref: '#/components/schemas/ProvisioningError'
+          description: Provisioning error, if any
+          readOnly: true
+        lastRunStatus:
+          $ref: '#/components/schemas/ImageTemplateLastRunStatus'
+          description: State of 'run' that is currently executing or was last executed.
+          readOnly: true
+        buildTimeoutInMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 960
+          default: 0
+          description: Maximum duration to wait while building the image template (includes all customizations, validations, and distributions). Omit or specify 0 to use the default (4 hours).
+        vmProfile:
+          $ref: '#/components/schemas/ImageTemplateVmProfile'
+          description: Describes how virtual machine is set up to build images
+        stagingResourceGroup:
+          type: string
+          description: The staging resource group id in the same subscription as the image template that will be used to build the image. If this field is empty, a resource group with a random name will be created. If the resource group specified in this field doesn't exist, it will be created with the same name. If the resource group specified exists, it must be empty and in the same region as the image template. The resource group created will be deleted during template deletion if this field is empty or the resource group specified doesn't exist, but if the resource group specified exists the resources created in the resource group will be deleted during template deletion and the resource group itself will remain.
+        exactStagingResourceGroup:
+          type: string
+          description: The staging resource group id in the same subscription as the image template that will be used to build the image. This read-only field differs from 'stagingResourceGroup' only if the value specified in the 'stagingResourceGroup' field is empty.
+          readOnly: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     ImageTemplateUpdateParameters:
       type: object
       properties:
@@ -1047,15 +1264,19 @@ components:
           description: The user-specified tags associated with the image template.
       description: Parameters for updating an image template.
     RunOutput:
-      type: object
       description: Represents an output that was created by running an image template.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       properties:
-        properties:
-          $ref: '#/components/schemas/RunOutputProperties'
-          x-ms-client-flatten: true
-          description: The properties of the run output
+        artifactId:
+          type: string
+          description: The resource id of the artifact.
+        artifactUri:
+          type: string
+          description: The location URI of the artifact.
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+          description: Provisioning state of the resource
+          readOnly: true
+      type: object
     RunOutputCollection:
       type: object
       description: The result of List run outputs operation
@@ -1096,64 +1317,6 @@ components:
           x-ms-identifiers: []
           description: A list of additional details about the error.
       description: An error response from the Azure VM Image Builder service.
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription credentials which uniquely identify Microsoft Azure subscription. The subscription Id forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: Location of the service.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ImageTemplateNameParameter:
-      name: imageTemplateName
-      in: path
-      description: The name of the image Template
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9-_.]{1,64}$
-        type: string
-    RunOutputNameParameter:
-      name: runOutputName
-      in: path
-      description: The name of the run output
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9-_.]{1,64}$
-        type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.VirtualMachineImages/imageTemplates/?api-version=2022-02-14:
     get:

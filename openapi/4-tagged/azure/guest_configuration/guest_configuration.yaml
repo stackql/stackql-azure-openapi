@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,72 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The resource group name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-\w\._]+$
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    VmNameParameter:
+      name: vmName
+      in: path
+      description: The name of the virtual machine.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    VMSSNameParameter:
+      name: vmssName
+      in: path
+      description: The name of the virtual machine scale set.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    MachineNameParameter:
+      name: machineName
+      in: path
+      description: The name of the ARC machine.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       description: The core properties of ARM resources
@@ -48,17 +114,30 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          type: string
+          readOnly: true
+          description: ARM resource id of the guest configuration assignment.
+        name:
+          type: string
+          readOnly: false
+          description: Name of the guest configuration assignment.
+        location:
+          type: string
+          readOnly: false
+          description: Region where the VM is located.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+      type: object
     TrackedResource:
       description: The resource model definition for a ARM tracked top level resource
-      type: object
       properties:
         tags:
           type: object
@@ -71,18 +150,41 @@ components:
           description: Resource tags.
         location:
           type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The Azure Region where the resource lives
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+          readOnly: false
+          description: Region where the VM is located.
+        id:
+          type: string
+          readOnly: true
+          description: ARM resource id of the guest configuration assignment.
+        name:
+          type: string
+          readOnly: false
+          description: Name of the guest configuration assignment.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
+      type: object
     ProxyResource:
       description: ARM proxy resource.
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: ARM resource id of the guest configuration assignment.
+        name:
+          type: string
+          readOnly: false
+          description: Name of the guest configuration assignment.
+        location:
+          type: string
+          readOnly: false
+          description: Region where the VM is located.
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource.
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties: {}
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
@@ -278,33 +380,8 @@ components:
       description: The resource management error additional info.
     Operation:
       description: GuestConfiguration REST API operation
+      properties: {}
       type: object
-      properties:
-        name:
-          description: 'Operation name: For ex. providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/write or read'
-          type: string
-        display:
-          properties:
-            provider:
-              description: 'Service provider: Microsoft.GuestConfiguration'
-              type: string
-            resource:
-              description: 'Resource on which the operation is performed:  For ex. '
-              type: string
-            operation:
-              description: 'Operation type: Read, write, delete, etc.'
-              type: string
-            description:
-              description: Description about operation.
-              type: string
-          description: Provider, Resource, Operation and description values.
-        properties:
-          properties:
-            statusCode:
-              description: 'Service provider: Microsoft.GuestConfiguration'
-              type: string
-          x-ms-client-flatten: true
-          description: Provider, Resource, Operation and description values.
     OperationListResult:
       description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
@@ -481,19 +558,79 @@ components:
       description: The response of the list guest configuration assignment operation.
       type: object
     GuestConfigurationAssignment:
-      properties:
-        properties:
-          x-ms-client-flatten: false
-          $ref: '#/components/schemas/GuestConfigurationAssignmentProperties'
-          description: Properties of the Guest configuration assignment.
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
       description: Guest configuration assignment is an association between a machine and guest configuration.
+      properties:
+        targetResourceId:
+          type: string
+          readOnly: true
+          description: VM resource Id.
+          nullable: true
+        guestConfiguration:
+          $ref: '#/components/schemas/GuestConfigurationNavigation'
+          description: The guest configuration to assign.
+        complianceStatus:
+          type: string
+          readOnly: true
+          description: A value indicating compliance status of the machine for the assigned guest configuration.
+          x-ms-enum:
+            name: complianceStatus
+            modelAsString: true
+          enum:
+            - Compliant
+            - NonCompliant
+            - Pending
+        lastComplianceStatusChecked:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Date and time when last compliance status was checked.
+          nullable: true
+        latestReportId:
+          type: string
+          readOnly: true
+          description: 'Id of the latest report for the guest configuration assignment. '
+          nullable: true
+        parameterHash:
+          type: string
+          readOnly: true
+          description: 'parameter hash for the guest configuration assignment. '
+          nullable: true
+        latestAssignmentReport:
+          $ref: '#/components/schemas/AssignmentReport'
+          description: Last reported guest configuration assignment report.
+        context:
+          type: string
+          description: 'The source which initiated the guest configuration assignment. Ex: Azure Policy'
+        assignmentHash:
+          type: string
+          readOnly: true
+          description: Combined hash of the configuration package and parameters.
+          nullable: true
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The provisioning state, which only appears in the response.
+          nullable: true
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Created
+        resourceType:
+          type: string
+          readOnly: true
+          description: Type of the resource - VMSS / VM
+          nullable: true
+        vmssVMList:
+          type: array
+          items:
+            $ref: '#/components/schemas/VMSSVMInfo'
+          x-ms-identifiers:
+            - vmId
+          description: The list of VM Compliance data for VMSS
       type: object
     GuestConfigurationNavigation:
       description: Guest configuration is an artifact that encapsulates DSC configuration and its dependencies. The artifact is a zip file containing DSC configuration (as MOF) and dependent resources and other dependencies like modules.
@@ -752,19 +889,48 @@ components:
       description: List of guest configuration assignment reports.
       type: object
     GuestConfigurationAssignmentReport:
+      description: Report for the guest configuration assignment. Report contains information such as compliance status, reason, and more.
       properties:
-        id:
+        complianceStatus:
           type: string
           readOnly: true
-          description: ARM resource id of the report for the guest configuration assignment.
-        name:
+          description: A value indicating compliance status of the machine for the assigned guest configuration.
+          x-ms-enum:
+            name: complianceStatus
+            modelAsString: true
+          enum:
+            - Compliant
+            - NonCompliant
+            - Pending
+        reportId:
           type: string
           readOnly: true
           description: GUID that identifies the guest configuration assignment report under a subscription, resource group.
-        properties:
-          $ref: '#/components/schemas/GuestConfigurationAssignmentReportProperties'
-          description: Properties of the guest configuration report.
-      description: Report for the guest configuration assignment. Report contains information such as compliance status, reason, and more.
+        assignment:
+          $ref: '#/components/schemas/AssignmentInfo'
+          description: Configuration details of the guest configuration assignment.
+        vm:
+          $ref: '#/components/schemas/VMInfo'
+          description: Information about the VM.
+        startTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Start date and time of the guest configuration assignment compliance status check.
+        endTime:
+          type: string
+          format: date-time
+          readOnly: true
+          description: End date and time of the guest configuration assignment compliance status check.
+        details:
+          $ref: '#/components/schemas/AssignmentReportDetails'
+          description: Details of the assignment report.
+          nullable: true
+          x-nullable: true
+        vmssResourceId:
+          type: string
+          readOnly: true
+          description: Azure resource Id of the VMSS.
       type: object
     GuestConfigurationAssignmentReportProperties:
       properties:
@@ -891,35 +1057,8 @@ components:
       description: Details of the guest configuration assignment report.
       type: object
     AssignmentReportResource:
-      properties:
-        complianceStatus:
-          type: string
-          readOnly: true
-          description: A value indicating compliance status of the machine for the assigned guest configuration.
-          x-ms-enum:
-            name: complianceStatus
-            modelAsString: true
-          enum:
-            - Compliant
-            - NonCompliant
-            - Pending
-        resourceId:
-          type: string
-          readOnly: true
-          description: Name of the guest configuration assignment resource setting.
-        reasons:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssignmentReportResourceComplianceReason'
-          x-ms-identifiers:
-            - phrase
-            - code
-          description: Compliance reason and reason code for a resource.
-        properties:
-          type: object
-          readOnly: true
-          description: Properties of a guest configuration assignment resource.
       description: The guest configuration assignment resource.
+      properties: {}
       type: object
     AssignmentReportResourceComplianceReason:
       properties:
@@ -978,72 +1117,6 @@ components:
           description: List of Automation operations supported by the Automation resource provider.
       description: The response model for the list of Automation operations
       type: object
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription ID which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client Api Version.
-      required: true
-      schema:
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The resource group name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[-\w\._]+$
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    VmNameParameter:
-      name: vmName
-      in: path
-      description: The name of the virtual machine.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    VMSSNameParameter:
-      name: vmssName
-      in: path
-      description: The name of the virtual machine scale set.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    MachineNameParameter:
-      name: machineName
-      in: path
-      description: The name of the ARC machine.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/providers/Microsoft.GuestConfiguration/guestConfigurationAssignments/{guestConfigurationAssignmentName}/?api-version=2022-01-25:
     put:

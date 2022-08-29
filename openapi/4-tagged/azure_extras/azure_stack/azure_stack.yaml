@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,54 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: Subscription credentials that uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      required: true
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client API Version.
+      required: true
+      schema:
+        default: '2017-06-01'
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroup
+      in: path
+      description: Name of the resource group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    RegistrationNameParameter:
+      name: registrationName
+      in: path
+      description: Name of the Azure Stack registration.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ProductNameParameter:
+      name: productName
+      in: path
+      description: Name of the product.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    CustomerSubscriptionNameParameter:
+      name: customerSubscriptionName
+      in: path
+      description: Name of the product.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
   schemas:
     Resource:
       description: Base resource object.
@@ -136,13 +184,29 @@ components:
       type: object
     CloudManifestFileResponse:
       description: Cloud specific manifest GET response.
-      type: object
       properties:
-        properties:
+        deploymentData:
           description: Cloud specific manifest data.
-          $ref: '#/components/schemas/CloudManifestFileProperties'
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+          $ref: '#/components/schemas/CloudManifestFileDeploymentData'
+        signature:
+          description: Signature of the cloud specific manifest data.
+          type: string
+        id:
+          readOnly: true
+          description: ID of the resource.
+          type: string
+        name:
+          readOnly: true
+          description: Name of the resource.
+          type: string
+        type:
+          readOnly: true
+          description: Type of Resource.
+          type: string
+        etag:
+          description: The entity tag used for optimistic concurrency when modifying the resource.
+          type: string
+      type: object
     CloudManifestFileProperties:
       description: Cloud specific manifest JSON properties.
       type: object
@@ -250,28 +314,53 @@ components:
           readOnly: true
     ExtendedProduct:
       description: Extended description about the product required for installing it into Azure Stack.
+      properties: {}
       type: object
-      properties:
-        galleryPackageBlobSasUri:
-          description: The URI to the .azpkg file that provides information required for showing product in the gallery.
-          type: string
-          readOnly: true
-        productKind:
-          description: Specifies the kind of the product (virtualMachine or virtualMachineExtension).
-          type: string
-          readOnly: true
-        properties:
-          description: Specifies additional properties describing the product.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ExtendedProductProperties'
-          readOnly: true
     ExtendedProductProperties:
       description: Product information.
+      properties:
+        computeRole:
+          description: Specifies kind of compute role included in the package.
+          $ref: '#/components/schemas/ComputeRole'
+          readOnly: true
+        isSystemExtension:
+          description: Specifies if product is a Virtual Machine Extension.
+          type: boolean
+          readOnly: true
+        sourceBlob:
+          description: Specifies a download location where content can be downloaded from.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/Uri'
+          readOnly: true
+        supportMultipleExtensions:
+          description: Indicates if specified product supports multiple extensions.
+          type: boolean
+          readOnly: true
+        version:
+          description: Specifies product version.
+          type: string
+          readOnly: true
+        vmOsType:
+          description: Specifies operating system used by the product.
+          $ref: '#/components/schemas/OperatingSystem'
+          readOnly: true
+        vmScaleSetEnabled:
+          description: Indicates if virtual machine Scale Set is enabled in the specified product.
+          type: boolean
+          readOnly: true
+        osDiskImage:
+          description: OS disk image used by product.
+          $ref: '#/components/schemas/OsDiskImage'
+          readOnly: true
+        dataDiskImages:
+          description: List of attached data disks.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataDiskImage'
+          x-ms-identifiers:
+            - lun
+          readOnly: true
       type: object
-      properties: {}
-      allOf:
-        - $ref: '#/components/schemas/VirtualMachineExtensionProductProperties'
-        - $ref: '#/components/schemas/VirtualMachineProductProperties'
     VirtualMachineExtensionProductProperties:
       description: Product information.
       type: object
@@ -352,14 +441,82 @@ components:
           readOnly: true
     Product:
       description: Product information.
-      type: object
       properties:
-        properties:
-          description: Properties of the product resource.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProductNestedProperties'
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        displayName:
+          description: The display name of the product.
+          type: string
+        description:
+          description: The description of the product.
+          type: string
+        publisherDisplayName:
+          description: The user-friendly name of the product publisher.
+          type: string
+        publisherIdentifier:
+          description: Publisher identifier.
+          type: string
+        offer:
+          description: The offer representing the product.
+          type: string
+        offerVersion:
+          description: The version of the product offer.
+          type: string
+        sku:
+          description: The product SKU.
+          type: string
+        billingPartNumber:
+          description: The part number used for billing purposes.
+          type: string
+        vmExtensionType:
+          description: The type of the Virtual Machine Extension.
+          type: string
+        galleryItemIdentity:
+          description: The identifier of the gallery item corresponding to the product.
+          type: string
+        iconUris:
+          description: Additional links available for this product.
+          $ref: '#/components/schemas/IconUris'
+        links:
+          description: Additional links available for this product.
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductLink'
+          x-ms-identifiers:
+            - uri
+        legalTerms:
+          description: The legal terms.
+          type: string
+        privacyPolicy:
+          description: The privacy policy.
+          type: string
+        payloadLength:
+          description: The length of product content.
+          type: integer
+          format: int64
+        productKind:
+          description: The kind of the product (virtualMachine or virtualMachineExtension)
+          type: string
+        productProperties:
+          description: Additional properties for the product.
+          $ref: '#/components/schemas/ProductProperties'
+        compatibility:
+          description: Product compatibility with current device.
+          $ref: '#/components/schemas/Compatibility'
+        id:
+          readOnly: true
+          description: ID of the resource.
+          type: string
+        name:
+          readOnly: true
+          description: Name of the resource.
+          type: string
+        type:
+          readOnly: true
+          description: Type of Resource.
+          type: string
+        etag:
+          description: The entity tag used for optimistic concurrency when modifying the resource.
+          type: string
+      type: object
     ProductNestedProperties:
       description: Properties portion of the product resource.
       type: object
@@ -594,14 +751,26 @@ components:
       type: object
     CustomerSubscription:
       description: Customer subscription.
-      type: object
       properties:
-        properties:
-          description: Customer subscription properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CustomerSubscriptionProperties'
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        tenantId:
+          description: Tenant Id.
+          type: string
+        id:
+          readOnly: true
+          description: ID of the resource.
+          type: string
+        name:
+          readOnly: true
+          description: Name of the resource.
+          type: string
+        type:
+          readOnly: true
+          description: Type of Resource.
+          type: string
+        etag:
+          description: The entity tag used for optimistic concurrency when modifying the resource.
+          type: string
+      type: object
     CustomerSubscriptionProperties:
       description: Customer subscription properties.
       type: object
@@ -623,14 +792,48 @@ components:
             $ref: '#/components/schemas/CustomerSubscription'
     Registration:
       description: Registration information.
-      type: object
       properties:
-        properties:
-          description: Registration resource.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RegistrationProperties'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
+        objectId:
+          description: The object identifier associated with the Azure Stack connecting to Azure.
+          type: string
+        cloudId:
+          description: The identifier of the registered Azure Stack.
+          type: string
+        billingModel:
+          description: Specifies the billing mode for the Azure Stack registration.
+          type: string
+        id:
+          readOnly: true
+          description: ID of the resource.
+          type: string
+        name:
+          readOnly: true
+          description: Name of the resource.
+          type: string
+        type:
+          readOnly: true
+          description: Type of Resource.
+          type: string
+        location:
+          description: Location of the resource.
+          type: string
+          enum:
+            - global
+          x-ms-enum:
+            name: Location
+            modelAsString: true
+          x-ms-mutability:
+            - create
+            - read
+        tags:
+          description: Custom tags for the resource.
+          type: object
+          additionalProperties:
+            type: string
+        etag:
+          description: The entity tag used for optimistic concurrency when modifying the resource.
+          type: string
+      type: object
     RegistrationProperties:
       description: Properties portion of the registration resource.
       type: object
@@ -665,26 +868,14 @@ components:
           type: string
     RegistrationParameter:
       description: Registration resource
-      type: object
-      properties:
-        properties:
-          description: Properties of the Azure Stack registration resource
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RegistrationParameterProperties'
-        location:
-          description: Location of the resource.
-          type: string
-          enum:
-            - global
-          x-ms-enum:
-            name: Location
-            modelAsString: true
-          x-ms-mutability:
-            - create
-            - read
       required:
         - properties
         - location
+      properties:
+        registrationToken:
+          description: The token identifying registered Azure Stack
+          type: string
+      type: object
     RegistrationParameterProperties:
       description: Properties of the Azure Stack registration resource
       type: object
@@ -694,54 +885,6 @@ components:
           type: string
       required:
         - registrationToken
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription credentials that uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: Client API Version.
-      required: true
-      schema:
-        default: '2017-06-01'
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroup
-      in: path
-      description: Name of the resource group.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    RegistrationNameParameter:
-      name: registrationName
-      in: path
-      description: Name of the Azure Stack registration.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ProductNameParameter:
-      name: productName
-      in: path
-      description: Name of the product.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    CustomerSubscriptionNameParameter:
-      name: customerSubscriptionName
-      in: path
-      description: Name of the product.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /providers/Microsoft.AzureStack/operations/?api-version=2022-06-01:
     get:

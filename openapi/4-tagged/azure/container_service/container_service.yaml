@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-24-stackql-generated
+  version: 2022-08-29-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -22,6 +22,97 @@ components:
           authorizationUrl: https://login.microsoftonline.com/common/oauth2/authorize
           scopes:
             user_impersonation: impersonate your user account
+  parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ResourceNameParameter:
+      name: resourceName
+      in: path
+      description: The name of the managed cluster resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 63
+        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
+        type: string
+    ResourceTypeParameter:
+      name: resource-type
+      in: query
+      description: The resource type for which the OS options needs to be returned
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ServerFqdnParameter:
+      name: server-fqdn
+      in: query
+      description: server fqdn type for credentials to be returned
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    CredentialFormatParameter:
+      name: format
+      in: query
+      description: Only apply to AAD clusters, specifies the format of returned kubeconfig. Format 'azure' will return azure auth-provider kubeconfig; format 'exec' will return exec format kubeconfig, which requires kubelogin binary in the path.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - exec
+          - azure
+        x-ms-enum:
+          name: format
+          modelAsString: true
+          values:
+            - value: azure
+              description: Return azure auth-provider kubeconfig. This format is deprecated in 1.22 and will be fully removed in 1.25.
+            - value: exec
+              description: Return exec format kubeconfig. This format requires kubelogin binary in the path.
+        type: string
   schemas:
     Resource:
       title: Resource
@@ -50,18 +141,34 @@ components:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
       description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
       properties:
         etag:
           type: string
           readOnly: true
           description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+      required:
+        - location
       properties:
         tags:
           type: object
@@ -78,19 +185,49 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ResourceModelWithAllowedPropertySet:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
+      x-ms-azure-resource: true
       properties:
         managedBy:
           type: string
@@ -119,9 +256,22 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     SkuTier:
       type: string
       enum:
@@ -947,18 +1097,176 @@ components:
           description: 'This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/hostGroups/{hostGroupName}. For more information see [Azure dedicated hosts](https://docs.microsoft.com/azure/virtual-machines/dedicated-hosts).'
       description: Properties for the container service agent pool profile.
     ManagedClusterAgentPoolProfile:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ManagedClusterAgentPoolProfileProperties'
+      required:
+        - name
+      description: Profile for the container service agent pool.
       properties:
+        count:
+          type: integer
+          format: int32
+          description: Number of agents (VMs) to host docker containers. Allowed values must be in the range of 0 to 1000 (inclusive) for user pools and in the range of 1 to 1000 (inclusive) for system pools. The default value is 1.
+        vmSize:
+          type: string
+          title: The size of the agent pool VMs.
+          description: 'VM size availability varies by region. If a node contains insufficient compute resources (memory, cpu, etc) pods might fail to run correctly. For more details on restricted VM sizes, see: https://docs.microsoft.com/azure/aks/quotas-skus-regions'
+        osDiskSizeGB:
+          $ref: '#/components/schemas/ContainerServiceOSDisk'
+        osDiskType:
+          $ref: '#/components/schemas/OSDiskType'
+        kubeletDiskType:
+          $ref: '#/components/schemas/KubeletDiskType'
+        workloadRuntime:
+          $ref: '#/components/schemas/WorkloadRuntime'
+        vnetSubnetID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/virtualNetworks/subnets
+          title: The ID of the subnet which agent pool nodes and optionally pods will join on startup.
+          description: 'If this is not specified, a VNET and subnet will be generated and used. If no podSubnetID is specified, this applies to nodes and pods, otherwise it applies to just nodes. This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}'
+        podSubnetID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/virtualNetworks/subnets
+          title: The ID of the subnet which pods will join when launched.
+          description: 'If omitted, pod IPs are statically assigned on the node subnet (see vnetSubnetID for more details). This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}'
+        maxPods:
+          type: integer
+          format: int32
+          description: The maximum number of pods that can run on a node.
+        osType:
+          $ref: '#/components/schemas/OSType'
+        osSKU:
+          $ref: '#/components/schemas/OSSKU'
+        maxCount:
+          type: integer
+          format: int32
+          description: The maximum number of nodes for auto-scaling
+        minCount:
+          type: integer
+          format: int32
+          description: The minimum number of nodes for auto-scaling
+        enableAutoScaling:
+          type: boolean
+          description: Whether to enable auto-scaler
+        scaleDownMode:
+          $ref: '#/components/schemas/ScaleDownMode'
+          title: The scale down mode to use when scaling the Agent Pool.
+          description: This also effects the cluster autoscaler behavior. If not specified, it defaults to Delete.
+        type:
+          $ref: '#/components/schemas/AgentPoolType'
+        mode:
+          $ref: '#/components/schemas/AgentPoolMode'
+        orchestratorVersion:
+          type: string
+          title: The version of Kubernetes specified by the user.
+          description: Both patch version <major.minor.patch> (e.g. 1.20.13) and <major.minor> (e.g. 1.20) are supported. When <major.minor> is specified, the latest supported GA patch version is chosen automatically. Updating the cluster with the same <major.minor> once it has been created (e.g. 1.14.x -> 1.14) will not trigger an upgrade, even if a newer patch version is available. As a best practice, you should upgrade all node pools in an AKS cluster to the same Kubernetes version. The node pool version must have the same major version as the control plane. The node pool minor version must be within two minor versions of the control plane version. The node pool version cannot be greater than the control plane version. For more information see [upgrading a node pool](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#upgrade-a-node-pool).
+        currentOrchestratorVersion:
+          readOnly: true
+          type: string
+          title: The version of Kubernetes the Agent Pool is running.
+          description: If orchestratorVersion is a fully specified version <major.minor.patch>, this field will be exactly equal to it. If orchestratorVersion is <major.minor>, this field will contain the full <major.minor.patch> version being used.
+        nodeImageVersion:
+          readOnly: true
+          type: string
+          description: The version of node image
+        upgradeSettings:
+          $ref: '#/components/schemas/AgentPoolUpgradeSettings'
+          description: Settings for upgrading the agentpool
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The current deployment or provisioning state.
+        powerState:
+          title: Whether the Agent Pool is running or stopped.
+          description: When an Agent Pool is first created it is initially Running. The Agent Pool can be stopped by setting this field to Stopped. A stopped Agent Pool stops all of its VMs and does not accrue billing charges. An Agent Pool can only be stopped if it is Running and provisioning state is Succeeded
+          $ref: '#/components/schemas/PowerState'
+        availabilityZones:
+          type: array
+          items:
+            type: string
+          description: The list of Availability zones to use for nodes. This can only be specified if the AgentPoolType property is 'VirtualMachineScaleSets'.
+        enableNodePublicIP:
+          type: boolean
+          title: Whether each node is allocated its own public IP.
+          description: Some scenarios may require nodes in a node pool to receive their own dedicated public IP addresses. A common scenario is for gaming workloads, where a console needs to make a direct connection to a cloud virtual machine to minimize hops. For more information see [assigning a public IP per node](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#assign-a-public-ip-per-node-for-your-node-pools). The default is false.
+        nodePublicIPPrefixID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/publicIPPrefixes
+          title: The public IP prefix ID which VM nodes should use IPs from.
+          description: 'This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/publicIPPrefixes/{publicIPPrefixName}'
+        scaleSetPriority:
+          $ref: '#/components/schemas/ScaleSetPriority'
+          description: The Virtual Machine Scale Set priority. If not specified, the default is 'Regular'.
+        scaleSetEvictionPolicy:
+          $ref: '#/components/schemas/ScaleSetEvictionPolicy'
+          title: The Virtual Machine Scale Set eviction policy to use.
+          description: This cannot be specified unless the scaleSetPriority is 'Spot'. If not specified, the default is 'Delete'.
+        spotMaxPrice:
+          $ref: '#/components/schemas/SpotMaxPrice'
+          title: The max price (in US Dollars) you are willing to pay for spot instances. Possible values are any decimal value greater than zero or -1 which indicates default price to be up-to on-demand.
+          description: Possible values are any decimal value greater than zero or -1 which indicates the willingness to pay any on-demand price. For more details on spot pricing, see [spot VMs pricing](https://docs.microsoft.com/azure/virtual-machines/spot-vms#pricing)
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: The tags to be persisted on the agent pool virtual machine scale set.
+        nodeLabels:
+          type: object
+          additionalProperties:
+            type: string
+          description: The node labels to be persisted across all nodes in agent pool.
+        nodeTaints:
+          type: array
+          items:
+            type: string
+          description: The taints added to new nodes during node pool create and scale. For example, key=value:NoSchedule.
+        proximityPlacementGroupID:
+          $ref: '#/components/schemas/ProximityPlacementGroupID'
+          description: The ID for Proximity Placement Group.
+        kubeletConfig:
+          $ref: '#/components/schemas/KubeletConfig'
+          description: The Kubelet configuration on the agent pool nodes.
+        linuxOSConfig:
+          $ref: '#/components/schemas/LinuxOSConfig'
+          description: The OS configuration of Linux agent nodes.
+        enableEncryptionAtHost:
+          type: boolean
+          title: Whether to enable host based OS and data drive encryption.
+          description: 'This is only supported on certain VM sizes and in certain Azure regions. For more information, see: https://docs.microsoft.com/azure/aks/enable-host-encryption'
+        enableUltraSSD:
+          type: boolean
+          description: Whether to enable UltraSSD
+        enableFIPS:
+          type: boolean
+          title: Whether to use a FIPS-enabled OS.
+          description: See [Add a FIPS-enabled node pool](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#add-a-fips-enabled-node-pool-preview) for more details.
+        gpuInstanceProfile:
+          $ref: '#/components/schemas/GPUInstanceProfile'
+          description: GPUInstanceProfile to be used to specify GPU MIG instance profile for supported GPU VM SKU.
+        creationData:
+          $ref: '#/components/schemas/CreationData'
+          description: CreationData to be used to specify the source Snapshot ID if the node pool will be created/upgraded using a snapshot.
+        hostGroupID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Compute/hostGroups
+          title: The fully qualified resource ID of the Dedicated Host Group to provision virtual machines from, used only in creation scenario and not allowed to changed once set.
+          description: 'This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/hostGroups/{hostGroupName}. For more information see [Azure dedicated hosts](https://docs.microsoft.com/azure/virtual-machines/dedicated-hosts).'
         name:
           type: string
           title: Unique name of the agent pool profile in the context of the subscription and resource group.
           description: Windows agent pool names must be 6 characters or less.
           pattern: ^[a-z][a-z0-9]{0,11}$
-      required:
-        - name
-      description: Profile for the container service agent pool.
+      type: object
     AgentPoolType:
       type: string
       enum:
@@ -1010,15 +1318,177 @@ components:
           description: 'This can either be set to an integer (e.g. ''5'') or a percentage (e.g. ''50%''). If a percentage is specified, it is the percentage of the total agent pool size at the time of the upgrade. For percentages, fractional nodes are rounded up. If not specified, the default is 1. For more information, including best practices, see: https://docs.microsoft.com/azure/aks/upgrade-cluster#customize-node-surge-upgrade'
       description: Settings for upgrading an agentpool
     AgentPool:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/SubResource'
-      properties:
-        properties:
-          description: Properties of an agent pool.
-          $ref: '#/components/schemas/ManagedClusterAgentPoolProfileProperties'
-          x-ms-client-flatten: true
       description: Agent Pool.
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Resource ID.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource that is unique within a resource group. This name can be used to access the resource.
+        type:
+          $ref: '#/components/schemas/AgentPoolType'
+        count:
+          type: integer
+          format: int32
+          description: Number of agents (VMs) to host docker containers. Allowed values must be in the range of 0 to 1000 (inclusive) for user pools and in the range of 1 to 1000 (inclusive) for system pools. The default value is 1.
+        vmSize:
+          type: string
+          title: The size of the agent pool VMs.
+          description: 'VM size availability varies by region. If a node contains insufficient compute resources (memory, cpu, etc) pods might fail to run correctly. For more details on restricted VM sizes, see: https://docs.microsoft.com/azure/aks/quotas-skus-regions'
+        osDiskSizeGB:
+          $ref: '#/components/schemas/ContainerServiceOSDisk'
+        osDiskType:
+          $ref: '#/components/schemas/OSDiskType'
+        kubeletDiskType:
+          $ref: '#/components/schemas/KubeletDiskType'
+        workloadRuntime:
+          $ref: '#/components/schemas/WorkloadRuntime'
+        vnetSubnetID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/virtualNetworks/subnets
+          title: The ID of the subnet which agent pool nodes and optionally pods will join on startup.
+          description: 'If this is not specified, a VNET and subnet will be generated and used. If no podSubnetID is specified, this applies to nodes and pods, otherwise it applies to just nodes. This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}'
+        podSubnetID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/virtualNetworks/subnets
+          title: The ID of the subnet which pods will join when launched.
+          description: 'If omitted, pod IPs are statically assigned on the node subnet (see vnetSubnetID for more details). This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}'
+        maxPods:
+          type: integer
+          format: int32
+          description: The maximum number of pods that can run on a node.
+        osType:
+          $ref: '#/components/schemas/OSType'
+        osSKU:
+          $ref: '#/components/schemas/OSSKU'
+        maxCount:
+          type: integer
+          format: int32
+          description: The maximum number of nodes for auto-scaling
+        minCount:
+          type: integer
+          format: int32
+          description: The minimum number of nodes for auto-scaling
+        enableAutoScaling:
+          type: boolean
+          description: Whether to enable auto-scaler
+        scaleDownMode:
+          $ref: '#/components/schemas/ScaleDownMode'
+          title: The scale down mode to use when scaling the Agent Pool.
+          description: This also effects the cluster autoscaler behavior. If not specified, it defaults to Delete.
+        mode:
+          $ref: '#/components/schemas/AgentPoolMode'
+        orchestratorVersion:
+          type: string
+          title: The version of Kubernetes specified by the user.
+          description: Both patch version <major.minor.patch> (e.g. 1.20.13) and <major.minor> (e.g. 1.20) are supported. When <major.minor> is specified, the latest supported GA patch version is chosen automatically. Updating the cluster with the same <major.minor> once it has been created (e.g. 1.14.x -> 1.14) will not trigger an upgrade, even if a newer patch version is available. As a best practice, you should upgrade all node pools in an AKS cluster to the same Kubernetes version. The node pool version must have the same major version as the control plane. The node pool minor version must be within two minor versions of the control plane version. The node pool version cannot be greater than the control plane version. For more information see [upgrading a node pool](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#upgrade-a-node-pool).
+        currentOrchestratorVersion:
+          readOnly: true
+          type: string
+          title: The version of Kubernetes the Agent Pool is running.
+          description: If orchestratorVersion is a fully specified version <major.minor.patch>, this field will be exactly equal to it. If orchestratorVersion is <major.minor>, this field will contain the full <major.minor.patch> version being used.
+        nodeImageVersion:
+          readOnly: true
+          type: string
+          description: The version of node image
+        upgradeSettings:
+          $ref: '#/components/schemas/AgentPoolUpgradeSettings'
+          description: Settings for upgrading the agentpool
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The current deployment or provisioning state.
+        powerState:
+          title: Whether the Agent Pool is running or stopped.
+          description: When an Agent Pool is first created it is initially Running. The Agent Pool can be stopped by setting this field to Stopped. A stopped Agent Pool stops all of its VMs and does not accrue billing charges. An Agent Pool can only be stopped if it is Running and provisioning state is Succeeded
+          $ref: '#/components/schemas/PowerState'
+        availabilityZones:
+          type: array
+          items:
+            type: string
+          description: The list of Availability zones to use for nodes. This can only be specified if the AgentPoolType property is 'VirtualMachineScaleSets'.
+        enableNodePublicIP:
+          type: boolean
+          title: Whether each node is allocated its own public IP.
+          description: Some scenarios may require nodes in a node pool to receive their own dedicated public IP addresses. A common scenario is for gaming workloads, where a console needs to make a direct connection to a cloud virtual machine to minimize hops. For more information see [assigning a public IP per node](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#assign-a-public-ip-per-node-for-your-node-pools). The default is false.
+        nodePublicIPPrefixID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/publicIPPrefixes
+          title: The public IP prefix ID which VM nodes should use IPs from.
+          description: 'This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/publicIPPrefixes/{publicIPPrefixName}'
+        scaleSetPriority:
+          $ref: '#/components/schemas/ScaleSetPriority'
+          description: The Virtual Machine Scale Set priority. If not specified, the default is 'Regular'.
+        scaleSetEvictionPolicy:
+          $ref: '#/components/schemas/ScaleSetEvictionPolicy'
+          title: The Virtual Machine Scale Set eviction policy to use.
+          description: This cannot be specified unless the scaleSetPriority is 'Spot'. If not specified, the default is 'Delete'.
+        spotMaxPrice:
+          $ref: '#/components/schemas/SpotMaxPrice'
+          title: The max price (in US Dollars) you are willing to pay for spot instances. Possible values are any decimal value greater than zero or -1 which indicates default price to be up-to on-demand.
+          description: Possible values are any decimal value greater than zero or -1 which indicates the willingness to pay any on-demand price. For more details on spot pricing, see [spot VMs pricing](https://docs.microsoft.com/azure/virtual-machines/spot-vms#pricing)
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: The tags to be persisted on the agent pool virtual machine scale set.
+        nodeLabels:
+          type: object
+          additionalProperties:
+            type: string
+          description: The node labels to be persisted across all nodes in agent pool.
+        nodeTaints:
+          type: array
+          items:
+            type: string
+          description: The taints added to new nodes during node pool create and scale. For example, key=value:NoSchedule.
+        proximityPlacementGroupID:
+          $ref: '#/components/schemas/ProximityPlacementGroupID'
+          description: The ID for Proximity Placement Group.
+        kubeletConfig:
+          $ref: '#/components/schemas/KubeletConfig'
+          description: The Kubelet configuration on the agent pool nodes.
+        linuxOSConfig:
+          $ref: '#/components/schemas/LinuxOSConfig'
+          description: The OS configuration of Linux agent nodes.
+        enableEncryptionAtHost:
+          type: boolean
+          title: Whether to enable host based OS and data drive encryption.
+          description: 'This is only supported on certain VM sizes and in certain Azure regions. For more information, see: https://docs.microsoft.com/azure/aks/enable-host-encryption'
+        enableUltraSSD:
+          type: boolean
+          description: Whether to enable UltraSSD
+        enableFIPS:
+          type: boolean
+          title: Whether to use a FIPS-enabled OS.
+          description: See [Add a FIPS-enabled node pool](https://docs.microsoft.com/azure/aks/use-multiple-node-pools#add-a-fips-enabled-node-pool-preview) for more details.
+        gpuInstanceProfile:
+          $ref: '#/components/schemas/GPUInstanceProfile'
+          description: GPUInstanceProfile to be used to specify GPU MIG instance profile for supported GPU VM SKU.
+        creationData:
+          $ref: '#/components/schemas/CreationData'
+          description: CreationData to be used to specify the source Snapshot ID if the node pool will be created/upgraded using a snapshot.
+        hostGroupID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Compute/hostGroups
+          title: The fully qualified resource ID of the Dedicated Host Group to provision virtual machines from, used only in creation scenario and not allowed to changed once set.
+          description: 'This is of the form: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/hostGroups/{hostGroupName}. For more information see [Azure dedicated hosts](https://docs.microsoft.com/azure/virtual-machines/dedicated-hosts).'
+      type: object
     ManagedClusterWindowsProfile:
       type: object
       properties:
@@ -1233,20 +1703,35 @@ components:
           readOnly: true
       description: The response from the List maintenance configurations operation.
     MaintenanceConfiguration:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/SubResource'
-      properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-          description: The system metadata relating to this resource.
-        properties:
-          description: Properties of a default maintenance configuration.
-          $ref: '#/components/schemas/MaintenanceConfigurationProperties'
-          x-ms-client-flatten: true
       title: Planned maintenance configuration, used to configure when updates can be deployed to a Managed Cluster.
       description: See [planned maintenance](https://docs.microsoft.com/azure/aks/planned-maintenance) for more information about planned maintenance.
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Resource ID.
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource that is unique within a resource group. This name can be used to access the resource.
+        type:
+          readOnly: true
+          type: string
+          description: Resource type
+        timeInWeek:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeInWeek'
+          x-ms-identifiers: []
+          title: Time slots during the week when planned maintenance is allowed to proceed.
+          description: If two array entries specify the same day of the week, the applied configuration is the union of times in both entries.
+        notAllowedTime:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSpan'
+          x-ms-identifiers: []
+          description: Time slots on which upgrade is not allowed.
+      type: object
     MaintenanceConfigurationProperties:
       type: object
       properties:
@@ -1326,17 +1811,36 @@ components:
       required:
         - command
     RunCommandResult:
-      type: object
-      properties:
-        id:
-          type: string
-          description: The command id.
-          readOnly: true
-        properties:
-          description: Properties of command result.
-          $ref: '#/components/schemas/CommandResultProperties'
-          x-ms-client-flatten: true
       description: run command result.
+      properties:
+        provisioningState:
+          type: string
+          readOnly: true
+          description: provisioning State
+        exitCode:
+          type: integer
+          format: int32
+          readOnly: true
+          description: The exit code of the command
+        startedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The time when the command started.
+        finishedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The time when the command finished.
+        logs:
+          type: string
+          readOnly: true
+          description: The command output.
+        reason:
+          type: string
+          readOnly: true
+          description: An explanation of why provisioningState is set to failed (if so).
+      type: object
     CommandResultProperties:
       type: object
       properties:
@@ -1525,24 +2029,242 @@ components:
           readOnly: true
       description: The response from the List Managed Clusters operation.
     ManagedCluster:
-      type: object
-      properties:
-        sku:
-          $ref: '#/components/schemas/ManagedClusterSKU'
-          description: The managed cluster SKU.
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extended location of the Virtual Machine.
-        identity:
-          $ref: '#/components/schemas/ManagedClusterIdentity'
-          description: The identity of the managed cluster, if configured.
-        properties:
-          description: Properties of a managed cluster.
-          $ref: '#/components/schemas/ManagedClusterProperties'
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: Managed cluster.
+      properties:
+        provisioningState:
+          readOnly: true
+          type: string
+          description: The current provisioning state.
+        powerState:
+          $ref: '#/components/schemas/PowerState'
+          description: The Power State of the cluster.
+          readOnly: true
+        maxAgentPools:
+          readOnly: true
+          type: integer
+          format: int32
+          description: The max number of agent pools for the managed cluster.
+        kubernetesVersion:
+          type: string
+          title: The version of Kubernetes specified by the user.
+          description: Both patch version <major.minor.patch> (e.g. 1.20.13) and <major.minor> (e.g. 1.20) are supported. When <major.minor> is specified, the latest supported GA patch version is chosen automatically. Updating the cluster with the same <major.minor> once it has been created (e.g. 1.14.x -> 1.14) will not trigger an upgrade, even if a newer patch version is available. When you upgrade a supported AKS cluster, Kubernetes minor versions cannot be skipped. All upgrades must be performed sequentially by major version number. For example, upgrades between 1.14.x -> 1.15.x or 1.15.x -> 1.16.x are allowed, however 1.14.x -> 1.16.x is not allowed. See [upgrading an AKS cluster](https://docs.microsoft.com/azure/aks/upgrade-cluster) for more details.
+        currentKubernetesVersion:
+          readOnly: true
+          type: string
+          title: The version of Kubernetes the Managed Cluster is running.
+          description: If kubernetesVersion was a fully specified version <major.minor.patch>, this field will be exactly equal to it. If kubernetesVersion was <major.minor>, this field will contain the full <major.minor.patch> version being used.
+        dnsPrefix:
+          type: string
+          title: The DNS prefix of the Managed Cluster.
+          description: This cannot be updated once the Managed Cluster has been created.
+        fqdnSubdomain:
+          type: string
+          title: The FQDN subdomain of the private cluster with custom private dns zone.
+          description: This cannot be updated once the Managed Cluster has been created.
+        fqdn:
+          readOnly: true
+          type: string
+          description: The FQDN of the master pool.
+        privateFQDN:
+          readOnly: true
+          type: string
+          description: The FQDN of private cluster.
+        azurePortalFQDN:
+          readOnly: true
+          type: string
+          title: The special FQDN used by the Azure Portal to access the Managed Cluster. This FQDN is for use only by the Azure Portal and should not be used by other clients.
+          description: The Azure Portal requires certain Cross-Origin Resource Sharing (CORS) headers to be sent in some responses, which Kubernetes APIServer doesn't handle by default. This special FQDN supports CORS, allowing the Azure Portal to function properly.
+        agentPoolProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedClusterAgentPoolProfile'
+          x-ms-identifiers: []
+          description: The agent pool properties.
+        linuxProfile:
+          $ref: '#/components/schemas/ContainerServiceLinuxProfile'
+          description: The profile for Linux VMs in the Managed Cluster.
+        windowsProfile:
+          $ref: '#/components/schemas/ManagedClusterWindowsProfile'
+          description: The profile for Windows VMs in the Managed Cluster.
+        servicePrincipalProfile:
+          $ref: '#/components/schemas/ManagedClusterServicePrincipalProfile'
+          description: Information about a service principal identity for the cluster to use for manipulating Azure APIs.
+        addonProfiles:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ManagedClusterAddonProfile'
+          description: The profile of managed cluster add-on.
+        podIdentityProfile:
+          $ref: '#/components/schemas/ManagedClusterPodIdentityProfile'
+          title: The pod identity profile of the Managed Cluster.
+          description: See [use AAD pod identity](https://docs.microsoft.com/azure/aks/use-azure-ad-pod-identity) for more details on AAD pod identity integration.
+        nodeResourceGroup:
+          type: string
+          description: The name of the resource group containing agent pool nodes.
+        enableRBAC:
+          type: boolean
+          description: Whether to enable Kubernetes Role-Based Access Control.
+        enablePodSecurityPolicy:
+          type: boolean
+          description: (DEPRECATING) Whether to enable Kubernetes pod security policy (preview). This feature is set for removal on October 15th, 2020. Learn more at aka.ms/aks/azpodpolicy.
+        networkProfile:
+          $ref: '#/components/schemas/ContainerServiceNetworkProfile'
+          description: The network configuration profile.
+        aadProfile:
+          $ref: '#/components/schemas/ManagedClusterAADProfile'
+          description: The Azure Active Directory configuration.
+        autoUpgradeProfile:
+          $ref: '#/components/schemas/ManagedClusterAutoUpgradeProfile'
+          description: The auto upgrade configuration.
+        autoScalerProfile:
+          type: object
+          properties:
+            balance-similar-node-groups:
+              type: string
+              title: Detects similar node pools and balances the number of nodes between them.
+              description: Valid values are 'true' and 'false'
+            expander:
+              type: string
+              enum:
+                - least-waste
+                - most-pods
+                - priority
+                - random
+              x-ms-enum:
+                name: expander
+                modelAsString: true
+                values:
+                  - value: least-waste
+                    description: Selects the node group that will have the least idle CPU (if tied, unused memory) after scale-up. This is useful when you have different classes of nodes, for example, high CPU or high memory nodes, and only want to expand those when there are pending pods that need a lot of those resources.
+                  - value: most-pods
+                    description: Selects the node group that would be able to schedule the most pods when scaling up. This is useful when you are using nodeSelector to make sure certain pods land on certain nodes. Note that this won't cause the autoscaler to select bigger nodes vs. smaller, as it can add multiple smaller nodes at once.
+                  - value: priority
+                    description: Selects the node group that has the highest priority assigned by the user. It's configuration is described in more details [here](https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/expander/priority/readme.md).
+                  - value: random
+                    description: Used when you don't have a particular need for the node groups to scale differently.
+              title: The expander to use when scaling up
+              description: If not specified, the default is 'random'. See [expanders](https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-are-expanders) for more information.
+            max-empty-bulk-delete:
+              type: string
+              title: The maximum number of empty nodes that can be deleted at the same time. This must be a positive integer.
+              description: The default is 10.
+            max-graceful-termination-sec:
+              type: string
+              title: The maximum number of seconds the cluster autoscaler waits for pod termination when trying to scale down a node.
+              description: The default is 600.
+            max-node-provision-time:
+              type: string
+              title: The maximum time the autoscaler waits for a node to be provisioned.
+              description: The default is '15m'. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            max-total-unready-percentage:
+              type: string
+              title: The maximum percentage of unready nodes in the cluster. After this percentage is exceeded, cluster autoscaler halts operations.
+              description: The default is 45. The maximum is 100 and the minimum is 0.
+            new-pod-scale-up-delay:
+              type: string
+              title: Ignore unscheduled pods before they're a certain age.
+              description: For scenarios like burst/batch scale where you don't want CA to act before the kubernetes scheduler could schedule all the pods, you can tell CA to ignore unscheduled pods before they're a certain age. The default is '0s'. Values must be an integer followed by a unit ('s' for seconds, 'm' for minutes, 'h' for hours, etc).
+            ok-total-unready-count:
+              type: string
+              title: The number of allowed unready nodes, irrespective of max-total-unready-percentage.
+              description: This must be an integer. The default is 3.
+            scan-interval:
+              type: string
+              title: How often cluster is reevaluated for scale up or down.
+              description: The default is '10'. Values must be an integer number of seconds.
+            scale-down-delay-after-add:
+              type: string
+              title: How long after scale up that scale down evaluation resumes
+              description: The default is '10m'. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            scale-down-delay-after-delete:
+              type: string
+              title: How long after node deletion that scale down evaluation resumes.
+              description: The default is the scan-interval. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            scale-down-delay-after-failure:
+              type: string
+              title: How long after scale down failure that scale down evaluation resumes.
+              description: The default is '3m'. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            scale-down-unneeded-time:
+              type: string
+              title: How long a node should be unneeded before it is eligible for scale down.
+              description: The default is '10m'. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            scale-down-unready-time:
+              type: string
+              title: How long an unready node should be unneeded before it is eligible for scale down
+              description: The default is '20m'. Values must be an integer followed by an 'm'. No unit of time other than minutes (m) is supported.
+            scale-down-utilization-threshold:
+              type: string
+              title: Node utilization level, defined as sum of requested resources divided by capacity, below which a node can be considered for scale down.
+              description: The default is '0.5'.
+            skip-nodes-with-local-storage:
+              type: string
+              title: If cluster autoscaler will skip deleting nodes with pods with local storage, for example, EmptyDir or HostPath.
+              description: The default is true.
+            skip-nodes-with-system-pods:
+              type: string
+              title: If cluster autoscaler will skip deleting nodes with pods from kube-system (except for DaemonSet or mirror pods)
+              description: The default is true.
+          description: Parameters to be applied to the cluster-autoscaler when enabled
+        apiServerAccessProfile:
+          $ref: '#/components/schemas/ManagedClusterAPIServerAccessProfile'
+          description: The access profile for managed cluster API server.
+        diskEncryptionSetID:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Compute/diskEncryptionSets
+          title: The Resource ID of the disk encryption set to use for enabling encryption at rest.
+          description: 'This is of the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/diskEncryptionSets/{encryptionSetName}'''
+        identityProfile:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UserAssignedIdentity'
+          description: Identities associated with the cluster.
+        privateLinkResources:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+          description: Private link resources associated with the cluster.
+        disableLocalAccounts:
+          type: boolean
+          title: If local accounts should be disabled on the Managed Cluster.
+          description: If set to true, getting static credentials will be disabled for this cluster. This must only be used on Managed Clusters that are AAD enabled. For more details see [disable local accounts](https://docs.microsoft.com/azure/aks/managed-aad#disable-local-accounts-preview).
+        httpProxyConfig:
+          $ref: '#/components/schemas/ManagedClusterHTTPProxyConfig'
+          description: Configurations for provisioning the cluster with HTTP proxy servers.
+        securityProfile:
+          $ref: '#/components/schemas/ManagedClusterSecurityProfile'
+          description: Security profile for the managed cluster.
+        storageProfile:
+          $ref: '#/components/schemas/ManagedClusterStorageProfile'
+          description: Storage profile for the managed cluster.
+        publicNetworkAccess:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          title: PublicNetworkAccess of the managedCluster
+          description: Allow or deny public network access for AKS
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     ManagedClusterProperties:
       type: object
       properties:
@@ -1871,16 +2593,29 @@ components:
           description: The object ID of the user assigned identity.
       description: Details about a user assigned identity.
     ManagedClusterAccessProfile:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          description: AccessProfile of a managed cluster.
-          $ref: '#/components/schemas/AccessProfile'
-          x-ms-client-flatten: true
       description: Managed cluster Access Profile.
       x-ms-azure-resource: false
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        kubeConfig:
+          type: string
+          format: byte
+          description: Base64-encoded Kubernetes configuration file.
+      type: object
     AccessProfile:
       type: object
       properties:
@@ -2118,49 +2853,47 @@ components:
       title: The pod identity profile of the Managed Cluster.
       description: See [use AAD pod identity](https://docs.microsoft.com/azure/aks/use-azure-ad-pod-identity) for more details on pod identity integration.
     ManagedClusterUpgradeProfile:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ID of the upgrade profile.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the upgrade profile.
-        type:
-          readOnly: true
-          type: string
-          description: The type of the upgrade profile.
-        properties:
-          $ref: '#/components/schemas/ManagedClusterUpgradeProfileProperties'
-          description: The properties of the upgrade profile.
-          x-ms-client-flatten: true
       required:
         - properties
       description: The list of available upgrades for compute pools.
-    AgentPoolUpgradeProfile:
-      type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ID of the agent pool upgrade profile.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the agent pool upgrade profile.
-        type:
-          readOnly: true
-          type: string
-          description: The type of the agent pool upgrade profile.
-        properties:
-          $ref: '#/components/schemas/AgentPoolUpgradeProfileProperties'
-          description: The properties of the agent pool upgrade profile.
-          x-ms-client-flatten: true
+        controlPlaneProfile:
+          $ref: '#/components/schemas/ManagedClusterPoolUpgradeProfile'
+          description: The list of available upgrade versions for the control plane.
+        agentPoolProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedClusterPoolUpgradeProfile'
+          x-ms-identifiers: []
+          description: The list of available upgrade versions for agent pools.
+      type: object
+    AgentPoolUpgradeProfile:
       required:
         - properties
       description: The list of available upgrades for an agent pool.
+      properties:
+        kubernetesVersion:
+          type: string
+          description: The Kubernetes version (major.minor.patch).
+        osType:
+          $ref: '#/components/schemas/OSType'
+        upgrades:
+          type: array
+          items:
+            type: object
+            properties:
+              kubernetesVersion:
+                type: string
+                description: The Kubernetes version (major.minor.patch).
+              isPreview:
+                type: boolean
+                description: Whether the Kubernetes version is currently in preview.
+          x-ms-identifiers: []
+          description: List of orchestrator types and versions available for upgrade.
+        latestNodeImageVersion:
+          type: string
+          description: The latest AKS supported node image version.
+      type: object
     AgentPoolUpgradeProfileProperties:
       type: object
       properties:
@@ -2190,27 +2923,27 @@ components:
         - osType
       description: The list of available upgrade versions.
     AgentPoolAvailableVersions:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ID of the agent pool version list.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the agent pool version list.
-        type:
-          readOnly: true
-          type: string
-          description: Type of the agent pool version list.
-        properties:
-          $ref: '#/components/schemas/AgentPoolAvailableVersionsProperties'
-          description: Properties of agent pool available versions.
-          x-ms-client-flatten: true
       required:
         - properties
       description: The list of available versions for an agent pool.
+      properties:
+        agentPoolVersions:
+          type: array
+          items:
+            type: object
+            properties:
+              default:
+                type: boolean
+                description: Whether this version is the default agent pool version.
+              kubernetesVersion:
+                type: string
+                description: The Kubernetes version (major.minor.patch).
+              isPreview:
+                type: boolean
+                description: Whether Kubernetes version is currently in preview.
+          x-ms-identifiers: []
+          description: List of versions available for agent pool.
+      type: object
     AgentPoolAvailableVersionsProperties:
       type: object
       properties:
@@ -2402,27 +3135,27 @@ components:
             $ref: '#/components/schemas/PrivateEndpointConnection'
     PrivateEndpointConnection:
       description: A private endpoint connection
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ID of the private endpoint connection.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the private endpoint connection.
-          externalDocs:
-            url: https://aka.ms/search-naming-rules
-        type:
-          readOnly: true
-          type: string
-          description: The resource type.
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: The properties of a private endpoint connection.
-          x-ms-client-flatten: true
       x-ms-azure-resource: true
+      properties:
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The current provisioning state.
+          enum:
+            - Succeeded
+            - Creating
+            - Deleting
+            - Failed
+          x-ms-enum:
+            name: PrivateEndpointConnectionProvisioningState
+            modelAsString: true
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private endpoint.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+      type: object
     PrivateEndpointConnectionProperties:
       type: object
       description: Properties of a private endpoint connection.
@@ -2812,27 +3545,17 @@ components:
         - osOptionPropertyList
       description: The list of OS option properties.
     OSOptionProfile:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ID of the OS option resource.
-        name:
-          readOnly: true
-          type: string
-          description: The name of the OS option resource.
-        type:
-          readOnly: true
-          type: string
-          description: The type of the OS option resource.
-        properties:
-          $ref: '#/components/schemas/OSOptionPropertyList'
-          description: The list of OS options.
-          x-ms-client-flatten: true
       required:
         - properties
       description: The OS option profile.
+      properties:
+        osOptionPropertyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/OSOptionProperty'
+          x-ms-identifiers: []
+          description: The list of OS options.
+      type: object
     EndpointDependency:
       description: A domain name that AKS agent nodes are reaching at.
       type: object
@@ -3003,15 +3726,51 @@ components:
           readOnly: true
       description: The response from the List Snapshots operation.
     Snapshot:
-      type: object
-      properties:
-        properties:
-          description: Properties of a snapshot.
-          $ref: '#/components/schemas/SnapshotProperties'
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       description: A node pool snapshot resource.
+      properties:
+        creationData:
+          $ref: '#/components/schemas/CreationData'
+          description: CreationData to be used to specify the source agent pool resource ID to create this snapshot.
+        snapshotType:
+          $ref: '#/components/schemas/SnapshotType'
+        kubernetesVersion:
+          readOnly: true
+          type: string
+          description: The version of Kubernetes.
+        nodeImageVersion:
+          readOnly: true
+          type: string
+          description: The version of node image.
+        osType:
+          readOnly: true
+          $ref: '#/components/schemas/OSType'
+        osSku:
+          readOnly: true
+          $ref: '#/components/schemas/OSSKU'
+        vmSize:
+          readOnly: true
+          type: string
+          description: The size of the VM.
+        enableFIPS:
+          readOnly: true
+          type: boolean
+          description: Whether to use a FIPS-enabled OS.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
     SnapshotProperties:
       type: object
       properties:
@@ -3055,97 +3814,6 @@ components:
           - value: NodePool
             description: The snapshot is a snapshot of a node pool.
       description: The type of a snapshot. The default is NodePool.
-  parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    ResourceNameParameter:
-      name: resourceName
-      in: path
-      description: The name of the managed cluster resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 63
-        pattern: ^[a-zA-Z0-9]$|^[a-zA-Z0-9][-_a-zA-Z0-9]{0,61}[a-zA-Z0-9]$
-        type: string
-    ResourceTypeParameter:
-      name: resource-type
-      in: query
-      description: The resource type for which the OS options needs to be returned
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ServerFqdnParameter:
-      name: server-fqdn
-      in: query
-      description: server fqdn type for credentials to be returned
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    CredentialFormatParameter:
-      name: format
-      in: query
-      description: Only apply to AAD clusters, specifies the format of returned kubeconfig. Format 'azure' will return azure auth-provider kubeconfig; format 'exec' will return exec format kubeconfig, which requires kubelogin binary in the path.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - exec
-          - azure
-        x-ms-enum:
-          name: format
-          modelAsString: true
-          values:
-            - value: azure
-              description: Return azure auth-provider kubeconfig. This format is deprecated in 1.22 and will be fully removed in 1.25.
-            - value: exec
-              description: Return exec format kubeconfig. This format requires kubelogin binary in the path.
-        type: string
 paths:
   /providers/Microsoft.ContainerService/operations/?api-version=2022-06-01:
     get:
