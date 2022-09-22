@@ -26,74 +26,96 @@ function getSQLVerbFromMethod(s, r, m, o){
 
 const selectExcludedOps = {
     api_management: [
-        'Api_ListByTags',
-        'Product_ListByTags',
-        'Reports_ListByApi',
-        'Reports_ListByUser',
-        'Reports_ListByOperation',
-        'Reports_ListByProduct',
-        'Reports_ListByGeo',
-        'Reports_ListByTime',
-        'Reports_ListByRequest',
+        'Api_ListByTags', // method signature clash
+        'Product_ListByTags', // method signature clash
+        'Reports_ListByApi', // method signature clash
+        'Reports_ListByUser', // method signature clash
+        'Reports_ListByOperation', // method signature clash
+        'Reports_ListByProduct', // method signature clash
+        'Reports_ListByGeo', // method signature clash
+        'Reports_ListByTime', // method signature clash
+        'Reports_ListByRequest', // method signature clash
     ],
     application_insights: [
-        'AnalyticsItems_Get',
+        'AnalyticsItems_Get', // method signature clash
     ],
     deployment_admin: [
-        'Locations_Get',
+        'Locations_Get', // method signature clash
     ],
     event_grid: [
-        'PartnerConfigurations_Get',
+        'PartnerConfigurations_Get', // method signature clash
+    ],
+    hdinsight: [
+        'Configurations_Get', // unsuitable schema
     ],
     iot_security: [
-        'Sites_Get',
-        'DefenderSettings_Get',
+        'Sites_Get', // method signature clash
+        'DefenderSettings_Get', // method signature clash
+    ],
+    logic_apps: [
+        'IntegrationServiceEnvironmentNetworkHealth_Get', // unsuitable schema
     ],
     management_groups: [
-        'HierarchySettings_Get',
+        'HierarchySettings_Get', // method signature clash
     ],
     mysql: [
-        'ServerAdministrators_Get',
+        'ServerAdministrators_Get', // method signature clash
     ],
     network: [
-        'FirewallPolicyIdpsSignaturesOverrides_Get',
-        'VpnServerConfigurationsAssociatedWithVirtualWan_List',
+        'FirewallPolicyIdpsSignaturesOverrides_Get', // method signature clash
+        'VpnServerConfigurationsAssociatedWithVirtualWan_List', // method signature clash
+    ],
+    recovery_services_backup: [
+        'BackupOperationResults_Get', // method signature clash
+        'JobOperationResults_Get', // method signature clash
+        'ProtectionContainerRefreshOperationResults_Get', // method signature clash
     ],
     recovery_services_site_recovery: [
-        'ReplicationEligibilityResults_Get',
+        'ReplicationEligibilityResults_Get', // method signature clash
     ],
     security: [
-        'IotSecuritySolutionAnalytics_Get',
-        'MdeOnboardings_Get',
+        'IotSecuritySolutionAnalytics_Get', // method signature clash
+        'MdeOnboardings_Get', // method signature clash
+    ],
+    service_fabric_managed_clusters: [
+        'OperationResults_Get', // unsuitable schema
     ],
     sql: [
-        'ManagedInstances_Get',
-        'ManagedDatabaseQueries_Get',
+        'ManagedInstances_Get', // method signature clash
+        'ManagedDatabaseQueries_Get', // method signature clash
+        'DatabaseExtensions_Get', // unsuitable schema
+        'DatabaseSchemas_Get', // unsuitable schema
+        'JobVersions_Get', // unsuitable schema
+        'ManagedDatabaseSchemas_Get', // unsuitable schema
+    ],
+    synapse: [
+        'SqlPoolSchemas_Get', // unsuitable schema
+        'SqlPoolTables_Get', // unsuitable schema
     ],
     automanage: [
-        'ServicePrincipals_Get',
+        'ServicePrincipals_Get', // method signature clash
     ],
     data_box_edge: [
-        'Orders_Get',
-        'MonitoringConfig_Get',
+        'Orders_Get', // method signature clash
+        'MonitoringConfig_Get', // method signature clash
     ],
     education: [
-        'Grants_Get',
-        'Labs_Get',
+        'Grants_Get', // method signature clash
+        'Labs_Get', // method signature clash
     ],
     workloads: [
-        'WordpressInstances_Get',
+        'WordpressInstances_Get', // method signature clash
     ],
     key_vault: [
-        'Vaults_List',
+        'Vaults_List', // method signature clash
     ],
     consumption: [
-        'Marketplaces_List',
-        'ReservationRecommendations_List',
-        'UsageDetails_List',
+        'Marketplaces_List', // method signature clash
+        'ReservationRecommendations_List', // method signature clash
+        'UsageDetails_List', // method signature clash
     ],
     cost_management: [
-        'Dimensions_List',
+        'Dimensions_List', // method signature clash
     ],
 };
 
@@ -112,13 +134,18 @@ function selectOrExec(t, s, r, m, o){
                 'application_insights',
                 'deployment_admin',
                 'event_grid',
+                'hdinsight',
                 'iot_security',
+                'logic_apps',
                 'management_groups',
                 'mysql',
                 'network',
+                'recovery_services_backup',
                 'recovery_services_site_recovery',
                 'security',
+                'service_fabric_managed_clusters',
                 'sql',
+                'synapse',
                 'automanage',
                 'data_box_edge',
                 'education',
