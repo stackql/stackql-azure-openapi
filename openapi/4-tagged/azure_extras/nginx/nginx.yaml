@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -49,14 +49,6 @@ components:
         minLength: 1
         maxLength: 90
         type: string
-    DeploymentNameParameter:
-      name: deploymentName
-      in: path
-      description: The name of targeted Nginx deployment
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
     OperationIdParameter:
       name: operationId
       in: path
@@ -74,6 +66,14 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
+        type: string
+    DeploymentNameParameter:
+      name: deploymentName
+      in: path
+      description: The name of targeted Nginx deployment
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
   schemas:
     Resource:
@@ -303,14 +303,71 @@ components:
         - name
         - publisher
         - product
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+    ErrorDetail:
+      description: The error detail.
       type: object
       properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -392,6 +449,42 @@ components:
           type: string
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
     locationData:
       description: Metadata pertaining to the geographic location of the resource.
       type: object
@@ -477,6 +570,35 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     ProvisioningState:
       enum:
         - Accepted
@@ -489,6 +611,7 @@ components:
         - Deleted
         - NotSpecified
       type: string
+      readOnly: true
       x-ms-enum:
         modelAsString: true
         name: ProvisioningState
@@ -554,6 +677,11 @@ components:
         provisioningState:
           $ref: '#/components/schemas/ProvisioningState'
         files:
+          type: array
+          items:
+            $ref: '#/components/schemas/NginxConfigurationFile'
+          x-ms-identifiers: []
+        protectedFiles:
           type: array
           items:
             $ref: '#/components/schemas/NginxConfigurationFile'
@@ -706,6 +834,18 @@ components:
           $ref: '#/components/schemas/NginxFrontendIPConfiguration'
         networkInterfaceConfiguration:
           $ref: '#/components/schemas/NginxNetworkInterfaceConfiguration'
+    NginxStorageAccount:
+      type: object
+      properties:
+        accountName:
+          type: string
+        containerName:
+          type: string
+    NginxLogging:
+      type: object
+      properties:
+        storageAccount:
+          $ref: '#/components/schemas/NginxStorageAccount'
     NginxDeploymentProperties:
       type: object
       properties:
@@ -725,6 +865,8 @@ components:
           readOnly: true
         enableDiagnosticsSupport:
           type: boolean
+        logging:
+          $ref: '#/components/schemas/NginxLogging'
     NginxDeployment:
       x-ms-azure-resource: true
       properties:
@@ -758,6 +900,8 @@ components:
       properties:
         enableDiagnosticsSupport:
           type: boolean
+        logging:
+          $ref: '#/components/schemas/NginxLogging'
     NginxDeploymentUpdateParameters:
       properties:
         identity:
@@ -811,105 +955,8 @@ components:
         isDataAction:
           description: Indicates whether the operation is a data action
           type: boolean
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/certificates/{certificateName}/?api-version=2021-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/certificates/{certificateName}/?api-version=2022-08-01:
     get:
       tags:
         - NginxCertificate
@@ -939,7 +986,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResourceProviderDefaultErrorResponse'
       x-stackQL-resource: certificates
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - NginxCertificate
@@ -1017,7 +1064,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: certificates
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/certificates/?api-version=2021-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/certificates/?api-version=2022-08-01:
     get:
       tags:
         - NginxCertificate
@@ -1044,7 +1091,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: certificates
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/configurations/?api-version=2021-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/configurations/?api-version=2022-08-01:
     get:
       tags:
         - NginxConfiguration
@@ -1071,7 +1119,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: configurations
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/configurations/{configurationName}/?api-version=2021-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/configurations/{configurationName}/?api-version=2022-08-01:
     get:
       tags:
         - NginxConfiguration
@@ -1101,7 +1150,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResourceProviderDefaultErrorResponse'
       x-stackQL-resource: configurations
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - NginxConfiguration
@@ -1179,7 +1228,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: configurations
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/?api-version=2021-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/{deploymentName}/?api-version=2022-08-01:
     get:
       tags:
         - NginxDeployment
@@ -1203,7 +1252,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResourceProviderDefaultErrorResponse'
       x-stackQL-resource: deployments
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - NginxDeployment
@@ -1305,7 +1354,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/providers/Nginx.NginxPlus/nginxDeployments/?api-version=2021-05-01-preview:
+  /subscriptions/{subscriptionId}/providers/Nginx.NginxPlus/nginxDeployments/?api-version=2022-08-01:
     get:
       tags:
         - NginxDeployment
@@ -1330,7 +1379,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: deployments
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/?api-version=2021-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Nginx.NginxPlus/nginxDeployments/?api-version=2022-08-01:
     get:
       tags:
         - NginxDeployment
@@ -1356,11 +1406,12 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: deployments
       x-stackQL-verb: select
-  /providers/Nginx.NginxPlus/operations/?api-version=2021-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /providers/Nginx.NginxPlus/operations/?api-version=2022-08-01:
     get:
       tags:
         - NginxDeployment
-      summary: List all operations provided by Nginx.NginxPlus for the 2021-05-01-preview api version.
+      summary: List all operations provided by Nginx.NginxPlus for the 2022-08-01 api version.
       operationId: Operations_List
       parameters: []
       responses:
@@ -1380,3 +1431,4 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value

@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: KustoManagementClient
-  version: '2022-02-01'
+  version: '2022-07-07'
 security:
   - azure_auth:
       - user_impersonation
@@ -669,6 +669,10 @@ components:
             - Standard_L16s
             - Standard_L8s_v2
             - Standard_L16s_v2
+            - Standard_L8s_v3
+            - Standard_L16s_v3
+            - Standard_L8as_v3
+            - Standard_L16as_v3
             - Standard_E64i_v3
             - Standard_E80ids_v4
             - Standard_E2a_v4
@@ -687,6 +691,12 @@ components:
             - Standard_E4ads_v5
             - Standard_E8ads_v5
             - Standard_E16ads_v5
+            - Standard_EC8as_v5+1TB_PS
+            - Standard_EC8as_v5+2TB_PS
+            - Standard_EC16as_v5+3TB_PS
+            - Standard_EC16as_v5+4TB_PS
+            - Standard_EC8ads_v5
+            - Standard_EC16ads_v5
             - Standard_E8s_v4+1TB_PS
             - Standard_E8s_v4+2TB_PS
             - Standard_E16s_v4+3TB_PS
@@ -695,6 +705,14 @@ components:
             - Standard_E8s_v5+2TB_PS
             - Standard_E16s_v5+3TB_PS
             - Standard_E16s_v5+4TB_PS
+            - Standard_E2d_v4
+            - Standard_E4d_v4
+            - Standard_E8d_v4
+            - Standard_E16d_v4
+            - Standard_E2d_v5
+            - Standard_E4d_v5
+            - Standard_E8d_v5
+            - Standard_E16d_v5
           x-ms-enum:
             name: AzureSkuName
             modelAsString: true
@@ -807,6 +825,12 @@ components:
           type: object
           $ref: '#/components/schemas/TableLevelSharingProperties'
           description: Table level sharing specifications
+        databaseNameOverride:
+          type: string
+          description: Overrides the original database name. Relevant only when attaching to a specific database.
+        databaseNamePrefix:
+          type: string
+          description: Adds a prefix to the attached databases name. When following an entire cluster, that prefix would be added to all of the databases original names from leader cluster.
       description: Class representing the an attached database configuration properties of kind specific.
       required:
         - databaseName
@@ -873,6 +897,17 @@ components:
             name: PrincipalsModificationKind
             modelAsString: true
           description: The principals modification kind of the database
+        tableLevelSharingProperties:
+          type: object
+          readOnly: true
+          $ref: '#/components/schemas/TableLevelSharingProperties'
+          description: Table level sharing specifications
+        originalDatabaseName:
+          type: string
+          readOnly: true
+          description: The original database name, before databaseNameOverride or databaseNamePrefix where applied.
+        databaseShareOrigin:
+          $ref: '#/components/schemas/DatabaseShareOrigin'
       description: Class representing the Kusto database properties.
     EventHubConnectionProperties:
       properties:
@@ -905,7 +940,7 @@ components:
           description: The provisioned state of the resource.
         managedIdentityResourceId:
           type: string
-          description: Empty for non-managed identity based data connection. For system assigned identity, provide cluster resource Id.  For user assigned identity (UAI) provide the UAI resource Id.
+          description: The resource ID of a managed identity (system or user assigned) to be used to authenticate with event hub.
         managedIdentityObjectId:
           type: string
           readOnly: true
@@ -920,6 +955,10 @@ components:
             name: DatabaseRouting
             modelAsString: true
           default: Single
+        retrievalStartDate:
+          description: When defined, the data connection retrieves existing Event hub events created since the Retrieval start date. It can only retrieve events retained by the Event hub, based on its retention period.
+          type: string
+          format: date-time
       required:
         - eventHubResourceId
         - consumerGroup
@@ -959,6 +998,10 @@ components:
             name: DatabaseRouting
             modelAsString: true
           default: Single
+        retrievalStartDate:
+          description: When defined, the data connection retrieves existing Event hub events created since the Retrieval start date. It can only retrieve events retained by the Event hub, based on its retention period.
+          type: string
+          format: date-time
         provisioningState:
           $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
@@ -1087,7 +1130,7 @@ components:
           description: The name of blob storage event type to process.
         managedIdentityResourceId:
           type: string
-          description: Empty for non-managed identity based data connection. For system assigned identity, provide cluster resource Id.  For user assigned identity (UAI) provide the UAI resource Id.
+          description: The resource ID of a managed identity (system or user assigned) to be used to authenticate with event hub and storage account.
         managedIdentityObjectId:
           type: string
           readOnly: true
@@ -1761,6 +1804,13 @@ components:
           type: string
           readOnly: true
           description: The database name owned by this cluster that was followed. * in case following all databases.
+        tableLevelSharingProperties:
+          type: object
+          readOnly: true
+          $ref: '#/components/schemas/TableLevelSharingProperties'
+          description: Table level sharing specifications
+        databaseShareOrigin:
+          $ref: '#/components/schemas/DatabaseShareOrigin'
       description: A class representing follower database request.
     DiagnoseVirtualNetworkResult:
       properties:
@@ -2174,6 +2224,17 @@ components:
           type: string
           description: GUID or valid URL representing an accepted audience.
       description: Represents an accepted audience trusted by the cluster.
+    DatabaseShareOrigin:
+      type: string
+      readOnly: true
+      enum:
+        - Direct
+        - DataShare
+        - Other
+      x-ms-enum:
+        name: DatabaseShareOrigin
+        modelAsString: true
+      description: The origin of the following setup.
     ErrorDetail:
       description: The error detail.
       type: object
@@ -2395,6 +2456,21 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    callerRoleParameter:
+      name: callerRole
+      in: query
+      description: By default, any user who run operation on a database become an Admin on it. This property allows the caller to exclude the caller from Admins list.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - Admin
+          - None
+        x-ms-enum:
+          name: callerRole
+          modelAsString: true
+        default: Admin
+        type: string
     LocationParameter:
       name: location
       in: path
@@ -2406,7 +2482,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Clusters
@@ -2568,7 +2644,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/stop:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2592,7 +2668,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/start:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2616,7 +2692,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/checkPrincipalAssignmentNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - ClusterPrincipalAssignments
@@ -2649,7 +2725,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/principalAssignments/{principalAssignmentName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - ClusterPrincipalAssignments
@@ -2739,7 +2815,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/principalAssignments:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - ClusterPrincipalAssignments
@@ -2766,7 +2842,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/listFollowerDatabases:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2793,7 +2869,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/detachFollowerDatabases:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2825,7 +2901,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/diagnoseVirtualNetwork:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2855,7 +2931,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Clusters
@@ -2881,7 +2957,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.Kusto/clusters:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Clusters
@@ -2906,7 +2982,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.Kusto/skus:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       description: Lists eligible SKUs for Kusto resource provider.
       operationId: Clusters_ListSkus
@@ -2929,7 +3005,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.Kusto/locations/{location}/checkNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -2961,7 +3037,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/checkNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Databases
@@ -2994,7 +3070,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/attachedDatabaseConfigurationCheckNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - AttachedDatabaseConfigurations
@@ -3027,7 +3103,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/managedPrivateEndpointsCheckNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - ManagedPrivateEndpoints
@@ -3060,7 +3136,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/skus:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Clusters
@@ -3087,7 +3163,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Databases
@@ -3114,7 +3190,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Databases
@@ -3150,6 +3226,7 @@ paths:
         - $ref: '#/components/parameters/DatabaseNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/callerRoleParameter'
       requestBody:
         description: The database parameters supplied to the CreateOrUpdate operation.
         required: true
@@ -3195,6 +3272,7 @@ paths:
         - $ref: '#/components/parameters/DatabaseNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/callerRoleParameter'
       requestBody:
         description: The database parameters supplied to the Update operation.
         required: true
@@ -3265,7 +3343,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/checkPrincipalAssignmentNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - DatabasePrincipalAssignments
@@ -3299,7 +3377,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/principalAssignments/{principalAssignmentName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - DatabasePrincipalAssignments
@@ -3392,7 +3470,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/principalAssignments:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - DatabasePrincipalAssignments
@@ -3420,7 +3498,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/listPrincipals:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Databases
@@ -3448,7 +3526,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/addPrincipals:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Databases
@@ -3482,7 +3560,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/scripts:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - scripts
@@ -3510,7 +3588,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/scripts/{scriptName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Scripts
@@ -3654,7 +3732,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/managedPrivateEndpoints:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - ManagedPrivateEndpoints
@@ -3681,7 +3759,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/managedPrivateEndpoints/{managedPrivateEndpointName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - ManagedPrivateEndpoints
@@ -3821,7 +3899,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/privateEndpointConnections:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - PrivateEndpointConnections
@@ -3848,7 +3926,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - PrivateEndpointConnections
@@ -3937,7 +4015,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/privateLinkResources:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - PrivateLinkResources
@@ -3964,7 +4042,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/privateLinkResources/{privateLinkResourceName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - PrivateLinkResources
@@ -3990,7 +4068,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/outboundNetworkDependenciesEndpoints:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - OutboundNetworkDependenciesEndpoints
@@ -4017,7 +4095,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/attachedDatabaseConfigurations:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - AttachedDatabaseConfigurations
@@ -4044,7 +4122,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/attachedDatabaseConfigurations/{attachedDatabaseConfigurationName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - AttachedDatabaseConfigurations
@@ -4140,7 +4218,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/removePrincipals:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Databases
@@ -4174,7 +4252,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/dataConnections:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - DataConnections
@@ -4202,7 +4280,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/dataConnectionValidation:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - DataConnections
@@ -4241,7 +4319,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/checkNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - DataConnections
@@ -4275,7 +4353,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/scriptsCheckNameAvailability:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Scripts
@@ -4309,7 +4387,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/databases/{databaseName}/dataConnections/{dataConnectionName}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - DataConnections
@@ -4464,7 +4542,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /providers/Microsoft.Kusto/operations:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - Operations
@@ -4488,7 +4566,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/listLanguageExtensions:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -4515,7 +4593,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/addLanguageExtensions:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -4547,7 +4625,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Kusto/clusters/{clusterName}/removeLanguageExtensions:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     post:
       tags:
         - Clusters
@@ -4579,7 +4657,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.Kusto/locations/{location}/operationResults/{operationId}:
-    x-api-version: '2022-02-01'
+    x-api-version: '2022-07-07'
     get:
       tags:
         - OperationResults

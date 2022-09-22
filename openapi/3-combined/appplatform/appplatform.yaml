@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2022-05-01-preview
+  version: 2022-09-01-preview
   title: AppPlatformManagementClient
   description: REST API for Azure Spring Apps
 security:
@@ -1058,6 +1058,12 @@ components:
         ingressConfig:
           description: Ingress configuration payload for Azure Spring Apps resource.
           $ref: '#/components/schemas/IngressConfig'
+        outboundType:
+          description: The egress traffic type of Azure Spring Apps VNet instances.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
     RequiredTraffic:
       description: Required inbound or outbound traffic for Azure Spring Apps resource.
       type: object
@@ -1302,9 +1308,7 @@ components:
         fqdn:
           description: Fully qualified dns Name.
           type: string
-          x-ms-mutability:
-            - create
-            - read
+          readOnly: true
         httpsOnly:
           description: Indicate if only https is allowed.
           type: boolean
@@ -1328,6 +1332,9 @@ components:
         vnetAddons:
           description: Additional App settings in vnet injection instance
           $ref: '#/components/schemas/AppVNetAddons'
+        ingressSettings:
+          description: App ingress settings payload.
+          $ref: '#/components/schemas/IngressSettings'
     TemporaryDisk:
       description: Temporary disk payload
       type: object
@@ -1392,6 +1399,50 @@ components:
           description: URL of the App in vnet injection instance which could be accessed from internet
           type: string
           readOnly: true
+    IngressSettings:
+      description: App ingress settings payload.
+      type: object
+      properties:
+        readTimeoutInSeconds:
+          format: int32
+          description: Ingress read time out in seconds.
+          type: integer
+        sendTimeoutInSeconds:
+          format: int32
+          description: Ingress send time out in seconds.
+          type: integer
+        sessionAffinity:
+          description: Type of the affinity, set this to Cookie to enable session affinity.
+          enum:
+            - Cookie
+            - None
+          type: string
+          x-ms-enum:
+            name: SessionAffinity
+            modelAsString: true
+        sessionCookieMaxAge:
+          description: Time in seconds until the cookie expires.
+          format: int32
+          type: integer
+        backendProtocol:
+          description: How ingress should communicate with this app backend service.
+          enum:
+            - GRPC
+            - Default
+          type: string
+          x-ms-enum:
+            name: BackendProtocol
+            modelAsString: true
+        clientAuth:
+          description: Client-Certification Authentication.
+          type: object
+          properties:
+            certificates:
+              description: Collection of certificate resource id.
+              uniqueItems: false
+              type: array
+              items:
+                type: string
     AppResourceCollection:
       description: Object that includes an array of App resources and a possible link for next set
       type: object
@@ -1820,6 +1871,25 @@ components:
         message:
           description: Message of why domain name is invalid.
           type: string
+    RemoteDebuggingPayload:
+      description: Remote debugging payload.
+      type: object
+      properties:
+        port:
+          description: Application debugging port.
+          type: integer
+          format: int32
+    RemoteDebugging:
+      description: Remote debugging config.
+      type: object
+      properties:
+        port:
+          description: Application debugging port
+          type: integer
+          format: int32
+        enabled:
+          description: Indicate if remote debugging is enabled
+          type: boolean
     DeploymentResource:
       description: Deployment resource payload
       type: object
@@ -2162,6 +2232,16 @@ components:
           description: Availability zone information of the deployment instance
           type: string
           readOnly: true
+    DeploymentList:
+      description: A list of deployments resource ids.
+      type: object
+      properties:
+        deployments:
+          description: A list of deployment resource ids.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
     DeploymentResourceCollection:
       description: Object that includes an array of App resources and a possible link for next set
       type: object
@@ -2821,9 +2901,11 @@ components:
         cpu:
           description: Cpu allocated to each Spring Cloud Gateway instance.
           type: string
+          default: '1'
         memory:
           description: Memory allocated to each Spring Cloud Gateway instance.
           type: string
+          default: 2Gi
     GatewayOperatorProperties:
       description: Properties of the Spring Cloud Gateway Operator.
       type: object
@@ -2900,6 +2982,16 @@ components:
           type: string
         openApi:
           $ref: '#/components/schemas/GatewayRouteConfigOpenApiProperties'
+        protocol:
+          description: Protocol of routed Azure Spring Apps applications.
+          enum:
+            - HTTP
+            - HTTPS
+          default: HTTP
+          type: string
+          x-ms-enum:
+            name: GatewayRouteConfigProtocol
+            modelAsString: true
         routes:
           description: Array of API routes, each route contains properties such as `title`, `uri`, `ssoEnabled`, `predicates`, `filters`.
           uniqueItems: false
@@ -3333,7 +3425,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -3464,7 +3556,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/listTestKeys:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3489,7 +3581,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/regenerateTestKey:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3522,7 +3614,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/disableTestEndpoint:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3543,7 +3635,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/enableTestEndpoint:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3568,7 +3660,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/stop:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3596,7 +3688,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/start:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3624,7 +3716,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/default:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -3725,7 +3817,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/validate:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3767,7 +3859,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -3857,7 +3949,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -3884,7 +3976,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/validate:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -3927,7 +4019,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/{serviceRegistryName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4009,7 +4101,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4036,7 +4128,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4063,7 +4155,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4089,7 +4181,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4117,7 +4209,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4183,7 +4275,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/{buildpackBindingName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4279,7 +4371,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4308,7 +4400,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4337,7 +4429,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4365,7 +4457,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/getLogFileUrl:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -4393,7 +4485,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4486,7 +4578,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4514,7 +4606,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/getResourceUploadUrl:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -4540,7 +4632,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4566,7 +4658,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/{buildpackName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4593,7 +4685,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4619,7 +4711,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/{stackName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4646,7 +4738,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4674,7 +4766,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/{agentPoolName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4741,7 +4833,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/monitoringSettings/default:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4842,7 +4934,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -4983,7 +5075,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5010,7 +5102,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/getResourceUploadUrl:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5036,7 +5128,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/setActiveDeployments:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5077,7 +5169,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/{bindingName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5216,7 +5308,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5244,7 +5336,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/{storageName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5340,7 +5432,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5367,7 +5459,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/{certificateName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5463,7 +5555,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5490,7 +5582,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/locations/{location}/checkNameAvailability:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5527,7 +5619,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/{domainName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5666,7 +5758,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5694,7 +5786,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/validateDomain:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5728,7 +5820,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5867,7 +5959,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5906,7 +5998,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/deployments:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -5943,8 +6035,35 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/listUsingDeployments:
+    x-api-version: 2022-09-01-preview
+    post:
+      tags:
+        - AppPlatform
+      description: List deployments that are using the builder.
+      operationId: BuildServiceBuilder_ListDeployments
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/BuildServiceNameParameter'
+        - $ref: '#/components/parameters/BuilderNameParameter'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/start:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5970,7 +6089,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/stop:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -5996,7 +6115,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/restart:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6021,8 +6140,111 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/enableRemoteDebugging:
+    x-api-version: 2022-09-01-preview
+    post:
+      tags:
+        - AppPlatform
+      description: Enable remote debugging.
+      operationId: Deployments_EnableRemoteDebugging
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      requestBody:
+        description: Parameters for enable remote debugging
+        required: false
+        x-ms-requestBody-name: remoteDebuggingPayload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteDebuggingPayload'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        '202':
+          description: Accepted. The response indicates the RemoteDebugging is now enabling and contains a Location header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/disableRemoteDebugging:
+    x-api-version: 2022-09-01-preview
+    post:
+      tags:
+        - AppPlatform
+      description: Disable remote debugging.
+      operationId: Deployments_DisableRemoteDebugging
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        '202':
+          description: Accepted. The response indicates the RemoteDebugging is now disabling and contains a Location header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getRemoteDebuggingConfig:
+    x-api-version: 2022-09-01-preview
+    post:
+      tags:
+        - AppPlatform
+      description: Get remote debugging config.
+      operationId: Deployments_GetRemoteDebuggingConfig
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getLogFileUrl:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6051,7 +6273,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateHeapDump:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6085,7 +6307,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateThreadDump:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6119,7 +6341,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/startJFR:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6153,7 +6375,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/Spring:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6178,7 +6400,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6204,7 +6426,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.AppPlatform/operations:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6228,7 +6450,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.AppPlatform/runtimeVersions:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6250,7 +6472,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/skus:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6275,7 +6497,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6365,7 +6587,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6392,7 +6614,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/{routeConfigName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6485,7 +6707,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6513,7 +6735,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/{domainName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6606,7 +6828,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6634,7 +6856,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/validateDomain:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform
@@ -6668,7 +6890,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6758,7 +6980,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6785,7 +7007,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/{domainName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6878,7 +7100,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     get:
       tags:
         - AppPlatform
@@ -6906,7 +7128,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/validateDomain:
-    x-api-version: 2022-05-01-preview
+    x-api-version: 2022-09-01-preview
     post:
       tags:
         - AppPlatform

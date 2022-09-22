@@ -215,14 +215,71 @@ components:
         - name
         - publisher
         - product
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+    ErrorDetail:
+      description: The error detail.
       type: object
       properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -236,53 +293,110 @@ components:
           description: The additional info.
       description: The resource management error additional info.
     Operation:
-      description: REST API operation definition.
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
       properties:
         name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
           type: string
           readOnly: true
-          description: The name of the operation being performed on this particular object.
-        display:
-          $ref: '#/components/schemas/OperationDisplay'
-          readOnly: true
-          description: The localized display information for this particular operation or action.
         isDataAction:
-          description: Indicates whether the operation is a data action
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
           type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
         origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
           type: string
           readOnly: true
-          description: The intended executor of the operation.
           enum:
-            - NotSpecified
             - user
             - system
+            - user,system
           x-ms-enum:
-            name: OperationOrigin
+            name: Origin
             modelAsString: true
-        properties:
-          type: object
-          additionalProperties:
-            type: object
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
           readOnly: true
-          x-ms-client-flatten: false
-          description: Additional descriptions for the operation.
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
     OperationListResult:
-      description: A list of resource provider operations.
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
       properties:
         value:
-          description: Collection of available operation details
-          uniqueItems: false
           type: array
           items:
             $ref: '#/components/schemas/Operation'
           x-ms-identifiers:
             - name
-        nextLink:
-          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
-          type: string
+          description: List of operations supported by the resource provider
           readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
     locationData:
       description: Metadata pertaining to the geographic location of the resource.
       type: object
@@ -368,74 +482,6 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
     CheckNameAvailabilityRequest:
       description: The check availability request body.
       type: object

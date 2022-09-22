@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -1267,6 +1267,12 @@ components:
         ingressConfig:
           description: Ingress configuration payload for Azure Spring Apps resource.
           $ref: '#/components/schemas/IngressConfig'
+        outboundType:
+          description: The egress traffic type of Azure Spring Apps VNet instances.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
     RequiredTraffic:
       description: Required inbound or outbound traffic for Azure Spring Apps resource.
       type: object
@@ -1521,9 +1527,7 @@ components:
         fqdn:
           description: Fully qualified dns Name.
           type: string
-          x-ms-mutability:
-            - create
-            - read
+          readOnly: true
         httpsOnly:
           description: Indicate if only https is allowed.
           type: boolean
@@ -1547,6 +1551,9 @@ components:
         vnetAddons:
           description: Additional App settings in vnet injection instance
           $ref: '#/components/schemas/AppVNetAddons'
+        ingressSettings:
+          description: App ingress settings payload.
+          $ref: '#/components/schemas/IngressSettings'
     TemporaryDisk:
       description: Temporary disk payload
       type: object
@@ -1611,6 +1618,50 @@ components:
           description: URL of the App in vnet injection instance which could be accessed from internet
           type: string
           readOnly: true
+    IngressSettings:
+      description: App ingress settings payload.
+      type: object
+      properties:
+        readTimeoutInSeconds:
+          format: int32
+          description: Ingress read time out in seconds.
+          type: integer
+        sendTimeoutInSeconds:
+          format: int32
+          description: Ingress send time out in seconds.
+          type: integer
+        sessionAffinity:
+          description: Type of the affinity, set this to Cookie to enable session affinity.
+          enum:
+            - Cookie
+            - None
+          type: string
+          x-ms-enum:
+            name: SessionAffinity
+            modelAsString: true
+        sessionCookieMaxAge:
+          description: Time in seconds until the cookie expires.
+          format: int32
+          type: integer
+        backendProtocol:
+          description: How ingress should communicate with this app backend service.
+          enum:
+            - GRPC
+            - Default
+          type: string
+          x-ms-enum:
+            name: BackendProtocol
+            modelAsString: true
+        clientAuth:
+          description: Client-Certification Authentication.
+          type: object
+          properties:
+            certificates:
+              description: Collection of certificate resource id.
+              uniqueItems: false
+              type: array
+              items:
+                type: string
     AppResourceCollection:
       description: Object that includes an array of App resources and a possible link for next set
       type: object
@@ -2151,6 +2202,25 @@ components:
         message:
           description: Message of why domain name is invalid.
           type: string
+    RemoteDebuggingPayload:
+      description: Remote debugging payload.
+      type: object
+      properties:
+        port:
+          description: Application debugging port.
+          type: integer
+          format: int32
+    RemoteDebugging:
+      description: Remote debugging config.
+      type: object
+      properties:
+        port:
+          description: Application debugging port
+          type: integer
+          format: int32
+        enabled:
+          description: Indicate if remote debugging is enabled
+          type: boolean
     DeploymentResource:
       description: Deployment resource payload
       properties:
@@ -2531,6 +2601,16 @@ components:
           description: Availability zone information of the deployment instance
           type: string
           readOnly: true
+    DeploymentList:
+      description: A list of deployments resource ids.
+      type: object
+      properties:
+        deployments:
+          description: A list of deployment resource ids.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
     DeploymentResourceCollection:
       description: Object that includes an array of App resources and a possible link for next set
       type: object
@@ -3186,9 +3266,11 @@ components:
         cpu:
           description: Cpu allocated to each Spring Cloud Gateway instance.
           type: string
+          default: '1'
         memory:
           description: Memory allocated to each Spring Cloud Gateway instance.
           type: string
+          default: 2Gi
     GatewayOperatorProperties:
       description: Properties of the Spring Cloud Gateway Operator.
       type: object
@@ -3263,6 +3345,16 @@ components:
           type: string
         openApi:
           $ref: '#/components/schemas/GatewayRouteConfigOpenApiProperties'
+        protocol:
+          description: Protocol of routed Azure Spring Apps applications.
+          enum:
+            - HTTP
+            - HTTPS
+          default: HTTP
+          type: string
+          x-ms-enum:
+            name: GatewayRouteConfigProtocol
+            modelAsString: true
         routes:
           description: Array of API routes, each route contains properties such as `title`, `uri`, `ssoEnabled`, `predicates`, `filters`.
           uniqueItems: false
@@ -3481,7 +3573,7 @@ components:
           description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
           type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -3505,7 +3597,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -3615,7 +3707,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/listTestKeys/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/listTestKeys/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3640,7 +3732,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/regenerateTestKey/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/regenerateTestKey/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3673,7 +3765,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/disableTestEndpoint/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/disableTestEndpoint/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3694,7 +3786,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/enableTestEndpoint/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/enableTestEndpoint/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3719,7 +3811,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/stop/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/stop/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3747,7 +3839,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/start/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/start/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3775,7 +3867,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/default/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/default/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -3799,7 +3891,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: config_servers
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -3878,7 +3970,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: config_servers
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/validate/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/validate/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -3920,7 +4012,7 @@ paths:
         final-state-via: location
       x-stackQL-resource: config_servers
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -3945,7 +4037,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: configuration_services
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -4012,7 +4104,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: configuration_services
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4039,7 +4131,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: configuration_services
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/validate/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/validate/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -4082,7 +4175,7 @@ paths:
         final-state-via: location
       x-stackQL-resource: configuration_services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/{serviceRegistryName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/{serviceRegistryName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4107,7 +4200,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: service_registries
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -4166,7 +4259,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: service_registries
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4193,7 +4286,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: service_registries
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4220,7 +4314,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4246,7 +4341,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4274,7 +4369,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4341,7 +4437,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/{buildpackBindingName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/{buildpackBindingName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4368,7 +4464,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: buildpack_binding
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -4439,7 +4535,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: buildpack_binding
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4468,7 +4564,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: buildpack_binding
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4497,7 +4594,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4525,7 +4623,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/getLogFileUrl/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/getLogFileUrl/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -4553,7 +4651,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4579,7 +4677,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service_builder
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -4648,7 +4746,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: build_service_builder
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4676,7 +4774,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: build_service_builder
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/getResourceUploadUrl/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/getResourceUploadUrl/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -4702,7 +4801,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4728,7 +4827,8 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/{buildpackName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/{buildpackName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4755,7 +4855,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4781,7 +4881,8 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/{stackName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/{stackName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4808,7 +4909,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4836,7 +4937,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: build_service_agent_pool
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/{agentPoolName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/{agentPoolName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4862,7 +4964,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: build_service_agent_pool
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -4904,7 +5006,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: build_service_agent_pool
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/monitoringSettings/default/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/monitoringSettings/default/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -4928,7 +5030,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: monitoring_settings
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5007,7 +5109,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: monitoring_settings
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5038,7 +5140,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: apps
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5151,7 +5253,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: apps
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5178,7 +5280,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: apps
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/getResourceUploadUrl/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/getResourceUploadUrl/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -5204,7 +5307,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: apps
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/setActiveDeployments/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/setActiveDeployments/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -5245,7 +5348,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: apps
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/{bindingName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/{bindingName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5271,7 +5374,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: bindings
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5387,7 +5490,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: bindings
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5415,7 +5518,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: bindings
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/{storageName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/{storageName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5440,7 +5544,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: storages
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5513,7 +5617,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: storages
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5540,7 +5644,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: storages
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/{certificateName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/{certificateName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5565,7 +5670,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: certificates
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5638,7 +5743,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: certificates
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5665,7 +5770,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: certificates
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/locations/{location}/checkNameAvailability/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/locations/{location}/checkNameAvailability/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -5702,7 +5808,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: services
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/{domainName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/{domainName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5728,7 +5834,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: custom_domains
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -5844,7 +5950,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: custom_domains
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5872,7 +5978,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: custom_domains
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/validateDomain/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/validateDomain/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -5906,7 +6013,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: apps
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -5932,7 +6039,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: deployments
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -6048,7 +6155,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6087,7 +6194,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: deployments
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/deployments/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/deployments/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6125,7 +6233,35 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/start/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/listUsingDeployments/?api-version=2022-09-01-preview:
+    post:
+      tags:
+        - AppPlatform
+      description: List deployments that are using the builder.
+      operationId: BuildServiceBuilder_ListDeployments
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/BuildServiceNameParameter'
+        - $ref: '#/components/parameters/BuilderNameParameter'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: build_service_builder
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/start/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6151,7 +6287,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/stop/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/stop/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6177,7 +6313,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/restart/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/restart/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6203,7 +6339,110 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getLogFileUrl/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/enableRemoteDebugging/?api-version=2022-09-01-preview:
+    post:
+      tags:
+        - AppPlatform
+      description: Enable remote debugging.
+      operationId: Deployments_EnableRemoteDebugging
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      requestBody:
+        description: Parameters for enable remote debugging
+        required: false
+        x-ms-requestBody-name: remoteDebuggingPayload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteDebuggingPayload'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        '202':
+          description: Accepted. The response indicates the RemoteDebugging is now enabling and contains a Location header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-stackQL-resource: deployments
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/disableRemoteDebugging/?api-version=2022-09-01-preview:
+    post:
+      tags:
+        - AppPlatform
+      description: Disable remote debugging.
+      operationId: Deployments_DisableRemoteDebugging
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        '202':
+          description: Accepted. The response indicates the RemoteDebugging is now disabling and contains a Location header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-stackQL-resource: deployments
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getRemoteDebuggingConfig/?api-version=2022-09-01-preview:
+    post:
+      tags:
+        - AppPlatform
+      description: Get remote debugging config.
+      operationId: Deployments_GetRemoteDebuggingConfig
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/AppNameParameter'
+        - $ref: '#/components/parameters/DeploymentNameParameter'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteDebugging'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-stackQL-resource: deployments
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getLogFileUrl/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6232,7 +6471,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateHeapDump/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateHeapDump/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6266,7 +6505,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateThreadDump/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateThreadDump/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6300,7 +6539,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/startJFR/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/startJFR/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6334,7 +6573,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: deployments
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/Spring/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/Spring/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6359,7 +6598,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: services
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6385,7 +6625,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: services
       x-stackQL-verb: select
-  /providers/Microsoft.AppPlatform/operations/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /providers/Microsoft.AppPlatform/operations/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6409,7 +6650,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
-  /providers/Microsoft.AppPlatform/runtimeVersions/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /providers/Microsoft.AppPlatform/runtimeVersions/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6431,7 +6673,8 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: runtime_versions
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/skus/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/skus/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6456,7 +6699,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: skus
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6481,7 +6725,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: gateways
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -6548,7 +6792,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: gateways
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6575,7 +6819,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: gateways
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/{routeConfigName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/{routeConfigName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6601,7 +6846,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: gateway_route_configs
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -6670,7 +6915,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: gateway_route_configs
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6698,7 +6943,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: gateway_route_configs
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/{domainName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/{domainName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6724,7 +6970,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: gateway_custom_domains
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -6793,7 +7039,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: gateway_custom_domains
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6821,7 +7067,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: gateway_custom_domains
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/validateDomain/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/validateDomain/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform
@@ -6855,7 +7102,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: gateways
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6880,7 +7127,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: api_portals
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -6947,7 +7194,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: api_portals
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -6974,7 +7221,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: api_portals
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/{domainName}/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/{domainName}/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -7000,7 +7248,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-stackQL-resource: api_portal_custom_domains
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AppPlatform
@@ -7069,7 +7317,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: api_portal_custom_domains
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/?api-version=2022-05-01-preview:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/?api-version=2022-09-01-preview:
     get:
       tags:
         - AppPlatform
@@ -7097,7 +7345,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: api_portal_custom_domains
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/validateDomain/?api-version=2022-05-01-preview:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/validateDomain/?api-version=2022-09-01-preview:
     post:
       tags:
         - AppPlatform

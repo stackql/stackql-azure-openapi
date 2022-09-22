@@ -10,3 +10,6 @@ bin/stackql-azure-openapi dereference
 
 # combine the flattened specs into a single yaml openapi spec
 bin/stackql-azure-openapi combine
+
+# tag the combined specs with stackql tags
+bin/stackql-azure-openapi tag

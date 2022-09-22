@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2021-06-01'
+  version: 2022-05-01-preview
   title: CdnManagementClient
   description: Use these APIs to manage Azure CDN resources through the Azure Resource Manager. You must make sure that requests made to these resources are secure.
 security:
@@ -48,6 +48,11 @@ components:
             - Active
             - Deleting
             - Disabled
+            - Migrating
+            - Migrated
+            - PendingMigrationCommit
+            - CommittingMigration
+            - AbortingMigration
           type: string
           x-ms-enum:
             name: ProfileResourceState
@@ -65,6 +70,11 @@ components:
           x-ms-enum:
             name: ProfileProvisioningState
             modelAsString: true
+        extendedProperties:
+          description: Key-Value pair representing additional properties for profiles.
+          type: object
+          additionalProperties:
+            type: string
         frontDoorId:
           readOnly: true
           type: string
@@ -110,6 +120,111 @@ components:
           format: int32
           minimum: 16
           exclusiveMinimum: false
+    CanMigrateResult:
+      type: object
+      description: Result for canMigrate operation.
+      properties:
+        canMigrate:
+          readOnly: true
+          description: Flag that says if the profile can be migrated
+          type: boolean
+        defaultSku:
+          readOnly: true
+          description: Recommended sku for the migration
+          type: string
+          enum:
+            - Standard_AzureFrontDoor
+            - Premium_AzureFrontDoor
+          x-ms-enum:
+            name: CanMigrateDefaultSku
+            modelAsString: true
+        errors:
+          readOnly: true
+          description: List of validation errors
+          $ref: '#/components/schemas/MigrationErrorsListResponse'
+      x-ms-azure-resource: true
+    MigrationErrorsListResponse:
+      description: Error response indicates CDN service is not able to process the incoming request. The reason is provided in the error message.
+      type: object
+      properties:
+        errors:
+          items:
+            description: List of migration errors
+            $ref: '#/components/schemas/MigrationErrorType'
+          type: array
+          x-ms-identifiers: []
+    MigrationErrorType:
+      description: Error response indicates CDN service is not able to process the incoming request. The reason is provided in the error message.
+      type: object
+      properties:
+        code:
+          description: Error code.
+          readOnly: true
+          type: string
+        resourceName:
+          description: Resource which has the problem.
+          readOnly: true
+          type: string
+        errorMessage:
+          description: Error message indicating why the operation failed.
+          readOnly: true
+          type: string
+        nextSteps:
+          description: Describes what needs to be done to fix the problem
+          readOnly: true
+          type: string
+    CanMigrateParameters:
+      type: object
+      description: Request body for CanMigrate operation.
+      properties:
+        classicResourceReference:
+          description: Resource reference of the classic cdn profile or classic frontdoor that need to be migrated.
+          $ref: '#/components/schemas/ResourceReference'
+      x-ms-azure-resource: true
+    MigrationParameters:
+      type: object
+      description: Request body for Migrate operation.
+      properties:
+        sku:
+          description: Sku for the migration
+          $ref: '#/components/schemas/Sku'
+        classicResourceReference:
+          description: Resource reference of the classic cdn profile or classic frontdoor that need to be migrated.
+          $ref: '#/components/schemas/ResourceReference'
+        profileName:
+          description: Name of the new profile that need to be created.
+          type: string
+        migrationWebApplicationFirewallMappings:
+          description: Waf mapping for the migrated profile
+          type: array
+          items:
+            description: List of waf mappings
+            $ref: '#/components/schemas/MigrationWebApplicationFirewallMapping'
+          x-ms-identifiers: []
+      x-ms-azure-resource: true
+    MigrationWebApplicationFirewallMapping:
+      description: 'Web Application Firewall Mapping '
+      type: object
+      properties:
+        migratedFrom:
+          description: Migration From Waf policy
+          $ref: '#/components/schemas/ResourceReference'
+        migratedTo:
+          description: Migration to Waf policy
+          $ref: '#/components/schemas/ResourceReference'
+    MigrateResult:
+      type: object
+      description: Result for migrate operation.
+      properties:
+        migratedProfileResourceId:
+          readOnly: true
+          description: Arm resource id of the migrated profile
+          $ref: '#/components/schemas/ResourceReference'
+        errors:
+          readOnly: true
+          description: List of validation errors
+          $ref: '#/components/schemas/MigrationErrorsListResponse'
+      x-ms-azure-resource: true
     SsoUri:
       description: The URI required to login to the supplemental portal from the Azure portal.
       type: object
@@ -3013,451 +3128,6 @@ components:
           type: object
           description: The additional info.
       description: The resource management error additional info.
-    CdnWebApplicationFirewallPolicyList:
-      description: Defines a list of WebApplicationFirewallPolicies for Azure CDN. It contains a list of WebApplicationFirewallPolicy objects and a URL link to get the next set of results.
-      properties:
-        value:
-          type: array
-          readOnly: true
-          items:
-            $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-          description: List of Azure CDN WebApplicationFirewallPolicies within a resource group.
-        nextLink:
-          type: string
-          description: URL to get the next set of WebApplicationFirewallPolicy objects if there are any.
-    CdnWebApplicationFirewallPolicy:
-      description: Defines web application firewall policy for Azure CDN.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          description: Properties of the web application firewall policy.
-          $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyProperties'
-        etag:
-          type: string
-          description: Gets a unique read-only string that changes whenever the resource is updated.
-        sku:
-          description: The pricing tier (defines a CDN provider, feature list and rate) of the CdnWebApplicationFirewallPolicy.
-          $ref: '#/components/schemas/Sku'
-      required:
-        - sku
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-    CdnWebApplicationFirewallPolicyPatchParameters:
-      type: object
-      description: Properties required to update a CdnWebApplicationFirewallPolicy.
-      properties:
-        tags:
-          description: CdnWebApplicationFirewallPolicy tags
-          type: object
-          additionalProperties:
-            type: string
-      x-ms-azure-resource: true
-    CdnWebApplicationFirewallPolicyProperties:
-      description: Defines CDN web application firewall policy properties.
-      properties:
-        policySettings:
-          description: Describes  policySettings for policy
-          $ref: '#/components/schemas/policySettings'
-        rateLimitRules:
-          description: Describes rate limit rules inside the policy.
-          $ref: '#/components/schemas/RateLimitRuleList'
-        customRules:
-          description: Describes custom rules inside the policy.
-          $ref: '#/components/schemas/CustomRuleList'
-        managedRules:
-          description: Describes managed rules inside the policy.
-          $ref: '#/components/schemas/ManagedRuleSetList'
-        endpointLinks:
-          description: Describes Azure CDN endpoints associated with this Web Application Firewall policy.
-          type: array
-          readOnly: true
-          items:
-            $ref: '#/components/schemas/CdnEndpoint'
-        provisioningState:
-          readOnly: true
-          type: string
-          description: Provisioning state of the WebApplicationFirewallPolicy.
-          enum:
-            - Creating
-            - Succeeded
-            - Failed
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
-        resourceState:
-          title: Resource status of the policy.
-          readOnly: true
-          enum:
-            - Creating
-            - Enabling
-            - Enabled
-            - Disabling
-            - Disabled
-            - Deleting
-          type: string
-          x-ms-enum:
-            name: PolicyResourceState
-            modelAsString: true
-    policySettings:
-      description: Defines contents of a web application firewall global configuration
-      properties:
-        enabledState:
-          description: describes if the policy is in enabled state or disabled state
-          type: string
-          enum:
-            - Disabled
-            - Enabled
-          x-ms-enum:
-            name: PolicyEnabledState
-            modelAsString: true
-        mode:
-          description: Describes if it is in detection mode or prevention mode at policy level.
-          type: string
-          enum:
-            - Prevention
-            - Detection
-          x-ms-enum:
-            name: PolicyMode
-            modelAsString: true
-        defaultRedirectUrl:
-          description: If action type is redirect, this field represents the default redirect URL for the client.
-          type: string
-        defaultCustomBlockResponseStatusCode:
-          description: If the action type is block, this field defines the default customer overridable http response status code.
-          type: integer
-          format: int32
-          enum:
-            - 200
-            - 403
-            - 405
-            - 406
-            - 429
-        defaultCustomBlockResponseBody:
-          description: If the action type is block, customer can override the response body. The body must be specified in base64 encoding.
-          type: string
-          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$
-    CdnEndpoint:
-      description: Defines the ARM Resource ID for the linked endpoints
-      type: object
-      readOnly: true
-      properties:
-        id:
-          type: string
-          description: ARM Resource ID string.
-    CustomRuleList:
-      description: Defines contents of custom rules
-      properties:
-        rules:
-          description: List of rules
-          type: array
-          items:
-            $ref: '#/components/schemas/CustomRule'
-          x-ms-identifiers:
-            - name
-    CustomRule:
-      description: Defines the common attributes for a custom rule that can be included in a waf policy
-      type: object
-      required:
-        - name
-        - priority
-        - matchConditions
-        - action
-      properties:
-        name:
-          description: Defines the name of the custom rule
-          type: string
-        enabledState:
-          description: Describes if the custom rule is in enabled or disabled state. Defaults to Enabled if not specified.
-          type: string
-          enum:
-            - Disabled
-            - Enabled
-          x-ms-enum:
-            name: CustomRuleEnabledState
-            modelAsString: true
-        priority:
-          description: Defines in what order this rule be evaluated in the overall list of custom rules
-          type: integer
-          format: int32
-          maximum: 1000
-          exclusiveMaximum: false
-          minimum: 0
-          exclusiveMinimum: false
-        matchConditions:
-          description: List of match conditions.
-          type: array
-          items:
-            $ref: '#/components/schemas/MatchCondition'
-          x-ms-identifiers: []
-        action:
-          description: Describes what action to be applied when rule matches
-          $ref: '#/components/schemas/ActionType'
-    RateLimitRuleList:
-      description: Defines contents of rate limit rules
-      properties:
-        rules:
-          description: List of rules
-          type: array
-          items:
-            $ref: '#/components/schemas/RateLimitRule'
-          x-ms-identifiers:
-            - name
-    RateLimitRule:
-      description: Defines a rate limiting rule that can be included in a waf policy
-      type: object
-      required:
-        - rateLimitThreshold
-        - rateLimitDurationInMinutes
-      properties:
-        rateLimitThreshold:
-          description: Defines rate limit threshold.
-          type: integer
-          format: int32
-          minimum: 0
-          exclusiveMinimum: false
-        rateLimitDurationInMinutes:
-          description: Defines rate limit duration. Default is 1 minute.
-          type: integer
-          format: int32
-          maximum: 60
-          exclusiveMaximum: false
-          minimum: 0
-          exclusiveMinimum: false
-      allOf:
-        - $ref: '#/components/schemas/CustomRule'
-    MatchCondition:
-      description: Define match conditions
-      required:
-        - matchVariable
-        - operator
-        - matchValue
-      properties:
-        matchVariable:
-          description: Match variable to compare against.
-          type: string
-          enum:
-            - RemoteAddr
-            - SocketAddr
-            - RequestMethod
-            - RequestHeader
-            - RequestUri
-            - QueryString
-            - RequestBody
-            - Cookies
-            - PostArgs
-          x-ms-enum:
-            name: WafMatchVariable
-            modelAsString: true
-        selector:
-          description: Selector can used to match a specific key for QueryString, Cookies, RequestHeader or PostArgs.
-          type: string
-        operator:
-          description: Describes operator to be matched
-          type: string
-          enum:
-            - Any
-            - IPMatch
-            - GeoMatch
-            - Equal
-            - Contains
-            - LessThan
-            - GreaterThan
-            - LessThanOrEqual
-            - GreaterThanOrEqual
-            - BeginsWith
-            - EndsWith
-            - RegEx
-          x-ms-enum:
-            name: operator
-            modelAsString: true
-        negateCondition:
-          description: Describes if the result of this condition should be negated.
-          type: boolean
-        matchValue:
-          description: List of possible match values.
-          type: array
-          items:
-            type: string
-        transforms:
-          description: List of transforms.
-          type: array
-          items:
-            $ref: '#/components/schemas/TransformType'
-    TransformType:
-      description: Describes what transforms were applied before matching.
-      type: string
-      enum:
-        - Lowercase
-        - Uppercase
-        - Trim
-        - UrlDecode
-        - UrlEncode
-        - RemoveNulls
-      x-ms-enum:
-        name: TransformType
-        modelAsString: true
-    ManagedRuleSetList:
-      description: Defines the list of managed rule sets for the policy.
-      properties:
-        managedRuleSets:
-          description: List of rule sets.
-          type: array
-          items:
-            $ref: '#/components/schemas/ManagedRuleSet'
-          x-ms-identifiers:
-            - ruleSetType
-            - ruleSetVersion
-    ManagedRuleSet:
-      type: object
-      description: Defines a managed rule set.
-      required:
-        - ruleSetType
-        - ruleSetVersion
-      properties:
-        ruleSetType:
-          description: Defines the rule set type to use.
-          type: string
-        ruleSetVersion:
-          description: Defines the version of the rule set to use.
-          type: string
-        anomalyScore:
-          description: 'Verizon only : If the rule set supports anomaly detection mode, this describes the threshold for blocking requests.'
-          type: integer
-          format: int32
-          maximum: 20
-          exclusiveMaximum: false
-          minimum: 0
-          exclusiveMinimum: false
-        ruleGroupOverrides:
-          description: Defines the rule overrides to apply to the rule set.
-          type: array
-          items:
-            $ref: '#/components/schemas/ManagedRuleGroupOverride'
-          x-ms-identifiers:
-            - ruleGroupName
-    ManagedRuleGroupOverride:
-      description: Defines a managed rule group override setting.
-      required:
-        - ruleGroupName
-      properties:
-        ruleGroupName:
-          description: Describes the managed rule group within the rule set to override
-          type: string
-        rules:
-          description: List of rules that will be enabled. If none specified, all rules in the group will be disabled.
-          type: array
-          items:
-            $ref: '#/components/schemas/ManagedRuleOverride'
-          x-ms-identifiers:
-            - ruleId
-    ManagedRuleOverride:
-      description: Defines a managed rule group override setting.
-      required:
-        - ruleId
-      properties:
-        ruleId:
-          description: Identifier for the managed rule.
-          type: string
-        enabledState:
-          description: Describes if the managed rule is in enabled or disabled state. Defaults to Disabled if not specified.
-          type: string
-          enum:
-            - Disabled
-            - Enabled
-          x-ms-enum:
-            name: ManagedRuleEnabledState
-            modelAsString: true
-        action:
-          description: Describes the override action to be applied when rule matches.
-          $ref: '#/components/schemas/ActionType'
-    ManagedRuleSetDefinitionList:
-      description: List of managed rule set definitions available for use in a policy.
-      properties:
-        value:
-          description: List of managed rule set definitions.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ManagedRuleSetDefinition'
-        nextLink:
-          type: string
-          description: URL to retrieve next set of managed rule set definitions.
-    ManagedRuleSetDefinition:
-      description: Describes a managed rule set definition.
-      properties:
-        properties:
-          description: Describes managed rule set definition properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ManagedRuleSetDefinitionProperties'
-        sku:
-          description: The pricing tier (defines a CDN provider, feature list and rate) of the CdnWebApplicationFirewallPolicy.
-          $ref: '#/components/schemas/Sku'
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ManagedRuleSetDefinitionProperties:
-      description: Properties for a managed rule set definition.
-      properties:
-        provisioningState:
-          type: string
-          readOnly: true
-          description: Provisioning state of the managed rule set.
-        ruleSetType:
-          type: string
-          readOnly: true
-          description: Type of the managed rule set.
-        ruleSetVersion:
-          type: string
-          readOnly: true
-          description: Version of the managed rule set type.
-        ruleGroups:
-          type: array
-          readOnly: true
-          items:
-            $ref: '#/components/schemas/ManagedRuleGroupDefinition'
-          x-ms-identifiers:
-            - ruleGroupName
-          description: Rule groups of the managed rule set.
-    ManagedRuleGroupDefinition:
-      description: Describes a managed rule group.
-      properties:
-        ruleGroupName:
-          type: string
-          readOnly: true
-          description: Name of the managed rule group.
-        description:
-          type: string
-          readOnly: true
-          description: Description of the managed rule group.
-        rules:
-          type: array
-          readOnly: true
-          items:
-            $ref: '#/components/schemas/ManagedRuleDefinition'
-          x-ms-identifiers:
-            - ruleId
-          description: List of rules within the managed rule group.
-    ManagedRuleDefinition:
-      description: Describes a managed rule definition.
-      properties:
-        ruleId:
-          description: Identifier for the managed rule.
-          readOnly: true
-          type: string
-        description:
-          description: Describes the functionality of the managed rule.
-          readOnly: true
-          type: string
-    ActionType:
-      description: Defines the action to take on rule match.
-      type: string
-      enum:
-        - Allow
-        - Block
-        - Log
-        - Redirect
-      x-ms-enum:
-        name: ActionType
-        modelAsString: true
     AfdPurgeParameters:
       type: object
       description: Parameters required for content purge.
@@ -3606,6 +3276,11 @@ components:
         hostName:
           description: The host name of the domain. Must be a domain name.
           type: string
+        extendedProperties:
+          description: Key-Value pair representing migration properties for domains.
+          type: object
+          additionalProperties:
+            type: string
         validationProperties:
           description: Values the customer needs to validate domain ownership
           readOnly: true
@@ -4829,6 +4504,456 @@ components:
       description: Reference to another resource along with its state.
       type: object
       x-ms-azure-resource: true
+    CdnWebApplicationFirewallPolicyList:
+      description: Defines a list of WebApplicationFirewallPolicies for Azure CDN. It contains a list of WebApplicationFirewallPolicy objects and a URL link to get the next set of results.
+      properties:
+        value:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+          description: List of Azure CDN WebApplicationFirewallPolicies within a resource group.
+        nextLink:
+          type: string
+          description: URL to get the next set of WebApplicationFirewallPolicy objects if there are any.
+    CdnWebApplicationFirewallPolicy:
+      description: Defines web application firewall policy for Azure CDN.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          description: Properties of the web application firewall policy.
+          $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyProperties'
+        etag:
+          type: string
+          description: Gets a unique read-only string that changes whenever the resource is updated.
+        sku:
+          description: The pricing tier (defines a CDN provider, feature list and rate) of the CdnWebApplicationFirewallPolicy.
+          $ref: '#/components/schemas/Sku'
+      required:
+        - sku
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+    CdnWebApplicationFirewallPolicyPatchParameters:
+      type: object
+      description: Properties required to update a CdnWebApplicationFirewallPolicy.
+      properties:
+        tags:
+          description: CdnWebApplicationFirewallPolicy tags
+          type: object
+          additionalProperties:
+            type: string
+      x-ms-azure-resource: true
+    CdnWebApplicationFirewallPolicyProperties:
+      description: Defines CDN web application firewall policy properties.
+      properties:
+        policySettings:
+          description: Describes  policySettings for policy
+          $ref: '#/components/schemas/policySettings'
+        rateLimitRules:
+          description: Describes rate limit rules inside the policy.
+          $ref: '#/components/schemas/RateLimitRuleList'
+        customRules:
+          description: Describes custom rules inside the policy.
+          $ref: '#/components/schemas/CustomRuleList'
+        managedRules:
+          description: Describes managed rules inside the policy.
+          $ref: '#/components/schemas/ManagedRuleSetList'
+        endpointLinks:
+          description: Describes Azure CDN endpoints associated with this Web Application Firewall policy.
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/CdnEndpoint'
+        extendedProperties:
+          description: Key-Value pair representing additional properties for Web Application Firewall policy.
+          type: object
+          additionalProperties:
+            type: string
+        provisioningState:
+          readOnly: true
+          type: string
+          description: Provisioning state of the WebApplicationFirewallPolicy.
+          enum:
+            - Creating
+            - Succeeded
+            - Failed
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        resourceState:
+          title: Resource status of the policy.
+          readOnly: true
+          enum:
+            - Creating
+            - Enabling
+            - Enabled
+            - Disabling
+            - Disabled
+            - Deleting
+          type: string
+          x-ms-enum:
+            name: PolicyResourceState
+            modelAsString: true
+    policySettings:
+      description: Defines contents of a web application firewall global configuration
+      properties:
+        enabledState:
+          description: describes if the policy is in enabled state or disabled state
+          type: string
+          enum:
+            - Disabled
+            - Enabled
+          x-ms-enum:
+            name: PolicyEnabledState
+            modelAsString: true
+        mode:
+          description: Describes if it is in detection mode or prevention mode at policy level.
+          type: string
+          enum:
+            - Prevention
+            - Detection
+          x-ms-enum:
+            name: PolicyMode
+            modelAsString: true
+        defaultRedirectUrl:
+          description: If action type is redirect, this field represents the default redirect URL for the client.
+          type: string
+        defaultCustomBlockResponseStatusCode:
+          description: If the action type is block, this field defines the default customer overridable http response status code.
+          type: integer
+          format: int32
+          enum:
+            - 200
+            - 403
+            - 405
+            - 406
+            - 429
+        defaultCustomBlockResponseBody:
+          description: If the action type is block, customer can override the response body. The body must be specified in base64 encoding.
+          type: string
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$
+    CdnEndpoint:
+      description: Defines the ARM Resource ID for the linked endpoints
+      type: object
+      readOnly: true
+      properties:
+        id:
+          type: string
+          description: ARM Resource ID string.
+    CustomRuleList:
+      description: Defines contents of custom rules
+      properties:
+        rules:
+          description: List of rules
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomRule'
+          x-ms-identifiers:
+            - name
+    CustomRule:
+      description: Defines the common attributes for a custom rule that can be included in a waf policy
+      type: object
+      required:
+        - name
+        - priority
+        - matchConditions
+        - action
+      properties:
+        name:
+          description: Defines the name of the custom rule
+          type: string
+        enabledState:
+          description: Describes if the custom rule is in enabled or disabled state. Defaults to Enabled if not specified.
+          type: string
+          enum:
+            - Disabled
+            - Enabled
+          x-ms-enum:
+            name: CustomRuleEnabledState
+            modelAsString: true
+        priority:
+          description: Defines in what order this rule be evaluated in the overall list of custom rules
+          type: integer
+          format: int32
+          maximum: 1000
+          exclusiveMaximum: false
+          minimum: 0
+          exclusiveMinimum: false
+        matchConditions:
+          description: List of match conditions.
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchCondition'
+          x-ms-identifiers: []
+        action:
+          description: Describes what action to be applied when rule matches
+          $ref: '#/components/schemas/ActionType'
+    RateLimitRuleList:
+      description: Defines contents of rate limit rules
+      properties:
+        rules:
+          description: List of rules
+          type: array
+          items:
+            $ref: '#/components/schemas/RateLimitRule'
+          x-ms-identifiers:
+            - name
+    RateLimitRule:
+      description: Defines a rate limiting rule that can be included in a waf policy
+      type: object
+      required:
+        - rateLimitThreshold
+        - rateLimitDurationInMinutes
+      properties:
+        rateLimitThreshold:
+          description: Defines rate limit threshold.
+          type: integer
+          format: int32
+          minimum: 0
+          exclusiveMinimum: false
+        rateLimitDurationInMinutes:
+          description: Defines rate limit duration. Default is 1 minute.
+          type: integer
+          format: int32
+          maximum: 60
+          exclusiveMaximum: false
+          minimum: 0
+          exclusiveMinimum: false
+      allOf:
+        - $ref: '#/components/schemas/CustomRule'
+    MatchCondition:
+      description: Define match conditions
+      required:
+        - matchVariable
+        - operator
+        - matchValue
+      properties:
+        matchVariable:
+          description: Match variable to compare against.
+          type: string
+          enum:
+            - RemoteAddr
+            - SocketAddr
+            - RequestMethod
+            - RequestHeader
+            - RequestUri
+            - QueryString
+            - RequestBody
+            - Cookies
+            - PostArgs
+          x-ms-enum:
+            name: WafMatchVariable
+            modelAsString: true
+        selector:
+          description: Selector can used to match a specific key for QueryString, Cookies, RequestHeader or PostArgs.
+          type: string
+        operator:
+          description: Describes operator to be matched
+          type: string
+          enum:
+            - Any
+            - IPMatch
+            - GeoMatch
+            - Equal
+            - Contains
+            - LessThan
+            - GreaterThan
+            - LessThanOrEqual
+            - GreaterThanOrEqual
+            - BeginsWith
+            - EndsWith
+            - RegEx
+          x-ms-enum:
+            name: operator
+            modelAsString: true
+        negateCondition:
+          description: Describes if the result of this condition should be negated.
+          type: boolean
+        matchValue:
+          description: List of possible match values.
+          type: array
+          items:
+            type: string
+        transforms:
+          description: List of transforms.
+          type: array
+          items:
+            $ref: '#/components/schemas/TransformType'
+    TransformType:
+      description: Describes what transforms were applied before matching.
+      type: string
+      enum:
+        - Lowercase
+        - Uppercase
+        - Trim
+        - UrlDecode
+        - UrlEncode
+        - RemoveNulls
+      x-ms-enum:
+        name: TransformType
+        modelAsString: true
+    ManagedRuleSetList:
+      description: Defines the list of managed rule sets for the policy.
+      properties:
+        managedRuleSets:
+          description: List of rule sets.
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRuleSet'
+          x-ms-identifiers:
+            - ruleSetType
+            - ruleSetVersion
+    ManagedRuleSet:
+      type: object
+      description: Defines a managed rule set.
+      required:
+        - ruleSetType
+        - ruleSetVersion
+      properties:
+        ruleSetType:
+          description: Defines the rule set type to use.
+          type: string
+        ruleSetVersion:
+          description: Defines the version of the rule set to use.
+          type: string
+        anomalyScore:
+          description: 'Verizon only : If the rule set supports anomaly detection mode, this describes the threshold for blocking requests.'
+          type: integer
+          format: int32
+          maximum: 20
+          exclusiveMaximum: false
+          minimum: 0
+          exclusiveMinimum: false
+        ruleGroupOverrides:
+          description: Defines the rule overrides to apply to the rule set.
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRuleGroupOverride'
+          x-ms-identifiers:
+            - ruleGroupName
+    ManagedRuleGroupOverride:
+      description: Defines a managed rule group override setting.
+      required:
+        - ruleGroupName
+      properties:
+        ruleGroupName:
+          description: Describes the managed rule group within the rule set to override
+          type: string
+        rules:
+          description: List of rules that will be enabled. If none specified, all rules in the group will be disabled.
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRuleOverride'
+          x-ms-identifiers:
+            - ruleId
+    ManagedRuleOverride:
+      description: Defines a managed rule group override setting.
+      required:
+        - ruleId
+      properties:
+        ruleId:
+          description: Identifier for the managed rule.
+          type: string
+        enabledState:
+          description: Describes if the managed rule is in enabled or disabled state. Defaults to Disabled if not specified.
+          type: string
+          enum:
+            - Disabled
+            - Enabled
+          x-ms-enum:
+            name: ManagedRuleEnabledState
+            modelAsString: true
+        action:
+          description: Describes the override action to be applied when rule matches.
+          $ref: '#/components/schemas/ActionType'
+    ManagedRuleSetDefinitionList:
+      description: List of managed rule set definitions available for use in a policy.
+      properties:
+        value:
+          description: List of managed rule set definitions.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRuleSetDefinition'
+        nextLink:
+          type: string
+          description: URL to retrieve next set of managed rule set definitions.
+    ManagedRuleSetDefinition:
+      description: Describes a managed rule set definition.
+      properties:
+        properties:
+          description: Describes managed rule set definition properties.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ManagedRuleSetDefinitionProperties'
+        sku:
+          description: The pricing tier (defines a CDN provider, feature list and rate) of the CdnWebApplicationFirewallPolicy.
+          $ref: '#/components/schemas/Sku'
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ManagedRuleSetDefinitionProperties:
+      description: Properties for a managed rule set definition.
+      properties:
+        provisioningState:
+          type: string
+          readOnly: true
+          description: Provisioning state of the managed rule set.
+        ruleSetType:
+          type: string
+          readOnly: true
+          description: Type of the managed rule set.
+        ruleSetVersion:
+          type: string
+          readOnly: true
+          description: Version of the managed rule set type.
+        ruleGroups:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/ManagedRuleGroupDefinition'
+          x-ms-identifiers:
+            - ruleGroupName
+          description: Rule groups of the managed rule set.
+    ManagedRuleGroupDefinition:
+      description: Describes a managed rule group.
+      properties:
+        ruleGroupName:
+          type: string
+          readOnly: true
+          description: Name of the managed rule group.
+        description:
+          type: string
+          readOnly: true
+          description: Description of the managed rule group.
+        rules:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/ManagedRuleDefinition'
+          x-ms-identifiers:
+            - ruleId
+          description: List of rules within the managed rule group.
+    ManagedRuleDefinition:
+      description: Describes a managed rule definition.
+      properties:
+        ruleId:
+          description: Identifier for the managed rule.
+          readOnly: true
+          type: string
+        description:
+          description: Describes the functionality of the managed rule.
+          readOnly: true
+          type: string
+    ActionType:
+      description: Defines the action to take on rule match.
+      type: string
+      enum:
+        - Allow
+        - Block
+        - Log
+        - Redirect
+      x-ms-enum:
+        name: ActionType
+        modelAsString: true
   parameters:
     subscriptionIdParameter:
       name: subscriptionId
@@ -4840,7 +4965,7 @@ components:
     apiVersionParameter:
       name: api-version
       in: query
-      description: Version of the API to be used with the client request. Current version is 2021-06-01.
+      description: Version of the API to be used with the client request. Current version is 2022-05-01-preview.
       required: true
       schema:
         type: string
@@ -4877,7 +5002,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/profiles:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Profiles
@@ -4902,7 +5027,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Profiles
@@ -4928,7 +5053,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Profiles
@@ -5078,8 +5203,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/canMigrate:
+    x-api-version: 2022-05-01-preview
+    post:
+      tags:
+        - Profiles
+      description: Checks if CDN profile can be migrated to Azure Frontdoor(Standard/Premium) profile.
+      operationId: Profiles_CanMigrate
+      parameters:
+        - $ref: '#/components/parameters/resourceGroupNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      requestBody:
+        description: Properties needed to check if cdn profile or classic frontdoor can be migrated.
+        required: true
+        x-ms-requestBody-name: canMigrateParameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanMigrateParameters'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanMigrateResult'
+        default:
+          description: CDN error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/migrate:
+    x-api-version: 2022-05-01-preview
+    post:
+      tags:
+        - Profiles
+      description: Migrate the CDN profile to Azure Frontdoor(Standard/Premium) profile. The change need to be committed after this.
+      operationId: Profiles_Migrate
+      parameters:
+        - $ref: '#/components/parameters/resourceGroupNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      requestBody:
+        description: Properties needed to migrate the profile.
+        required: true
+        x-ms-requestBody-name: migrationParameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationParameters'
+      responses:
+        '200':
+          description: Accepted and the operation will complete asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateResult'
+        '202':
+          description: Accepted. The request has been accepted for processing and the operation will complete asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateResult'
+          headers:
+            location:
+              schema:
+                type: string
+        default:
+          description: CDN error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/migrationCommit:
+    x-api-version: 2022-05-01-preview
+    post:
+      tags:
+        - Profiles
+      description: Commit the migrated Azure Frontdoor(Standard/Premium) profile.
+      operationId: Profiles_MigrationCommit
+      parameters:
+        - $ref: '#/components/parameters/resourceGroupNameParameter'
+        - name: profileName
+          in: path
+          description: Name of the CDN profile which is unique within the resource group.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '202':
+          description: Accepted and the operation will complete asynchronously.
+          headers:
+            location:
+              schema:
+                type: string
+        default:
+          description: CDN error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/generateSsoUri:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Profiles
@@ -5109,7 +5344,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getSupportedOptimizationTypes:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Profiles
@@ -5139,7 +5374,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/checkResourceUsage:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Profiles
@@ -5171,7 +5406,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Endpoints
@@ -5203,7 +5438,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Endpoints
@@ -5378,7 +5613,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/start:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5421,7 +5656,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/stop:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5464,7 +5699,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/purge:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5507,7 +5742,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/load:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5550,7 +5785,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/validateCustomDomain:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5594,7 +5829,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/checkResourceUsage:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Endpoints
@@ -5632,7 +5867,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/origins:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Origins
@@ -5670,7 +5905,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/origins/{originName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Origins
@@ -5869,7 +6104,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/originGroups:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - OriginGroups
@@ -5907,7 +6142,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/originGroups/{originGroupName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - OriginGroups
@@ -6106,7 +6341,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/customDomains:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - CustomDomains
@@ -6144,7 +6379,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/customDomains/{customDomainName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - CustomDomains
@@ -6292,7 +6527,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/customDomains/{customDomainName}/disableCustomHttps:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CustomDomains
@@ -6341,7 +6576,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/endpoints/{endpointName}/customDomains/{customDomainName}/enableCustomHttps:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CustomDomains
@@ -6398,7 +6633,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /providers/Microsoft.Cdn/checkNameAvailability:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CheckNameAvailability
@@ -6428,7 +6663,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/checkNameAvailability:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CheckNameAvailabilityWithSubscription
@@ -6459,7 +6694,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/validateProbe:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - ValidateProbe
@@ -6490,7 +6725,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/checkResourceUsage:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CheckResourceUsage
@@ -6515,7 +6750,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Cdn/operations:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Operations
@@ -6539,7 +6774,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Cdn/edgenodes:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Edgenodes
@@ -6562,188 +6797,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/cdnWebApplicationFirewallPolicies:
-    x-api-version: '2021-06-01'
-    get:
-      tags:
-        - WebApplicationFirewallPolicies
-      description: Lists all of the protection policies within a resource group.
-      operationId: Policies_List
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/cdnWebApplicationFirewallPolicies/{policyName}:
-    x-api-version: '2021-06-01'
-    get:
-      tags:
-        - WebApplicationFirewallPolicies
-      description: Retrieve protection policy with specified name within a resource group.
-      operationId: Policies_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/PolicyNameParameter'
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - WebApplicationFirewallPolicies
-      description: Create or update policy with specified rule set name within a resource group.
-      operationId: Policies_CreateOrUpdate
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/PolicyNameParameter'
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      requestBody:
-        description: Policy to be created.
-        required: true
-        x-ms-requestBody-name: cdnWebApplicationFirewallPolicy
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        '201':
-          description: Created. The request has been fulfilled and a new protection policy has been created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        '202':
-          description: Accepted. The request has been accepted for processing and the operation will complete asynchronously.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    patch:
-      tags:
-        - WebApplicationFirewallPolicies
-      description: Update an existing CdnWebApplicationFirewallPolicy with the specified policy name under the specified subscription and resource group
-      operationId: Policies_Update
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/PolicyNameParameter'
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      requestBody:
-        description: CdnWebApplicationFirewallPolicy parameters to be patched.
-        required: true
-        x-ms-requestBody-name: cdnWebApplicationFirewallPolicyPatchParameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyPatchParameters'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        '202':
-          description: Accepted. The request has been accepted for processing and the operation will complete asynchronously.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    delete:
-      tags:
-        - WebApplicationFirewallPolicies
-      description: Deletes Policy
-      operationId: Policies_Delete
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/PolicyNameParameter'
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      responses:
-        '200':
-          description: Delete successful.
-        '204':
-          description: No Content. The request has been accepted but the policy was not found.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: false
-  /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/cdnWebApplicationFirewallManagedRuleSets:
-    x-api-version: '2021-06-01'
-    get:
-      tags:
-        - WebApplicationFirewallManagedRuleSets
-      description: Lists all available managed rule sets.
-      operationId: ManagedRuleSets_List
-      parameters:
-        - $ref: '#/components/parameters/subscriptionIdParameter'
-        - $ref: '#/components/parameters/apiVersionParameter'
-      responses:
-        '200':
-          description: Success. The operation returns a list of all available web application firewall managed rule sets.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ManagedRuleSetDefinitionList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/checkEndpointNameAvailability:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - CheckEndpointNameAvailability
@@ -6775,11 +6830,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/usages:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDProfiles
-      description: Checks the quota and actual usage of AzureFrontDoor endpoints under the given CDN profile.
+      description: Checks the quota and actual usage of endpoints under the given CDN profile.
       operationId: AFDProfiles_ListResourceUsage
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -6807,11 +6862,11 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/checkHostNameAvailability:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDProfiles
-      description: Check the name availability of a host name.
+      description: Validates the custom domain mapping to ensure it maps to the correct CDN endpoint in DNS.
       operationId: AFDProfiles_CheckHostNameAvailability
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -6845,7 +6900,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/customDomains:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDCustomDomains
@@ -6877,7 +6932,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/customDomains/{customDomainName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDCustomDomains
@@ -7058,7 +7113,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/customDomains/{customDomainName}/refreshValidationToken:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDCustomDomains
@@ -7095,7 +7150,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDEndpoints
@@ -7127,7 +7182,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDEndpoints
@@ -7308,7 +7363,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}/purge:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDEndpoints
@@ -7353,11 +7408,11 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}/usages:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDEndpoints
-      description: Checks the quota and actual usage of the given AzureFrontDoor endpoint under the given CDN profile.
+      description: Checks the quota and actual usage of endpoints under the given CDN profile.
       operationId: AFDEndpoints_ListResourceUsage
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -7391,11 +7446,11 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}/validateCustomDomain:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDEndpoints
-      description: Validates the custom domain mapping to ensure it maps to the correct CDN endpoint in DNS.This api isn't work for apex domain.
+      description: Validates the custom domain mapping to ensure it maps to the correct CDN endpoint in DNS.
       operationId: AFDEndpoints_ValidateCustomDomain
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -7435,7 +7490,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/originGroups:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDOriginGroups
@@ -7467,7 +7522,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/originGroups/{originGroupName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDOriginGroups
@@ -7648,11 +7703,11 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/originGroups/{originGroupName}/usages:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - AFDOriginGroups
-      description: Checks the quota and actual usage of the given AzureFrontDoor origin group under the given CDN profile.
+      description: Checks the quota and actual usage of endpoints under the given CDN profile.
       operationId: AFDOriginGroups_ListResourceUsage
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -7686,7 +7741,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/originGroups/{originGroupName}/origins:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDOrigins
@@ -7724,7 +7779,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/originGroups/{originGroupName}/origins/{originName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - AFDOrigins
@@ -7929,7 +7984,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}/routes:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Routes
@@ -7967,7 +8022,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/afdEndpoints/{endpointName}/routes/{routeName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Routes
@@ -8172,7 +8227,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/ruleSets:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - RuleSets
@@ -8204,7 +8259,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/ruleSets/{ruleSetName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - RuleSets
@@ -8317,11 +8372,11 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/ruleSets/{ruleSetName}/usages:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - RuleSets
-      description: Checks the quota and actual usage of the given AzureFrontDoor rule set under the given CDN profile.
+      description: Checks the quota and actual usage of endpoints under the given CDN profile.
       operationId: RuleSets_ListResourceUsage
       parameters:
         - $ref: '#/components/parameters/resourceGroupNameParameter'
@@ -8355,7 +8410,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/ruleSets/{ruleSetName}/rules:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Rules
@@ -8393,7 +8448,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/ruleSets/{ruleSetName}/rules/{ruleName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Rules
@@ -8598,7 +8653,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/securityPolicies:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - SecurityPolicies
@@ -8630,7 +8685,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/securityPolicies/{securityPolicyName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - SecurityPolicies
@@ -8811,7 +8866,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/secrets:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Secrets
@@ -8843,7 +8898,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/secrets/{secretName}:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - Secrets
@@ -8973,7 +9028,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/validateSecret:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     post:
       tags:
         - Secrets
@@ -9004,7 +9059,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getLogAnalyticsMetrics:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - LogAnalytics
@@ -9131,7 +9186,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getLogAnalyticsRankings:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - LogAnalytics
@@ -9225,7 +9280,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getLogAnalyticsLocations:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - LogAnalytics
@@ -9255,7 +9310,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getLogAnalyticsResources:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - LogAnalytics
@@ -9285,7 +9340,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getWafLogAnalyticsMetrics:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - WafLogAnalytics
@@ -9401,7 +9456,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/profiles/{profileName}/getWafLogAnalyticsRankings:
-    x-api-version: '2021-06-01'
+    x-api-version: 2022-05-01-preview
     get:
       tags:
         - WafLogAnalytics
@@ -9516,3 +9571,183 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AfdErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/cdnWebApplicationFirewallPolicies:
+    x-api-version: 2022-05-01-preview
+    get:
+      tags:
+        - WebApplicationFirewallPolicies
+      description: Lists all of the protection policies within a resource group.
+      operationId: Policies_List
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cdn/cdnWebApplicationFirewallPolicies/{policyName}:
+    x-api-version: 2022-05-01-preview
+    get:
+      tags:
+        - WebApplicationFirewallPolicies
+      description: Retrieve protection policy with specified name within a resource group.
+      operationId: Policies_Get
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/PolicyNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - WebApplicationFirewallPolicies
+      description: Create or update policy with specified rule set name within a resource group.
+      operationId: Policies_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/PolicyNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      requestBody:
+        description: Policy to be created.
+        required: true
+        x-ms-requestBody-name: cdnWebApplicationFirewallPolicy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        '201':
+          description: Created. The request has been fulfilled and a new protection policy has been created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        '202':
+          description: Accepted. The request has been accepted for processing and the operation will complete asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    patch:
+      tags:
+        - WebApplicationFirewallPolicies
+      description: Update an existing CdnWebApplicationFirewallPolicy with the specified policy name under the specified subscription and resource group
+      operationId: Policies_Update
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/PolicyNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      requestBody:
+        description: CdnWebApplicationFirewallPolicy parameters to be patched.
+        required: true
+        x-ms-requestBody-name: cdnWebApplicationFirewallPolicyPatchParameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdnWebApplicationFirewallPolicyPatchParameters'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        '202':
+          description: Accepted. The request has been accepted for processing and the operation will complete asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdnWebApplicationFirewallPolicy'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - WebApplicationFirewallPolicies
+      description: Deletes Policy
+      operationId: Policies_Delete
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/PolicyNameParameter'
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: Delete successful.
+        '204':
+          description: No Content. The request has been accepted but the policy was not found.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: false
+  /subscriptions/{subscriptionId}/providers/Microsoft.Cdn/cdnWebApplicationFirewallManagedRuleSets:
+    x-api-version: 2022-05-01-preview
+    get:
+      tags:
+        - WebApplicationFirewallManagedRuleSets
+      description: Lists all available managed rule sets.
+      operationId: ManagedRuleSets_List
+      parameters:
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: Success. The operation returns a list of all available web application firewall managed rule sets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedRuleSetDefinitionList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink

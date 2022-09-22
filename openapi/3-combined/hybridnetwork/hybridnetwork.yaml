@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: HybridNetworkManagementClient
-  description: The resources in this swagger specification will be used to manage the Hybrid Network device.
+  description: The resources in this swagger specification will be used to manage the network function vendor in a Hybrid Network resource provider.
   version: 2022-01-01-preview
 security:
   - azure_auth:
@@ -19,6 +19,101 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    SkuOverview:
+      type: object
+      properties:
+        skuName:
+          type: string
+          description: The vendor sku name.
+        skuType:
+          $ref: '#/components/schemas/SkuType'
+          description: The vendor sku type.
+      description: The network function sku overview.
+    NetworkFunctionSkuDetails:
+      type: object
+      properties:
+        skuType:
+          $ref: '#/components/schemas/SkuType'
+          description: The network function sku type.
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionSkuRoleDetails'
+          x-ms-identifiers: []
+          description: The network function sku role details.
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URL to get the next set of results.
+      description: The network function sku details.
+    VendorDetails:
+      type: object
+      properties:
+        vendorName:
+          type: string
+          description: The network function vendor name.
+        skuList:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkuOverview'
+          x-ms-identifiers: []
+          description: The network function sku list.
+      description: The network function vendor details.
+    NetworkFunctionVendor:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/VendorDetails'
+          description: Vendors of Hybrid Network service provider.
+      description: The network function vendor.
+    NetworkFunctionVendorListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionVendor'
+          x-ms-identifiers: []
+          description: A list of available network function vendors and skus.
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URL to get the next set of results.
+      description: The network function vendor list result.
+    NetworkFunctionSkuRoleDetails:
+      type: object
+      properties:
+        roleName:
+          type: string
+          description: The name of the network function role.
+        userDataTemplate:
+          $ref: '#/components/schemas/UserDataTemplate'
+          description: The user data template for customers.
+        userDataParameters:
+          $ref: '#/components/schemas/UserDataParameters'
+          description: The user parameters for customers.
+        networkInterfaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInterface'
+          x-ms-identifiers: []
+          description: The network interface configuration.
+      description: The network function user configuration.
+    NetworkFunctionSkuListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkuOverview'
+          x-ms-identifiers: []
+          description: The network function vendor sku overview properties.
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URL to get the next set of results.
+      description: A list of available network function skus.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -36,6 +131,11 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -142,17 +242,6 @@ components:
           allOf:
             - $ref: '#/components/schemas/Plan'
       x-ms-azure-resource: true
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -161,16 +250,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -497,6 +577,134 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    VendorNetworkFunctionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/VendorNetworkFunction'
+          description: A list of vendor network functions.
+        nextLink:
+          readOnly: true
+          type: string
+          description: The URL to get the next set of results.
+      description: Response for vendors API service call.
+    VendorNetworkFunction:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/VendorNetworkFunctionPropertiesFormat'
+          description: Network function details.
+        systemData:
+          description: The system meta data relating to this resource.
+          $ref: '#/components/schemas/systemData'
+          readOnly: true
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Vendor network function sub resource.
+    VendorNetworkFunctionPropertiesFormat:
+      type: object
+      description: Vendor network function properties.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the vendor network function sub resource.
+        vendorProvisioningState:
+          $ref: '#/components/schemas/VendorProvisioningState'
+          description: The vendor controlled provisioning state of the vendor network function.
+        skuName:
+          readOnly: true
+          type: string
+          description: The name of the sku. Once set, it cannot be updated.
+        skuType:
+          $ref: '#/components/schemas/SkuType'
+          description: The sku type.
+          readOnly: true
+        networkFunctionVendorConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionVendorConfiguration'
+          x-ms-identifiers: []
+          description: An array of network function vendor configurations.
+    NetworkFunctionVendorConfiguration:
+      type: object
+      properties:
+        roleName:
+          type: string
+          description: The name of the vendor network function role.
+        osProfile:
+          description: Specifies the operating system settings for the role instance.
+          $ref: '#/components/schemas/OsProfile'
+        userDataParameters:
+          $ref: '#/components/schemas/UserDataParameters'
+          readOnly: true
+          description: The user parameters from the customer.
+        networkInterfaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInterface'
+          x-ms-identifiers: []
+          description: The network interface configurations.
+      description: Network function vendor configuration.
+    NetworkFunctionRoleInstanceListResult:
+      type: object
+      description: List of role instances of vendor network function.
+      properties:
+        value:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleInstance'
+          description: A list of role instances.
+        nextLink:
+          readOnly: true
+          type: string
+          description: The URL to get the next set of results.
+    RoleInstance:
+      type: object
+      x-ms-azure-resource: true
+      properties:
+        name:
+          type: string
+          description: The role instance name.
+        id:
+          type: string
+          description: The ARM ID of the resource.
+        type:
+          type: string
+          description: The type of the resource.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RoleInstanceProperties'
+          description: The role instance properties.
+        systemData:
+          description: The system meta data relating to this resource.
+          $ref: '#/components/schemas/systemData'
+          readOnly: true
+      description: The role instance sub resource.
+    RoleInstanceProperties:
+      type: object
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the RoleInstance resource.
+        operationalState:
+          type: string
+          description: The operational state of the role instance.
+          enum:
+            - Unknown
+            - Stopped
+            - Running
+            - Stopping
+            - Starting
+          x-ms-enum:
+            name: OperationalState
+            modelAsString: true
+      description: The role instance properties of the network function.
     Device:
       type: object
       properties:
@@ -583,6 +791,332 @@ components:
           readOnly: true
           description: The URL to get the next set of results.
       description: Response for devices API service call.
+    SubResource:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Resource ID.
+      description: Reference to another sub resource.
+      x-ms-azure-resource: true
+    ProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Unknown
+        - Succeeded
+        - Accepted
+        - Deleting
+        - Failed
+        - Canceled
+        - Deleted
+      x-ms-enum:
+        name: ProvisioningState
+        modelAsString: true
+    VendorProvisioningState:
+      type: string
+      description: The current vendor provisioning state.
+      enum:
+        - Unknown
+        - NotProvisioned
+        - Provisioning
+        - Provisioned
+        - Deprovisioned
+        - UserDataValidationFailed
+      x-ms-enum:
+        name: VendorProvisioningState
+        modelAsString: true
+    TagsObject:
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags.
+      description: Tags object for patch operations.
+    NetworkInterface:
+      type: object
+      description: Network interface properties.
+      properties:
+        networkInterfaceName:
+          type: string
+          description: The name of the network interface.
+        macAddress:
+          type: string
+          description: The MAC address of the network interface.
+        ipConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInterfaceIPConfiguration'
+          x-ms-identifiers: []
+          description: A list of IP configurations of the network interface.
+        vmSwitchType:
+          type: string
+          description: The type of the VM switch.
+          enum:
+            - Unknown
+            - Management
+            - Wan
+            - Lan
+          x-ms-enum:
+            name: VMSwitchType
+            modelAsString: true
+    NetworkInterfaceIPConfiguration:
+      type: object
+      description: Network interface IP configuration properties.
+      properties:
+        ipAllocationMethod:
+          type: string
+          description: IP address allocation method.
+          enum:
+            - Unknown
+            - Static
+            - Dynamic
+          x-ms-enum:
+            name: IPAllocationMethod
+            modelAsString: true
+        ipAddress:
+          type: string
+          description: The value of the IP address.
+        subnet:
+          type: string
+          description: The value of the subnet.
+        gateway:
+          type: string
+          description: The value of the gateway.
+        ipVersion:
+          type: string
+          description: IP address version.
+          enum:
+            - Unknown
+            - IPv4
+          x-ms-enum:
+            name: IPVersion
+            modelAsString: true
+        dnsServers:
+          type: array
+          description: The list of DNS servers IP addresses.
+          items:
+            type: string
+    UserDataTemplate:
+      type: object
+      description: The user data template.
+    UserDataParameters:
+      type: object
+      description: The user data parameters.
+    ManagedApplicationParameters:
+      type: object
+      description: The parameters for the managed application.
+    SkuType:
+      type: string
+      description: Sku type.
+      enum:
+        - Unknown
+        - EvolvedPacketCore
+        - SDWAN
+        - Firewall
+      x-ms-enum:
+        name: SkuType
+        modelAsString: true
+    OsProfile:
+      type: object
+      properties:
+        adminUsername:
+          type: string
+          description: Specifies the name of the administrator account. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters  <br><br><li> For root access to the Linux VM, see [Using root privileges on Linux virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-use-root-privileges?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)<br><li> For a list of built-in system users on Linux that should not be used in this field, see [Selecting User Names for Linux on Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-usernames?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+        linuxConfiguration:
+          $ref: '#/components/schemas/LinuxConfiguration'
+          description: Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-endorsed-distros?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json) <br><br> For running non-endorsed distributions, see [Information for Non-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-create-upload-generic?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+        customData:
+          type: string
+          description: 'Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the virtual machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file. For more information see [Custom Data on Azure VMs](https://azure.microsoft.com/en-us/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)'
+        customDataRequired:
+          type: boolean
+          default: true
+          description: Indicates if custom data is required to deploy this role.
+      description: Specifies the operating system settings for the role instance.
+    LinuxConfiguration:
+      type: object
+      properties:
+        ssh:
+          $ref: '#/components/schemas/SshConfiguration'
+          description: Specifies the ssh key configuration for a Linux OS.
+      description: Specifies the Linux operating system settings on the virtual machine.
+    SshConfiguration:
+      type: object
+      properties:
+        publicKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SshPublicKey'
+          x-ms-identifiers:
+            - path
+          description: The list of SSH public keys used to authenticate with linux based VMs.
+      description: SSH configuration for Linux based VMs running on Azure
+    SshPublicKey:
+      type: object
+      properties:
+        path:
+          type: string
+          description: 'Specifies the full path on the created VM where ssh public key is stored. If the file already exists, the specified key is appended to the file. Example: /home/user/.ssh/authorized_keys'
+        keyData:
+          type: string
+          description: SSH public key certificate used to authenticate with the VM through ssh. The key needs to be at least 2048-bit and in ssh-rsa format. <br><br> For creating ssh keys, see [Create SSH keys on Linux and Mac for Linux VMs in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-mac-create-ssh-keys?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+      description: Contains information about SSH certificate public key and the path on the Linux VM where the public key is placed.
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    NetworkFunction:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/NetworkFunctionPropertiesFormat'
+          description: Network function properties.
+        etag:
+          type: string
+          description: A unique read-only string that changes whenever the resource is updated.
+        systemData:
+          description: The system meta data relating to this resource.
+          $ref: '#/components/schemas/systemData'
+          readOnly: true
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: Network function resource response.
+    NetworkFunctionPropertiesFormat:
+      type: object
+      description: Network function properties.
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+          description: The provisioning state of the network function resource.
+        device:
+          $ref: '#/components/schemas/SubResource'
+          description: The reference to the device resource. Once set, it cannot be updated.
+        skuName:
+          type: string
+          description: The sku name for the network function. Once set, it cannot be updated.
+        skuType:
+          readOnly: true
+          $ref: '#/components/schemas/SkuType'
+          description: The sku type for the network function.
+        vendorName:
+          type: string
+          description: The vendor name for the network function. Once set, it cannot be updated.
+        serviceKey:
+          type: string
+          readOnly: true
+          description: The service key for the network function resource.
+        vendorProvisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/VendorProvisioningState'
+          description: The vendor provisioning state for the network function resource.
+        managedApplication:
+          readOnly: true
+          $ref: '#/components/schemas/SubResource'
+          description: The resource URI of the managed application.
+        managedApplicationParameters:
+          $ref: '#/components/schemas/ManagedApplicationParameters'
+          description: The parameters for the managed application.
+        networkFunctionContainerConfigurations:
+          type: object
+          description: The network function container configurations from the user.
+        networkFunctionUserConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunctionUserConfiguration'
+          x-ms-identifiers: []
+          description: The network function configurations from the user.
+    NetworkFunctionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkFunction'
+          description: A list of network function resources in a subscription or resource group.
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URL to get the next set of results.
+      description: Response for network function API service call.
+    NetworkFunctionUserConfiguration:
+      type: object
+      properties:
+        roleName:
+          type: string
+          description: The name of the network function role.
+        userDataParameters:
+          $ref: '#/components/schemas/UserDataParameters'
+          description: The user data parameters from the customer.
+        networkInterfaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInterface'
+          x-ms-identifiers: []
+          description: The network interface configuration.
+        osProfile:
+          type: object
+          properties:
+            customData:
+              type: string
+              description: 'Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the virtual machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file. For more information see [Custom Data on Azure VMs](https://azure.microsoft.com/en-us/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)'
+          description: Specifies the operating system settings for the role instance.
+      description: The network function user configuration.
+    ExecuteRequestParameters:
+      type: object
+      properties:
+        serviceEndpoint:
+          type: string
+          description: The endpoint of service to call.
+        requestMetadata:
+          $ref: '#/components/schemas/RequestMetadata'
+          description: The request metadata.
+      required:
+        - serviceEndpoint
+        - requestMetadata
+      description: Payload for execute request post call.
+    RequestMetadata:
+      type: object
+      properties:
+        relativePath:
+          type: string
+          description: The relative path of the request.
+        httpMethod:
+          type: string
+          description: The http method of the request.
+          enum:
+            - Unknown
+            - Post
+            - Put
+            - Get
+            - Patch
+            - Delete
+          x-ms-enum:
+            name: HttpMethod
+            modelAsString: true
+        serializedBody:
+          type: string
+          description: The serialized body of the request.
+        apiVersion:
+          type: string
+          description: The api version of the request.
+      required:
+        - relativePath
+        - httpMethod
+        - serializedBody
+      description: Request metadata of execute request post call payload.
     Vendor:
       type: object
       properties:
@@ -943,544 +1477,6 @@ components:
           type: string
           format: date-time
           description: The UTC time when credential will expire.
-    VendorNetworkFunctionListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/VendorNetworkFunction'
-          description: A list of vendor network functions.
-        nextLink:
-          readOnly: true
-          type: string
-          description: The URL to get the next set of results.
-      description: Response for vendors API service call.
-    VendorNetworkFunction:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorNetworkFunctionPropertiesFormat'
-          description: Network function details.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Vendor network function sub resource.
-    VendorNetworkFunctionPropertiesFormat:
-      type: object
-      description: Vendor network function properties.
-      properties:
-        provisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/ProvisioningState'
-          description: The provisioning state of the vendor network function sub resource.
-        vendorProvisioningState:
-          $ref: '#/components/schemas/VendorProvisioningState'
-          description: The vendor controlled provisioning state of the vendor network function.
-        skuName:
-          readOnly: true
-          type: string
-          description: The name of the sku. Once set, it cannot be updated.
-        skuType:
-          $ref: '#/components/schemas/SkuType'
-          description: The sku type.
-          readOnly: true
-        networkFunctionVendorConfigurations:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkFunctionVendorConfiguration'
-          x-ms-identifiers: []
-          description: An array of network function vendor configurations.
-    NetworkFunctionVendorConfiguration:
-      type: object
-      properties:
-        roleName:
-          type: string
-          description: The name of the vendor network function role.
-        osProfile:
-          description: Specifies the operating system settings for the role instance.
-          $ref: '#/components/schemas/OsProfile'
-        userDataParameters:
-          $ref: '#/components/schemas/UserDataParameters'
-          readOnly: true
-          description: The user parameters from the customer.
-        networkInterfaces:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkInterface'
-          x-ms-identifiers: []
-          description: The network interface configurations.
-      description: Network function vendor configuration.
-    NetworkFunctionRoleInstanceListResult:
-      type: object
-      description: List of role instances of vendor network function.
-      properties:
-        value:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/RoleInstance'
-          description: A list of role instances.
-        nextLink:
-          readOnly: true
-          type: string
-          description: The URL to get the next set of results.
-    RoleInstance:
-      type: object
-      x-ms-azure-resource: true
-      properties:
-        name:
-          type: string
-          description: The role instance name.
-        id:
-          type: string
-          description: The ARM ID of the resource.
-        type:
-          type: string
-          description: The type of the resource.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/RoleInstanceProperties'
-          description: The role instance properties.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      description: The role instance sub resource.
-    RoleInstanceProperties:
-      type: object
-      properties:
-        provisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/ProvisioningState'
-          description: The provisioning state of the RoleInstance resource.
-        operationalState:
-          type: string
-          description: The operational state of the role instance.
-          enum:
-            - Unknown
-            - Stopped
-            - Running
-            - Stopping
-            - Starting
-          x-ms-enum:
-            name: OperationalState
-            modelAsString: true
-      description: The role instance properties of the network function.
-    SubResource:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Resource ID.
-      description: Reference to another sub resource.
-      x-ms-azure-resource: true
-    ProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Unknown
-        - Succeeded
-        - Accepted
-        - Deleting
-        - Failed
-        - Canceled
-        - Deleted
-      x-ms-enum:
-        name: ProvisioningState
-        modelAsString: true
-    VendorProvisioningState:
-      type: string
-      description: The current vendor provisioning state.
-      enum:
-        - Unknown
-        - NotProvisioned
-        - Provisioning
-        - Provisioned
-        - Deprovisioned
-        - UserDataValidationFailed
-      x-ms-enum:
-        name: VendorProvisioningState
-        modelAsString: true
-    TagsObject:
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags.
-      description: Tags object for patch operations.
-    NetworkInterface:
-      type: object
-      description: Network interface properties.
-      properties:
-        networkInterfaceName:
-          type: string
-          description: The name of the network interface.
-        macAddress:
-          type: string
-          description: The MAC address of the network interface.
-        ipConfigurations:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkInterfaceIPConfiguration'
-          x-ms-identifiers: []
-          description: A list of IP configurations of the network interface.
-        vmSwitchType:
-          type: string
-          description: The type of the VM switch.
-          enum:
-            - Unknown
-            - Management
-            - Wan
-            - Lan
-          x-ms-enum:
-            name: VMSwitchType
-            modelAsString: true
-    NetworkInterfaceIPConfiguration:
-      type: object
-      description: Network interface IP configuration properties.
-      properties:
-        ipAllocationMethod:
-          type: string
-          description: IP address allocation method.
-          enum:
-            - Unknown
-            - Static
-            - Dynamic
-          x-ms-enum:
-            name: IPAllocationMethod
-            modelAsString: true
-        ipAddress:
-          type: string
-          description: The value of the IP address.
-        subnet:
-          type: string
-          description: The value of the subnet.
-        gateway:
-          type: string
-          description: The value of the gateway.
-        ipVersion:
-          type: string
-          description: IP address version.
-          enum:
-            - Unknown
-            - IPv4
-          x-ms-enum:
-            name: IPVersion
-            modelAsString: true
-        dnsServers:
-          type: array
-          description: The list of DNS servers IP addresses.
-          items:
-            type: string
-    UserDataTemplate:
-      type: object
-      description: The user data template.
-    UserDataParameters:
-      type: object
-      description: The user data parameters.
-    ManagedApplicationParameters:
-      type: object
-      description: The parameters for the managed application.
-    SkuType:
-      type: string
-      description: Sku type.
-      enum:
-        - Unknown
-        - EvolvedPacketCore
-        - SDWAN
-        - Firewall
-      x-ms-enum:
-        name: SkuType
-        modelAsString: true
-    OsProfile:
-      type: object
-      properties:
-        adminUsername:
-          type: string
-          description: Specifies the name of the administrator account. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters  <br><br><li> For root access to the Linux VM, see [Using root privileges on Linux virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-use-root-privileges?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)<br><li> For a list of built-in system users on Linux that should not be used in this field, see [Selecting User Names for Linux on Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-usernames?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
-        linuxConfiguration:
-          $ref: '#/components/schemas/LinuxConfiguration'
-          description: Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-endorsed-distros?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json) <br><br> For running non-endorsed distributions, see [Information for Non-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-create-upload-generic?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
-        customData:
-          type: string
-          description: 'Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the virtual machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file. For more information see [Custom Data on Azure VMs](https://azure.microsoft.com/en-us/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)'
-        customDataRequired:
-          type: boolean
-          default: true
-          description: Indicates if custom data is required to deploy this role.
-      description: Specifies the operating system settings for the role instance.
-    LinuxConfiguration:
-      type: object
-      properties:
-        ssh:
-          $ref: '#/components/schemas/SshConfiguration'
-          description: Specifies the ssh key configuration for a Linux OS.
-      description: Specifies the Linux operating system settings on the virtual machine.
-    SshConfiguration:
-      type: object
-      properties:
-        publicKeys:
-          type: array
-          items:
-            $ref: '#/components/schemas/SshPublicKey'
-          x-ms-identifiers:
-            - path
-          description: The list of SSH public keys used to authenticate with linux based VMs.
-      description: SSH configuration for Linux based VMs running on Azure
-    SshPublicKey:
-      type: object
-      properties:
-        path:
-          type: string
-          description: 'Specifies the full path on the created VM where ssh public key is stored. If the file already exists, the specified key is appended to the file. Example: /home/user/.ssh/authorized_keys'
-        keyData:
-          type: string
-          description: SSH public key certificate used to authenticate with the VM through ssh. The key needs to be at least 2048-bit and in ssh-rsa format. <br><br> For creating ssh keys, see [Create SSH keys on Linux and Mac for Linux VMs in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-mac-create-ssh-keys?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
-      description: Contains information about SSH certificate public key and the path on the Linux VM where the public key is placed.
-    SkuOverview:
-      type: object
-      properties:
-        skuName:
-          type: string
-          description: The vendor sku name.
-        skuType:
-          $ref: '#/components/schemas/SkuType'
-          description: The vendor sku type.
-      description: The network function sku overview.
-    NetworkFunctionSkuDetails:
-      type: object
-      properties:
-        skuType:
-          $ref: '#/components/schemas/SkuType'
-          description: The network function sku type.
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkFunctionSkuRoleDetails'
-          x-ms-identifiers: []
-          description: The network function sku role details.
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URL to get the next set of results.
-      description: The network function sku details.
-    VendorDetails:
-      type: object
-      properties:
-        vendorName:
-          type: string
-          description: The network function vendor name.
-        skuList:
-          type: array
-          items:
-            $ref: '#/components/schemas/SkuOverview'
-          x-ms-identifiers: []
-          description: The network function sku list.
-      description: The network function vendor details.
-    NetworkFunctionVendor:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VendorDetails'
-          description: Vendors of Hybrid Network service provider.
-      description: The network function vendor.
-    NetworkFunctionVendorListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkFunctionVendor'
-          x-ms-identifiers: []
-          description: A list of available network function vendors and skus.
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URL to get the next set of results.
-      description: The network function vendor list result.
-    NetworkFunctionSkuRoleDetails:
-      type: object
-      properties:
-        roleName:
-          type: string
-          description: The name of the network function role.
-        userDataTemplate:
-          $ref: '#/components/schemas/UserDataTemplate'
-          description: The user data template for customers.
-        userDataParameters:
-          $ref: '#/components/schemas/UserDataParameters'
-          description: The user parameters for customers.
-        networkInterfaces:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkInterface'
-          x-ms-identifiers: []
-          description: The network interface configuration.
-      description: The network function user configuration.
-    NetworkFunctionSkuListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/SkuOverview'
-          x-ms-identifiers: []
-          description: The network function vendor sku overview properties.
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URL to get the next set of results.
-      description: A list of available network function skus.
-    NetworkFunction:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/NetworkFunctionPropertiesFormat'
-          description: Network function properties.
-        etag:
-          type: string
-          description: A unique read-only string that changes whenever the resource is updated.
-        systemData:
-          description: The system meta data relating to this resource.
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Network function resource response.
-    NetworkFunctionPropertiesFormat:
-      type: object
-      description: Network function properties.
-      properties:
-        provisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/ProvisioningState'
-          description: The provisioning state of the network function resource.
-        device:
-          $ref: '#/components/schemas/SubResource'
-          description: The reference to the device resource. Once set, it cannot be updated.
-        skuName:
-          type: string
-          description: The sku name for the network function. Once set, it cannot be updated.
-        skuType:
-          readOnly: true
-          $ref: '#/components/schemas/SkuType'
-          description: The sku type for the network function.
-        vendorName:
-          type: string
-          description: The vendor name for the network function. Once set, it cannot be updated.
-        serviceKey:
-          type: string
-          readOnly: true
-          description: The service key for the network function resource.
-        vendorProvisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/VendorProvisioningState'
-          description: The vendor provisioning state for the network function resource.
-        managedApplication:
-          readOnly: true
-          $ref: '#/components/schemas/SubResource'
-          description: The resource URI of the managed application.
-        managedApplicationParameters:
-          $ref: '#/components/schemas/ManagedApplicationParameters'
-          description: The parameters for the managed application.
-        networkFunctionContainerConfigurations:
-          type: object
-          description: The network function container configurations from the user.
-        networkFunctionUserConfigurations:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkFunctionUserConfiguration'
-          x-ms-identifiers: []
-          description: The network function configurations from the user.
-    NetworkFunctionListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkFunction'
-          description: A list of network function resources in a subscription or resource group.
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URL to get the next set of results.
-      description: Response for network function API service call.
-    NetworkFunctionUserConfiguration:
-      type: object
-      properties:
-        roleName:
-          type: string
-          description: The name of the network function role.
-        userDataParameters:
-          $ref: '#/components/schemas/UserDataParameters'
-          description: The user data parameters from the customer.
-        networkInterfaces:
-          type: array
-          items:
-            $ref: '#/components/schemas/NetworkInterface'
-          x-ms-identifiers: []
-          description: The network interface configuration.
-        osProfile:
-          type: object
-          properties:
-            customData:
-              type: string
-              description: 'Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the virtual machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file. For more information see [Custom Data on Azure VMs](https://azure.microsoft.com/en-us/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)'
-          description: Specifies the operating system settings for the role instance.
-      description: The network function user configuration.
-    ExecuteRequestParameters:
-      type: object
-      properties:
-        serviceEndpoint:
-          type: string
-          description: The endpoint of service to call.
-        requestMetadata:
-          $ref: '#/components/schemas/RequestMetadata'
-          description: The request metadata.
-      required:
-        - serviceEndpoint
-        - requestMetadata
-      description: Payload for execute request post call.
-    RequestMetadata:
-      type: object
-      properties:
-        relativePath:
-          type: string
-          description: The relative path of the request.
-        httpMethod:
-          type: string
-          description: The http method of the request.
-          enum:
-            - Unknown
-            - Post
-            - Put
-            - Get
-            - Patch
-            - Delete
-          x-ms-enum:
-            name: HttpMethod
-            modelAsString: true
-        serializedBody:
-          type: string
-          description: The serialized body of the request.
-        apiVersion:
-          type: string
-          description: The api version of the request.
-      required:
-        - relativePath
-        - httpMethod
-        - serializedBody
-      description: Request metadata of execute request post call payload.
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1527,6 +1523,473 @@ components:
         minLength: 1
         type: string
 paths:
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - networkFunctionVendors
+      operationId: networkFunctionVendors_List
+      description: Lists all the available vendor and sku information.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns a list of vendors with available sku information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionVendorListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors/{vendorName}/vendorSkus:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - networkFunctionVendors
+      operationId: NetworkFunctionVendorSkus_ListByVendor
+      description: Lists all network function vendor sku details in a vendor.
+      parameters:
+        - name: vendorName
+          in: path
+          description: The name of the network function vendor.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns a list of network function vendor skus.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionSkuListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors/{vendorName}/vendorSkus/{vendorSkuName}:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - networkFunctionVendors
+      operationId: networkFunctionVendorSkus_ListBySku
+      description: Lists information about network function vendor sku details.
+      parameters:
+        - name: vendorName
+          in: path
+          description: The name of the network function vendor.
+          required: true
+          schema:
+            type: string
+        - name: vendorSkuName
+          in: path
+          description: The name of the network function sku.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns the resulting network function vendor sku details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionSkuDetails'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - VendorNetworkFunctions
+      operationId: VendorNetworkFunctions_Get
+      description: Gets information about the specified vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by the customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns the resulting vendor network function sub resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorNetworkFunction'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - VendorNetworkFunctions
+      operationId: VendorNetworkFunctions_CreateOrUpdate
+      description: Creates or updates a vendor network function. This operation can take up to 6 hours to complete. This is expected service behavior.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by the customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters supplied to the create or update vendor network function operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorNetworkFunction'
+      responses:
+        '200':
+          description: Creation or update is successful. The operation returns the resulting vendor network function sub resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorNetworkFunction'
+        '201':
+          description: Created. The operation returns the resulting vendor network function sub resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorNetworkFunction'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/start:
+    x-api-version: 2022-01-01-preview
+    post:
+      tags:
+        - RoleInstances
+      operationId: RoleInstances_Start
+      description: Starts a role instance of a vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - name: roleInstanceName
+          in: path
+          description: The name of the role instance of the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK.
+        '202':
+          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/stop:
+    x-api-version: 2022-01-01-preview
+    post:
+      tags:
+        - RoleInstances
+      operationId: RoleInstances_Stop
+      description: Powers off (stop) a role instance of a vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - name: roleInstanceName
+          in: path
+          description: The name of the role instance of the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK.
+        '202':
+          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/restart:
+    x-api-version: 2022-01-01-preview
+    post:
+      tags:
+        - RoleInstances
+      operationId: RoleInstances_Restart
+      description: Restarts a role instance of a vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - name: roleInstanceName
+          in: path
+          description: The name of the role instance of the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK.
+        '202':
+          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - RoleInstances
+      operationId: RoleInstances_Get
+      description: Gets the information of role instance of vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - name: roleInstanceName
+          in: path
+          description: The name of the role instance of the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleInstance'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - VendorNetworkFunctions
+      operationId: VendorNetworkFunctions_List
+      description: Lists all the vendor network function sub resources in an Azure region, filtered by skuType, skuName, vendorProvisioningState.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by the customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: $filter
+          in: query
+          description: 'The filter to apply on the operation. The properties you can use for eq (equals) are: skuType, skuName and vendorProvisioningState.'
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns the resulting vendor network function sub resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorNetworkFunctionListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - RoleInstances
+      operationId: RoleInstances_List
+      description: Lists the information of role instances of vendor network function.
+      parameters:
+        - name: locationName
+          in: path
+          description: The Azure region where the network function resource was created by customer.
+          required: true
+          schema:
+            type: string
+        - name: vendorName
+          in: path
+          description: The name of the vendor.
+          required: true
+          schema:
+            type: string
+        - name: serviceKey
+          in: path
+          description: The GUID for the vendor network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionRoleInstanceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/devices/{deviceName}:
     x-api-version: 2022-01-01-preview
     delete:
@@ -1750,6 +2213,262 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.HybridNetwork/operations:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - operations
+      operationId: Operations_List
+      description: Gets a list of the operations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns a list of operations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions/{networkFunctionName}:
+    x-api-version: 2022-01-01-preview
+    delete:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_Delete
+      description: Deletes the specified network function resource. This operation can take up to 1 hour to complete. This is expected service behavior.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: networkFunctionName
+          in: path
+          description: The name of the network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: The operation is completed successfully.
+        '202':
+          description: Accepted. The header contains 'Azure-AsyncOperation' header pointing to an operations resource. The operation URI can be queried to find the current state of the operation.
+        '204':
+          description: Request is successful. Resource with the specified name does not exist.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    get:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_Get
+      description: Gets information about the specified network function resource.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: networkFunctionName
+          in: path
+          description: The name of the network function resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Operation is successful. The operation returns the resulting network function resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunction'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_CreateOrUpdate
+      description: Creates or updates a network function resource. This operation can take up to 6 hours to complete. This is expected service behavior.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: networkFunctionName
+          in: path
+          description: Resource name for the network function resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters supplied in the body to the create or update network function operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkFunction'
+      responses:
+        '200':
+          description: The operation is completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunction'
+        '201':
+          description: Created or Updated. The header contains 'Azure-AsyncOperation' header pointing to an operation resource. The operation URI can be queried to find the current state of the operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunction'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+    patch:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_UpdateTags
+      description: Updates the tags for the network function resource.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: networkFunctionName
+          in: path
+          description: Resource name for the network function resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters supplied to the update network function tags operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagsObject'
+      responses:
+        '200':
+          description: Update is completed successfully. The operation returns the resulting network function resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunction'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctions:
+    x-api-version: 2022-01-01-preview
+    get:
+      description: Lists all the network functions in a subscription.
+      operationId: NetworkFunctions_ListBySubscription
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns a list of network function resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - NetworkFunctions
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions:
+    x-api-version: 2022-01-01-preview
+    get:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_ListByResourceGroup
+      description: Lists all the network function resources in a resource group.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Request is successful. The operation returns a list of network function resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkFunctionListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions/{networkFunctionName}/executeRequest:
+    x-api-version: 2022-01-01-preview
+    post:
+      tags:
+        - NetworkFunctions
+      operationId: NetworkFunctions_ExecuteRequest
+      description: Execute a request to services on a network function.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: networkFunctionName
+          in: path
+          description: The name of the network function.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Payload for execute request post call.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequestParameters'
+      responses:
+        '200':
+          description: OK.
+        '202':
+          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/vendors/{vendorName}:
     x-api-version: 2022-01-01-preview
     delete:
@@ -2231,729 +2950,6 @@ paths:
           description: Request is accepted. The operation is deleting the vendor sku preview resource.
         '204':
           description: Request is successful. The vendor sku preview resource does not exist.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - VendorNetworkFunctions
-      operationId: VendorNetworkFunctions_Get
-      description: Gets information about the specified vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by the customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns the resulting vendor network function sub resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VendorNetworkFunction'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - VendorNetworkFunctions
-      operationId: VendorNetworkFunctions_CreateOrUpdate
-      description: Creates or updates a vendor network function. This operation can take up to 6 hours to complete. This is expected service behavior.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by the customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Parameters supplied to the create or update vendor network function operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VendorNetworkFunction'
-      responses:
-        '200':
-          description: Creation or update is successful. The operation returns the resulting vendor network function sub resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VendorNetworkFunction'
-        '201':
-          description: Created. The operation returns the resulting vendor network function sub resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VendorNetworkFunction'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/start:
-    x-api-version: 2022-01-01-preview
-    post:
-      tags:
-        - RoleInstances
-      operationId: RoleInstances_Start
-      description: Starts a role instance of a vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - name: roleInstanceName
-          in: path
-          description: The name of the role instance of the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK.
-        '202':
-          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/stop:
-    x-api-version: 2022-01-01-preview
-    post:
-      tags:
-        - RoleInstances
-      operationId: RoleInstances_Stop
-      description: Powers off (stop) a role instance of a vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - name: roleInstanceName
-          in: path
-          description: The name of the role instance of the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK.
-        '202':
-          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}/restart:
-    x-api-version: 2022-01-01-preview
-    post:
-      tags:
-        - RoleInstances
-      operationId: RoleInstances_Restart
-      description: Restarts a role instance of a vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - name: roleInstanceName
-          in: path
-          description: The name of the role instance of the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK.
-        '202':
-          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances/{roleInstanceName}:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - RoleInstances
-      operationId: RoleInstances_Get
-      description: Gets the information of role instance of vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - name: roleInstanceName
-          in: path
-          description: The name of the role instance of the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RoleInstance'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - VendorNetworkFunctions
-      operationId: VendorNetworkFunctions_List
-      description: Lists all the vendor network function sub resources in an Azure region, filtered by skuType, skuName, vendorProvisioningState.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by the customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: $filter
-          in: query
-          description: 'The filter to apply on the operation. The properties you can use for eq (equals) are: skuType, skuName and vendorProvisioningState.'
-          required: false
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns the resulting vendor network function sub resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VendorNetworkFunctionListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/locations/{locationName}/vendors/{vendorName}/networkFunctions/{serviceKey}/roleInstances:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - RoleInstances
-      operationId: RoleInstances_List
-      description: Lists the information of role instances of vendor network function.
-      parameters:
-        - name: locationName
-          in: path
-          description: The Azure region where the network function resource was created by customer.
-          required: true
-          schema:
-            type: string
-        - name: vendorName
-          in: path
-          description: The name of the vendor.
-          required: true
-          schema:
-            type: string
-        - name: serviceKey
-          in: path
-          description: The GUID for the vendor network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionRoleInstanceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /providers/Microsoft.HybridNetwork/operations:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - operations
-      operationId: Operations_List
-      description: Gets a list of the operations.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. Returns a list of operations.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - networkFunctionVendors
-      operationId: networkFunctionVendors_List
-      description: Lists all the available vendor and sku information.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns a list of vendors with available sku information.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionVendorListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors/{vendorName}/vendorSkus:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - networkFunctionVendors
-      operationId: NetworkFunctionVendorSkus_ListByVendor
-      description: Lists all network function vendor sku details in a vendor.
-      parameters:
-        - name: vendorName
-          in: path
-          description: The name of the network function vendor.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns a list of network function vendor skus.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionSkuListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctionVendors/{vendorName}/vendorSkus/{vendorSkuName}:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - networkFunctionVendors
-      operationId: networkFunctionVendorSkus_ListBySku
-      description: Lists information about network function vendor sku details.
-      parameters:
-        - name: vendorName
-          in: path
-          description: The name of the network function vendor.
-          required: true
-          schema:
-            type: string
-        - name: vendorSkuName
-          in: path
-          description: The name of the network function sku.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns the resulting network function vendor sku details.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionSkuDetails'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions/{networkFunctionName}:
-    x-api-version: 2022-01-01-preview
-    delete:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_Delete
-      description: Deletes the specified network function resource. This operation can take up to 1 hour to complete. This is expected service behavior.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: networkFunctionName
-          in: path
-          description: The name of the network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: The operation is completed successfully.
-        '202':
-          description: Accepted. The header contains 'Azure-AsyncOperation' header pointing to an operations resource. The operation URI can be queried to find the current state of the operation.
-        '204':
-          description: Request is successful. Resource with the specified name does not exist.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-    get:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_Get
-      description: Gets information about the specified network function resource.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: networkFunctionName
-          in: path
-          description: The name of the network function resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Operation is successful. The operation returns the resulting network function resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunction'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_CreateOrUpdate
-      description: Creates or updates a network function resource. This operation can take up to 6 hours to complete. This is expected service behavior.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: networkFunctionName
-          in: path
-          description: Resource name for the network function resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Parameters supplied in the body to the create or update network function operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NetworkFunction'
-      responses:
-        '200':
-          description: The operation is completed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunction'
-        '201':
-          description: Created or Updated. The header contains 'Azure-AsyncOperation' header pointing to an operation resource. The operation URI can be queried to find the current state of the operation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunction'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-    patch:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_UpdateTags
-      description: Updates the tags for the network function resource.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: networkFunctionName
-          in: path
-          description: Resource name for the network function resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Parameters supplied to the update network function tags operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TagsObject'
-      responses:
-        '200':
-          description: Update is completed successfully. The operation returns the resulting network function resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunction'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.HybridNetwork/networkFunctions:
-    x-api-version: 2022-01-01-preview
-    get:
-      description: Lists all the network functions in a subscription.
-      operationId: NetworkFunctions_ListBySubscription
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns a list of network function resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      tags:
-        - NetworkFunctions
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions:
-    x-api-version: 2022-01-01-preview
-    get:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_ListByResourceGroup
-      description: Lists all the network function resources in a resource group.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Request is successful. The operation returns a list of network function resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NetworkFunctionListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HybridNetwork/networkFunctions/{networkFunctionName}/executeRequest:
-    x-api-version: 2022-01-01-preview
-    post:
-      tags:
-        - NetworkFunctions
-      operationId: NetworkFunctions_ExecuteRequest
-      description: Execute a request to services on a network function.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: networkFunctionName
-          in: path
-          description: The name of the network function.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Payload for execute request post call.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExecuteRequestParameters'
-      responses:
-        '200':
-          description: OK.
-        '202':
-          description: Accepted. The header contains 'Azure-AsyncOperation' header which can be used to monitor the progress of the operation.
         default:
           description: Error response describing why the operation failed.
           content:

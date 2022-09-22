@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -23,27 +23,54 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   parameters:
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The configuration name. Value must be 'default'
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - default
+        x-ms-enum:
+          name: configurationName
+          modelAsString: true
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The Azure subscription ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      description: The ID of the target subscription.
       required: true
       schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to be used with the HTTP request.
-      required: true
-      schema:
+        minLength: 1
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName
       in: path
-      description: The name of the resource group.
+      description: The name of the resource group. The name is case insensitive.
       required: true
       x-ms-parameter-location: method
       schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    DashboardNameParameter:
+      name: dashboardName
+      in: path
+      description: The name of the dashboard.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 3
+        maxLength: 64
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
         type: string
     OperationIdParameter:
       name: operationId
@@ -63,30 +90,326 @@ components:
       schema:
         minLength: 1
         type: string
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The configuration name. Value must be 'default'
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - default
-        x-ms-enum:
-          name: configurationName
-          modelAsString: true
-        type: string
-    DashboardNameParameter:
-      name: dashboardName
-      in: path
-      description: The name of the dashboard.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 3
-        maxLength: 64
-        type: string
   schemas:
+    ConfigurationList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Configuration'
+          description: The array of tenant configurations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of tenant configurations.
+    Configuration:
+      description: Tenant configuration.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ConfigurationProperties'
+          description: Tenant configuration properties.
+      type: object
+    ConfigurationProperties:
+      type: object
+      description: Tenant configuration properties.
+      x-ms-azure-resource: true
+      properties:
+        enforcePrivateMarkdownStorage:
+          type: boolean
+          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
+    ViolationsList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+          description: The array of violations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of list of items that violate tenant's configuration.
+    Violation:
+      type: object
+      description: Violation information.
+      properties:
+        id:
+          description: Id of the item that violates tenant configuration.
+          type: string
+          readOnly: true
+        userId:
+          description: Id of the user who owns violated item.
+          type: string
+          readOnly: true
+        errorMessage:
+          description: Error message.
+          type: string
+          readOnly: true
+    DashboardListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dashboard'
+          description: The array of custom resource provider manifests.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of dashboards.
+    DashboardParts:
+      type: object
+      description: A dashboard part.
+      required:
+        - position
+      properties:
+        position:
+          type: object
+          required:
+            - x
+            - 'y'
+            - rowSpan
+            - colSpan
+          description: The dashboard's part position.
+          properties:
+            x:
+              type: integer
+              format: int32
+              description: The dashboard's part x coordinate.
+            'y':
+              type: integer
+              format: int32
+              description: The dashboard's part y coordinate.
+            rowSpan:
+              type: integer
+              format: int32
+              description: The dashboard's part row span.
+            colSpan:
+              type: integer
+              format: int32
+              description: The dashboard's part column span.
+            metadata:
+              description: The dashboard part's metadata.
+              type: object
+              additionalProperties:
+                type: object
+        metadata:
+          description: The dashboard part's metadata.
+          type: object
+          $ref: '#/components/schemas/DashboardPartMetadata'
+    DashboardPartMetadata:
+      type: object
+      required:
+        - type
+      description: A dashboard part metadata.
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+          description: The type of dashboard part.
+      discriminator:
+        propertyName: type
+    MarkdownPartMetadata:
+      description: Markdown part metadata.
+      x-ms-discriminator-value: Extension/HubsExtension/PartType/MarkdownPart
+      properties:
+        type:
+          type: string
+          description: The type of dashboard part.
+        inputs:
+          type: array
+          description: Input to dashboard part.
+          items:
+            type: object
+          x-ms-identifiers: []
+        settings:
+          type: object
+          description: Markdown part settings.
+          properties:
+            content:
+              type: object
+              description: The content of markdown part.
+              properties:
+                settings:
+                  type: object
+                  description: The setting of the content of markdown part.
+                  properties:
+                    content:
+                      type: string
+                      description: The content of the markdown part.
+                    title:
+                      type: string
+                      description: The title of the markdown part.
+                    subtitle:
+                      type: string
+                      description: The subtitle of the markdown part.
+                    markdownSource:
+                      type: integer
+                      format: int32
+                      description: The source of the content of the markdown part.
+                    markdownUri:
+                      type: string
+                      description: The uri of markdown content.
+      type: object
+    DashboardLens:
+      type: object
+      description: A dashboard lens.
+      required:
+        - order
+        - parts
+      properties:
+        order:
+          type: integer
+          format: int32
+          description: The lens order.
+        parts:
+          type: array
+          description: The dashboard parts.
+          items:
+            $ref: '#/components/schemas/DashboardParts'
+          x-ms-identifiers: []
+        metadata:
+          description: The dashboard len's metadata.
+          type: object
+          additionalProperties:
+            type: object
+    DashboardProperties:
+      type: object
+      description: The shared dashboard properties.
+      properties:
+        lenses:
+          type: array
+          description: The dashboard lenses.
+          items:
+            $ref: '#/components/schemas/DashboardLens'
+          x-ms-identifiers: []
+        metadata:
+          description: The dashboard metadata.
+          type: object
+          additionalProperties:
+            type: object
+    Dashboard:
+      description: The shared dashboard resource definition.
+      x-ms-azure-resource: true
+      x-ms-client-flatten: true
+      required:
+        - location
+      properties:
+        properties:
+          description: The shared dashboard properties.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DashboardProperties'
+        id:
+          readOnly: true
+          type: string
+          description: Resource Id
+        name:
+          readOnly: true
+          type: string
+          description: Resource name
+        type:
+          readOnly: true
+          type: string
+          description: Resource type
+        location:
+          type: string
+          description: Resource location
+          x-ms-mutability:
+            - read
+            - create
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+      type: object
+    PatchableDashboard:
+      description: The shared dashboard resource definition.
+      x-ms-azure-resource: true
+      x-ms-client-flatten: true
+      properties:
+        properties:
+          description: The shared dashboard properties.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DashboardProperties'
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+      type: object
+    ResourceProviderOperationList:
+      type: object
+      description: Results of the request to list operations.
+      readOnly: true
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceProviderOperation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by this resource provider.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+    ResourceProviderOperation:
+      type: object
+      description: Supported operations of this resource provider.
+      readOnly: true
+      properties:
+        name:
+          description: Operation name, in format of {provider}/{resource}/{operation}
+          type: string
+        isDataAction:
+          description: Indicates whether the operation applies to data-plane.
+          type: string
+        display:
+          description: Display metadata associated with the operation.
+          properties:
+            provider:
+              description: 'Resource provider: Microsoft Custom Providers.'
+              type: string
+            resource:
+              description: Resource on which the operation is performed.
+              type: string
+            operation:
+              description: 'Type of operation: get, read, delete, etc.'
+              type: string
+            description:
+              description: Description of this operation.
+              type: string
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorDefinition:
+      type: object
+      description: Error definition.
+      properties:
+        code:
+          description: Service specific error code which serves as the substatus for the HTTP error code.
+          type: integer
+          format: int32
+          readOnly: true
+        message:
+          description: Description of the error.
+          type: string
+          readOnly: true
+        details:
+          description: Internal error details.
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDefinition'
+          x-ms-identifiers:
+            - code
+          readOnly: true
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -346,13 +669,6 @@ components:
             $ref: '#/components/schemas/ErrorAdditionalInfo'
           x-ms-identifiers: []
           description: The error additional info.
-    ErrorResponse:
-      type: object
-      description: Error response.
-      properties:
-        error:
-          $ref: '#/components/schemas/ErrorDefinition'
-          description: The error details.
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -584,330 +900,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    ConfigurationList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Configuration'
-          description: The array of tenant configurations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of tenant configurations.
-    Configuration:
-      description: Tenant configuration.
-      properties:
-        enforcePrivateMarkdownStorage:
-          type: boolean
-          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
-      type: object
-    ConfigurationProperties:
-      type: object
-      description: Tenant configuration properties.
-      x-ms-azure-resource: true
-      properties:
-        enforcePrivateMarkdownStorage:
-          type: boolean
-          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
-    ViolationsList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Violation'
-          description: The array of violations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of list of items that violate tenant's configuration.
-    Violation:
-      type: object
-      description: Violation information.
-      properties:
-        id:
-          description: Id of the item that violates tenant configuration.
-          type: string
-          readOnly: true
-        userId:
-          description: Id of the user who owns violated item.
-          type: string
-          readOnly: true
-        errorMessage:
-          description: Error message.
-          type: string
-          readOnly: true
-    DashboardListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Dashboard'
-          description: The array of custom resource provider manifests.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of dashboards.
-    DashboardParts:
-      type: object
-      description: A dashboard part.
-      required:
-        - position
-      properties:
-        position:
-          type: object
-          required:
-            - x
-            - 'y'
-            - rowSpan
-            - colSpan
-          description: The dashboard's part position.
-          properties:
-            x:
-              type: integer
-              format: int32
-              description: The dashboard's part x coordinate.
-            'y':
-              type: integer
-              format: int32
-              description: The dashboard's part y coordinate.
-            rowSpan:
-              type: integer
-              format: int32
-              description: The dashboard's part row span.
-            colSpan:
-              type: integer
-              format: int32
-              description: The dashboard's part column span.
-            metadata:
-              description: The dashboard part's metadata.
-              type: object
-              additionalProperties:
-                type: object
-        metadata:
-          description: The dashboard part's metadata.
-          type: object
-          $ref: '#/components/schemas/DashboardPartMetadata'
-    DashboardPartMetadata:
-      type: object
-      required:
-        - type
-      description: A dashboard part metadata.
-      additionalProperties: true
-      properties:
-        type:
-          type: string
-          description: The type of dashboard part.
-      discriminator:
-        propertyName: type
-    MarkdownPartMetadata:
-      description: Markdown part metadata.
-      x-ms-discriminator-value: Extension/HubsExtension/PartType/MarkdownPart
-      properties:
-        type:
-          type: string
-          description: The type of dashboard part.
-        inputs:
-          type: array
-          description: Input to dashboard part.
-          items:
-            type: object
-          x-ms-identifiers: []
-        settings:
-          type: object
-          description: Markdown part settings.
-          properties:
-            content:
-              type: object
-              description: The content of markdown part.
-              properties:
-                settings:
-                  type: object
-                  description: The setting of the content of markdown part.
-                  properties:
-                    content:
-                      type: string
-                      description: The content of the markdown part.
-                    title:
-                      type: string
-                      description: The title of the markdown part.
-                    subtitle:
-                      type: string
-                      description: The subtitle of the markdown part.
-                    markdownSource:
-                      type: integer
-                      format: int32
-                      description: The source of the content of the markdown part.
-                    markdownUri:
-                      type: string
-                      description: The uri of markdown content.
-      type: object
-    DashboardLens:
-      type: object
-      description: A dashboard lens.
-      required:
-        - order
-        - parts
-      properties:
-        order:
-          type: integer
-          format: int32
-          description: The lens order.
-        parts:
-          type: array
-          description: The dashboard parts.
-          items:
-            $ref: '#/components/schemas/DashboardParts'
-          x-ms-identifiers: []
-        metadata:
-          description: The dashboard len's metadata.
-          type: object
-          additionalProperties:
-            type: object
-    DashboardProperties:
-      type: object
-      description: The shared dashboard properties.
-      properties:
-        lenses:
-          type: array
-          description: The dashboard lenses.
-          items:
-            $ref: '#/components/schemas/DashboardLens'
-          x-ms-identifiers: []
-        metadata:
-          description: The dashboard metadata.
-          type: object
-          additionalProperties:
-            type: object
-    Dashboard:
-      description: The shared dashboard resource definition.
-      x-ms-azure-resource: true
-      x-ms-client-flatten: true
-      required:
-        - location
-      properties:
-        lenses:
-          type: array
-          description: The dashboard lenses.
-          items:
-            $ref: '#/components/schemas/DashboardLens'
-          x-ms-identifiers: []
-        metadata:
-          description: The dashboard metadata.
-          type: object
-          additionalProperties:
-            type: object
-        id:
-          readOnly: true
-          type: string
-          description: Resource Id
-        name:
-          readOnly: true
-          type: string
-          description: Resource name
-        type:
-          readOnly: true
-          type: string
-          description: Resource type
-        location:
-          type: string
-          description: Resource location
-          x-ms-mutability:
-            - read
-            - create
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-      type: object
-    PatchableDashboard:
-      description: The shared dashboard resource definition.
-      x-ms-azure-resource: true
-      x-ms-client-flatten: true
-      properties:
-        lenses:
-          type: array
-          description: The dashboard lenses.
-          items:
-            $ref: '#/components/schemas/DashboardLens'
-          x-ms-identifiers: []
-        metadata:
-          description: The dashboard metadata.
-          type: object
-          additionalProperties:
-            type: object
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-      type: object
-    ResourceProviderOperationList:
-      type: object
-      description: Results of the request to list operations.
-      readOnly: true
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ResourceProviderOperation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by this resource provider.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-    ResourceProviderOperation:
-      type: object
-      description: Supported operations of this resource provider.
-      readOnly: true
-      properties:
-        name:
-          description: Operation name, in format of {provider}/{resource}/{operation}
-          type: string
-        isDataAction:
-          description: Indicates whether the operation applies to data-plane.
-          type: string
-        display:
-          description: Display metadata associated with the operation.
-          properties:
-            provider:
-              description: 'Resource provider: Microsoft Custom Providers.'
-              type: string
-            resource:
-              description: Resource on which the operation is performed.
-              type: string
-            operation:
-              description: 'Type of operation: get, read, delete, etc.'
-              type: string
-            description:
-              description: Description of this operation.
-              type: string
-    ErrorDefinition:
-      type: object
-      description: Error definition.
-      properties:
-        code:
-          description: Service specific error code which serves as the substatus for the HTTP error code.
-          type: integer
-          format: int32
-          readOnly: true
-        message:
-          description: Description of the error.
-          type: string
-          readOnly: true
-        details:
-          description: Internal error details.
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDefinition'
-          x-ms-identifiers:
-            - code
-          readOnly: true
 paths:
   /providers/Microsoft.Portal/tenantConfigurations/?api-version=2020-09-01-preview:
     get:
@@ -933,6 +925,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: tenant_configurations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /providers/Microsoft.Portal/tenantConfigurations/{configurationName}/?api-version=2020-09-01-preview:
     get:
       tags:
@@ -957,7 +950,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: tenant_configurations
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - tenantConfiguration
@@ -1062,6 +1055,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Portal/dashboards/{dashboardName}/?api-version=2020-09-01-preview:
     put:
       tags:
@@ -1148,7 +1142,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: dashboards
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     patch:
       tags:
         - Dashboard
@@ -1209,6 +1203,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: dashboards
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Portal/dashboards/?api-version=2020-09-01-preview:
     get:
       tags:
@@ -1234,3 +1229,4 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: dashboards
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value

@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -23,6 +23,14 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   parameters:
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -67,15 +75,221 @@ components:
       schema:
         minLength: 1
         type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
   schemas:
+    PrivateEndpoint:
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: The ARM identifier for Private Endpoint
+      description: The Private Endpoint resource.
+    PrivateEndpointConnection:
+      description: The Private Endpoint Connection resource.
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          x-ms-client-flatten: true
+          description: Resource properties.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
+    PrivateEndpointConnectionProperties:
+      type: object
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private end point.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+        provisioningState:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
+          description: The provisioning state of the private endpoint connection resource.
+      required:
+        - privateLinkServiceConnectionState
+      description: Properties of the PrivateEndpointConnectProperties.
+    PrivateLinkServiceConnectionState:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
+          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        description:
+          type: string
+          description: The reason for approval/rejection of the connection.
+        actionsRequired:
+          type: string
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+      description: A collection of information about the state of the connection between service consumer and provider.
+    PrivateEndpointServiceConnectionStatus:
+      type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Rejected
+      x-ms-enum:
+        name: PrivateEndpointServiceConnectionStatus
+        modelAsString: true
+    PrivateEndpointConnectionProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Creating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PrivateEndpointConnectionProvisioningState
+        modelAsString: true
+    PrivateLinkResource:
+      description: A private link resource
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
+    PrivateLinkResourceProperties:
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource Private link DNS zone name.
+      description: Properties of a private link resource.
+    PrivateEndpointConnectionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private endpoint connections
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+      description: List of private endpoint connection associated with the specified storage account
+    PrivateLinkResourceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private link resources
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+      description: A list of private link resources
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+      properties: {}
+      type: object
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned, UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -230,6 +444,17 @@ components:
           allOf:
             - $ref: '#/components/schemas/Plan'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -599,236 +824,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    PrivateEndpoint:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ARM identifier for Private Endpoint
-      description: The Private Endpoint resource.
-    PrivateEndpointConnection:
-      description: The Private Endpoint Connection resource.
-      properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The resource of private end point.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    PrivateEndpointConnectionProperties:
-      type: object
-      properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The resource of private end point.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
-      required:
-        - privateLinkServiceConnectionState
-      description: Properties of the PrivateEndpointConnectProperties.
-    PrivateLinkServiceConnectionState:
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
-          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
-        description:
-          type: string
-          description: The reason for approval/rejection of the connection.
-        actionsRequired:
-          type: string
-          description: A message indicating if changes on the service provider require any updates on the consumer.
-      description: A collection of information about the state of the connection between service consumer and provider.
-    PrivateEndpointServiceConnectionStatus:
-      type: string
-      description: The private endpoint connection status.
-      enum:
-        - Pending
-        - Approved
-        - Rejected
-      x-ms-enum:
-        name: PrivateEndpointServiceConnectionStatus
-        modelAsString: true
-    PrivateEndpointConnectionProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Creating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PrivateEndpointConnectionProvisioningState
-        modelAsString: true
-    PrivateLinkResource:
-      description: A private link resource
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource Private link DNS zone name.
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    PrivateLinkResourceProperties:
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource Private link DNS zone name.
-      description: Properties of a private link resource.
-    PrivateEndpointConnectionListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private endpoint connections
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-      description: List of private endpoint connection associated with the specified storage account
-    PrivateLinkResourceListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private link resources
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-      description: A list of private link resources
-    UserAssignedIdentities:
-      title: User-Assigned Identities
-      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
-      additionalProperties:
-        $ref: '#/components/schemas/UserAssignedIdentity'
-      properties: {}
-      type: object
-    UserAssignedIdentity:
-      type: object
-      description: User assigned identity properties
-      properties:
-        principalId:
-          description: The principal ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-        clientId:
-          description: The client ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-    ManagedServiceIdentityType:
-      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
-      enum:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned, UserAssigned
-      type: string
-      x-ms-enum:
-        name: ManagedServiceIdentityType
-        modelAsString: true
-    ManagedServiceIdentity:
-      description: Managed service identity (system assigned and/or user assigned identities)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/ManagedServiceIdentityType'
-        userAssignedIdentities:
-          $ref: '#/components/schemas/UserAssignedIdentities'
-      required:
-        - type
-    SystemAssignedServiceIdentityType:
-      description: Type of managed service identity (either system assigned, or none).
-      enum:
-        - None
-        - SystemAssigned
-      type: string
-      x-ms-enum:
-        name: SystemAssignedServiceIdentityType
-        modelAsString: true
-    SystemAssignedServiceIdentity:
-      description: Managed service identity (either system assigned, or none)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
-      required:
-        - type
     RedisCommonProperties:
       properties:
         redisConfiguration:
@@ -1246,20 +1241,10 @@ components:
         - location
       description: Parameters supplied to the Create Redis operation.
       properties:
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The SKU of the Redis cache to deploy.
-        subnetId:
-          type: string
-          pattern: ^/subscriptions/[^/]*/resourceGroups/[^/]*/providers/Microsoft.(ClassicNetwork|Network)/virtualNetworks/[^/]*/subnets/[^/]*$
-          description: 'The full resource ID of a subnet in a virtual network to deploy the Redis cache in. Example format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/Microsoft.{Network|ClassicNetwork}/VirtualNetworks/vnet1/subnets/subnet1'
-        staticIP:
-          type: string
-          pattern: ^\d+\.\d+\.\d+\.\d+$
-          description: Static IP address. Optionally, may be specified when deploying a Redis cache inside an existing Azure Virtual Network; auto assigned by default.
-          x-ms-mutability:
-            - read
-            - create
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisCreateProperties'
+          description: Redis cache properties.
         zones:
           type: array
           items:
@@ -1283,9 +1268,10 @@ components:
     RedisUpdateParameters:
       description: Parameters supplied to the Update Redis operation.
       properties:
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The SKU of the Redis cache to deploy.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisUpdateProperties'
+          description: Redis cache properties.
         tags:
           type: object
           additionalProperties:
@@ -1312,16 +1298,18 @@ components:
       required:
         - properties
       properties:
-        startIP:
-          type: string
-          description: lowest IP address included in the range
-        endIP:
-          type: string
-          description: highest IP address included in the range
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisFirewallRuleProperties'
+          description: redis cache firewall rule properties
       type: object
     RedisFirewallRuleCreateParameters:
       description: Parameters required for creating a firewall rule on redis cache. (Note, you can just use the FirewallRule type instead now.)
-      properties: {}
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisFirewallRuleProperties'
+          description: redis cache firewall rule properties
       type: object
     RedisFirewallRuleProperties:
       description: Specifies a range of IP addresses permitted to connect to the cache
@@ -1354,64 +1342,10 @@ components:
         - properties
       description: A single Redis item in List or Get Operation.
       properties:
-        provisioningState:
-          readOnly: true
-          type: string
-          description: Redis instance provisioning status.
-          enum:
-            - Creating
-            - Deleting
-            - Disabled
-            - Failed
-            - Linking
-            - Provisioning
-            - RecoveringScaleFailure
-            - Scaling
-            - Succeeded
-            - Unlinking
-            - Unprovisioning
-            - Updating
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
-        hostName:
-          readOnly: true
-          type: string
-          description: Redis host name.
-        port:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Redis non-SSL port.
-        sslPort:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Redis SSL port.
-        accessKeys:
-          readOnly: true
-          $ref: '#/components/schemas/RedisAccessKeys'
-          description: The keys of the Redis cache - not set if this object is not the response to Create or Update redis cache
-        linkedServers:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/RedisLinkedServer'
-          description: List of the linked servers associated with the cache
-        instances:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/RedisInstanceDetails'
-          x-ms-identifiers:
-            - shardId
-          description: List of the Redis instances associated with the cache
-        privateEndpointConnections:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-          description: List of private endpoint connection associated with the specified redis cache
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisProperties'
+          description: Redis cache properties.
         zones:
           type: array
           items:
@@ -1603,12 +1537,9 @@ components:
         - properties
       description: Response to put/get patch schedules for Redis cache.
       properties:
-        scheduleEntries:
-          x-ms-client-name: ScheduleEntries
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleEntry'
-          x-ms-identifiers: []
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ScheduleEntries'
           description: List of patch schedules for a Redis cache.
         location:
           type: string
@@ -1647,10 +1578,10 @@ components:
     RedisLinkedServerWithProperties:
       description: Response to put/get linked server (with properties) for Redis cache.
       properties:
-        provisioningState:
-          readOnly: true
-          type: string
-          description: Terminal state of the link between primary and secondary redis cache.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisLinkedServerProperties'
+          description: Properties of the linked server.
       type: object
     RedisLinkedServerProperties:
       description: Properties of a linked server to be returned in get/put response
@@ -1722,24 +1653,10 @@ components:
         - properties
       description: Parameter required for creating a linked server to redis cache.
       properties:
-        linkedRedisCacheId:
-          type: string
-          description: Fully qualified resourceId of the linked redis cache.
-        linkedRedisCacheLocation:
-          type: string
-          description: Location of the linked redis cache.
-          x-ms-mutability:
-            - create
-            - read
-        serverRole:
-          type: string
-          description: Role of the linked server.
-          enum:
-            - Primary
-            - Secondary
-          x-ms-enum:
-            name: ReplicationRole
-            modelAsString: false
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisLinkedServerCreateProperties'
+          description: Properties required to create a linked server.
       type: object
     CheckNameAvailabilityParameters:
       description: Parameters body to pass for resource name availability check.
@@ -1828,17 +1745,6 @@ components:
           description: If present, details of the operation error.
           $ref: '#/components/schemas/ErrorDetail'
       type: object
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
 paths:
   /providers/Microsoft.Cache/operations/?api-version=2022-05-01:
     get:
@@ -1864,6 +1770,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/CheckNameAvailability/?api-version=2022-05-01:
     post:
       tags:
@@ -1935,6 +1842,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: redis
       x-stackQL-verb: exec
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/?api-version=2022-05-01:
     put:
       tags:
@@ -2102,7 +2010,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: redis
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/?api-version=2022-05-01:
     get:
       tags:
@@ -2134,6 +2042,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: redis
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/redis/?api-version=2022-05-01:
     get:
       tags:
@@ -2159,6 +2068,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: redis
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/listKeys/?api-version=2022-05-01:
     post:
       tags:
@@ -2406,6 +2316,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: firewall_rules
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/firewallRules/{ruleName}/?api-version=2022-05-01:
     put:
       tags:
@@ -2502,7 +2413,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: firewall_rules
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     delete:
       tags:
         - Redis
@@ -2580,6 +2491,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: patch_schedules
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/patchSchedules/{default}/?api-version=2022-05-01:
     put:
       tags:
@@ -2730,7 +2642,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: patch_schedules
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/linkedServers/{linkedServerName}/?api-version=2022-05-01:
     put:
       tags:
@@ -2865,7 +2777,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: linked_server
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/linkedServers/?api-version=2022-05-01:
     get:
       tags:
@@ -2903,6 +2815,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: linked_server
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/privateEndpointConnections/?api-version=2022-05-01:
     get:
       tags:
@@ -2940,6 +2853,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/privateEndpointConnections/{privateEndpointConnectionName}/?api-version=2022-05-01:
     get:
       tags:
@@ -2975,7 +2889,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: private_endpoint_connections
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - PrivateEndpointConnections
@@ -3006,6 +2920,12 @@ paths:
             schema:
               $ref: '#/components/schemas/PrivateEndpointConnection'
       responses:
+        '200':
+          description: OK -- Update the private endpoint connection properties successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
         '201':
           description: OK -- Update the private endpoint connection properties successfully.
           content:
@@ -3090,6 +3010,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: private_link_resources
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/locations/{location}/asyncOperations/{operationId}/?api-version=2022-05-01:
     get:
       tags:
@@ -3124,4 +3045,4 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: async_operation_status
-      x-stackQL-verb: exec
+      x-stackQL-verb: select

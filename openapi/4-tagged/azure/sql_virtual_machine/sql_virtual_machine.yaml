@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -26,16 +26,44 @@ components:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription.
+      description: Subscription ID that identifies an Azure subscription.
       required: true
+      x-ms-parameter-location: client
       schema:
-        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
       in: query
-      description: The API version to use for this operation.
+      description: API version to use for the request.
       required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
       schema:
         minLength: 1
         type: string
@@ -71,35 +99,472 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
   schemas:
+    Resource:
+      description: ARM resource.
+      type: object
+      properties:
+        id:
+          description: Resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: Resource name.
+          type: string
+          readOnly: true
+        type:
+          description: Resource type.
+          type: string
+          readOnly: true
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+        id:
+          description: Resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: Resource name.
+          type: string
+          readOnly: true
+        type:
+          description: Resource type.
+          type: string
+          readOnly: true
+      type: object
+    TrackedResource:
+      description: ARM tracked top level resource.
+      required:
+        - location
+      properties:
+        id:
+          description: Resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: Resource name.
+          type: string
+          readOnly: true
+        type:
+          description: Resource type.
+          type: string
+          readOnly: true
+        location:
+          description: Resource location.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+      type: object
+    ProxyResource:
+      description: ARM proxy resource.
+      properties:
+        id:
+          description: Resource ID.
+          type: string
+          readOnly: true
+        name:
+          description: Resource name.
+          type: string
+          readOnly: true
+        type:
+          description: Resource type.
+          type: string
+          readOnly: true
+      type: object
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      description: SQL REST API operation definition.
+      properties:
+        name:
+          description: The name of the operation being performed on this particular object.
+          type: string
+          readOnly: true
+        display:
+          $ref: '#/components/schemas/OperationDisplay'
+          description: The localized display information for this particular operation / action.
+          readOnly: true
+        origin:
+          description: The intended executor of the operation.
+          enum:
+            - user
+            - system
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: OperationOrigin
+            modelAsString: true
+        properties:
+          description: Additional descriptions for the operation.
+          type: object
+          additionalProperties:
+            type: object
+          readOnly: true
+          x-ms-client-flatten: false
+      type: object
+    OperationListResult:
+      description: Result of the request to list SQL operations.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     AvailabilityGroupListenerProperties:
       description: The properties of an availability group listener.
       type: object
@@ -177,24 +642,6 @@ components:
           items:
             $ref: '#/components/schemas/AgReplica'
           x-ms-identifiers: []
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
     PrivateIPAddress:
       description: A private IP address bound to the availability group listener.
       type: object
@@ -249,54 +696,13 @@ components:
           x-ms-enum:
             name: ReadableSecondary
             modelAsString: true
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
     AvailabilityGroupListener:
       description: A SQL Server availability group listener.
       properties:
-        provisioningState:
-          description: Provisioning state to track the async operation status.
-          type: string
-          readOnly: true
-        availabilityGroupName:
-          description: Name of the availability group.
-          type: string
-        loadBalancerConfigurations:
-          description: List of load balancer configurations for an availability group listener.
-          type: array
-          items:
-            $ref: '#/components/schemas/LoadBalancerConfiguration'
-        multiSubnetIpConfigurations:
-          description: List of multi subnet IP configurations for an AG listener.
-          type: array
-          items:
-            $ref: '#/components/schemas/MultiSubnetIpConfiguration'
-          x-ms-identifiers: []
-        createDefaultAvailabilityGroupIfNotExist:
-          description: Create a default availability group if it does not exist.
-          type: boolean
-        port:
-          format: int32
-          description: Listener port.
-          type: integer
-        availabilityGroupConfiguration:
-          $ref: '#/components/schemas/AgConfiguration'
-          description: Availability Group configuration.
+        properties:
+          $ref: '#/components/schemas/AvailabilityGroupListenerProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
           readOnly: true
@@ -315,75 +721,6 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
     OperationDisplay:
       description: Display metadata associated with the operation.
       type: object
@@ -526,115 +863,26 @@ components:
           x-ms-mutability:
             - read
             - create
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      required:
-        - location
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
     SqlVirtualMachineGroup:
       description: A SQL virtual machine group.
       required:
         - location
       properties:
+        location:
+          description: Resource location.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
         tags:
+          description: Resource tags.
           type: object
           additionalProperties:
             type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        provisioningState:
-          description: Provisioning state to track the async operation status.
-          type: string
-          readOnly: true
-        sqlImageOffer:
-          description: SQL image offer. Examples may include SQL2016-WS2016, SQL2017-WS2016.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        sqlImageSku:
-          description: SQL image sku.
-          enum:
-            - Developer
-            - Enterprise
-          type: string
-          x-ms-enum:
-            name: SqlVmGroupImageSku
-            modelAsString: true
-          x-ms-mutability:
-            - read
-            - create
-        scaleType:
-          description: Scale type.
-          enum:
-            - HA
-          type: string
-          readOnly: true
-          x-ms-enum:
-            name: ScaleType
-            modelAsString: true
-        clusterManagerType:
-          description: 'Type of cluster manager: Windows Server Failover Cluster (WSFC), implied by the scale type of the group and the OS type.'
-          enum:
-            - WSFC
-          type: string
-          readOnly: true
-          x-ms-enum:
-            name: ClusterManagerType
-            modelAsString: true
-        clusterConfiguration:
-          description: Cluster type.
-          enum:
-            - Domainful
-          type: string
-          readOnly: true
-          x-ms-enum:
-            name: ClusterConfiguration
-            modelAsString: true
-        wsfcDomainProfile:
-          $ref: '#/components/schemas/WsfcDomainProfile'
-          description: Cluster Active Directory domain profile.
-          x-ms-mutability:
-            - read
-            - create
+        properties:
+          $ref: '#/components/schemas/SqlVirtualMachineGroupProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
           readOnly: true
@@ -739,6 +987,14 @@ components:
           x-ms-enum:
             name: SqlManagementMode
             modelAsString: true
+        leastPrivilegeMode:
+          description: SQL IaaS Agent least privilege mode.
+          enum:
+            - Enabled
+          type: string
+          x-ms-enum:
+            name: LeastPrivilegeMode
+            modelAsString: true
         sqlImageSku:
           description: SQL Server edition type.
           enum:
@@ -781,6 +1037,9 @@ components:
         assessmentSettings:
           $ref: '#/components/schemas/AssessmentSettings'
           description: Assessment Settings.
+        enableAutomaticUpgrade:
+          description: Enable automatic upgrade of Sql IaaS extension Agent.
+          type: boolean
     WsfcDomainCredentials:
       description: Domain credentials for setting up Windows Server Failover Cluster for SQL availability group.
       type: object
@@ -1114,6 +1373,7 @@ components:
           description: SQL Server default file path
           type: string
     SQLTempDbSettings:
+      description: Set tempDb storage settings for SQL Server.
       type: object
       properties:
         dataFileSize:
@@ -1152,6 +1412,7 @@ components:
           description: SQL Server default file path
           type: string
     Schedule:
+      description: Set assessment schedule for SQL Server.
       type: object
       properties:
         enable:
@@ -1187,105 +1448,27 @@ components:
       required:
         - location
       properties:
+        location:
+          description: Resource location.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
         tags:
+          description: Resource tags.
           type: object
           additionalProperties:
             type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        virtualMachineResourceId:
-          description: ARM Resource id of underlying virtual machine created from SQL marketplace image.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        provisioningState:
-          description: Provisioning state to track the async operation status.
-          type: string
-          readOnly: true
-        sqlImageOffer:
-          description: SQL image offer. Examples include SQL2016-WS2016, SQL2017-WS2016.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        sqlServerLicenseType:
-          description: SQL Server license type.
-          enum:
-            - PAYG
-            - AHUB
-            - DR
-          type: string
-          x-ms-enum:
-            name: SqlServerLicenseType
-            modelAsString: true
-        sqlManagement:
-          description: SQL Server Management type.
-          enum:
-            - Full
-            - LightWeight
-            - NoAgent
-          type: string
-          x-ms-enum:
-            name: SqlManagementMode
-            modelAsString: true
-        sqlImageSku:
-          description: SQL Server edition type.
-          enum:
-            - Developer
-            - Express
-            - Standard
-            - Enterprise
-            - Web
-          type: string
-          x-ms-enum:
-            name: SqlImageSku
-            modelAsString: true
-        sqlVirtualMachineGroupResourceId:
-          description: ARM resource id of the SQL virtual machine group this SQL virtual machine is or will be part of.
-          type: string
-          x-ms-mutability:
-            - read
-            - update
-        wsfcDomainCredentials:
-          $ref: '#/components/schemas/WsfcDomainCredentials'
-          description: Domain credentials for setting up Windows Server Failover Cluster for SQL availability group.
-        wsfcStaticIp:
-          description: Domain credentials for setting up Windows Server Failover Cluster for SQL availability group.
-          type: string
-        autoPatchingSettings:
-          $ref: '#/components/schemas/AutoPatchingSettings'
-          description: Auto patching settings for applying critical security updates to SQL virtual machine.
-        autoBackupSettings:
-          $ref: '#/components/schemas/AutoBackupSettings'
-          description: Auto backup settings for SQL Server.
-        keyVaultCredentialSettings:
-          $ref: '#/components/schemas/KeyVaultCredentialSettings'
-          description: Key vault credential settings.
-        serverConfigurationsManagementSettings:
-          $ref: '#/components/schemas/ServerConfigurationsManagementSettings'
-          description: SQL Server configuration management settings.
-        storageConfigurationSettings:
-          $ref: '#/components/schemas/StorageConfigurationSettings'
-          description: Storage Configuration Settings.
-        assessmentSettings:
-          $ref: '#/components/schemas/AssessmentSettings'
-          description: Assessment Settings.
         identity:
           $ref: '#/components/schemas/ResourceIdentity'
           description: Azure Active Directory identity of the server.
           x-ms-mutability:
             - read
             - create
+        properties:
+          $ref: '#/components/schemas/SqlVirtualMachineProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
           readOnly: true
@@ -1299,368 +1482,8 @@ components:
           type: object
           additionalProperties:
             type: string
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/availabilityGroupListeners/{availabilityGroupListenerName}/?api-version=2022-02-01:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/availabilityGroupListeners/{availabilityGroupListenerName}/?api-version=2022-07-01-preview:
     get:
       tags:
         - AvailabilityGroupListeners
@@ -1796,7 +1619,7 @@ paths:
 
              * 400 ExpectedReplicaNotPrimary - The VM: {0} does not host the primary replica.
 
-             * 400 ListenerSqlVmsMismatchWithReplicaSqlVms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
+             * 400 ListenerSqlvmsMismatchWithReplicaSqlvms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
 
              * 400 ReplicaSqlvmHasDuplicateEntries - Replica configuration should be unique for each SQL virtual machine. We have found one or more configuration for the same SQL virtual machine resource.
 
@@ -1874,7 +1697,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -1884,7 +1707,7 @@ paths:
 
              * 500 SqlVmGroupIsBusy - SQL virtual machine group is busy.
       x-stackQL-resource: availability_group_listeners
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - AvailabilityGroupListeners
@@ -2028,7 +1851,7 @@ paths:
 
              * 400 ExpectedReplicaNotPrimary - The VM: {0} does not host the primary replica.
 
-             * 400 ListenerSqlVmsMismatchWithReplicaSqlVms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
+             * 400 ListenerSqlvmsMismatchWithReplicaSqlvms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
 
              * 400 ReplicaSqlvmHasDuplicateEntries - Replica configuration should be unique for each SQL virtual machine. We have found one or more configuration for the same SQL virtual machine resource.
 
@@ -2106,7 +1929,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -2247,7 +2070,7 @@ paths:
 
              * 400 ExpectedReplicaNotPrimary - The VM: {0} does not host the primary replica.
 
-             * 400 ListenerSqlVmsMismatchWithReplicaSqlVms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
+             * 400 ListenerSqlvmsMismatchWithReplicaSqlvms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
 
              * 400 ReplicaSqlvmHasDuplicateEntries - Replica configuration should be unique for each SQL virtual machine. We have found one or more configuration for the same SQL virtual machine resource.
 
@@ -2325,7 +2148,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -2337,7 +2160,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: availability_group_listeners
       x-stackQL-verb: delete
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/availabilityGroupListeners/?api-version=2022-02-01:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/availabilityGroupListeners/?api-version=2022-07-01-preview:
     get:
       tags:
         - AvailabilityGroupListeners
@@ -2461,7 +2284,7 @@ paths:
 
              * 400 ExpectedReplicaNotPrimary - The VM: {0} does not host the primary replica.
 
-             * 400 ListenerSqlVmsMismatchWithReplicaSqlVms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
+             * 400 ListenerSqlvmsMismatchWithReplicaSqlvms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
 
              * 400 ReplicaSqlvmHasDuplicateEntries - Replica configuration should be unique for each SQL virtual machine. We have found one or more configuration for the same SQL virtual machine resource.
 
@@ -2539,7 +2362,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -2552,7 +2375,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: availability_group_listeners
       x-stackQL-verb: select
-  /providers/Microsoft.SqlVirtualMachine/operations/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /providers/Microsoft.SqlVirtualMachine/operations/?api-version=2022-07-01-preview:
     get:
       tags:
         - Operations
@@ -2572,7 +2396,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachineGroups
@@ -2656,7 +2481,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -2664,7 +2489,7 @@ paths:
 
              * 500 OperationTimeout - Operation timed out.
       x-stackQL-resource: groups
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - SqlVirtualMachineGroups
@@ -2792,7 +2617,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -2925,7 +2750,7 @@ paths:
 
              * 400 ExpectedReplicaNotPrimary - The VM: {0} does not host the primary replica.
 
-             * 400 ListenerSqlVmsMismatchWithReplicaSqlVms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
+             * 400 ListenerSqlvmsMismatchWithReplicaSqlvms - List of SQL VMs specified in Availability group does not match list of SQL VMs in listener config.
 
              * 400 ReplicaSqlvmHasDuplicateEntries - Replica configuration should be unique for each SQL virtual machine. We have found one or more configuration for the same SQL virtual machine resource.
 
@@ -3033,7 +2858,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3166,7 +2991,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3176,7 +3001,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: groups
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/?api-version=2022-02-01:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachineGroups
@@ -3254,7 +3079,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3265,7 +3090,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: groups
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachineGroups
@@ -3342,7 +3168,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3353,7 +3179,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: groups
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/sqlVirtualMachines/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachineGroups/{sqlVirtualMachineGroupName}/sqlVirtualMachines/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachines
@@ -3412,7 +3239,8 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: ''
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachines
@@ -3489,7 +3317,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3500,7 +3328,536 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: ''
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/?api-version=2022-02-01:
+      x-stackQL-objectKey: $.value
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/startAssessment/?api-version=2022-07-01-preview:
+    post:
+      tags:
+        - SqlVirtualMachines
+      description: Starts Assessment on SQL virtual machine.
+      operationId: SqlVirtualMachines_StartAssessment
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupParameter'
+        - name: sqlVirtualMachineName
+          in: path
+          description: Name of the SQL virtual machine.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully started assessment on the SQL virtual machine.
+        '202':
+          description: Accepted request to start assessment on SQL virtual machine.
+        default:
+          description: |-
+            *** Error Responses: ***
+
+             * 400 RestoreJobIdsMismatch - Restore Job Id mismatch, current restore job id is {0} while input is {1}.
+
+             * 400 RestoreJobSetToAutoCutover - Restore Job is set to AutoCutover. No Operation will be accept except Cancel.
+
+             * 400 AutoBackupEncryptionPasswordNotSpecified - Password not provided when enabling encryption as auto backup setting.
+
+             * 400 BackupScheduleTypeNotSet - Backup schedule type needs to be set.
+
+             * 400 BackupStorageCredentialsNotSpecified - Backup storage credentials are not specified.
+
+             * 400 KeyVaultCredentialsNotSpecified - Key vault credentials not specified.
+
+             * 400 SqlCredentialsNotSpecified - SQL Server credentials are not specified.
+
+             * 400 IncompleteAutoPatchingSettings - Incomplete auto patching settings specified.
+
+             * 400 IncompleteAutoBackupSettings - Incomplete auto backup settings specified.
+
+             * 400 IncompleteSqlStorageSettings - Incomplete SQL storage settings specified.
+
+             * 400 InvalidVmResourceIdChange - Virtual machine resource id property cannot be updated.
+
+             * 400 SqlVmAlreadyIncludedInGroup - SQL virtual machine cannot be moved from one group to another in same operation.
+
+             * 400 SqlVmCannotRemoveFromGroup - SQL virtual machine cannot be removed from group.
+
+             * 400 VmLocationMismatch - VM location does not match that of SQL virtual machine.
+
+             * 400 VmInsufficientPermission - Insufficient permission to Vm.
+
+             * 400 SingleNicOnVmAllowed - Only Single NIC virtual machines are allowed in a SQL VM Group.
+
+             * 400 InvalidSqlVmGroupResourceIdParameterValue - SQL virtual machine group resource id is not in correct format.
+
+             * 400 MismatchVmGroupSubscription - Subscription id for SQL virtual machine and SQL virtual machine group are different.
+
+             * 400 IncompleteDomainCredentialsProperty - Incomplete input provided for domain credentials property.
+
+             * 400 BYOLChangeToPAYGNotSupported - The conversion from AHUB to PAYG is not supported for BYOL images
+
+             * 400 InvalidVmResourceIdParameterValue - Provided virtual machine resource id is not valid.
+
+             * 400 MismatchInSqlVmAndVmResourceIdSubscription - Mismatch in subscription id for SQL virtual machine and virtual machine resource id property.
+
+             * 400 MismatchSqlVmAndVmName - SQL virtual machine name is not same as the virtual machine name provided on VirtualMachineResourceId property.
+
+             * 400 MismatchSqlVmAndVmRgName - SQL virtual machine resource group name is not same as the virtual machine resource group name provided on VirtualMachineResourceId property.
+
+             * 400 NotSupportedSqlVmOSVersion - Virtual machine OS type is not Windows. Only Windows OS versions are supported
+
+             * 400 VmNotRunning - The VM is not in running state.
+
+             * 400 VmAgentNotRunning - The VM agent is not installed or in running state.
+
+             * 400 PAYGNotSupportedForNonGalleryVM - License type PAYG is invalid for this Virtual Machine as this was not created from Azure marketplace image.
+
+             * 400 CannotDetermineSqlVersionAndEditionFromVm - Sql IaaS Extension cannot determine the SQL version and edition from the vm.
+
+             * 400 MismatchSqlVmSku - Sql virtual machine sku mismatch.
+
+             * 400 CannotConvertToFreeBenefit - Cannot convert Free SQL editions to {0}. 
+
+             * 400 SqlEvaluationSkuNotSupported - SQL Evaluation version does not support licensing changes.
+
+             * 400 IncompleteStorageConfigurationSettings - Incomplete Storage Configuration Settings
+
+             * 400 InvalidDefaultFilePath - Invalid Default File Path 
+
+             * 400 InvalidLUNSpecified - Invalid Logical Unit number specified, Logical Unit number should be a non-negative number.
+
+             * 400 BothStorageV1V2Specified - Invalid Request. Only one of SQL Storage Storage Setting or Storage Configuration Settings should be specified
+
+             * 400 InvalidLUNsSpecifiedForSameDrive - Invalid Logical Unit numbers specified. Logical Unit number used for the same drive need to be the same.
+
+             * 400 InvalidLUNsSpecifiedForDifferentDrives - Invalid Logical Unit numbers specified. Different drive could not reuse the same Logical Unit number.
+
+             * 400 InvalidExtendPayload - Invalid Sql Storage Settings Extend Payload. Only support extend one drive at a time.
+
+             * 400 SqlLicenseTypeMissing - Please specify license type for Sql Virtual Machine. The property is 'SqlServerLicenceType' and allowed values are PAYG, AHUB and DR.
+
+             * 400 VmAgentIsRunningForNoAgent - Cannot create or update as NoAgent model while the Guest Agent is running.
+
+             * 400 InvalidSqlManagementMode - Cannot update the SQL management mode to {0}, the current mode is {1}. Please specify the value of property 'SqlManagement' as {1}.
+
+             * 400 CannotDetermineSqlEditionFromRequest - Cannot determine the SQL edition.
+
+             * 400 SqlManagementMissing - Please specify the Management Mode for Sql Virtual Machine. The property is 'SqlManagement' and allowed values are LightWeight or Full.
+
+             * 400 SqlImageSkuMissingNoAgent - Please specify the Sql Server Edition for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageSku' and allowed values are Developer, Express, Web, Standard, or Enterprise.
+
+             * 400 SqlImageOfferMissingNoAgent - Please specify the Sql Server Version and OS Version for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageOffer' and allowed values are SQL2008-WS2008 and SQL2008R2-WS2008.
+
+             * 400 InvalidSqlImageOfferChange - SqlImageOffer property cannot be updated.
+
+             * 400 SqlLicenseTypeNotSupported - SqlLicenseType NotSet incorrectly provided
+
+             * 400 UnsupportedSqlManagementMode - Cannot update the SQL management mode to {0}, only {1} mode is supported for {2}.
+
+             * 400 SqlVmInValidState - Cannot delete SqlVm since it's provisioned.
+
+             * 400 ClusterOperatorAccountIsEmpty - Cannot add a VM to a SQLVM Group when cluster operator account is null or empty. Please update the group resource: {0} with the cluster operator account.
+
+             * 400 SqlServiceAccountIsEmpty - Cannot add a VM to a SQLVM Group when SQL service account is null or empty. Please update the group resource: {0} with the SQL service account.
+
+             * 400 UnknownSqlManagementMode - Cannot update the SQL management mode to {0}, please use one of the supported values.
+
+             * 400 CandidateCurrentTimeIsAfterRegEndTime - Cannot register candidate entity as current time {0} is after allowed end time {1}.
+
+             * 400 CandidateRegStartTimeIsAfterRegEndTime - Cannot register candidate entity as allowed start time {0} is after allowed end time {1}.
+
+             * 400 VmOsTypeNotFound - OS type is not found.
+
+             * 400 SqlLicenseManagementNotAllowed - Please set the License type of sql vm resource to null. License type manageability is currently not supported in this cloud.
+
+             * 400 IPNotInSubnet - IP not part of subnet.
+
+             * 400 InvalidSqlSkuUpdate - SqlImageSku property cannot be updated when license type management is blocked.
+
+             * 400 VmOsVersionIsUnsupported - OS version is unsupported.
+
+             * 400 RedeployIsNotSupported - Redeploy is not supported when SqlVm is not provisioned.
+
+             * 400 InvalidLightweightMode - Invalid SQL VM Management mode. Please change SQL VM property 'SqlManagement' to FULL
+
+             * 400 InvalidAssessmentSettingsEnableIsFalse - Invalid assessment settings specified. Enable must be set to true to use other assessment settings.
+
+             * 400 SqlInstanceSettingsSet1NotAllowed - SQL Instance Settings MAXDOP, and Collation are not allowed to be configured if the Feature Switch is disabled
+
+             * 400 InvalidAssessmentScheduleSettings - Invalid assessment schedule settings specified.
+
+             * 400 LinuxDistroIsNotSupported - Linux distro is unsupported
+
+             * 400 SqlServerSettingCollationNotAllowedToUpdate - SQL Server collation is not allowed to be updated in manageability.
+
+             * 400 SqlServerSettingMinMemoryGreaterThanMaxMemory - SQL Server Min Server Memory (MB) cannot be greater than Max Server Memory (MB)
+
+             * 400 SqlInstanceSettingsSet2NotAllowed - SQL Instance Settings Optimize for adhoc workloads, Min server memory (MB) and Max server memory (MB) are not allowed to be configured if the Feature Switch is disabled
+
+             * 400 ClusterIpShouldBeEmpty - Argument wsfcStaticIp should be empty for single subnet listener
+
+             * 400 InvalidClusterIpAddress - Invalid cluster ip address provided.
+
+             * 400 SqlServerSettingLPIMNotAllowedToUpdate - SQL Server Lock Pages In Memory is not allowed to be updated in manageability.
+
+             * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
+
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
+             * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
+
+             * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
+
+             * 400 SubscriptionNotReady - Subscription not ready
+
+             * 400 SqlVersionMismatchWithGroup - SQL version mismatch with SQL virtual machine group.
+
+             * 400 VmOSVersionMismatchWithGroup - OS version mismatch with group.
+
+             * 400 SqlSkuMismatchWithGroup - SQL sku set on the SQL virtual machine group does not match that of the SQL virtual machine.
+
+             * 400 InvalidParameterValue - An invalid value was given to parameter.
+
+             * 400 RPGenericUser - User Failure when calling other Resource Provider.
+
+             * 400 RPResponseMissingAsyncOperationHeader - Response is missing Async operation header information
+
+             * 400 InvalidArgument - Invalid argument '{0}'.
+
+             * 400 ArgumentNotInRange - Argument '{0}' not in range.
+
+             * 400 ResourceNotProvisioned - As the resource: {0} is not in a provisioned state, the request cannot be proceeded forward
+
+             * 400 CRPNotAllowedOperation - Operation cannot be completed due to the following error: {0}
+
+             * 400 AadAppDisabled - Microsoft AAD app SQLVMResourceProviderAuth ({0}) is disabled in your tenant.
+
+             * 400 InvalidRgResourceId - Invalid Resourcegroup resource id specified.
+
+             * 400 InternalAPIAccessDenied - Internal API Access denied. App Id {0} is not valid to use this API.
+
+             * 403 AccessDenied - Access denied.
+
+             * 404 SubscriptionDoesNotHaveSqlVMInResourceGroup - Subscription does not have SQL virtual machine Instance in resource group.
+
+             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
+
+             * 404 SubscriptionDoesNotHaveSqlVMGroupInResourceGroup - Subscription does not have SQL virtual machine group in resource group.
+
+             * 404 ResourceNotFound - The requested resource was not found.
+
+             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
+
+             * 404 ResourceDoesNotExist - Resource does not exist.
+
+             * 404 RPOperationNotFound - Operation not found
+
+             * 404 OperationIdNotFound - Operation id could not be found.
+
+             * 404 OperationTypeNotFound - Operation Type not found.
+
+             * 409 IPNotAvailable - IP {0} is not available{1}. Consider using one from ({2})
+
+             * 409 IpAddressAlreadyReserved - IP address reserved for this listener already exists. Please use the IP address
+
+             * 409 ResourceAlreadyExists - Resource already exists.
+
+             * 409 LBGenericErrors - LB operation failed
+
+             * 409 NICGenericError - NIC operation failed
+
+             * 409 SqlExtensionNotInstalled - SQL extension not installed.
+
+             * 409 RPPluginSubstatusMissing - RP plugin substatus missing
+
+             * 409 MissingMoveResources - Cannot move resources(s) because some resources are missing in the request.
+
+             * 409 ResourceExists - There was an internal error in cleaning up of resources.
+
+             * 409 SubscriptionOperationInProgress - An operation on subscription is already in progress
+
+             * 409 OperationInProgress - Operation in progress on resource already.
+
+             * 409 OperationCanceled - Operation Cancelled.
+
+             * 429 TooManyRequestsReceived - Request throttled due to too many requests.
+
+             * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
+
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+
+             * 500 RPGenericSystem - System Failure when calling other Resource Provider.
+
+             * 500 UnExpectedErrorOccurred - Unexpected error occurred.
+
+             * 500 OperationTimeout - Operation timed out.
+      x-ms-long-running-operation: true
+      x-stackQL-resource: ''
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/redeploy/?api-version=2022-07-01-preview:
+    post:
+      tags:
+        - SqlVirtualMachines
+      description: Uninstalls and reinstalls the SQL Iaas Extension.
+      operationId: SqlVirtualMachines_Redeploy
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupParameter'
+        - name: sqlVirtualMachineName
+          in: path
+          description: Name of the SQL virtual machine.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully redeployed the SQL virtual machine.
+        '202':
+          description: Accepted redeploying the SQL virtual machine.
+        default:
+          description: |-
+            *** Error Responses: ***
+
+             * 400 RestoreJobIdsMismatch - Restore Job Id mismatch, current restore job id is {0} while input is {1}.
+
+             * 400 RestoreJobSetToAutoCutover - Restore Job is set to AutoCutover. No Operation will be accept except Cancel.
+
+             * 400 AutoBackupEncryptionPasswordNotSpecified - Password not provided when enabling encryption as auto backup setting.
+
+             * 400 BackupScheduleTypeNotSet - Backup schedule type needs to be set.
+
+             * 400 BackupStorageCredentialsNotSpecified - Backup storage credentials are not specified.
+
+             * 400 KeyVaultCredentialsNotSpecified - Key vault credentials not specified.
+
+             * 400 SqlCredentialsNotSpecified - SQL Server credentials are not specified.
+
+             * 400 IncompleteAutoPatchingSettings - Incomplete auto patching settings specified.
+
+             * 400 IncompleteAutoBackupSettings - Incomplete auto backup settings specified.
+
+             * 400 IncompleteSqlStorageSettings - Incomplete SQL storage settings specified.
+
+             * 400 InvalidVmResourceIdChange - Virtual machine resource id property cannot be updated.
+
+             * 400 SqlVmAlreadyIncludedInGroup - SQL virtual machine cannot be moved from one group to another in same operation.
+
+             * 400 SqlVmCannotRemoveFromGroup - SQL virtual machine cannot be removed from group.
+
+             * 400 VmLocationMismatch - VM location does not match that of SQL virtual machine.
+
+             * 400 VmInsufficientPermission - Insufficient permission to Vm.
+
+             * 400 SingleNicOnVmAllowed - Only Single NIC virtual machines are allowed in a SQL VM Group.
+
+             * 400 InvalidSqlVmGroupResourceIdParameterValue - SQL virtual machine group resource id is not in correct format.
+
+             * 400 MismatchVmGroupSubscription - Subscription id for SQL virtual machine and SQL virtual machine group are different.
+
+             * 400 IncompleteDomainCredentialsProperty - Incomplete input provided for domain credentials property.
+
+             * 400 BYOLChangeToPAYGNotSupported - The conversion from AHUB to PAYG is not supported for BYOL images
+
+             * 400 InvalidVmResourceIdParameterValue - Provided virtual machine resource id is not valid.
+
+             * 400 MismatchInSqlVmAndVmResourceIdSubscription - Mismatch in subscription id for SQL virtual machine and virtual machine resource id property.
+
+             * 400 MismatchSqlVmAndVmName - SQL virtual machine name is not same as the virtual machine name provided on VirtualMachineResourceId property.
+
+             * 400 MismatchSqlVmAndVmRgName - SQL virtual machine resource group name is not same as the virtual machine resource group name provided on VirtualMachineResourceId property.
+
+             * 400 NotSupportedSqlVmOSVersion - Virtual machine OS type is not Windows. Only Windows OS versions are supported
+
+             * 400 VmNotRunning - The VM is not in running state.
+
+             * 400 VmAgentNotRunning - The VM agent is not installed or in running state.
+
+             * 400 PAYGNotSupportedForNonGalleryVM - License type PAYG is invalid for this Virtual Machine as this was not created from Azure marketplace image.
+
+             * 400 CannotDetermineSqlVersionAndEditionFromVm - Sql IaaS Extension cannot determine the SQL version and edition from the vm.
+
+             * 400 MismatchSqlVmSku - Sql virtual machine sku mismatch.
+
+             * 400 CannotConvertToFreeBenefit - Cannot convert Free SQL editions to {0}. 
+
+             * 400 SqlEvaluationSkuNotSupported - SQL Evaluation version does not support licensing changes.
+
+             * 400 IncompleteStorageConfigurationSettings - Incomplete Storage Configuration Settings
+
+             * 400 InvalidDefaultFilePath - Invalid Default File Path 
+
+             * 400 InvalidLUNSpecified - Invalid Logical Unit number specified, Logical Unit number should be a non-negative number.
+
+             * 400 BothStorageV1V2Specified - Invalid Request. Only one of SQL Storage Storage Setting or Storage Configuration Settings should be specified
+
+             * 400 InvalidLUNsSpecifiedForSameDrive - Invalid Logical Unit numbers specified. Logical Unit number used for the same drive need to be the same.
+
+             * 400 InvalidLUNsSpecifiedForDifferentDrives - Invalid Logical Unit numbers specified. Different drive could not reuse the same Logical Unit number.
+
+             * 400 InvalidExtendPayload - Invalid Sql Storage Settings Extend Payload. Only support extend one drive at a time.
+
+             * 400 SqlLicenseTypeMissing - Please specify license type for Sql Virtual Machine. The property is 'SqlServerLicenceType' and allowed values are PAYG, AHUB and DR.
+
+             * 400 VmAgentIsRunningForNoAgent - Cannot create or update as NoAgent model while the Guest Agent is running.
+
+             * 400 InvalidSqlManagementMode - Cannot update the SQL management mode to {0}, the current mode is {1}. Please specify the value of property 'SqlManagement' as {1}.
+
+             * 400 CannotDetermineSqlEditionFromRequest - Cannot determine the SQL edition.
+
+             * 400 SqlManagementMissing - Please specify the Management Mode for Sql Virtual Machine. The property is 'SqlManagement' and allowed values are LightWeight or Full.
+
+             * 400 SqlImageSkuMissingNoAgent - Please specify the Sql Server Edition for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageSku' and allowed values are Developer, Express, Web, Standard, or Enterprise.
+
+             * 400 SqlImageOfferMissingNoAgent - Please specify the Sql Server Version and OS Version for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageOffer' and allowed values are SQL2008-WS2008 and SQL2008R2-WS2008.
+
+             * 400 InvalidSqlImageOfferChange - SqlImageOffer property cannot be updated.
+
+             * 400 SqlLicenseTypeNotSupported - SqlLicenseType NotSet incorrectly provided
+
+             * 400 UnsupportedSqlManagementMode - Cannot update the SQL management mode to {0}, only {1} mode is supported for {2}.
+
+             * 400 SqlVmInValidState - Cannot delete SqlVm since it's provisioned.
+
+             * 400 ClusterOperatorAccountIsEmpty - Cannot add a VM to a SQLVM Group when cluster operator account is null or empty. Please update the group resource: {0} with the cluster operator account.
+
+             * 400 SqlServiceAccountIsEmpty - Cannot add a VM to a SQLVM Group when SQL service account is null or empty. Please update the group resource: {0} with the SQL service account.
+
+             * 400 UnknownSqlManagementMode - Cannot update the SQL management mode to {0}, please use one of the supported values.
+
+             * 400 CandidateCurrentTimeIsAfterRegEndTime - Cannot register candidate entity as current time {0} is after allowed end time {1}.
+
+             * 400 CandidateRegStartTimeIsAfterRegEndTime - Cannot register candidate entity as allowed start time {0} is after allowed end time {1}.
+
+             * 400 VmOsTypeNotFound - OS type is not found.
+
+             * 400 SqlLicenseManagementNotAllowed - Please set the License type of sql vm resource to null. License type manageability is currently not supported in this cloud.
+
+             * 400 IPNotInSubnet - IP not part of subnet.
+
+             * 400 InvalidSqlSkuUpdate - SqlImageSku property cannot be updated when license type management is blocked.
+
+             * 400 VmOsVersionIsUnsupported - OS version is unsupported.
+
+             * 400 RedeployIsNotSupported - Redeploy is not supported when SqlVm is not provisioned.
+
+             * 400 InvalidLightweightMode - Invalid SQL VM Management mode. Please change SQL VM property 'SqlManagement' to FULL
+
+             * 400 InvalidAssessmentSettingsEnableIsFalse - Invalid assessment settings specified. Enable must be set to true to use other assessment settings.
+
+             * 400 SqlInstanceSettingsSet1NotAllowed - SQL Instance Settings MAXDOP, and Collation are not allowed to be configured if the Feature Switch is disabled
+
+             * 400 InvalidAssessmentScheduleSettings - Invalid assessment schedule settings specified.
+
+             * 400 LinuxDistroIsNotSupported - Linux distro is unsupported
+
+             * 400 SqlServerSettingCollationNotAllowedToUpdate - SQL Server collation is not allowed to be updated in manageability.
+
+             * 400 SqlServerSettingMinMemoryGreaterThanMaxMemory - SQL Server Min Server Memory (MB) cannot be greater than Max Server Memory (MB)
+
+             * 400 SqlInstanceSettingsSet2NotAllowed - SQL Instance Settings Optimize for adhoc workloads, Min server memory (MB) and Max server memory (MB) are not allowed to be configured if the Feature Switch is disabled
+
+             * 400 ClusterIpShouldBeEmpty - Argument wsfcStaticIp should be empty for single subnet listener
+
+             * 400 InvalidClusterIpAddress - Invalid cluster ip address provided.
+
+             * 400 SqlServerSettingLPIMNotAllowedToUpdate - SQL Server Lock Pages In Memory is not allowed to be updated in manageability.
+
+             * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
+
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
+             * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
+
+             * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
+
+             * 400 SubscriptionNotReady - Subscription not ready
+
+             * 400 SqlVersionMismatchWithGroup - SQL version mismatch with SQL virtual machine group.
+
+             * 400 VmOSVersionMismatchWithGroup - OS version mismatch with group.
+
+             * 400 SqlSkuMismatchWithGroup - SQL sku set on the SQL virtual machine group does not match that of the SQL virtual machine.
+
+             * 400 InvalidParameterValue - An invalid value was given to parameter.
+
+             * 400 RPGenericUser - User Failure when calling other Resource Provider.
+
+             * 400 RPResponseMissingAsyncOperationHeader - Response is missing Async operation header information
+
+             * 400 InvalidArgument - Invalid argument '{0}'.
+
+             * 400 ArgumentNotInRange - Argument '{0}' not in range.
+
+             * 400 ResourceNotProvisioned - As the resource: {0} is not in a provisioned state, the request cannot be proceeded forward
+
+             * 400 CRPNotAllowedOperation - Operation cannot be completed due to the following error: {0}
+
+             * 400 AadAppDisabled - Microsoft AAD app SQLVMResourceProviderAuth ({0}) is disabled in your tenant.
+
+             * 400 InvalidRgResourceId - Invalid Resourcegroup resource id specified.
+
+             * 400 InternalAPIAccessDenied - Internal API Access denied. App Id {0} is not valid to use this API.
+
+             * 403 AccessDenied - Access denied.
+
+             * 404 SubscriptionDoesNotHaveSqlVMInResourceGroup - Subscription does not have SQL virtual machine Instance in resource group.
+
+             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
+
+             * 404 SubscriptionDoesNotHaveSqlVMGroupInResourceGroup - Subscription does not have SQL virtual machine group in resource group.
+
+             * 404 ResourceNotFound - The requested resource was not found.
+
+             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
+
+             * 404 ResourceDoesNotExist - Resource does not exist.
+
+             * 404 RPOperationNotFound - Operation not found
+
+             * 404 OperationIdNotFound - Operation id could not be found.
+
+             * 404 OperationTypeNotFound - Operation Type not found.
+
+             * 409 IPNotAvailable - IP {0} is not available{1}. Consider using one from ({2})
+
+             * 409 IpAddressAlreadyReserved - IP address reserved for this listener already exists. Please use the IP address
+
+             * 409 ResourceAlreadyExists - Resource already exists.
+
+             * 409 LBGenericErrors - LB operation failed
+
+             * 409 NICGenericError - NIC operation failed
+
+             * 409 SqlExtensionNotInstalled - SQL extension not installed.
+
+             * 409 RPPluginSubstatusMissing - RP plugin substatus missing
+
+             * 409 MissingMoveResources - Cannot move resources(s) because some resources are missing in the request.
+
+             * 409 ResourceExists - There was an internal error in cleaning up of resources.
+
+             * 409 SubscriptionOperationInProgress - An operation on subscription is already in progress
+
+             * 409 OperationInProgress - Operation in progress on resource already.
+
+             * 409 OperationCanceled - Operation Cancelled.
+
+             * 429 TooManyRequestsReceived - Request throttled due to too many requests.
+
+             * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
+
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+
+             * 500 RPGenericSystem - System Failure when calling other Resource Provider.
+
+             * 500 UnExpectedErrorOccurred - Unexpected error occurred.
+
+             * 500 OperationTimeout - Operation timed out.
+      x-ms-long-running-operation: true
+      x-stackQL-resource: ''
+      x-stackQL-verb: exec
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachines
@@ -3678,6 +4035,10 @@ paths:
 
              * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
 
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
              * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
 
              * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
@@ -3758,7 +4119,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -3766,7 +4127,7 @@ paths:
 
              * 500 OperationTimeout - Operation timed out.
       x-stackQL-resource: ''
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - SqlVirtualMachines
@@ -3952,6 +4313,10 @@ paths:
 
              * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
 
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
              * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
 
              * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
@@ -4028,27 +4393,27 @@ paths:
 
              * 409 OperationCanceled - Operation Cancelled.
 
-             * 409 Ext_CancelError - The operation was canceled
-
-             * 409 Ext_VMAgentStatusCommunicationError - SQLIaaSExtension installation failed because azure guest agent service is not running or it is not able to establish outbound connection to storage account.
-
              * 409 CRPNotAllowedOperation - Operation cannot be completed due to the following error: {0}
-
-             * 409 Ext_ComputeError - Compute returned error on current operation.
-
-             * 409 Ext_OperationPreempted - SQL VM operation has been preempted by a more recent operation like ResourceGroup drop, Resource move, VM drop or VM shutdown or VM redeploy.
 
              * 409 Ext_VMExtensionProvisioningError - There was an error while installing SqlIaasExtension on the virtual machine.
 
-             * 409 Ext_VMExtensionProvisioningTimeout - SQL VM resource provisioning operation timed out.
+             * 409 Ext_ComputeError - Compute returned error on current operation.
+
+             * 409 Ext_VMAgentStatusCommunicationError - SQLIaaSExtension installation failed because azure guest agent service is not running or it is not able to establish outbound connection to storage account.
+
+             * 409 Ext_CancelError - The operation was canceled
 
              * 409 Ext_VMExtensionHandlerNonTransientError - SQLIaaSExtension installation failed due to an internal error. Please retry the installation.
+
+             * 409 Ext_VMExtensionProvisioningTimeout - SQL VM resource provisioning operation timed out.
+
+             * 409 Ext_OperationPreempted - SQL VM operation has been preempted by a more recent operation like ResourceGroup drop, Resource move, VM drop or VM shutdown or VM redeploy.
 
              * 429 TooManyRequestsReceived - Request throttled due to too many requests.
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -4229,6 +4594,10 @@ paths:
 
              * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
 
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
              * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
 
              * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
@@ -4309,7 +4678,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -4498,6 +4867,10 @@ paths:
 
              * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
 
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
              * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
 
              * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
@@ -4578,7 +4951,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -4588,7 +4961,7 @@ paths:
       x-ms-long-running-operation: true
       x-stackQL-resource: ''
       x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/?api-version=2022-02-01:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/?api-version=2022-07-01-preview:
     get:
       tags:
         - SqlVirtualMachines
@@ -4754,6 +5127,10 @@ paths:
 
              * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
 
+             * 400 LeastPrivilegeModeEnableNotSupported - Least Privilege mode is not supported on LightWeight or NoAgent extension mode.
+
+             * 400 LeastPrivilegeModeChangeNotSupported - Cannot disable Least Privilege mode once enabled. 
+
              * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
 
              * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
@@ -4834,7 +5211,7 @@ paths:
 
              * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
 
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
+             * 429 MultisubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
 
              * 500 RPGenericSystem - System Failure when calling other Resource Provider.
 
@@ -4845,523 +5222,4 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: ''
       x-stackQL-verb: select
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/redeploy/?api-version=2022-02-01:
-    post:
-      tags:
-        - SqlVirtualMachines
-      description: Uninstalls and reinstalls the SQL Iaas Extension.
-      operationId: SqlVirtualMachines_Redeploy
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupParameter'
-        - name: sqlVirtualMachineName
-          in: path
-          description: Name of the SQL virtual machine.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Successfully redeployed the SQL virtual machine.
-        '202':
-          description: Accepted redeploying the SQL virtual machine.
-        default:
-          description: |-
-            *** Error Responses: ***
-
-             * 400 RestoreJobIdsMismatch - Restore Job Id mismatch, current restore job id is {0} while input is {1}.
-
-             * 400 RestoreJobSetToAutoCutover - Restore Job is set to AutoCutover. No Operation will be accept except Cancel.
-
-             * 400 AutoBackupEncryptionPasswordNotSpecified - Password not provided when enabling encryption as auto backup setting.
-
-             * 400 BackupScheduleTypeNotSet - Backup schedule type needs to be set.
-
-             * 400 BackupStorageCredentialsNotSpecified - Backup storage credentials are not specified.
-
-             * 400 KeyVaultCredentialsNotSpecified - Key vault credentials not specified.
-
-             * 400 SqlCredentialsNotSpecified - SQL Server credentials are not specified.
-
-             * 400 IncompleteAutoPatchingSettings - Incomplete auto patching settings specified.
-
-             * 400 IncompleteAutoBackupSettings - Incomplete auto backup settings specified.
-
-             * 400 IncompleteSqlStorageSettings - Incomplete SQL storage settings specified.
-
-             * 400 InvalidVmResourceIdChange - Virtual machine resource id property cannot be updated.
-
-             * 400 SqlVmAlreadyIncludedInGroup - SQL virtual machine cannot be moved from one group to another in same operation.
-
-             * 400 SqlVmCannotRemoveFromGroup - SQL virtual machine cannot be removed from group.
-
-             * 400 VmLocationMismatch - VM location does not match that of SQL virtual machine.
-
-             * 400 VmInsufficientPermission - Insufficient permission to Vm.
-
-             * 400 SingleNicOnVmAllowed - Only Single NIC virtual machines are allowed in a SQL VM Group.
-
-             * 400 InvalidSqlVmGroupResourceIdParameterValue - SQL virtual machine group resource id is not in correct format.
-
-             * 400 MismatchVmGroupSubscription - Subscription id for SQL virtual machine and SQL virtual machine group are different.
-
-             * 400 IncompleteDomainCredentialsProperty - Incomplete input provided for domain credentials property.
-
-             * 400 BYOLChangeToPAYGNotSupported - The conversion from AHUB to PAYG is not supported for BYOL images
-
-             * 400 InvalidVmResourceIdParameterValue - Provided virtual machine resource id is not valid.
-
-             * 400 MismatchInSqlVmAndVmResourceIdSubscription - Mismatch in subscription id for SQL virtual machine and virtual machine resource id property.
-
-             * 400 MismatchSqlVmAndVmName - SQL virtual machine name is not same as the virtual machine name provided on VirtualMachineResourceId property.
-
-             * 400 MismatchSqlVmAndVmRgName - SQL virtual machine resource group name is not same as the virtual machine resource group name provided on VirtualMachineResourceId property.
-
-             * 400 NotSupportedSqlVmOSVersion - Virtual machine OS type is not Windows. Only Windows OS versions are supported
-
-             * 400 VmNotRunning - The VM is not in running state.
-
-             * 400 VmAgentNotRunning - The VM agent is not installed or in running state.
-
-             * 400 PAYGNotSupportedForNonGalleryVM - License type PAYG is invalid for this Virtual Machine as this was not created from Azure marketplace image.
-
-             * 400 CannotDetermineSqlVersionAndEditionFromVm - Sql IaaS Extension cannot determine the SQL version and edition from the vm.
-
-             * 400 MismatchSqlVmSku - Sql virtual machine sku mismatch.
-
-             * 400 CannotConvertToFreeBenefit - Cannot convert Free SQL editions to {0}. 
-
-             * 400 SqlEvaluationSkuNotSupported - SQL Evaluation version does not support licensing changes.
-
-             * 400 IncompleteStorageConfigurationSettings - Incomplete Storage Configuration Settings
-
-             * 400 InvalidDefaultFilePath - Invalid Default File Path 
-
-             * 400 InvalidLUNSpecified - Invalid Logical Unit number specified, Logical Unit number should be a non-negative number.
-
-             * 400 BothStorageV1V2Specified - Invalid Request. Only one of SQL Storage Storage Setting or Storage Configuration Settings should be specified
-
-             * 400 InvalidLUNsSpecifiedForSameDrive - Invalid Logical Unit numbers specified. Logical Unit number used for the same drive need to be the same.
-
-             * 400 InvalidLUNsSpecifiedForDifferentDrives - Invalid Logical Unit numbers specified. Different drive could not reuse the same Logical Unit number.
-
-             * 400 InvalidExtendPayload - Invalid Sql Storage Settings Extend Payload. Only support extend one drive at a time.
-
-             * 400 SqlLicenseTypeMissing - Please specify license type for Sql Virtual Machine. The property is 'SqlServerLicenceType' and allowed values are PAYG, AHUB and DR.
-
-             * 400 VmAgentIsRunningForNoAgent - Cannot create or update as NoAgent model while the Guest Agent is running.
-
-             * 400 InvalidSqlManagementMode - Cannot update the SQL management mode to {0}, the current mode is {1}. Please specify the value of property 'SqlManagement' as {1}.
-
-             * 400 CannotDetermineSqlEditionFromRequest - Cannot determine the SQL edition.
-
-             * 400 SqlManagementMissing - Please specify the Management Mode for Sql Virtual Machine. The property is 'SqlManagement' and allowed values are LightWeight or Full.
-
-             * 400 SqlImageSkuMissingNoAgent - Please specify the Sql Server Edition for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageSku' and allowed values are Developer, Express, Web, Standard, or Enterprise.
-
-             * 400 SqlImageOfferMissingNoAgent - Please specify the Sql Server Version and OS Version for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageOffer' and allowed values are SQL2008-WS2008 and SQL2008R2-WS2008.
-
-             * 400 InvalidSqlImageOfferChange - SqlImageOffer property cannot be updated.
-
-             * 400 SqlLicenseTypeNotSupported - SqlLicenseType NotSet incorrectly provided
-
-             * 400 UnsupportedSqlManagementMode - Cannot update the SQL management mode to {0}, only {1} mode is supported for {2}.
-
-             * 400 SqlVmInValidState - Cannot delete SqlVm since it's provisioned.
-
-             * 400 ClusterOperatorAccountIsEmpty - Cannot add a VM to a SQLVM Group when cluster operator account is null or empty. Please update the group resource: {0} with the cluster operator account.
-
-             * 400 SqlServiceAccountIsEmpty - Cannot add a VM to a SQLVM Group when SQL service account is null or empty. Please update the group resource: {0} with the SQL service account.
-
-             * 400 UnknownSqlManagementMode - Cannot update the SQL management mode to {0}, please use one of the supported values.
-
-             * 400 CandidateCurrentTimeIsAfterRegEndTime - Cannot register candidate entity as current time {0} is after allowed end time {1}.
-
-             * 400 CandidateRegStartTimeIsAfterRegEndTime - Cannot register candidate entity as allowed start time {0} is after allowed end time {1}.
-
-             * 400 VmOsTypeNotFound - OS type is not found.
-
-             * 400 SqlLicenseManagementNotAllowed - Please set the License type of sql vm resource to null. License type manageability is currently not supported in this cloud.
-
-             * 400 IPNotInSubnet - IP not part of subnet.
-
-             * 400 InvalidSqlSkuUpdate - SqlImageSku property cannot be updated when license type management is blocked.
-
-             * 400 VmOsVersionIsUnsupported - OS version is unsupported.
-
-             * 400 RedeployIsNotSupported - Redeploy is not supported when SqlVm is not provisioned.
-
-             * 400 InvalidLightweightMode - Invalid SQL VM Management mode. Please change SQL VM property 'SqlManagement' to FULL
-
-             * 400 InvalidAssessmentSettingsEnableIsFalse - Invalid assessment settings specified. Enable must be set to true to use other assessment settings.
-
-             * 400 SqlInstanceSettingsSet1NotAllowed - SQL Instance Settings MAXDOP, and Collation are not allowed to be configured if the Feature Switch is disabled
-
-             * 400 InvalidAssessmentScheduleSettings - Invalid assessment schedule settings specified.
-
-             * 400 LinuxDistroIsNotSupported - Linux distro is unsupported
-
-             * 400 SqlServerSettingCollationNotAllowedToUpdate - SQL Server collation is not allowed to be updated in manageability.
-
-             * 400 SqlServerSettingMinMemoryGreaterThanMaxMemory - SQL Server Min Server Memory (MB) cannot be greater than Max Server Memory (MB)
-
-             * 400 SqlInstanceSettingsSet2NotAllowed - SQL Instance Settings Optimize for adhoc workloads, Min server memory (MB) and Max server memory (MB) are not allowed to be configured if the Feature Switch is disabled
-
-             * 400 ClusterIpShouldBeEmpty - Argument wsfcStaticIp should be empty for single subnet listener
-
-             * 400 InvalidClusterIpAddress - Invalid cluster ip address provided.
-
-             * 400 SqlServerSettingLPIMNotAllowedToUpdate - SQL Server Lock Pages In Memory is not allowed to be updated in manageability.
-
-             * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
-
-             * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
-
-             * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
-
-             * 400 SubscriptionNotReady - Subscription not ready
-
-             * 400 SqlVersionMismatchWithGroup - SQL version mismatch with SQL virtual machine group.
-
-             * 400 VmOSVersionMismatchWithGroup - OS version mismatch with group.
-
-             * 400 SqlSkuMismatchWithGroup - SQL sku set on the SQL virtual machine group does not match that of the SQL virtual machine.
-
-             * 400 InvalidParameterValue - An invalid value was given to parameter.
-
-             * 400 RPGenericUser - User Failure when calling other Resource Provider.
-
-             * 400 RPResponseMissingAsyncOperationHeader - Response is missing Async operation header information
-
-             * 400 InvalidArgument - Invalid argument '{0}'.
-
-             * 400 ArgumentNotInRange - Argument '{0}' not in range.
-
-             * 400 ResourceNotProvisioned - As the resource: {0} is not in a provisioned state, the request cannot be proceeded forward
-
-             * 400 CRPNotAllowedOperation - Operation cannot be completed due to the following error: {0}
-
-             * 400 AadAppDisabled - Microsoft AAD app SQLVMResourceProviderAuth ({0}) is disabled in your tenant.
-
-             * 400 InvalidRgResourceId - Invalid Resourcegroup resource id specified.
-
-             * 400 InternalAPIAccessDenied - Internal API Access denied. App Id {0} is not valid to use this API.
-
-             * 403 AccessDenied - Access denied.
-
-             * 404 SubscriptionDoesNotHaveSqlVMInResourceGroup - Subscription does not have SQL virtual machine Instance in resource group.
-
-             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
-
-             * 404 SubscriptionDoesNotHaveSqlVMGroupInResourceGroup - Subscription does not have SQL virtual machine group in resource group.
-
-             * 404 ResourceNotFound - The requested resource was not found.
-
-             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
-
-             * 404 ResourceDoesNotExist - Resource does not exist.
-
-             * 404 RPOperationNotFound - Operation not found
-
-             * 404 OperationIdNotFound - Operation id could not be found.
-
-             * 404 OperationTypeNotFound - Operation Type not found.
-
-             * 409 IPNotAvailable - IP {0} is not available{1}. Consider using one from ({2})
-
-             * 409 IpAddressAlreadyReserved - IP address reserved for this listener already exists. Please use the IP address
-
-             * 409 ResourceAlreadyExists - Resource already exists.
-
-             * 409 LBGenericErrors - LB operation failed
-
-             * 409 NICGenericError - NIC operation failed
-
-             * 409 SqlExtensionNotInstalled - SQL extension not installed.
-
-             * 409 RPPluginSubstatusMissing - RP plugin substatus missing
-
-             * 409 MissingMoveResources - Cannot move resources(s) because some resources are missing in the request.
-
-             * 409 ResourceExists - There was an internal error in cleaning up of resources.
-
-             * 409 SubscriptionOperationInProgress - An operation on subscription is already in progress
-
-             * 409 OperationInProgress - Operation in progress on resource already.
-
-             * 409 OperationCanceled - Operation Cancelled.
-
-             * 429 TooManyRequestsReceived - Request throttled due to too many requests.
-
-             * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
-
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
-
-             * 500 RPGenericSystem - System Failure when calling other Resource Provider.
-
-             * 500 UnExpectedErrorOccurred - Unexpected error occurred.
-
-             * 500 OperationTimeout - Operation timed out.
-      x-ms-long-running-operation: true
-      x-stackQL-resource: ''
-      x-stackQL-verb: exec
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.SqlVirtualMachine/sqlVirtualMachines/{sqlVirtualMachineName}/startAssessment/?api-version=2022-02-01:
-    post:
-      tags:
-        - SqlVirtualMachines
-      description: Starts Assessment on SQL virtual machine.
-      operationId: SqlVirtualMachines_StartAssessment
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupParameter'
-        - name: sqlVirtualMachineName
-          in: path
-          description: Name of the SQL virtual machine.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Successfully started assessment on the SQL virtual machine.
-        '202':
-          description: Accepted request to start assessment on SQL virtual machine.
-        default:
-          description: |-
-            *** Error Responses: ***
-
-             * 400 RestoreJobIdsMismatch - Restore Job Id mismatch, current restore job id is {0} while input is {1}.
-
-             * 400 RestoreJobSetToAutoCutover - Restore Job is set to AutoCutover. No Operation will be accept except Cancel.
-
-             * 400 AutoBackupEncryptionPasswordNotSpecified - Password not provided when enabling encryption as auto backup setting.
-
-             * 400 BackupScheduleTypeNotSet - Backup schedule type needs to be set.
-
-             * 400 BackupStorageCredentialsNotSpecified - Backup storage credentials are not specified.
-
-             * 400 KeyVaultCredentialsNotSpecified - Key vault credentials not specified.
-
-             * 400 SqlCredentialsNotSpecified - SQL Server credentials are not specified.
-
-             * 400 IncompleteAutoPatchingSettings - Incomplete auto patching settings specified.
-
-             * 400 IncompleteAutoBackupSettings - Incomplete auto backup settings specified.
-
-             * 400 IncompleteSqlStorageSettings - Incomplete SQL storage settings specified.
-
-             * 400 InvalidVmResourceIdChange - Virtual machine resource id property cannot be updated.
-
-             * 400 SqlVmAlreadyIncludedInGroup - SQL virtual machine cannot be moved from one group to another in same operation.
-
-             * 400 SqlVmCannotRemoveFromGroup - SQL virtual machine cannot be removed from group.
-
-             * 400 VmLocationMismatch - VM location does not match that of SQL virtual machine.
-
-             * 400 VmInsufficientPermission - Insufficient permission to Vm.
-
-             * 400 SingleNicOnVmAllowed - Only Single NIC virtual machines are allowed in a SQL VM Group.
-
-             * 400 InvalidSqlVmGroupResourceIdParameterValue - SQL virtual machine group resource id is not in correct format.
-
-             * 400 MismatchVmGroupSubscription - Subscription id for SQL virtual machine and SQL virtual machine group are different.
-
-             * 400 IncompleteDomainCredentialsProperty - Incomplete input provided for domain credentials property.
-
-             * 400 BYOLChangeToPAYGNotSupported - The conversion from AHUB to PAYG is not supported for BYOL images
-
-             * 400 InvalidVmResourceIdParameterValue - Provided virtual machine resource id is not valid.
-
-             * 400 MismatchInSqlVmAndVmResourceIdSubscription - Mismatch in subscription id for SQL virtual machine and virtual machine resource id property.
-
-             * 400 MismatchSqlVmAndVmName - SQL virtual machine name is not same as the virtual machine name provided on VirtualMachineResourceId property.
-
-             * 400 MismatchSqlVmAndVmRgName - SQL virtual machine resource group name is not same as the virtual machine resource group name provided on VirtualMachineResourceId property.
-
-             * 400 NotSupportedSqlVmOSVersion - Virtual machine OS type is not Windows. Only Windows OS versions are supported
-
-             * 400 VmNotRunning - The VM is not in running state.
-
-             * 400 VmAgentNotRunning - The VM agent is not installed or in running state.
-
-             * 400 PAYGNotSupportedForNonGalleryVM - License type PAYG is invalid for this Virtual Machine as this was not created from Azure marketplace image.
-
-             * 400 CannotDetermineSqlVersionAndEditionFromVm - Sql IaaS Extension cannot determine the SQL version and edition from the vm.
-
-             * 400 MismatchSqlVmSku - Sql virtual machine sku mismatch.
-
-             * 400 CannotConvertToFreeBenefit - Cannot convert Free SQL editions to {0}. 
-
-             * 400 SqlEvaluationSkuNotSupported - SQL Evaluation version does not support licensing changes.
-
-             * 400 IncompleteStorageConfigurationSettings - Incomplete Storage Configuration Settings
-
-             * 400 InvalidDefaultFilePath - Invalid Default File Path 
-
-             * 400 InvalidLUNSpecified - Invalid Logical Unit number specified, Logical Unit number should be a non-negative number.
-
-             * 400 BothStorageV1V2Specified - Invalid Request. Only one of SQL Storage Storage Setting or Storage Configuration Settings should be specified
-
-             * 400 InvalidLUNsSpecifiedForSameDrive - Invalid Logical Unit numbers specified. Logical Unit number used for the same drive need to be the same.
-
-             * 400 InvalidLUNsSpecifiedForDifferentDrives - Invalid Logical Unit numbers specified. Different drive could not reuse the same Logical Unit number.
-
-             * 400 InvalidExtendPayload - Invalid Sql Storage Settings Extend Payload. Only support extend one drive at a time.
-
-             * 400 SqlLicenseTypeMissing - Please specify license type for Sql Virtual Machine. The property is 'SqlServerLicenceType' and allowed values are PAYG, AHUB and DR.
-
-             * 400 VmAgentIsRunningForNoAgent - Cannot create or update as NoAgent model while the Guest Agent is running.
-
-             * 400 InvalidSqlManagementMode - Cannot update the SQL management mode to {0}, the current mode is {1}. Please specify the value of property 'SqlManagement' as {1}.
-
-             * 400 CannotDetermineSqlEditionFromRequest - Cannot determine the SQL edition.
-
-             * 400 SqlManagementMissing - Please specify the Management Mode for Sql Virtual Machine. The property is 'SqlManagement' and allowed values are LightWeight or Full.
-
-             * 400 SqlImageSkuMissingNoAgent - Please specify the Sql Server Edition for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageSku' and allowed values are Developer, Express, Web, Standard, or Enterprise.
-
-             * 400 SqlImageOfferMissingNoAgent - Please specify the Sql Server Version and OS Version for Sql Virtual Machine in NoAgent Mode. The property is 'SqlImageOffer' and allowed values are SQL2008-WS2008 and SQL2008R2-WS2008.
-
-             * 400 InvalidSqlImageOfferChange - SqlImageOffer property cannot be updated.
-
-             * 400 SqlLicenseTypeNotSupported - SqlLicenseType NotSet incorrectly provided
-
-             * 400 UnsupportedSqlManagementMode - Cannot update the SQL management mode to {0}, only {1} mode is supported for {2}.
-
-             * 400 SqlVmInValidState - Cannot delete SqlVm since it's provisioned.
-
-             * 400 ClusterOperatorAccountIsEmpty - Cannot add a VM to a SQLVM Group when cluster operator account is null or empty. Please update the group resource: {0} with the cluster operator account.
-
-             * 400 SqlServiceAccountIsEmpty - Cannot add a VM to a SQLVM Group when SQL service account is null or empty. Please update the group resource: {0} with the SQL service account.
-
-             * 400 UnknownSqlManagementMode - Cannot update the SQL management mode to {0}, please use one of the supported values.
-
-             * 400 CandidateCurrentTimeIsAfterRegEndTime - Cannot register candidate entity as current time {0} is after allowed end time {1}.
-
-             * 400 CandidateRegStartTimeIsAfterRegEndTime - Cannot register candidate entity as allowed start time {0} is after allowed end time {1}.
-
-             * 400 VmOsTypeNotFound - OS type is not found.
-
-             * 400 SqlLicenseManagementNotAllowed - Please set the License type of sql vm resource to null. License type manageability is currently not supported in this cloud.
-
-             * 400 IPNotInSubnet - IP not part of subnet.
-
-             * 400 InvalidSqlSkuUpdate - SqlImageSku property cannot be updated when license type management is blocked.
-
-             * 400 VmOsVersionIsUnsupported - OS version is unsupported.
-
-             * 400 RedeployIsNotSupported - Redeploy is not supported when SqlVm is not provisioned.
-
-             * 400 InvalidLightweightMode - Invalid SQL VM Management mode. Please change SQL VM property 'SqlManagement' to FULL
-
-             * 400 InvalidAssessmentSettingsEnableIsFalse - Invalid assessment settings specified. Enable must be set to true to use other assessment settings.
-
-             * 400 SqlInstanceSettingsSet1NotAllowed - SQL Instance Settings MAXDOP, and Collation are not allowed to be configured if the Feature Switch is disabled
-
-             * 400 InvalidAssessmentScheduleSettings - Invalid assessment schedule settings specified.
-
-             * 400 LinuxDistroIsNotSupported - Linux distro is unsupported
-
-             * 400 SqlServerSettingCollationNotAllowedToUpdate - SQL Server collation is not allowed to be updated in manageability.
-
-             * 400 SqlServerSettingMinMemoryGreaterThanMaxMemory - SQL Server Min Server Memory (MB) cannot be greater than Max Server Memory (MB)
-
-             * 400 SqlInstanceSettingsSet2NotAllowed - SQL Instance Settings Optimize for adhoc workloads, Min server memory (MB) and Max server memory (MB) are not allowed to be configured if the Feature Switch is disabled
-
-             * 400 ClusterIpShouldBeEmpty - Argument wsfcStaticIp should be empty for single subnet listener
-
-             * 400 InvalidClusterIpAddress - Invalid cluster ip address provided.
-
-             * 400 SqlServerSettingLPIMNotAllowedToUpdate - SQL Server Lock Pages In Memory is not allowed to be updated in manageability.
-
-             * 400 SqlServerSettingIFINotAllowedToUpdate - SQL Server IFI is not allowed to be updated in manageability.
-
-             * 400 InvalidFileSizeSpecified - Invalid Request. File Size cannot be negative
-
-             * 400 InvalidFileCountSpecified - Invalid Request. File Count cannot be negative 
-
-             * 400 SubscriptionNotReady - Subscription not ready
-
-             * 400 SqlVersionMismatchWithGroup - SQL version mismatch with SQL virtual machine group.
-
-             * 400 VmOSVersionMismatchWithGroup - OS version mismatch with group.
-
-             * 400 SqlSkuMismatchWithGroup - SQL sku set on the SQL virtual machine group does not match that of the SQL virtual machine.
-
-             * 400 InvalidParameterValue - An invalid value was given to parameter.
-
-             * 400 RPGenericUser - User Failure when calling other Resource Provider.
-
-             * 400 RPResponseMissingAsyncOperationHeader - Response is missing Async operation header information
-
-             * 400 InvalidArgument - Invalid argument '{0}'.
-
-             * 400 ArgumentNotInRange - Argument '{0}' not in range.
-
-             * 400 ResourceNotProvisioned - As the resource: {0} is not in a provisioned state, the request cannot be proceeded forward
-
-             * 400 CRPNotAllowedOperation - Operation cannot be completed due to the following error: {0}
-
-             * 400 AadAppDisabled - Microsoft AAD app SQLVMResourceProviderAuth ({0}) is disabled in your tenant.
-
-             * 400 InvalidRgResourceId - Invalid Resourcegroup resource id specified.
-
-             * 400 InternalAPIAccessDenied - Internal API Access denied. App Id {0} is not valid to use this API.
-
-             * 403 AccessDenied - Access denied.
-
-             * 404 SubscriptionDoesNotHaveSqlVMInResourceGroup - Subscription does not have SQL virtual machine Instance in resource group.
-
-             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
-
-             * 404 SubscriptionDoesNotHaveSqlVMGroupInResourceGroup - Subscription does not have SQL virtual machine group in resource group.
-
-             * 404 ResourceNotFound - The requested resource was not found.
-
-             * 404 SubscriptionDoesNotExist - Subscription id does not exist.
-
-             * 404 ResourceDoesNotExist - Resource does not exist.
-
-             * 404 RPOperationNotFound - Operation not found
-
-             * 404 OperationIdNotFound - Operation id could not be found.
-
-             * 404 OperationTypeNotFound - Operation Type not found.
-
-             * 409 IPNotAvailable - IP {0} is not available{1}. Consider using one from ({2})
-
-             * 409 IpAddressAlreadyReserved - IP address reserved for this listener already exists. Please use the IP address
-
-             * 409 ResourceAlreadyExists - Resource already exists.
-
-             * 409 LBGenericErrors - LB operation failed
-
-             * 409 NICGenericError - NIC operation failed
-
-             * 409 SqlExtensionNotInstalled - SQL extension not installed.
-
-             * 409 RPPluginSubstatusMissing - RP plugin substatus missing
-
-             * 409 MissingMoveResources - Cannot move resources(s) because some resources are missing in the request.
-
-             * 409 ResourceExists - There was an internal error in cleaning up of resources.
-
-             * 409 SubscriptionOperationInProgress - An operation on subscription is already in progress
-
-             * 409 OperationInProgress - Operation in progress on resource already.
-
-             * 409 OperationCanceled - Operation Cancelled.
-
-             * 429 TooManyRequestsReceived - Request throttled due to too many requests.
-
-             * 429 ArgumentMissingForSetup - Argument is missing for setup. Please provide a value for the argument.
-
-             * 429 MultiSubnetOperationNotAllowed - Multi subnet HA setup operation is not allowed.
-
-             * 500 RPGenericSystem - System Failure when calling other Resource Provider.
-
-             * 500 UnExpectedErrorOccurred - Unexpected error occurred.
-
-             * 500 OperationTimeout - Operation timed out.
-      x-ms-long-running-operation: true
-      x-stackQL-resource: ''
-      x-stackQL-verb: exec
+      x-stackQL-objectKey: $.value

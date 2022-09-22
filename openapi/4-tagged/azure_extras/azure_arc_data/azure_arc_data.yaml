@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -23,12 +23,76 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   parameters:
+    subscriptionId:
+      name: subscriptionId
+      in: path
+      description: The ID of the Azure subscription
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The name of the Azure resource group
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    location:
+      name: location
+      in: path
+      description: The Azure region to use for the request
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     apiVersion:
       name: api-version
       in: query
       description: The API version to use for the request
       required: true
       x-ms-parameter-location: client
+      schema:
+        type: string
+    dataControllerName:
+      name: dataControllerName
+      in: path
+      description: The name of the data controller
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    activeDirectoryConnectorName:
+      name: activeDirectoryConnectorName
+      in: path
+      description: The name of the Active Directory connector instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    sqlManagedInstanceName:
+      name: sqlManagedInstanceName
+      in: path
+      description: Name of SQL Managed Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    sqlServerInstanceName:
+      name: sqlServerInstanceName
+      in: path
+      description: Name of SQL Server Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    postgresInstanceName:
+      name: postgresInstanceName
+      in: path
+      description: Name of Postgres Instance
+      required: true
+      x-ms-parameter-location: method
       schema:
         type: string
     SubscriptionIdParameter:
@@ -75,73 +139,603 @@ components:
       schema:
         minLength: 1
         type: string
-    subscriptionId:
-      name: subscriptionId
-      in: path
-      description: The ID of the Azure subscription
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    resourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The name of the Azure resource group
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    location:
-      name: location
-      in: path
-      description: The Azure region to use for the request
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    dataControllerName:
-      name: dataControllerName
-      in: path
-      description: The name of the data controller
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    activeDirectoryConnectorName:
-      name: activeDirectoryConnectorName
-      in: path
-      description: The name of the Active Directory connector instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    sqlManagedInstanceName:
-      name: sqlManagedInstanceName
-      in: path
-      description: Name of SQL Managed Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    sqlServerInstanceName:
-      name: sqlServerInstanceName
-      in: path
-      description: Name of SQL Server Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    postgresInstanceName:
-      name: postgresInstanceName
-      in: path
-      description: Name of Postgres Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
   schemas:
-    SqlManagedInstance:
-      description: A SqlManagedInstance.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationDisplay:
+      description: Display metadata associated with the operation.
+      type: object
+      properties:
+        provider:
+          description: The localized friendly form of the resource provider name.
+          type: string
+        resource:
+          description: The localized friendly form of the resource type related to this action/operation.
+          type: string
+        operation:
+          description: The localized friendly name for the operation.
+          type: string
+        description:
+          description: The localized friendly description for the operation.
+          type: string
+      required:
+        - provider
+        - resource
+        - operation
+        - description
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      required:
+        - location
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      type: object
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorResponseBody'
+          description: 'null'
+      description: An error response from the Azure Data on Azure Arc service.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
+    PostgresInstanceSku:
+      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
+      properties:
+        tier:
+          type: string
+          enum:
+            - Hyperscale
+          x-ms-enum:
+            name: PostgresInstanceSkuTier
+            modelAsString: false
+          default: Hyperscale
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
+        name:
+          type: string
+          description: The name of the SKU.  It is typically a letter+number code
+        dev:
+          type: boolean
+          default: true
+          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      type: object
+    PostgresInstanceProperties:
+      description: Postgres Instance properties.
+      type: object
+      properties:
+        dataControllerId:
+          type: string
+          description: The data controller id
+        admin:
+          type: string
+          description: The instance admin
+        basicLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Username and password for basic authentication.
+        k8sRaw:
+          type: object
+          description: The raw kubernetes information
+        lastUploadedDate:
+          type: string
+          format: date-time
+          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
+    PostgresInstance:
+      description: A Postgres Instance.
       required:
         - properties
       properties:
@@ -160,39 +754,50 @@ components:
             - read
             - create
           description: The geo-location where the resource lives
-        properties:
-          $ref: '#/components/schemas/SqlManagedInstanceProperties'
-          description: 'null'
-          x-ms-client-flatten: false
         extendedLocation:
           $ref: '#/components/schemas/ExtendedLocation'
           description: The extendedLocation of the resource.
+        properties:
+          $ref: '#/components/schemas/PostgresInstanceProperties'
+          x-ms-client-flatten: false
+          description: 'null'
         sku:
-          $ref: '#/components/schemas/SqlManagedInstanceSku'
+          $ref: '#/components/schemas/PostgresInstanceSku'
           description: Resource sku.
       type: object
-    SqlManagedInstanceSku:
-      description: The resource model definition representing SKU for Azure Managed Instance - Azure Arc
+    PostgresInstanceUpdate:
+      description: An update to a Postgres Instance.
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        properties:
+          $ref: '#/components/schemas/PostgresInstanceProperties'
+          x-ms-client-flatten: false
+      type: object
+    PostgresInstanceListResult:
+      description: A list of PostgresInstance.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PostgresInstance'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    CommonSku:
+      description: The resource model definition representing SKU for ARM resources
       type: object
       properties:
         name:
           type: string
-          enum:
-            - vCore
-          description: The name of the SKU.
-          x-ms-enum:
-            name: SqlManagedInstanceSkuName
-            modelAsString: false
-        tier:
-          type: string
-          enum:
-            - GeneralPurpose
-            - BusinessCritical
-          x-ms-enum:
-            name: SqlManagedInstanceSkuTier
-            modelAsString: false
-          default: GeneralPurpose
-          description: The pricing tier for the instance.
+          description: The name of the SKU.  It is typically a letter+number code
         dev:
           type: boolean
           default: true
@@ -202,158 +807,226 @@ components:
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
         family:
           type: string
-          description: The SKU family
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
         capacity:
           type: integer
           format: int32
-          description: The SKU capacity
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
-    SqlManagedInstanceProperties:
-      description: Properties of sqlManagedInstance.
+    ErrorResponseBody:
       type: object
       properties:
-        dataControllerId:
+        code:
           type: string
-          description: 'null'
-        admin:
+          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
+        message:
           type: string
-          description: The instance admin user
-        startTime:
+          description: A message describing the error, intended to be suitable for display in a user interface.
+        target:
           type: string
-          description: The instance start time
-        endTime:
-          type: string
-          description: The instance end time
-        k8sRaw:
-          $ref: '#/components/schemas/SqlManagedInstanceK8sRaw'
-          description: The raw kubernetes information
-        basicLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Username and password for basic authentication.
-        lastUploadedDate:
-          type: string
-          format: date-time
-          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
-        provisioningState:
-          type: string
-          readOnly: true
-          description: The provisioning state of the Arc-enabled SQL Managed Instance resource.
-        activeDirectoryInformation:
-          type: object
-          description: Active Directory information related to this SQL Managed Instance.
-          $ref: '#/components/schemas/ActiveDirectoryInformation'
-        licenseType:
-          type: string
-          enum:
-            - BasePrice
-            - LicenseIncluded
-            - DisasterRecovery
-          x-ms-enum:
-            name: arcSqlManagedInstanceLicenseType
-            modelAsString: true
-          default: BasePrice
-          description: The license type to apply for this managed instance.
-        clusterId:
-          type: string
-          description: If a CustomLocation is provided, this contains the ARM id of the connected cluster the custom location belongs to.
-        extensionId:
-          type: string
-          description: If a CustomLocation is provided, this contains the ARM id of the extension the custom location belongs to.
-    SqlManagedInstanceUpdate:
-      description: An update to a SQL Managed Instance.
+          description: The target of the particular error. For example, the name of the property in error.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponseBody'
+          x-ms-identifiers:
+            - message
+            - target
+          description: A list of additional details about the error.
+      description: An error response from the Batch service.
+    ExtendedLocation:
       type: object
+      description: The complex type of the extended location.
       properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-    SqlManagedInstanceK8sRaw:
-      type: object
-      description: The raw kubernetes information.
-      properties:
-        spec:
-          $ref: '#/components/schemas/SqlManagedInstanceK8sSpec'
-      additionalProperties:
-        type: object
-    SqlManagedInstanceK8sSpec:
-      type: object
-      description: The kubernetes spec information.
-      properties:
-        scheduling:
-          $ref: '#/components/schemas/K8sScheduling'
-        replicas:
-          type: integer
-          format: int32
-          description: This option specifies the number of SQL Managed Instance replicas that will be deployed in your Kubernetes cluster for high availability purposes. If sku.tier is BusinessCritical, allowed values are '2' or '3' with default of '3'. If sku.tier is GeneralPurpose, replicas must be '1'.
-      additionalProperties:
-        type: object
-    K8sScheduling:
-      type: object
-      description: The kubernetes scheduling information.
-      properties:
-        default:
-          $ref: '#/components/schemas/K8sSchedulingOptions'
-      additionalProperties:
-        type: object
-    K8sSchedulingOptions:
-      type: object
-      description: The kubernetes scheduling options. It describes restrictions used to help Kubernetes select appropriate nodes to host the database service
-      properties:
-        resources:
-          $ref: '#/components/schemas/K8sResourceRequirements'
-      additionalProperties:
-        type: object
-    K8sResourceRequirements:
-      type: object
-      description: The kubernetes resource limits and requests used to restrict or reserve resource usage.
-      properties:
-        requests:
-          type: object
-          additionalProperties:
-            type: string
-          description: Requests for a kubernetes resource type (e.g 'cpu', 'memory'). The 'cpu' request must be less than or equal to 'cpu' limit. Default 'cpu' is 2, minimum is 1. Default 'memory' is '4Gi', minimum is '2Gi. If sku.tier is GeneralPurpose, maximum 'cpu' is 24 and maximum 'memory' is '128Gi'.
-        limits:
-          type: object
-          additionalProperties:
-            type: string
-          description: Limits for a kubernetes resource type (e.g 'cpu', 'memory'). The 'cpu' request must be less than or equal to 'cpu' limit. Default 'cpu' is 2, minimum is 1. Default 'memory' is '4Gi', minimum is '2Gi. If sku.tier is GeneralPurpose, maximum 'cpu' is 24 and maximum 'memory' is '128Gi'.
-      additionalProperties:
-        type: object
-    KeytabInformation:
-      type: object
-      description: Keytab used for authenticate with Active Directory.
-      properties:
-        keytab:
+        name:
           type: string
-          description: A base64-encoded keytab.
+          description: The name of the extended location.
+        type:
+          $ref: '#/components/schemas/ExtendedLocationType'
+          description: The type of the extended location.
+    ExtendedLocationType:
+      type: string
+      description: The type of extendedLocation.
+      enum:
+        - CustomLocation
+      x-ms-enum:
+        name: ExtendedLocationTypes
+        modelAsString: true
+    BasicLoginInformation:
+      type: object
+      description: Username and password for basic login authentication.
+      properties:
+        username:
+          type: string
+          description: Login username.
+        password:
+          type: string
+          description: Login password.
           x-ms-mutability:
             - create
             - update
           x-ms-secret: true
-    ActiveDirectoryInformation:
-      type: object
-      description: Active Directory information that related to the resource.
-      properties:
-        keytabInformation:
-          type: object
-          description: Keytab information that is used for the Sql Managed Instance when Active Directory authentication is used.
-          $ref: '#/components/schemas/KeytabInformation'
-    SqlManagedInstanceListResult:
-      description: A list of SqlManagedInstance.
+    ActiveDirectoryConnectorListResult:
+      description: A list of active directory connectors
       type: object
       properties:
         value:
           description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/SqlManagedInstance'
+            $ref: '#/components/schemas/ActiveDirectoryConnectorResource'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
+    ActiveDirectoryConnectorResource:
+      description: Active directory connector resource
+      required:
+        - properties
+      properties:
+        properties:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorProperties'
+          description: 'null'
+          x-ms-client-flatten: false
+      type: object
+    ActiveDirectoryConnectorProperties:
+      type: object
+      description: The properties of an Active Directory connector resource
+      properties:
+        domainServiceAccountLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Username and password for domain service account authentication.
+        provisioningState:
+          type: string
+          description: The provisioning state of the Active Directory connector resource.
+          readOnly: true
+        spec:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorSpec'
+          description: 'null'
+          x-ms-client-flatten: false
+        status:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorStatus'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - spec
+    ActiveDirectoryConnectorSpec:
+      description: The specifications of the AD Kubernetes resource.
+      type: object
+      properties:
+        activeDirectory:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorDomainDetails'
+          description: 'null'
+          x-ms-client-flatten: false
+        dns:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorDNSDetails'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - activeDirectory
+        - dns
+    ActiveDirectoryConnectorDomainDetails:
+      type: object
+      description: Active Directory domain details
+      properties:
+        realm:
+          type: string
+          description: Name (uppercase) of the Active Directory domain that this AD connector will be associated with.
+        netbiosDomainName:
+          type: string
+          description: NETBIOS name of the Active Directory domain.
+        serviceAccountProvisioning:
+          type: string
+          enum:
+            - automatic
+            - manual
+          x-ms-enum:
+            name: accountProvisioningMode
+            modelAsString: true
+          default: manual
+          description: The service account provisioning mode for this Active Directory connector.
+        ouDistinguishedName:
+          type: string
+          description: The distinguished name of the Active Directory Organizational Unit.
+        domainControllers:
+          $ref: '#/components/schemas/ActiveDirectoryDomainControllers'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - realm
+        - domainControllers
+    ActiveDirectoryConnectorDNSDetails:
+      type: object
+      description: DNS server details
+      properties:
+        domainName:
+          type: string
+          description: DNS domain name for which DNS lookups should be forwarded to the Active Directory DNS servers.
+        nameserverIPAddresses:
+          type: array
+          description: List of Active Directory DNS server IP addresses.
+          items:
+            type: string
+            minimum: 1
+        replicas:
+          type: integer
+          description: Replica count for DNS proxy service. Default value is 1.
+          default: 1
+          format: int64
+        preferK8sDnsForPtrLookups:
+          type: boolean
+          description: Flag indicating whether to prefer Kubernetes DNS server response over AD DNS server response for IP address lookups.
+          default: true
+      required:
+        - nameserverIPAddresses
+    ActiveDirectoryDomainControllers:
+      type: object
+      description: Details about the Active Directory domain controllers associated with this AD connector instance
+      properties:
+        primaryDomainController:
+          $ref: '#/components/schemas/ActiveDirectoryDomainController'
+          description: Information about the Primary Domain Controller (PDC) in the AD domain.
+          x-ms-client-flatten: false
+        secondaryDomainControllers:
+          $ref: '#/components/schemas/ActiveDirectorySecondaryDomainControllers'
+          description: 'null'
+          x-ms-client-flatten: false
+    ActiveDirectoryDomainController:
+      type: object
+      description: Information about a domain controller in the AD domain.
+      properties:
+        hostname:
+          type: string
+          description: Fully-qualified domain name of a domain controller in the AD domain.
+      required:
+        - hostname
+    ActiveDirectorySecondaryDomainControllers:
+      type: array
+      description: Information about the secondary domain controllers in the AD domain.
+      items:
+        $ref: '#/components/schemas/ActiveDirectoryDomainController'
+        description: List of the fully-qualified domain names of the secondary domain controllers in the AD domain.
+        x-ms-client-flatten: false
+      x-ms-identifiers:
+        - hostname
+    ActiveDirectoryConnectorStatus:
+      type: object
+      description: The status of the Kubernetes custom resource.
+      properties:
+        lastUpdateTime:
+          type: string
+          description: The time that the custom resource was last updated.
+        observedGeneration:
+          type: integer
+          format: int64
+          description: The version of the replicaSet associated with the AD connector custom resource.
+        state:
+          type: string
+          description: The state of the AD connector custom resource.
+      additionalProperties:
+        type: object
     DataControllerResource:
       description: Data controller resource
       required:
@@ -693,741 +1366,59 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      type: object
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      required:
-        - location
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      type: object
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      type: object
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      x-ms-azure-resource: true
-      properties:
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      type: object
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          $ref: '#/components/schemas/SkuTier'
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/ErrorResponseBody'
-          description: 'null'
-      description: An error response from the Azure Data on Azure Arc service.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      description: Azure Data Services on Azure Arc operation definition.
-      required:
-        - name
-        - display
-        - isDataAction
-      properties:
-        name:
-          description: The name of the operation being performed on this particular object.
-          type: string
-        display:
-          $ref: '#/components/schemas/OperationDisplay'
-          description: The localized display information for this particular operation / action.
-        origin:
-          description: The intended executor of the operation.
-          enum:
-            - user
-            - system
-          type: string
-          readOnly: true
-          x-ms-enum:
-            name: OperationOrigin
-            modelAsString: true
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        properties:
-          description: Additional descriptions for the operation.
-          type: object
-          additionalProperties:
-            type: object
-          readOnly: true
-          x-ms-client-flatten: false
-      type: object
-    OperationListResult:
-      description: Result of the request to list Azure Data Services on Azure Arc operations.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
-    CommonSku:
-      description: The resource model definition representing SKU for ARM resources
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU.  It is typically a letter+number code
-        dev:
-          type: boolean
-          default: true
-          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    ErrorResponseBody:
-      type: object
-      properties:
-        code:
-          type: string
-          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
-        message:
-          type: string
-          description: A message describing the error, intended to be suitable for display in a user interface.
-        target:
-          type: string
-          description: The target of the particular error. For example, the name of the property in error.
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponseBody'
-          x-ms-identifiers:
-            - message
-            - target
-          description: A list of additional details about the error.
-      description: An error response from the Batch service.
-    ExtendedLocation:
-      type: object
-      description: The complex type of the extended location.
-      properties:
-        name:
-          type: string
-          description: The name of the extended location.
-        type:
-          $ref: '#/components/schemas/ExtendedLocationType'
-          description: The type of the extended location.
-    ExtendedLocationType:
-      type: string
-      description: The type of extendedLocation.
-      enum:
-        - CustomLocation
-      x-ms-enum:
-        name: ExtendedLocationTypes
-        modelAsString: true
-    BasicLoginInformation:
-      type: object
-      description: Username and password for basic login authentication.
-      properties:
-        username:
-          type: string
-          description: Login username.
-        password:
-          type: string
-          description: Login password.
-          x-ms-mutability:
-            - create
-            - update
-          x-ms-secret: true
-    ActiveDirectoryConnectorListResult:
-      description: A list of active directory connectors
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/ActiveDirectoryConnectorResource'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    ActiveDirectoryConnectorResource:
-      description: Active directory connector resource
+    SqlManagedInstance:
+      description: A SqlManagedInstance.
       required:
         - properties
       properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
         properties:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorProperties'
+          $ref: '#/components/schemas/SqlManagedInstanceProperties'
           description: 'null'
           x-ms-client-flatten: false
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The extendedLocation of the resource.
+        sku:
+          $ref: '#/components/schemas/SqlManagedInstanceSku'
+          description: Resource sku.
       type: object
-    ActiveDirectoryConnectorProperties:
-      type: object
-      description: The properties of an Active Directory connector resource
-      properties:
-        domainServiceAccountLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Username and password for domain service account authentication.
-        provisioningState:
-          type: string
-          description: The provisioning state of the Active Directory connector resource.
-          readOnly: true
-        spec:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorSpec'
-          description: 'null'
-          x-ms-client-flatten: false
-        status:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorStatus'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - spec
-    ActiveDirectoryConnectorSpec:
-      description: The specifications of the AD Kubernetes resource.
+    SqlManagedInstanceSku:
+      description: The resource model definition representing SKU for Azure Managed Instance - Azure Arc
       type: object
       properties:
-        activeDirectory:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorDomainDetails'
-          description: 'null'
-          x-ms-client-flatten: false
-        dns:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorDNSDetails'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - activeDirectory
-        - dns
-    ActiveDirectoryConnectorDomainDetails:
-      type: object
-      description: Active Directory domain details
-      properties:
-        realm:
-          type: string
-          description: Name (uppercase) of the Active Directory domain that this AD connector will be associated with.
-        netbiosDomainName:
-          type: string
-          description: NETBIOS name of the Active Directory domain.
-        serviceAccountProvisioning:
+        name:
           type: string
           enum:
-            - automatic
-            - manual
+            - vCore
+          description: The name of the SKU.
           x-ms-enum:
-            name: accountProvisioningMode
-            modelAsString: true
-          default: manual
-          description: The service account provisioning mode for this Active Directory connector.
-        ouDistinguishedName:
-          type: string
-          description: The distinguished name of the Active Directory Organizational Unit.
-        domainControllers:
-          $ref: '#/components/schemas/ActiveDirectoryDomainControllers'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - realm
-        - domainControllers
-    ActiveDirectoryConnectorDNSDetails:
-      type: object
-      description: DNS server details
-      properties:
-        domainName:
-          type: string
-          description: DNS domain name for which DNS lookups should be forwarded to the Active Directory DNS servers.
-        nameserverIPAddresses:
-          type: array
-          description: List of Active Directory DNS server IP addresses.
-          items:
-            type: string
-            minimum: 1
-        replicas:
-          type: integer
-          description: Replica count for DNS proxy service. Default value is 1.
-          default: 1
-          format: int64
-        preferK8sDnsForPtrLookups:
-          type: boolean
-          description: Flag indicating whether to prefer Kubernetes DNS server response over AD DNS server response for IP address lookups.
-          default: true
-      required:
-        - nameserverIPAddresses
-    ActiveDirectoryDomainControllers:
-      type: object
-      description: Details about the Active Directory domain controllers associated with this AD connector instance
-      properties:
-        primaryDomainController:
-          $ref: '#/components/schemas/ActiveDirectoryDomainController'
-          description: Information about the Primary Domain Controller (PDC) in the AD domain.
-          x-ms-client-flatten: false
-        secondaryDomainControllers:
-          $ref: '#/components/schemas/ActiveDirectorySecondaryDomainControllers'
-          description: 'null'
-          x-ms-client-flatten: false
-    ActiveDirectoryDomainController:
-      type: object
-      description: Information about a domain controller in the AD domain.
-      properties:
-        hostname:
-          type: string
-          description: Fully-qualified domain name of a domain controller in the AD domain.
-      required:
-        - hostname
-    ActiveDirectorySecondaryDomainControllers:
-      type: array
-      description: Information about the secondary domain controllers in the AD domain.
-      items:
-        $ref: '#/components/schemas/ActiveDirectoryDomainController'
-        description: List of the fully-qualified domain names of the secondary domain controllers in the AD domain.
-        x-ms-client-flatten: false
-      x-ms-identifiers:
-        - hostname
-    ActiveDirectoryConnectorStatus:
-      type: object
-      description: The status of the Kubernetes custom resource.
-      properties:
-        lastUpdateTime:
-          type: string
-          description: The time that the custom resource was last updated.
-        observedGeneration:
-          type: integer
-          format: int64
-          description: The version of the replicaSet associated with the AD connector custom resource.
-        state:
-          type: string
-          description: The state of the AD connector custom resource.
-      additionalProperties:
-        type: object
-    PostgresInstanceSku:
-      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
-      properties:
+            name: SqlManagedInstanceSkuName
+            modelAsString: false
         tier:
           type: string
           enum:
-            - Hyperscale
+            - GeneralPurpose
+            - BusinessCritical
           x-ms-enum:
-            name: PostgresInstanceSkuTier
+            name: SqlManagedInstanceSkuTier
             modelAsString: false
-          default: Hyperscale
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
-        name:
-          type: string
-          description: The name of the SKU.  It is typically a letter+number code
+          default: GeneralPurpose
+          description: The pricing tier for the instance.
         dev:
           type: boolean
           default: true
@@ -1437,28 +1428,35 @@ components:
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
         family:
           type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+          description: The SKU family
         capacity:
           type: integer
           format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      type: object
-    PostgresInstanceProperties:
-      description: Postgres Instance properties.
+          description: The SKU capacity
+      required:
+        - name
+    SqlManagedInstanceProperties:
+      description: Properties of sqlManagedInstance.
       type: object
       properties:
         dataControllerId:
           type: string
-          description: The data controller id
+          description: 'null'
         admin:
           type: string
-          description: The instance admin
+          description: The instance admin user
+        startTime:
+          type: string
+          description: The instance start time
+        endTime:
+          type: string
+          description: The instance end time
+        k8sRaw:
+          $ref: '#/components/schemas/SqlManagedInstanceK8sRaw'
+          description: The raw kubernetes information
         basicLoginInformation:
           $ref: '#/components/schemas/BasicLoginInformation'
           description: Username and password for basic authentication.
-        k8sRaw:
-          type: object
-          description: The raw kubernetes information
         lastUploadedDate:
           type: string
           format: date-time
@@ -1466,85 +1464,122 @@ components:
         provisioningState:
           type: string
           readOnly: true
-          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
-    PostgresInstance:
-      description: A Postgres Instance.
-      required:
-        - properties
+          description: The provisioning state of the Arc-enabled SQL Managed Instance resource.
+        activeDirectoryInformation:
+          type: object
+          description: Active Directory information related to this SQL Managed Instance.
+          $ref: '#/components/schemas/ActiveDirectoryInformation'
+        licenseType:
+          type: string
+          enum:
+            - BasePrice
+            - LicenseIncluded
+            - DisasterRecovery
+          x-ms-enum:
+            name: arcSqlManagedInstanceLicenseType
+            modelAsString: true
+          default: BasePrice
+          description: The license type to apply for this managed instance.
+        clusterId:
+          type: string
+          description: If a CustomLocation is provided, this contains the ARM id of the connected cluster the custom location belongs to.
+        extensionId:
+          type: string
+          description: If a CustomLocation is provided, this contains the ARM id of the extension the custom location belongs to.
+    SqlManagedInstanceUpdate:
+      description: An update to a SQL Managed Instance.
+      type: object
       properties:
         tags:
+          description: Resource tags.
           type: object
           additionalProperties:
             type: string
+    SqlManagedInstanceK8sRaw:
+      type: object
+      description: The raw kubernetes information.
+      properties:
+        spec:
+          $ref: '#/components/schemas/SqlManagedInstanceK8sSpec'
+      additionalProperties:
+        type: object
+    SqlManagedInstanceK8sSpec:
+      type: object
+      description: The kubernetes spec information.
+      properties:
+        scheduling:
+          $ref: '#/components/schemas/K8sScheduling'
+        replicas:
+          type: integer
+          format: int32
+          description: This option specifies the number of SQL Managed Instance replicas that will be deployed in your Kubernetes cluster for high availability purposes. If sku.tier is BusinessCritical, allowed values are '2' or '3' with default of '3'. If sku.tier is GeneralPurpose, replicas must be '1'.
+      additionalProperties:
+        type: object
+    K8sScheduling:
+      type: object
+      description: The kubernetes scheduling information.
+      properties:
+        default:
+          $ref: '#/components/schemas/K8sSchedulingOptions'
+      additionalProperties:
+        type: object
+    K8sSchedulingOptions:
+      type: object
+      description: The kubernetes scheduling options. It describes restrictions used to help Kubernetes select appropriate nodes to host the database service
+      properties:
+        resources:
+          $ref: '#/components/schemas/K8sResourceRequirements'
+      additionalProperties:
+        type: object
+    K8sResourceRequirements:
+      type: object
+      description: The kubernetes resource limits and requests used to restrict or reserve resource usage.
+      properties:
+        requests:
+          type: object
+          additionalProperties:
+            type: string
+          description: Requests for a kubernetes resource type (e.g 'cpu', 'memory'). The 'cpu' request must be less than or equal to 'cpu' limit. Default 'cpu' is 2, minimum is 1. Default 'memory' is '4Gi', minimum is '2Gi. If sku.tier is GeneralPurpose, maximum 'cpu' is 24 and maximum 'memory' is '128Gi'.
+        limits:
+          type: object
+          additionalProperties:
+            type: string
+          description: Limits for a kubernetes resource type (e.g 'cpu', 'memory'). The 'cpu' request must be less than or equal to 'cpu' limit. Default 'cpu' is 2, minimum is 1. Default 'memory' is '4Gi', minimum is '2Gi. If sku.tier is GeneralPurpose, maximum 'cpu' is 24 and maximum 'memory' is '128Gi'.
+      additionalProperties:
+        type: object
+    KeytabInformation:
+      type: object
+      description: Keytab used for authenticate with Active Directory.
+      properties:
+        keytab:
+          type: string
+          description: A base64-encoded keytab.
           x-ms-mutability:
-            - read
             - create
             - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extendedLocation of the resource.
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-          description: 'null'
-        sku:
-          $ref: '#/components/schemas/PostgresInstanceSku'
-          description: Resource sku.
+          x-ms-secret: true
+    ActiveDirectoryInformation:
       type: object
-    PostgresInstanceUpdate:
-      description: An update to a Postgres Instance.
+      description: Active Directory information that related to the resource.
       properties:
-        tags:
-          description: Resource tags.
+        keytabInformation:
           type: object
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-      type: object
-    PostgresInstanceListResult:
-      description: A list of PostgresInstance.
+          description: Keytab information that is used for the Sql Managed Instance when Active Directory authentication is used.
+          $ref: '#/components/schemas/KeytabInformation'
+    SqlManagedInstanceListResult:
+      description: A list of SqlManagedInstance.
       type: object
       properties:
         value:
           description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/PostgresInstance'
+            $ref: '#/components/schemas/SqlManagedInstance'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    OperationDisplay:
-      description: Display metadata associated with the operation.
-      type: object
-      properties:
-        provider:
-          description: The localized friendly form of the resource provider name.
-          type: string
-        resource:
-          description: The localized friendly form of the resource type related to this action/operation.
-          type: string
-        operation:
-          description: The localized friendly name for the operation.
-          type: string
-        description:
-          description: The localized friendly description for the operation.
-          type: string
-      required:
-        - provider
-        - resource
-        - operation
-        - description
 paths:
   /providers/Microsoft.AzureArcData/operations/?api-version=2022-03-01-preview:
     get:
@@ -1614,6 +1649,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.AzureArcData/sqlManagedInstances/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -1647,6 +1683,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: sql_managed_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlManagedInstances/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -1675,6 +1712,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: sql_managed_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlManagedInstances/{sqlManagedInstanceName}/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -1700,7 +1738,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: sql_managed_instances
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - SqlManagedInstances
@@ -1835,6 +1873,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: sql_server_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -1863,6 +1902,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: sql_server_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -1888,7 +1928,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: sql_server_instances
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - SqlServerInstances
@@ -2016,6 +2056,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: data_controllers
       x-stackQL-verb: exec
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/dataControllers/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -2043,6 +2084,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: data_controllers
       x-stackQL-verb: exec
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/dataControllers/{dataControllerName}/?api-version=2022-03-01-preview:
     put:
       tags:
@@ -2210,6 +2252,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: active_directory_connectors
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/dataControllers/{dataControllerName}/activeDirectoryConnectors/{activeDirectoryConnectorName}/?api-version=2022-03-01-preview:
     put:
       tags:
@@ -2306,7 +2349,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: active_directory_connectors
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/providers/Microsoft.AzureArcData/postgresInstances/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -2333,6 +2376,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: postgres_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/postgresInstances/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -2361,6 +2405,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: postgres_instances
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/postgresInstances/{postgresInstanceName}/?api-version=2022-03-01-preview:
     get:
       tags:
@@ -2386,7 +2431,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: postgres_instances
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - PostgresInstances

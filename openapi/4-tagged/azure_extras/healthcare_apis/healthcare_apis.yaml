@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-08-29-stackql-generated
+  version: 2022-09-22-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -23,6 +23,31 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: Client Api Version.
+      required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
     PrivateEndpointConnectionName:
       name: privateEndpointConnectionName
       in: path
@@ -132,33 +157,433 @@ components:
         minLength: 3
         maxLength: 24
         type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
   schemas:
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      required:
+        - location
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      type: object
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
     PrivateEndpoint:
       type: object
       properties:
@@ -170,15 +595,10 @@ components:
     PrivateEndpointConnection:
       description: The Private Endpoint Connection resource.
       properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The resource of private end point.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          x-ms-client-flatten: true
+          description: Resource properties.
         id:
           readOnly: true
           type: string
@@ -245,21 +665,10 @@ components:
     PrivateLinkResource:
       description: A private link resource
       properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource Private link DNS zone name.
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
         id:
           readOnly: true
           type: string
@@ -553,20 +962,15 @@ components:
     ServicesPatchDescription:
       description: The description of the service.
       properties:
-        publicNetworkAccess:
-          description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
-          enum:
-            - Enabled
-            - Disabled
-          type: string
-          x-ms-enum:
-            name: PublicNetworkAccess
-            modelAsString: true
         tags:
           description: Instance tags
           type: object
           additionalProperties:
             type: string
+        properties:
+          $ref: '#/components/schemas/ServicesPropertiesUpdateParameters'
+          description: The properties for updating a service instance.
+          x-ms-client-flatten: true
       type: object
     ServicesResource:
       description: The common properties of a service.
@@ -700,6 +1104,10 @@ components:
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          x-ms-client-flatten: true
+          description: Resource properties.
       type: object
     PrivateLinkResourceDescription:
       description: The Private Endpoint Connection resource.
@@ -707,6 +1115,10 @@ components:
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
       type: object
     PrivateEndpointConnectionListResultDescription:
       type: object
@@ -1209,28 +1621,10 @@ components:
               $ref: '#/components/schemas/UserAssignedIdentities'
           required:
             - type
-        provisioningState:
-          description: The provisioning state.
-          $ref: '#/components/schemas/ProvisioningState'
-        authenticationConfiguration:
-          description: Dicom Service authentication configuration.
-          $ref: '#/components/schemas/DicomServiceAuthenticationConfiguration'
-        corsConfiguration:
-          description: Dicom Service Cors configuration.
-          $ref: '#/components/schemas/CorsConfiguration'
-        serviceUrl:
-          description: The url of the Dicom Services.
-          type: string
-          readOnly: true
-        privateEndpointConnections:
-          description: The list of private endpoint connections that are set up for this resource.
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-          readOnly: true
-        publicNetworkAccess:
-          description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
-          $ref: '#/components/schemas/ResourcePublicNetworkAccess'
+        properties:
+          description: Dicom Service configuration.
+          $ref: '#/components/schemas/DicomServiceProperties'
+          x-ms-client-flatten: true
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
@@ -1398,15 +1792,10 @@ components:
               $ref: '#/components/schemas/UserAssignedIdentities'
           required:
             - type
-        provisioningState:
-          description: The provisioning state.
-          $ref: '#/components/schemas/ProvisioningState'
-        ingestionEndpointConfiguration:
-          description: Source configuration.
-          $ref: '#/components/schemas/IotEventHubIngestionEndpointConfiguration'
-        deviceMapping:
-          description: Device Mappings.
-          $ref: '#/components/schemas/IotMappingProperties'
+        properties:
+          description: IoT Connector configuration.
+          $ref: '#/components/schemas/IotConnectorProperties'
+          x-ms-client-flatten: true
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
@@ -1547,15 +1936,10 @@ components:
           x-ms-mutability:
             - create
             - read
-        resourceIdentityResolutionType:
-          description: Determines how resource identity is resolved on the destination.
-          $ref: '#/components/schemas/IotIdentityResolutionType'
-        fhirServiceResourceId:
-          type: string
-          description: Fully qualified resource id of the FHIR service to connect to.
-        fhirMapping:
-          description: FHIR Mappings
-          $ref: '#/components/schemas/IotMappingProperties'
+        properties:
+          description: IoT FHIR Destination settings.
+          $ref: '#/components/schemas/IotFhirDestinationProperties'
+          x-ms-client-flatten: true
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
@@ -1616,42 +2000,6 @@ components:
               $ref: '#/components/schemas/UserAssignedIdentities'
           required:
             - type
-        provisioningState:
-          description: The provisioning state.
-          $ref: '#/components/schemas/ProvisioningState'
-        accessPolicies:
-          description: Fhir Service access policies.
-          $ref: '#/components/schemas/FhirServiceAccessPolicies'
-        acrConfiguration:
-          description: Fhir Service Azure container registry configuration.
-          $ref: '#/components/schemas/FhirServiceAcrConfiguration'
-        authenticationConfiguration:
-          description: Fhir Service authentication configuration.
-          $ref: '#/components/schemas/FhirServiceAuthenticationConfiguration'
-        corsConfiguration:
-          description: Fhir Service Cors configuration.
-          $ref: '#/components/schemas/FhirServiceCorsConfiguration'
-        exportConfiguration:
-          description: Fhir Service export configuration.
-          $ref: '#/components/schemas/FhirServiceExportConfiguration'
-        privateEndpointConnections:
-          description: The list of private endpoint connections that are set up for this resource.
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-          readOnly: true
-        publicNetworkAccess:
-          description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
-          $ref: '#/components/schemas/ResourcePublicNetworkAccess'
-        eventState:
-          description: Fhir Service event support status.
-          $ref: '#/components/schemas/ResourceEventState'
-        resourceVersionPolicyConfiguration:
-          description: Determines tracking of history for resources.
-          $ref: '#/components/schemas/ResourceVersionPolicyConfiguration'
-        importConfiguration:
-          description: Fhir Service import configuration.
-          $ref: '#/components/schemas/FhirServiceImportConfiguration'
         kind:
           readOnly: false
           type: string
@@ -1662,6 +2010,10 @@ components:
           x-ms-enum:
             name: fhirServiceKind
             modelAsString: true
+        properties:
+          description: Fhir Service configuration.
+          $ref: '#/components/schemas/FhirServiceProperties'
+          x-ms-client-flatten: true
         systemData:
           description: Metadata pertaining to creation and last modification of the resource.
           $ref: '#/components/schemas/systemData'
@@ -1898,47 +2250,6 @@ components:
           type: boolean
           description: If the import operation is enabled.
           readOnly: false
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
     ResourcePublicNetworkAccess:
       description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
       enum:
@@ -1960,391 +2271,6 @@ components:
         name: ServiceEventState
         modelAsString: true
       readOnly: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      required:
-        - location
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      type: object
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/?api-version=2022-06-01:
     get:
@@ -2370,7 +2296,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: services
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - Resource
@@ -2491,6 +2417,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: services
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/?api-version=2022-06-01:
     get:
       tags:
@@ -2517,6 +2444,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: services
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/checkNameAvailability/?api-version=2022-06-01:
     post:
       tags:
@@ -2575,6 +2503,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateEndpointConnections/{privateEndpointConnectionName}/?api-version=2022-06-01:
     get:
       tags:
@@ -2600,7 +2529,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: private_endpoint_connections
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - PrivateEndpointConnections
@@ -2686,6 +2615,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: private_link_resources
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateLinkResources/{groupName}/?api-version=2022-06-01:
     get:
       tags:
@@ -2716,7 +2646,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: private_link_resources
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/workspaces/?api-version=2022-06-01:
     get:
       tags:
@@ -2743,6 +2673,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: workspaces
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/?api-version=2022-06-01:
     get:
       tags:
@@ -2770,6 +2701,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: workspaces
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/?api-version=2022-06-01:
     get:
       tags:
@@ -2795,7 +2727,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: workspaces
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - Workspaces
@@ -2936,6 +2868,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: dicom_services
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/dicomservices/{dicomServiceName}/?api-version=2022-06-01:
     get:
       tags:
@@ -2962,7 +2895,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: dicom_services
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - DicomServices
@@ -3106,6 +3039,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: iot_connectors
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/?api-version=2022-06-01:
     get:
       tags:
@@ -3132,7 +3066,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: iot_connectors
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - IotConnectors
@@ -3277,6 +3211,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: fhir_destinations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/fhirdestinations/{fhirDestinationName}/?api-version=2022-06-01:
     get:
       tags:
@@ -3304,7 +3239,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: iot_connector_fhir_destination
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - IotConnectors
@@ -3409,6 +3344,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: fhir_services
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/fhirservices/{fhirServiceName}/?api-version=2022-06-01:
     get:
       tags:
@@ -3435,7 +3371,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: fhir_services
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - FhirServices
@@ -3579,6 +3515,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: workspace_private_endpoint_connections
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateEndpointConnections/{privateEndpointConnectionName}/?api-version=2022-06-01:
     get:
       tags:
@@ -3605,7 +3542,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: workspace_private_endpoint_connections
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
     put:
       tags:
         - WorkspacePrivateEndpointConnections
@@ -3696,6 +3633,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: workspace_private_link_resources
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateLinkResources/{groupName}/?api-version=2022-06-01:
     get:
       tags:
@@ -3727,7 +3665,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: workspace_private_link_resources
-      x-stackQL-verb: exec
+      x-stackQL-verb: select
   /providers/Microsoft.HealthcareApis/operations/?api-version=2022-06-01:
     get:
       tags:
@@ -3753,6 +3691,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/locations/{locationName}/operationresults/{operationResultId}/?api-version=2022-06-01:
     get:
       tags:
@@ -3778,4 +3717,4 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
       x-stackQL-resource: operation_results
-      x-stackQL-verb: exec
+      x-stackQL-verb: select

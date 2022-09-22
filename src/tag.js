@@ -4,6 +4,12 @@ import * as yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
 import { createOrCleanDir } from './shared-functions';
 import { contactInfo, serviceInfo } from './provider-metadata';
+import {     
+    getSQLVerbFromMethod,
+    camelToSnake,
+    fixCamelCase,
+    getObjectKey, 
+} from './stackql-azure-descriptors';
 
 const logger = new ConsoleLogger();
 
@@ -26,13 +32,6 @@ function cleanUpDescriptions(obj) {
 }  
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
-
-    const camelToSnake = (inStr) => {
-        let str = inStr.replace(/-/g, '_').replace(/ /g, '_');
-        return str.replace(/\.?([A-Z])/g, function (x,y){
-            return "_" + y.toLowerCase()
-        }).replace(/^_/, "");
-    }
 
     logger.info(`tagging ${specificationDir}...`);
 
@@ -67,105 +66,6 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     ];
 
     createOrCleanDir(outputDir, debug);
-
-    const fixCamelCase = (inStr) => {
-	
-        const getReplaceArgs = (s) => {
-            let retstr = s.charAt(0) + s.slice(1, s.length-1).toLowerCase() + s.charAt(s.length-1);
-            return {find: s, replace: retstr}
-        };
-        
-        const updateStr = (f, r) => {
-            let re = new RegExp(f,"g");
-            outStr = outStr.replace(re, r);
-        };
-
-        const replaceTokens = (s) => {
-            return s.replace(/VCenters/g, 'Vcenters')
-            .replace(/HyperV/g, 'Hyperv')
-            .replace(/NetApp/g, 'Netapp')
-            .replace(/VCores/g, 'Vcores')
-            .replace(/MongoDB/g, 'Mongodb')
-            .replace(/VmSS/g, 'Vms')
-            .replace(/SaaS/g, 'Saas')
-            .replace(/vNet/g, 'Vnet')
-            .replace(/GitHub/g, 'Github')
-            .replace(/OAuth/g, 'Oauth')
-            .replace(/B2C/g, 'B2c')
-            .replace(/B2B/g, 'B2b')
-            .replace(/VM/g, 'Vm')
-            .replace(/-/g, '_');
-        }
-
-        // pre clean name
-        let outStr = replaceTokens(inStr);
-
-        // find all occurrences of sequences of more than one upper case letter 
-        const sequentialCaps = /[A-Z]{2,}/g;
-        const seqs = [...outStr.matchAll(sequentialCaps)];
-        const flattened = seqs.flatMap(seq => seq);
-        const uniq = [...new Set(flattened)];
-        
-        // generate the replace args for each unique sequence
-        const arr= uniq.map(element => getReplaceArgs(element));
-        
-        // iterate through each replace operation
-        arr.forEach(obj => updateStr(obj.find, obj.replace))
-        
-        // final clean up and return
-        return outStr.slice(0,-1) + outStr.charAt(outStr.length-1).toLowerCase();
-    
-    }
-
-    const getSQLVerbFromMethod = (s, r, m, o) => {
-        let v = 'exec';
-        if (m.startsWith('ListBy')){
-            if (s == 'api_management'){
-                if (!['Api_ListByTags','Product_ListByTags','Reports_ListByApi','Reports_ListByUser','Reports_ListByOperation','Reports_ListByProduct','Reports_ListByGeo','Reports_ListByTime','Reports_ListByRequest'].includes(o)){
-                    v = 'select';
-                }
-            } else {
-                v = 'select';
-            }
-        } else if (m == 'ListAll'){
-            v = 'select';
-        } else if (m == 'GetBy'){
-            v = 'select';
-        } else if (m.toLowerCase() == 'list'){
-            if (s == 'key_vault'){
-                if (['Vaults_List'].includes(o)){
-                    v = 'exec';
-                } else {
-                    v = 'select';
-                }
-            } else if (s == 'consumption'){
-                if (['Marketplaces_List', 'ReservationRecommendations_List', 'UsageDetails_List'].includes(o)){
-                    v = 'exec';
-                } else {
-                    v = 'select';
-                }                
-            } else if (s == 'cost_management') {
-                if (['Dimensions_List'].includes(o)){
-                    v = 'exec';
-                } else {
-                    v = 'select';
-                }
-            } else if (s == 'network'){
-                if (['VpnServerConfigurationsAssociatedWithVirtualWan_List'].includes(o)){
-                    v = 'exec';
-                } else {
-                    v = 'select';
-                }
-            } else {
-                v = 'select';
-            }
-        } else if (m.toLowerCase() == 'delete' || m.startsWith('DeleteBy')){
-            v = 'delete';
-        } else if (m.toLowerCase() == 'add' || m.toLowerCase() == 'create' || m == 'CreateOrUpdate' || m == 'CreateOrReplace'){
-            v = 'insert';
-        } 
-        return v;
-    };
 
     // get generated date for version
     const date = new Date();
@@ -233,19 +133,21 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }
 
                         if (fieldName == 'properties'){
+                            finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};
+                            
                             // flatten nested props?
-                            if (inputDoc.components.schemas[schemaName]['properties']['properties'] &&
-                                inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] &&
-                                inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] == true &&
-                                inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
-                                    let origProps = inputDoc.components.schemas[schemaName]['properties'];
-                                    let referredSchemaName = inputDoc.components.schemas[schemaName]['properties']['properties']['$ref'].split('/').pop();
-                                    finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
-                                    delete origProps['properties'];
-                                    finalProps = {...finalProps, ...origProps};
-                            } else {
-                                finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};    
-                            }
+                            // if (inputDoc.components.schemas[schemaName]['properties']['properties'] &&
+                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] &&
+                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] == true &&
+                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
+                            //         let origProps = inputDoc.components.schemas[schemaName]['properties'];
+                            //         let referredSchemaName = inputDoc.components.schemas[schemaName]['properties']['properties']['$ref'].split('/').pop();
+                            //         finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
+                            //         delete origProps['properties'];
+                            //         finalProps = {...finalProps, ...origProps};
+                            // } else {
+                            //     finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};    
+                            // }
                         }
                     });
 
@@ -318,6 +220,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                         let stackqlResName = 'operations';
                         let stackqlSqlVerb = 'exec';
+                        let stackqlObjectKey = 'none';
+
                         if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
                             // replace outlier operationIds with no method
                             if (inputDoc.paths[pathKey][verbKey]['tags']){
@@ -354,6 +258,9 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                             // get stackql verb
                             stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, finalMethod, inputDoc.paths[pathKey][verbKey]['operationId']);
+
+                            // get stackql objectkey
+                            stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, finalMethod);
                         }
                         
                         debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
@@ -362,6 +269,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         // add special keys to the operation
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
+                        stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;
 
                     } catch (e) {
                         if (e !== 'Break') throw e
