@@ -329,6 +329,12 @@ export const serviceInfo = {
         title: 'HD Insight (Microsoft.HDInsight)',
         description: 'HD Insight'
     },
+    hybridaks: {
+        provider: 'azure',
+        service: 'hybrid_aks',
+        title: 'Hybrid Container Services (Microsoft.HybridContainerService)',
+        description: 'Hybrid Container Services'
+    },
     hybridcompute: {
         provider: 'azure',
         service: 'hybrid_compute',
