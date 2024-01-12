@@ -8,7 +8,7 @@ info:
     name: StackQL Studios
     url: https://stackql.io/
     email: info@stackql.io
-  version: 2022-09-22-stackql-generated
+  version: 2024-01-12-stackql-generated
 security:
   - azure_auth:
       - user_impersonation
@@ -23,6 +23,22 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   parameters:
+    ClusterNameParameter:
+      name: clusterName
+      in: path
+      description: The name of the RedisEnterprise cluster.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    DatabaseNameParameter:
+      name: databaseName
+      in: path
+      description: The name of the database.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -75,23 +91,452 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    ClusterNameParameter:
-      name: clusterName
-      in: path
-      description: The name of the RedisEnterprise cluster.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    DatabaseNameParameter:
-      name: databaseName
-      in: path
-      description: The name of the database.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
   schemas:
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    ProvisioningState:
+      type: string
+      readOnly: true
+      description: Current provisioning status
+      enum:
+        - Succeeded
+        - Failed
+        - Canceled
+        - Creating
+        - Updating
+        - Deleting
+      x-ms-enum:
+        name: ProvisioningState
+        modelAsString: true
+    ResourceState:
+      type: string
+      readOnly: true
+      description: Current resource status
+      enum:
+        - Running
+        - Creating
+        - CreateFailed
+        - Updating
+        - UpdateFailed
+        - Deleting
+        - DeleteFailed
+        - Enabling
+        - EnableFailed
+        - Disabling
+        - DisableFailed
+        - Disabled
+      x-ms-enum:
+        name: ResourceState
+        modelAsString: true
+    Cluster:
+      description: Describes the RedisEnterprise cluster
+      required:
+        - sku
+      properties:
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: The SKU to create, which affects price, performance, and features.
+        zones:
+          type: array
+          items:
+            type: string
+          description: The Availability Zones where this cluster will be deployed.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ClusterProperties'
+          description: Other properties of the cluster.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      type: object
+    ClusterUpdate:
+      description: A partial update to the RedisEnterprise cluster
+      properties:
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: The SKU to create, which affects price, performance, and features.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ClusterProperties'
+          description: Other properties of the cluster.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+      type: object
+    ClusterProperties:
+      title: RedisEnterprise cluster properties
+      description: Properties of RedisEnterprise clusters, as opposed to general resource properties like location, tags
+      type: object
+      properties:
+        minimumTlsVersion:
+          type: string
+          description: The minimum TLS version for the cluster to support, e.g. '1.2'
+          enum:
+            - '1.0'
+            - '1.1'
+            - '1.2'
+          x-ms-enum:
+            name: TlsVersion
+            modelAsString: true
+        hostName:
+          type: string
+          readOnly: true
+          description: DNS name of the cluster endpoint
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+          description: Current provisioning status of the cluster
+        resourceState:
+          $ref: '#/components/schemas/ResourceState'
+          readOnly: true
+          description: Current resource status of the cluster
+        redisVersion:
+          type: string
+          readOnly: true
+          description: Version of redis the cluster supports, e.g. '6'
+        privateEndpointConnections:
+          type: array
+          readOnly: true
+          description: List of private endpoint connections associated with the specified RedisEnterprise cluster
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+    ClusterList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cluster'
+          description: List of clusters.
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URI to fetch the next page of results.
+      description: The response of a list-all operation.
+    Database:
+      description: Describes a database on the RedisEnterprise cluster
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DatabaseProperties'
+          description: Other properties of the database.
+      type: object
+    DatabaseUpdate:
+      description: A partial update to the RedisEnterprise database
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DatabaseProperties'
+          description: Properties of the database.
+      type: object
+    DatabaseProperties:
+      title: RedisEnterprise database properties
+      description: Properties of RedisEnterprise databases, as opposed to general resource properties like location, tags
+      type: object
+      properties:
+        clientProtocol:
+          type: string
+          description: Specifies whether redis clients can connect using TLS-encrypted or plaintext redis protocols. Default is TLS-encrypted.
+          enum:
+            - Encrypted
+            - Plaintext
+          x-ms-enum:
+            name: Protocol
+            modelAsString: true
+        port:
+          type: integer
+          format: int32
+          x-ms-mutability:
+            - read
+            - create
+          description: TCP port of the database endpoint. Specified at create time. Defaults to an available port.
+        provisioningState:
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+          description: Current provisioning status of the database
+        resourceState:
+          $ref: '#/components/schemas/ResourceState'
+          readOnly: true
+          description: Current resource status of the database
+        clusteringPolicy:
+          type: string
+          description: Clustering policy - default is OSSCluster. Specified at create time.
+          enum:
+            - EnterpriseCluster
+            - OSSCluster
+          x-ms-enum:
+            name: ClusteringPolicy
+            modelAsString: true
+          x-ms-mutability:
+            - read
+            - create
+        evictionPolicy:
+          type: string
+          description: Redis eviction policy - default is VolatileLRU
+          enum:
+            - AllKeysLFU
+            - AllKeysLRU
+            - AllKeysRandom
+            - VolatileLRU
+            - VolatileLFU
+            - VolatileTTL
+            - VolatileRandom
+            - NoEviction
+          x-ms-enum:
+            name: EvictionPolicy
+            modelAsString: true
+        persistence:
+          $ref: '#/components/schemas/Persistence'
+          description: Persistence settings
+        modules:
+          type: array
+          description: Optional set of redis modules to enable in this database - modules can only be added at creation time.
+          items:
+            $ref: '#/components/schemas/Module'
+          x-ms-mutability:
+            - read
+            - create
+        geoReplication:
+          type: object
+          description: Optional set of properties to configure geo replication for this database.
+          x-ms-mutability:
+            - read
+            - create
+          properties:
+            groupNickname:
+              type: string
+              description: Name for the group of linked database resources
+              x-ms-mutability:
+                - read
+                - create
+            linkedDatabases:
+              type: array
+              description: List of database resources to link with this database
+              items:
+                $ref: '#/components/schemas/LinkedDatabase'
+    DatabaseList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Database'
+          description: List of databases
+        nextLink:
+          type: string
+          readOnly: true
+          description: The URI to fetch the next page of results.
+      description: The response of a list-all operation.
+    Persistence:
+      title: Persistence settings
+      description: Persistence-related configuration for the RedisEnterprise database
+      type: object
+      properties:
+        aofEnabled:
+          type: boolean
+          description: Sets whether AOF is enabled.
+        rdbEnabled:
+          type: boolean
+          description: Sets whether RDB is enabled.
+        aofFrequency:
+          type: string
+          description: Sets the frequency at which data is written to disk.
+          enum:
+            - 1s
+            - always
+          x-ms-enum:
+            name: AofFrequency
+            modelAsString: true
+        rdbFrequency:
+          type: string
+          description: Sets the frequency at which a snapshot of the database is created.
+          enum:
+            - 1h
+            - 6h
+            - 12h
+          x-ms-enum:
+            name: RdbFrequency
+            modelAsString: true
+    Module:
+      title: Module settings
+      description: Specifies configuration of a redis module
+      type: object
+      properties:
+        name:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The name of the module, e.g. 'RedisBloom', 'RediSearch', 'RedisTimeSeries'
+        args:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Configuration options for the module, e.g. 'ERROR_RATE 0.01 INITIAL_SIZE 400'.
+        version:
+          type: string
+          readOnly: true
+          description: The version of the module, e.g. '1.0'.
+      required:
+        - name
+    LinkedDatabase:
+      title: Linked Database
+      description: Specifies details of a linked database resource.
+      type: object
+      properties:
+        id:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Resource ID of a database resource to link with this database.
+        state:
+          type: string
+          description: State of the link between the database resources.
+          enum:
+            - Linked
+            - Linking
+            - Unlinking
+            - LinkFailed
+            - UnlinkFailed
+          x-ms-enum:
+            name: LinkState
+            modelAsString: true
+          readOnly: true
+    AccessKeys:
+      title: Access keys
+      description: The secret access keys used for authenticating connections to redis
+      type: object
+      properties:
+        primaryKey:
+          readOnly: true
+          type: string
+          description: The current primary key that clients can use to authenticate
+        secondaryKey:
+          readOnly: true
+          type: string
+          description: The current secondary key that clients can use to authenticate
+    RegenerateKeyParameters:
+      title: Regenerate access keys request
+      type: object
+      properties:
+        keyType:
+          type: string
+          description: Which access key to regenerate.
+          enum:
+            - Primary
+            - Secondary
+          x-ms-enum:
+            name: AccessKeyType
+            modelAsString: false
+      required:
+        - keyType
+      description: Specifies which access keys to reset to a new random value.
+    ImportClusterParameters:
+      title: Import RDB files into a target database
+      type: object
+      properties:
+        sasUris:
+          type: array
+          items:
+            type: string
+          description: SAS URIs for the target blobs to import from
+          x-ms-secret: true
+      required:
+        - sasUris
+      description: Parameters for a Redis Enterprise import operation.
+    ExportClusterParameters:
+      title: Export an RDB file into a target database
+      type: object
+      properties:
+        sasUri:
+          type: string
+          description: SAS URI for the target directory to export to
+          x-ms-secret: true
+      required:
+        - sasUri
+      description: Parameters for a Redis Enterprise export operation.
+    OperationStatus:
+      description: The status of a long-running operation.
+      type: object
+      properties:
+        id:
+          type: string
+          description: The operation's unique id.
+        name:
+          type: string
+          description: The operation's name.
+        startTime:
+          type: string
+          description: The start time of the operation.
+        endTime:
+          type: string
+          description: The end time of the operation.
+        status:
+          type: string
+          description: The current status of the operation.
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+          description: Error response describing why the operation failed.
+    ForceUnlinkParameters:
+      title: Forcibly unlink another database from this database.
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          description: The resource IDs of the database resources to be unlinked.
+      required:
+        - ids
+      description: Parameters for a Redis Enterprise Active Geo Replication Force Unlink operation.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -246,30 +691,6 @@ components:
           allOf:
             - $ref: '#/components/schemas/Plan'
       x-ms-azure-resource: true
-    Sku:
-      description: SKU parameters supplied to the create RedisEnterprise operation.
-      type: object
-      properties:
-        name:
-          type: string
-          description: 'The type of RedisEnterprise cluster to deploy. Possible values: (Enterprise_E10, EnterpriseFlash_F300 etc.)'
-          enum:
-            - Enterprise_E10
-            - Enterprise_E20
-            - Enterprise_E50
-            - Enterprise_E100
-            - EnterpriseFlash_F300
-            - EnterpriseFlash_F700
-            - EnterpriseFlash_F1500
-          x-ms-enum:
-            name: SkuName
-            modelAsString: true
-        capacity:
-          type: integer
-          format: int32
-          description: The size of the RedisEnterprise cluster. Defaults to 2 or 3 depending on SKU. Valid values are (2, 4, 6, ...) for Enterprise SKUs and (3, 9, 15, ...) for Flash SKUs.
-      required:
-        - name
     Identity:
       description: Identity for the resource.
       type: object
@@ -719,421 +1140,6 @@ components:
           items:
             $ref: '#/components/schemas/PrivateLinkResource'
       description: A list of private link resources
-    ProvisioningState:
-      type: string
-      readOnly: true
-      description: Current provisioning status
-      enum:
-        - Succeeded
-        - Failed
-        - Canceled
-        - Creating
-        - Updating
-        - Deleting
-      x-ms-enum:
-        name: ProvisioningState
-        modelAsString: true
-    ResourceState:
-      type: string
-      readOnly: true
-      description: Current resource status
-      enum:
-        - Running
-        - Creating
-        - CreateFailed
-        - Updating
-        - UpdateFailed
-        - Deleting
-        - DeleteFailed
-        - Enabling
-        - EnableFailed
-        - Disabling
-        - DisableFailed
-        - Disabled
-      x-ms-enum:
-        name: ResourceState
-        modelAsString: true
-    Cluster:
-      description: Describes the RedisEnterprise cluster
-      required:
-        - sku
-      properties:
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The SKU to create, which affects price, performance, and features.
-        zones:
-          type: array
-          items:
-            type: string
-          description: The Availability Zones where this cluster will be deployed.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ClusterProperties'
-          description: Other properties of the cluster.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      type: object
-    ClusterUpdate:
-      description: A partial update to the RedisEnterprise cluster
-      properties:
-        sku:
-          $ref: '#/components/schemas/Sku'
-          description: The SKU to create, which affects price, performance, and features.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ClusterProperties'
-          description: Other properties of the cluster.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-      type: object
-    ClusterProperties:
-      title: RedisEnterprise cluster properties
-      description: Properties of RedisEnterprise clusters, as opposed to general resource properties like location, tags
-      type: object
-      properties:
-        minimumTlsVersion:
-          type: string
-          description: The minimum TLS version for the cluster to support, e.g. '1.2'
-          enum:
-            - '1.0'
-            - '1.1'
-            - '1.2'
-          x-ms-enum:
-            name: TlsVersion
-            modelAsString: true
-        hostName:
-          type: string
-          readOnly: true
-          description: DNS name of the cluster endpoint
-        provisioningState:
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-          description: Current provisioning status of the cluster
-        resourceState:
-          $ref: '#/components/schemas/ResourceState'
-          readOnly: true
-          description: Current resource status of the cluster
-        redisVersion:
-          type: string
-          readOnly: true
-          description: Version of redis the cluster supports, e.g. '6'
-        privateEndpointConnections:
-          type: array
-          readOnly: true
-          description: List of private endpoint connections associated with the specified RedisEnterprise cluster
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-    ClusterList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Cluster'
-          description: List of clusters.
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URI to fetch the next page of results.
-      description: The response of a list-all operation.
-    Database:
-      description: Describes a database on the RedisEnterprise cluster
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DatabaseProperties'
-          description: Other properties of the database.
-      type: object
-    DatabaseUpdate:
-      description: A partial update to the RedisEnterprise database
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DatabaseProperties'
-          description: Properties of the database.
-      type: object
-    DatabaseProperties:
-      title: RedisEnterprise database properties
-      description: Properties of RedisEnterprise databases, as opposed to general resource properties like location, tags
-      type: object
-      properties:
-        clientProtocol:
-          type: string
-          description: Specifies whether redis clients can connect using TLS-encrypted or plaintext redis protocols. Default is TLS-encrypted.
-          enum:
-            - Encrypted
-            - Plaintext
-          x-ms-enum:
-            name: Protocol
-            modelAsString: true
-        port:
-          type: integer
-          format: int32
-          x-ms-mutability:
-            - read
-            - create
-          description: TCP port of the database endpoint. Specified at create time. Defaults to an available port.
-        provisioningState:
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-          description: Current provisioning status of the database
-        resourceState:
-          $ref: '#/components/schemas/ResourceState'
-          readOnly: true
-          description: Current resource status of the database
-        clusteringPolicy:
-          type: string
-          description: Clustering policy - default is OSSCluster. Specified at create time.
-          enum:
-            - EnterpriseCluster
-            - OSSCluster
-          x-ms-enum:
-            name: ClusteringPolicy
-            modelAsString: true
-          x-ms-mutability:
-            - read
-            - create
-        evictionPolicy:
-          type: string
-          description: Redis eviction policy - default is VolatileLRU
-          enum:
-            - AllKeysLFU
-            - AllKeysLRU
-            - AllKeysRandom
-            - VolatileLRU
-            - VolatileLFU
-            - VolatileTTL
-            - VolatileRandom
-            - NoEviction
-          x-ms-enum:
-            name: EvictionPolicy
-            modelAsString: true
-        persistence:
-          $ref: '#/components/schemas/Persistence'
-          description: Persistence settings
-        modules:
-          type: array
-          description: Optional set of redis modules to enable in this database - modules can only be added at creation time.
-          items:
-            $ref: '#/components/schemas/Module'
-          x-ms-mutability:
-            - read
-            - create
-        geoReplication:
-          type: object
-          description: Optional set of properties to configure geo replication for this database.
-          x-ms-mutability:
-            - read
-            - create
-          properties:
-            groupNickname:
-              type: string
-              description: Name for the group of linked database resources
-              x-ms-mutability:
-                - read
-                - create
-            linkedDatabases:
-              type: array
-              description: List of database resources to link with this database
-              items:
-                $ref: '#/components/schemas/LinkedDatabase'
-    DatabaseList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Database'
-          description: List of databases
-        nextLink:
-          type: string
-          readOnly: true
-          description: The URI to fetch the next page of results.
-      description: The response of a list-all operation.
-    Persistence:
-      title: Persistence settings
-      description: Persistence-related configuration for the RedisEnterprise database
-      type: object
-      properties:
-        aofEnabled:
-          type: boolean
-          description: Sets whether AOF is enabled.
-        rdbEnabled:
-          type: boolean
-          description: Sets whether RDB is enabled.
-        aofFrequency:
-          type: string
-          description: Sets the frequency at which data is written to disk.
-          enum:
-            - 1s
-            - always
-          x-ms-enum:
-            name: AofFrequency
-            modelAsString: true
-        rdbFrequency:
-          type: string
-          description: Sets the frequency at which a snapshot of the database is created.
-          enum:
-            - 1h
-            - 6h
-            - 12h
-          x-ms-enum:
-            name: RdbFrequency
-            modelAsString: true
-    Module:
-      title: Module settings
-      description: Specifies configuration of a redis module
-      type: object
-      properties:
-        name:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The name of the module, e.g. 'RedisBloom', 'RediSearch', 'RedisTimeSeries'
-        args:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Configuration options for the module, e.g. 'ERROR_RATE 0.01 INITIAL_SIZE 400'.
-        version:
-          type: string
-          readOnly: true
-          description: The version of the module, e.g. '1.0'.
-      required:
-        - name
-    LinkedDatabase:
-      title: Linked Database
-      description: Specifies details of a linked database resource.
-      type: object
-      properties:
-        id:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Resource ID of a database resource to link with this database.
-        state:
-          type: string
-          description: State of the link between the database resources.
-          enum:
-            - Linked
-            - Linking
-            - Unlinking
-            - LinkFailed
-            - UnlinkFailed
-          x-ms-enum:
-            name: LinkState
-            modelAsString: true
-          readOnly: true
-    AccessKeys:
-      title: Access keys
-      description: The secret access keys used for authenticating connections to redis
-      type: object
-      properties:
-        primaryKey:
-          readOnly: true
-          type: string
-          description: The current primary key that clients can use to authenticate
-        secondaryKey:
-          readOnly: true
-          type: string
-          description: The current secondary key that clients can use to authenticate
-    RegenerateKeyParameters:
-      title: Regenerate access keys request
-      type: object
-      properties:
-        keyType:
-          type: string
-          description: Which access key to regenerate.
-          enum:
-            - Primary
-            - Secondary
-          x-ms-enum:
-            name: AccessKeyType
-            modelAsString: false
-      required:
-        - keyType
-      description: Specifies which access keys to reset to a new random value.
-    ImportClusterParameters:
-      title: Import RDB files into a target database
-      type: object
-      properties:
-        sasUris:
-          type: array
-          items:
-            type: string
-          description: SAS URIs for the target blobs to import from
-          x-ms-secret: true
-      required:
-        - sasUris
-      description: Parameters for a Redis Enterprise import operation.
-    ExportClusterParameters:
-      title: Export an RDB file into a target database
-      type: object
-      properties:
-        sasUri:
-          type: string
-          description: SAS URI for the target directory to export to
-          x-ms-secret: true
-      required:
-        - sasUri
-      description: Parameters for a Redis Enterprise export operation.
-    OperationStatus:
-      description: The status of a long-running operation.
-      type: object
-      properties:
-        id:
-          type: string
-          description: The operation's unique id.
-        name:
-          type: string
-          description: The operation's name.
-        startTime:
-          type: string
-          description: The start time of the operation.
-        endTime:
-          type: string
-          description: The end time of the operation.
-        status:
-          type: string
-          description: The current status of the operation.
-        error:
-          $ref: '#/components/schemas/ErrorResponse'
-          description: Error response describing why the operation failed.
-    ForceUnlinkParameters:
-      title: Forcibly unlink another database from this database.
-      type: object
-      properties:
-        ids:
-          type: array
-          items:
-            type: string
-          description: The resource IDs of the database resources to be unlinked.
-      required:
-        - ids
-      description: Parameters for a Redis Enterprise Active Geo Replication Force Unlink operation.
 paths:
   /providers/Microsoft.Cache/operations/?api-version=2022-01-01:
     get:
@@ -1159,6 +1165,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: operations
       x-stackQL-verb: select
+      x-stackQL-method: list
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/locations/{location}/operationsStatus/{operationId}/?api-version=2022-01-01:
     get:
@@ -1195,6 +1202,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: operations_status
       x-stackQL-verb: select
+      x-stackQL-method: get
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/?api-version=2022-01-01:
     put:
       tags:
@@ -1237,6 +1245,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: insert
+      x-stackQL-method: create
     patch:
       tags:
         - RedisEnterprise
@@ -1274,6 +1283,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: exec
+      x-stackQL-method: update
     delete:
       tags:
         - RedisEnterprise
@@ -1301,6 +1311,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: delete
+      x-stackQL-method: delete
     get:
       tags:
         - RedisEnterprise
@@ -1325,6 +1336,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: select
+      x-stackQL-method: get
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/?api-version=2022-01-01:
     get:
       tags:
@@ -1351,6 +1363,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: select
+      x-stackQL-method: list_by_resource_group
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/redisEnterprise/?api-version=2022-01-01:
     get:
@@ -1377,6 +1390,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: redis_enterprise
       x-stackQL-verb: select
+      x-stackQL-method: list
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/?api-version=2022-01-01:
     get:
@@ -1406,6 +1420,7 @@ paths:
         nextLinkName: nextLink
       x-stackQL-resource: databases
       x-stackQL-verb: select
+      x-stackQL-method: list_by_cluster
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/?api-version=2022-01-01:
     put:
@@ -1451,6 +1466,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: insert
+      x-stackQL-method: create
     patch:
       tags:
         - RedisEnterprise
@@ -1490,6 +1506,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: update
     get:
       tags:
         - RedisEnterprise
@@ -1516,6 +1533,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: select
+      x-stackQL-method: get
     delete:
       tags:
         - RedisEnterprise
@@ -1545,6 +1563,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: delete
+      x-stackQL-method: delete
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/listKeys/?api-version=2022-01-01:
     post:
       tags:
@@ -1572,6 +1591,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: list_keys
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/regenerateKey/?api-version=2022-01-01:
     post:
       tags:
@@ -1612,6 +1632,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: regenerate_key
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/import/?api-version=2022-01-01:
     post:
       tags:
@@ -1648,6 +1669,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: import
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/export/?api-version=2022-01-01:
     post:
       tags:
@@ -1684,6 +1706,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: export
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateEndpointConnections/?api-version=2022-01-01:
     get:
       tags:
@@ -1711,6 +1734,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: select
+      x-stackQL-method: list
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateEndpointConnections/{privateEndpointConnectionName}/?api-version=2022-01-01:
     get:
@@ -1738,6 +1762,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: select
+      x-stackQL-method: get
     put:
       tags:
         - PrivateEndpointConnections
@@ -1772,6 +1797,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: exec
+      x-stackQL-method: put
     delete:
       tags:
         - PrivateEndpointConnections
@@ -1795,6 +1821,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: private_endpoint_connections
       x-stackQL-verb: delete
+      x-stackQL-method: delete
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateLinkResources/?api-version=2022-01-01:
     get:
       tags:
@@ -1822,6 +1849,7 @@ paths:
         nextLinkName: null
       x-stackQL-resource: private_link_resources
       x-stackQL-verb: select
+      x-stackQL-method: list_by_cluster
       x-stackQL-objectKey: $.value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/forceUnlink/?api-version=2022-01-01:
     post:
@@ -1859,3 +1887,4 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-stackQL-resource: databases
       x-stackQL-verb: exec
+      x-stackQL-method: force_unlink

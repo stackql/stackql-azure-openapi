@@ -20,35 +20,23 @@ components:
             user_impersonation: impersonate your user account
   schemas:
     Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
       properties:
         id:
           readOnly: true
           type: string
-          description: Resource ID
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
         name:
           readOnly: true
           type: string
-          description: Resource name
+          description: The name of the resource
         type:
           readOnly: true
           type: string
-          description: Resource type
-        location:
-          type: string
-          description: Resource location
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          x-ms-mutability:
-            - read
-            - create
-          description: Resource extended location.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       x-ms-azure-resource: true
-      description: Specified resource.
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
@@ -155,28 +143,38 @@ components:
             - $ref: '#/components/schemas/Plan'
       x-ms-azure-resource: true
     Sku:
+      description: The resource model definition representing SKU
+      type: object
       properties:
         name:
           type: string
-          description: The SKU name.
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
           type: string
-          description: The SKU tier.
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
         size:
           type: string
-          description: The SKU size.
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
         family:
           type: string
-          description: The SKU family.
-        model:
-          type: string
-          description: The SKU model.
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
         capacity:
           type: integer
           format: int32
-          description: The SKU capacity.
-      description: SKU for the resource.
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
     Identity:
+      description: Identity for the resource.
+      type: object
       properties:
         principalId:
           readOnly: true
@@ -191,46 +189,32 @@ components:
           description: The identity type.
           enum:
             - SystemAssigned
-            - UserAssigned
-            - SystemAssigned, UserAssigned
-            - None
           x-ms-enum:
             name: ResourceIdentityType
             modelAsString: false
-        userAssignedIdentities:
-          type: object
-          additionalProperties:
-            type: object
-            x-ms-client-name: IdentityUserAssignedIdentitiesValue
-            properties:
-              principalId:
-                readOnly: true
-                type: string
-                description: The principal id of user assigned identity.
-              clientId:
-                readOnly: true
-                type: string
-                description: The client id of user assigned identity.
-          description: 'The list of user identities associated with the resource. The user identity dictionary key references will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}''.'
-      description: Identity for the resource.
     Plan:
+      type: object
       properties:
         name:
           type: string
-          description: The plan ID.
+          description: A user defined name of the 3rd Party Artifact that is being procured.
         publisher:
           type: string
-          description: The publisher ID.
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
         product:
           type: string
-          description: The offer ID.
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
         promotionCode:
           type: string
-          description: The promotion code.
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
         version:
           type: string
-          description: The plan's version.
+          description: The version of the desired product/artifact.
       description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
     ErrorDetail:
       description: The error detail.
       type: object
@@ -309,29 +293,61 @@ components:
           description: The additional info.
       description: The resource management error additional info.
     Operation:
-      description: Microsoft.Resources operation
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
       type: object
       properties:
         name:
-          description: 'Operation name: {provider}/{resource}/{operation}'
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
           type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
         display:
-          description: The object that represents the operation.
+          description: Localized display information for this particular operation.
+          type: object
           properties:
             provider:
-              description: 'Service provider: Microsoft.Resources'
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
               type: string
+              readOnly: true
             resource:
-              description: 'Resource on which the operation is performed: Profile, endpoint, etc.'
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
               type: string
+              readOnly: true
             operation:
-              description: 'Operation type: Read, write, delete, etc.'
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
               type: string
+              readOnly: true
             description:
-              description: Description of the operation.
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
               type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
     OperationListResult:
-      description: Result of the request to list Microsoft.Resources operations. It contains a list of operations and a URL link to get the next set of results.
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
       properties:
         value:
           type: array
@@ -339,10 +355,12 @@ components:
             $ref: '#/components/schemas/Operation'
           x-ms-identifiers:
             - name
-          description: List of Microsoft.Resources operations.
+          description: List of operations supported by the resource provider
+          readOnly: true
         nextLink:
           type: string
-          description: URL to get the next set of operation list results if there are any.
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
     OperationStatusResult:
       description: The current status of an async operation.
       type: object
@@ -2364,9 +2382,10 @@ components:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The Microsoft Azure subscription ID.
+      description: The ID of the target subscription.
       required: true
       schema:
+        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
@@ -2374,6 +2393,7 @@ components:
       description: The API version to use for this operation.
       required: true
       schema:
+        minLength: 1
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName

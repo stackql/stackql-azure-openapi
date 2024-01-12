@@ -73,6 +73,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     debug ? logger.debug(`version : ${versionDate}`): null;
     debug ? logger.debug(`contact info : ${JSON.stringify(contactInfo)}`): null;
    
+    const uniqueInitMethods = new Set();
+
     for (const f of files) {
         const fileName = `${inputDir}/${f}`;
         debug ? logger.debug(`Processing ${fileName}`): null;
@@ -222,6 +224,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         let stackqlSqlVerb = 'exec';
                         let stackqlObjectKey = 'none';
 
+                        let finalMethod;
+                        
                         if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
                             // replace outlier operationIds with no method
                             if (inputDoc.paths[pathKey][verbKey]['tags']){
@@ -234,8 +238,11 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             // clean up camel case before we convert to snake case in openapi-doc-util
                             let initResName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0];
                             let initMethod = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1];
+                            
+                            uniqueInitMethods.add(initMethod);
+
                             let finalResName = initResName;
-                            let finalMethod = initMethod;
+                            finalMethod = initMethod;
                             
                             // fix up anomolies in operationid naming
                             if (['list', 'update'].includes(initResName.toLowerCase())){
@@ -269,9 +276,11 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         // add special keys to the operation
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
+                        finalMethod ? outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] =  camelToSnake(fixCamelCase(finalMethod)): null;                        
                         stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;
 
                     } catch (e) {
+                        console.log(e);
                         if (e !== 'Break') throw e
                     }
                 }
@@ -298,5 +307,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         logger.info(`${outputDir}/${serviceName}.yaml written successfully`);
     }
     logger.info(`${specificationDir} finished processing`);
+
+    console.log("Unique initMethod values:");
+    console.log(Array.from(uniqueInitMethods));
 
 }

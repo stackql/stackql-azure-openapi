@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2020-01-01'
+  version: '2017-12-01'
   title: MySQLManagementClient
   description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure MySQL resources including servers, databases, firewall rules, VNET rules, security alert policies, log files, encryption keys, active directory administrator and configurations.
 security:
@@ -19,71 +19,432 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    ServerKeyListResult:
-      description: A list of MySQL Server keys.
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      properties:
+        name:
+          type: string
+          description: The name of the sku, typically, tier + family + cores, e.g. B_Gen4_1, GP_Gen5_8.
+        tier:
+          type: string
+          description: The tier of the particular SKU, e.g. Basic.
+          enum:
+            - Basic
+            - GeneralPurpose
+            - MemoryOptimized
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: true
+        capacity:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The scale up/out capacity, representing server's compute units.
+        size:
+          type: string
+          description: The size code, to be interpreted by resource as appropriate.
+        family:
+          type: string
+          description: The family of hardware.
+      required:
+        - name
+      description: Billing information related properties of a server.
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      properties:
+        name:
+          type: string
+          readOnly: true
+          description: The name of the operation being performed on this particular object.
+        display:
+          $ref: '#/components/schemas/OperationDisplay'
+          readOnly: true
+          description: The localized display information for this particular operation or action.
+        origin:
+          type: string
+          readOnly: true
+          description: The intended executor of the operation.
+          enum:
+            - NotSpecified
+            - user
+            - system
+          x-ms-enum:
+            name: OperationOrigin
+            modelAsString: true
+        properties:
+          type: object
+          additionalProperties:
+            type: object
+          readOnly: true
+          x-ms-client-flatten: false
+          description: Additional descriptions for the operation.
+      description: REST API operation definition.
+    OperationListResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: The list of resource provider operations.
+      description: A list of resource provider operations.
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    SecurityAlertPolicyProperties:
+      description: Properties of a security alert policy.
+      required:
+        - state
+      type: object
+      properties:
+        state:
+          description: Specifies the state of the policy, whether it is enabled or disabled.
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: ServerSecurityAlertPolicyState
+            modelAsString: false
+        disabledAlerts:
+          description: 'Specifies an array of alerts that are disabled. Allowed values are: Sql_Injection, Sql_Injection_Vulnerability, Access_Anomaly'
+          type: array
+          items:
+            type: string
+        emailAddresses:
+          description: Specifies an array of e-mail addresses to which the alert is sent.
+          type: array
+          items:
+            type: string
+        emailAccountAdmins:
+          description: Specifies that the alert is sent to the account administrators.
+          type: boolean
+        storageEndpoint:
+          description: Specifies the blob storage endpoint (e.g. https://MyAccount.blob.core.windows.net). This blob storage will hold all Threat Detection audit logs.
+          type: string
+        storageAccountAccessKey:
+          description: Specifies the identifier key of the Threat Detection audit storage account.
+          type: string
+        retentionDays:
+          format: int32
+          description: Specifies the number of days to keep in the Threat Detection audit logs.
+          type: integer
+    ServerSecurityAlertPolicy:
+      description: A server security alert policy.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/SecurityAlertPolicyProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+    ServerSecurityAlertPolicyListResult:
+      description: A list of the server's security alert policies.
       type: object
       properties:
         value:
-          description: A list of MySQL Server keys.
+          description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/ServerKey'
+            $ref: '#/components/schemas/ServerSecurityAlertPolicy'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    ServerKeyProperties:
-      description: Properties for a key execution.
-      required:
-        - serverKeyType
-      type: object
-      properties:
-        serverKeyType:
-          description: The key type like 'AzureKeyVault'.
-          enum:
-            - AzureKeyVault
-          type: string
-          x-ms-enum:
-            name: ServerKeyType
-            modelAsString: true
-        uri:
-          description: The URI of the key.
-          type: string
-        creationDate:
-          format: date-time
-          description: The key creation date.
-          type: string
-          readOnly: true
-    ServerKey:
-      description: A MySQL Server key.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        kind:
-          description: Kind of encryption protector used to protect the key.
-          type: string
-          readOnly: true
-        properties:
-          $ref: '#/components/schemas/ServerKeyProperties'
-          description: Properties of the ServerKey Resource.
-          x-ms-client-flatten: true
-    CloudError:
-      x-ms-external: true
-      properties:
-        error:
-          $ref: '#/components/schemas/ErrorResponse'
-      description: An error response from the Batch service.
-    ServerUpgradeParameters:
-      properties:
-        properties:
-          properties:
-            targetServerVersion:
-              type: string
-              description: Represents an server storage profile.
-          x-ms-client-flatten: true
-          description: The properties that can be updated for a server.
     AdvisorProperties:
       properties: {}
       description: The properties of a recommendation action advisor.
@@ -239,6 +600,12 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
+    CloudError:
+      x-ms-external: true
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+      description: An error response from the Batch service.
     TagsObject:
       properties:
         tags:
@@ -247,6 +614,65 @@ components:
             type: string
           description: Resource tags.
       description: Tags object for patch operations.
+    ServerUpgradeParameters:
+      properties:
+        properties:
+          properties:
+            targetServerVersion:
+              type: string
+              description: Represents an server storage profile.
+          x-ms-client-flatten: true
+          description: The properties that can be updated for a server.
+    ServerKeyListResult:
+      description: A list of MySQL Server keys.
+      type: object
+      properties:
+        value:
+          description: A list of MySQL Server keys.
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerKey'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    ServerKeyProperties:
+      description: Properties for a key execution.
+      required:
+        - serverKeyType
+      type: object
+      properties:
+        serverKeyType:
+          description: The key type like 'AzureKeyVault'.
+          enum:
+            - AzureKeyVault
+          type: string
+          x-ms-enum:
+            name: ServerKeyType
+            modelAsString: true
+        uri:
+          description: The URI of the key.
+          type: string
+        creationDate:
+          format: date-time
+          description: The key creation date.
+          type: string
+          readOnly: true
+    ServerKey:
+      description: A MySQL Server key.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        kind:
+          description: Kind of encryption protector used to protect the key.
+          type: string
+          readOnly: true
+        properties:
+          $ref: '#/components/schemas/ServerKeyProperties'
+          description: Properties of the ServerKey Resource.
+          x-ms-client-flatten: true
     PrivateLinkResourceListResult:
       description: A list of private link resources
       type: object
@@ -285,6 +711,242 @@ components:
           $ref: '#/components/schemas/PrivateLinkResourceProperties'
           description: The private link resource group id.
           readOnly: true
+    QueryTextProperties:
+      properties:
+        queryId:
+          type: string
+          description: Query identifier unique to the server.
+        queryText:
+          type: string
+          description: Query text.
+      description: The properties of a query text.
+    QueryText:
+      properties:
+        properties:
+          $ref: '#/components/schemas/QueryTextProperties'
+          x-ms-client-flatten: true
+          description: The properties of a query text.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a Query Text.
+    QueryTextsResultList:
+      description: A list of query texts.
+      type: object
+      properties:
+        value:
+          description: The list of query texts.
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryText'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    TopQueryStatisticsInputProperties:
+      properties:
+        numberOfTopQueries:
+          type: integer
+          format: int32
+          description: Max number of top queries to return.
+        aggregationFunction:
+          type: string
+          description: Aggregation function name.
+        observedMetric:
+          type: string
+          description: Observed metric name.
+        observationStartTime:
+          type: string
+          format: date-time
+          description: Observation start time.
+        observationEndTime:
+          type: string
+          format: date-time
+          description: Observation end time.
+        aggregationWindow:
+          type: string
+          description: Aggregation interval type in ISO 8601 format.
+      required:
+        - numberOfTopQueries
+        - aggregationFunction
+        - observedMetric
+        - observationStartTime
+        - observationEndTime
+        - aggregationWindow
+      description: The properties for input to get top query statistics
+    TopQueryStatisticsInput:
+      properties:
+        properties:
+          $ref: '#/components/schemas/TopQueryStatisticsInputProperties'
+          x-ms-client-flatten: true
+          description: The properties of a wait statistics input.
+      required:
+        - properties
+      description: Input to get top query statistics
+    QueryStatisticProperties:
+      properties:
+        queryId:
+          type: string
+          description: Database query identifier.
+        startTime:
+          type: string
+          format: date-time
+          description: Observation start time.
+        endTime:
+          type: string
+          format: date-time
+          description: Observation end time.
+        aggregationFunction:
+          type: string
+          description: Aggregation function name.
+        databaseNames:
+          type: array
+          items:
+            type: string
+          description: The list of database names.
+        queryExecutionCount:
+          type: integer
+          format: int64
+          description: Number of query executions in this time interval.
+        metricName:
+          type: string
+          description: Metric name.
+        metricDisplayName:
+          type: string
+          description: Metric display name.
+        metricValue:
+          type: number
+          format: double
+          description: Metric value.
+        metricValueUnit:
+          type: string
+          description: Metric value unit.
+      description: The properties of a query statistic.
+    QueryStatistic:
+      properties:
+        properties:
+          $ref: '#/components/schemas/QueryStatisticProperties'
+          x-ms-client-flatten: true
+          description: The properties of a query statistic.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a Query Statistic.
+    TopQueryStatisticsResultList:
+      description: A list of query statistics.
+      type: object
+      properties:
+        value:
+          description: The list of top query statistics.
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryStatistic'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    WaitStatisticsInputProperties:
+      properties:
+        observationStartTime:
+          type: string
+          format: date-time
+          description: Observation start time.
+        observationEndTime:
+          type: string
+          format: date-time
+          description: Observation end time.
+        aggregationWindow:
+          type: string
+          description: Aggregation interval type in ISO 8601 format.
+      required:
+        - observationStartTime
+        - observationEndTime
+        - aggregationWindow
+      description: The properties for input to get wait statistics
+    WaitStatisticsInput:
+      properties:
+        properties:
+          $ref: '#/components/schemas/WaitStatisticsInputProperties'
+          x-ms-client-flatten: true
+          description: The properties of a wait statistics input.
+      required:
+        - properties
+      description: Input to get wait statistics
+    WaitStatisticProperties:
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Observation start time.
+        endTime:
+          type: string
+          format: date-time
+          description: Observation end time.
+        eventName:
+          type: string
+          description: Wait event name.
+        eventTypeName:
+          type: string
+          description: Wait event type name.
+        queryId:
+          type: integer
+          format: int64
+          description: Database query identifier.
+        databaseName:
+          type: string
+          description: Database Name.
+        userId:
+          type: integer
+          format: int64
+          description: Database user identifier.
+        count:
+          type: integer
+          format: int64
+          description: Wait event count observed in this time interval.
+        totalTimeInMs:
+          type: number
+          format: double
+          description: Total time of wait in milliseconds in this time interval.
+      description: The properties of a wait statistic.
+    WaitStatistic:
+      properties:
+        properties:
+          $ref: '#/components/schemas/WaitStatisticProperties'
+          x-ms-client-flatten: true
+          description: The properties of a wait statistic.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a Wait Statistic.
+    WaitStatisticsResultList:
+      description: A list of wait statistics.
+      type: object
+      properties:
+        value:
+          description: The list of wait statistics.
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitStatistic'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    QueryPerformanceInsightResetDataResult:
+      description: Result of Query Performance Insight data reset.
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - Succeeded
+            - Failed
+          x-ms-enum:
+            name: QueryPerformanceInsightResetDataResultState
+            modelAsString: true
+          description: Indicates result of the operation.
+        message:
+          type: string
+          description: operation message.
     ServerVersion:
       type: string
       description: The version of a server.
@@ -585,36 +1247,6 @@ components:
       required:
         - sourceServerId
       description: The properties to create a new replica.
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
     ResourceIdentity:
       description: Azure Active Directory identity configuration for a resource.
       type: object
@@ -893,75 +1525,6 @@ components:
           readOnly: true
           description: Operation description.
       description: Display metadata associated with the operation.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
     LogFileProperties:
       properties:
         sizeInKB:
@@ -1185,601 +1748,33 @@ components:
           $ref: '#/components/schemas/RecoverableServerProperties'
           description: Resource properties.
           x-ms-client-flatten: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    SecurityAlertPolicyProperties:
-      description: Properties of a security alert policy.
-      required:
-        - state
-      type: object
-      properties:
-        state:
-          description: Specifies the state of the policy, whether it is enabled or disabled.
-          enum:
-            - Enabled
-            - Disabled
-          type: string
-          x-ms-enum:
-            name: ServerSecurityAlertPolicyState
-            modelAsString: false
-        disabledAlerts:
-          description: 'Specifies an array of alerts that are disabled. Allowed values are: Sql_Injection, Sql_Injection_Vulnerability, Access_Anomaly'
-          type: array
-          items:
-            type: string
-        emailAddresses:
-          description: Specifies an array of e-mail addresses to which the alert is sent.
-          type: array
-          items:
-            type: string
-        emailAccountAdmins:
-          description: Specifies that the alert is sent to the account administrators.
-          type: boolean
-        storageEndpoint:
-          description: Specifies the blob storage endpoint (e.g. https://MyAccount.blob.core.windows.net). This blob storage will hold all Threat Detection audit logs.
-          type: string
-        storageAccountAccessKey:
-          description: Specifies the identifier key of the Threat Detection audit storage account.
-          type: string
-        retentionDays:
-          format: int32
-          description: Specifies the number of days to keep in the Threat Detection audit logs.
-          type: integer
-    ServerSecurityAlertPolicy:
-      description: A server security alert policy.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/SecurityAlertPolicyProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-    ServerSecurityAlertPolicyListResult:
-      description: A list of the server's security alert policies.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    QueryTextProperties:
-      properties:
-        queryId:
-          type: string
-          description: Query identifier unique to the server.
-        queryText:
-          type: string
-          description: Query text.
-      description: The properties of a query text.
-    QueryText:
-      properties:
-        properties:
-          $ref: '#/components/schemas/QueryTextProperties'
-          x-ms-client-flatten: true
-          description: The properties of a query text.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Query Text.
-    QueryTextsResultList:
-      description: A list of query texts.
-      type: object
-      properties:
-        value:
-          description: The list of query texts.
-          type: array
-          items:
-            $ref: '#/components/schemas/QueryText'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    TopQueryStatisticsInputProperties:
-      properties:
-        numberOfTopQueries:
-          type: integer
-          format: int32
-          description: Max number of top queries to return.
-        aggregationFunction:
-          type: string
-          description: Aggregation function name.
-        observedMetric:
-          type: string
-          description: Observed metric name.
-        observationStartTime:
-          type: string
-          format: date-time
-          description: Observation start time.
-        observationEndTime:
-          type: string
-          format: date-time
-          description: Observation end time.
-        aggregationWindow:
-          type: string
-          description: Aggregation interval type in ISO 8601 format.
-      required:
-        - numberOfTopQueries
-        - aggregationFunction
-        - observedMetric
-        - observationStartTime
-        - observationEndTime
-        - aggregationWindow
-      description: The properties for input to get top query statistics
-    TopQueryStatisticsInput:
-      properties:
-        properties:
-          $ref: '#/components/schemas/TopQueryStatisticsInputProperties'
-          x-ms-client-flatten: true
-          description: The properties of a wait statistics input.
-      required:
-        - properties
-      description: Input to get top query statistics
-    QueryStatisticProperties:
-      properties:
-        queryId:
-          type: string
-          description: Database query identifier.
-        startTime:
-          type: string
-          format: date-time
-          description: Observation start time.
-        endTime:
-          type: string
-          format: date-time
-          description: Observation end time.
-        aggregationFunction:
-          type: string
-          description: Aggregation function name.
-        databaseNames:
-          type: array
-          items:
-            type: string
-          description: The list of database names.
-        queryExecutionCount:
-          type: integer
-          format: int64
-          description: Number of query executions in this time interval.
-        metricName:
-          type: string
-          description: Metric name.
-        metricDisplayName:
-          type: string
-          description: Metric display name.
-        metricValue:
-          type: number
-          format: double
-          description: Metric value.
-        metricValueUnit:
-          type: string
-          description: Metric value unit.
-      description: The properties of a query statistic.
-    QueryStatistic:
-      properties:
-        properties:
-          $ref: '#/components/schemas/QueryStatisticProperties'
-          x-ms-client-flatten: true
-          description: The properties of a query statistic.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Query Statistic.
-    TopQueryStatisticsResultList:
-      description: A list of query statistics.
-      type: object
-      properties:
-        value:
-          description: The list of top query statistics.
-          type: array
-          items:
-            $ref: '#/components/schemas/QueryStatistic'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    WaitStatisticsInputProperties:
-      properties:
-        observationStartTime:
-          type: string
-          format: date-time
-          description: Observation start time.
-        observationEndTime:
-          type: string
-          format: date-time
-          description: Observation end time.
-        aggregationWindow:
-          type: string
-          description: Aggregation interval type in ISO 8601 format.
-      required:
-        - observationStartTime
-        - observationEndTime
-        - aggregationWindow
-      description: The properties for input to get wait statistics
-    WaitStatisticsInput:
-      properties:
-        properties:
-          $ref: '#/components/schemas/WaitStatisticsInputProperties'
-          x-ms-client-flatten: true
-          description: The properties of a wait statistics input.
-      required:
-        - properties
-      description: Input to get wait statistics
-    WaitStatisticProperties:
-      properties:
-        startTime:
-          type: string
-          format: date-time
-          description: Observation start time.
-        endTime:
-          type: string
-          format: date-time
-          description: Observation end time.
-        eventName:
-          type: string
-          description: Wait event name.
-        eventTypeName:
-          type: string
-          description: Wait event type name.
-        queryId:
-          type: integer
-          format: int64
-          description: Database query identifier.
-        databaseName:
-          type: string
-          description: Database Name.
-        userId:
-          type: integer
-          format: int64
-          description: Database user identifier.
-        count:
-          type: integer
-          format: int64
-          description: Wait event count observed in this time interval.
-        totalTimeInMs:
-          type: number
-          format: double
-          description: Total time of wait in milliseconds in this time interval.
-      description: The properties of a wait statistic.
-    WaitStatistic:
-      properties:
-        properties:
-          $ref: '#/components/schemas/WaitStatisticProperties'
-          x-ms-client-flatten: true
-          description: The properties of a wait statistic.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Wait Statistic.
-    WaitStatisticsResultList:
-      description: A list of wait statistics.
-      type: object
-      properties:
-        value:
-          description: The list of wait statistics.
-          type: array
-          items:
-            $ref: '#/components/schemas/WaitStatistic'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    QueryPerformanceInsightResetDataResult:
-      description: Result of Query Performance Insight data reset.
-      type: object
-      properties:
-        status:
-          type: string
-          enum:
-            - Succeeded
-            - Failed
-          x-ms-enum:
-            name: QueryPerformanceInsightResetDataResultState
-            modelAsString: true
-          description: Indicates result of the operation.
-        message:
-          type: string
-          description: operation message.
   parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
     ServerNameParameter:
       name: serverName
       in: path
@@ -1820,6 +1815,30 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    QueryIdParameter:
+      name: queryId
+      in: path
+      description: The Query-Store query identifier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    QueryStatisticIdParameter:
+      name: queryStatisticId
+      in: path
+      description: The Query Statistic identifier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    WaitStatisticsIdParameter:
+      name: waitStatisticsId
+      in: path
+      description: The Wait Statistic identifier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     FirewallRuleNameParameter:
       name: firewallRuleName
       in: path
@@ -1852,269 +1871,130 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    QueryIdParameter:
-      name: queryId
-      in: path
-      description: The Query-Store query identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    QueryStatisticIdParameter:
-      name: queryStatisticId
-      in: path
-      description: The Query Statistic identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    WaitStatisticsIdParameter:
-      name: waitStatisticsId
-      in: path
-      description: The Wait Statistic identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/keys:
-    x-api-version: '2020-01-01'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/securityAlertPolicies/{securityAlertPolicyName}:
+    x-api-version: '2017-12-01'
     get:
       tags:
-        - ServerKeys
-      description: Gets a list of  Server keys.
-      operationId: ServerKeys_List
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the list of MySQL Server keys.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerKeyListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/keys/{keyName}:
-    x-api-version: '2020-01-01'
-    get:
-      tags:
-        - ServerKeys
-      description: Gets a MySQL Server key.
-      operationId: ServerKeys_Get
+        - ServerSecurityAlertPolicies
+      description: Get a server's security alert policy.
+      operationId: ServerSecurityAlertPolicies_Get
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - name: keyName
+        - name: securityAlertPolicyName
           in: path
-          description: The name of the MySQL Server key to be retrieved.
+          description: The name of the security alert policy.
           required: true
           schema:
+            enum:
+              - Default
+            x-ms-enum:
+              name: SecurityAlertPolicyName
+              modelAsString: true
             type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: Successfully retrieved the specified MySQL Server key.
+          description: Successfully retrieved the server threat detection policy.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServerKey'
+                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
         default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
+          description: Error response describing why the operation of getting security alert policies failed.
     put:
       tags:
-        - ServerKeys
-      description: Creates or updates a MySQL Server key.
-      operationId: ServerKeys_CreateOrUpdate
+        - ServerSecurityAlertPolicies
+      description: Creates or updates a threat detection policy.
+      operationId: ServerSecurityAlertPolicies_CreateOrUpdate
       parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - name: keyName
+        - name: securityAlertPolicyName
           in: path
-          description: The name of the MySQL Server key to be operated on (updated or created).
+          description: The name of the threat detection policy.
           required: true
           schema:
+            enum:
+              - Default
+            x-ms-enum:
+              name: SecurityAlertPolicyName
+              modelAsString: true
             type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
-        description: The requested MySQL Server key resource state.
+        description: The server security alert policy.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ServerKey'
+              $ref: '#/components/schemas/ServerSecurityAlertPolicy'
       responses:
         '200':
-          description: Successfully updated the MySQL Server key.
+          description: Successfully updated the threat detection policy.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServerKey'
+                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
         '202':
-          description: Operation in progress
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerKey'
+          description: Created request to set the server threat detection policy.
         default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
+          description: Error response describing why the operation of setting security alert policies failed.
       x-ms-long-running-operation: true
-    delete:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/securityAlertPolicies:
+    x-api-version: '2017-12-01'
+    get:
       tags:
-        - ServerKeys
-      description: Deletes the MySQL Server key with the given name.
-      operationId: ServerKeys_Delete
+        - ServerSecurityAlertPolicies
+      description: Get the server's threat detection policies.
+      operationId: ServerSecurityAlertPolicies_ListByServer
       parameters:
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: keyName
-          in: path
-          description: The name of the MySQL Server key to be deleted.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-      responses:
-        '200':
-          description: Successfully deleted the MySQL Server key.
-        '202':
-          description: Operation in progress
-        '204':
-          description: The specified MySQL Server key does not exist.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/start:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStart
-      operationId: Servers_Start
-      description: Starts a stopped server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/stop:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStop
-      operationId: Servers_Stop
-      description: Stops a running server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/upgrade:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerUpgrade
-      operationId: Servers_Upgrade
-      description: Upgrade server version.
-      parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      requestBody:
-        description: The required parameters for updating a server.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerUpgradeParameters'
       responses:
         '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
+          description: Successfully retrieved the server threat detection policies.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
+                $ref: '#/components/schemas/ServerSecurityAlertPolicyListResult'
+        default:
+          description: |-
+            *** Error Responses: ***
+
+             * 400 SecurityAlertPoliciesInvalidStorageAccountName - The provided storage account is not valid or does not exist.
+
+             * 400 SecurityAlertPoliciesInvalidStorageAccountCredentials - The provided storage account access key is not valid.
+
+             * 400 InvalidServerSecurityAlertPolicyCreateRequest - The create server Threat Detection security alert policy request does not exist or has no properties object.
+
+             * 400 DataSecurityInvalidUserSuppliedParameter - An invalid parameter value was provided by the client.
+
+             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 404 SubscriptionDoesNotHaveServer - The requested server was not found
+
+             * 404 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 409 ServerSecurityAlertPolicyInProgress - Set server security alert policy is already in progress
+
+             * 409 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 500 DatabaseIsUnavailable - Loading failed. Please try again later.
+
+             * 500 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 500 GetServerSecurityAlertPolicyFailed - Failed to get Threat Detection settings
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/advisors/{advisorName}:
     x-api-version: '2018-06-01'
     get:
@@ -2439,6 +2319,218 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/start:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStart
+      operationId: Servers_Start
+      description: Starts a stopped server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/stop:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStop
+      operationId: Servers_Stop
+      description: Stops a running server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/upgrade:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerUpgrade
+      operationId: Servers_Upgrade
+      description: Upgrade server version.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      requestBody:
+        description: The required parameters for updating a server.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerUpgradeParameters'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/keys:
+    x-api-version: '2020-01-01'
+    get:
+      tags:
+        - ServerKeys
+      description: Gets a list of  Server keys.
+      operationId: ServerKeys_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved the list of MySQL Server keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerKeyListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/keys/{keyName}:
+    x-api-version: '2020-01-01'
+    get:
+      tags:
+        - ServerKeys
+      description: Gets a MySQL Server key.
+      operationId: ServerKeys_Get
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: keyName
+          in: path
+          description: The name of the MySQL Server key to be retrieved.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully retrieved the specified MySQL Server key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerKey'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - ServerKeys
+      description: Creates or updates a MySQL Server key.
+      operationId: ServerKeys_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: keyName
+          in: path
+          description: The name of the MySQL Server key to be operated on (updated or created).
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      requestBody:
+        description: The requested MySQL Server key resource state.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerKey'
+      responses:
+        '200':
+          description: Successfully updated the MySQL Server key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerKey'
+        '202':
+          description: Operation in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerKey'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - ServerKeys
+      description: Deletes the MySQL Server key with the given name.
+      operationId: ServerKeys_Delete
+      parameters:
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: keyName
+          in: path
+          description: The name of the MySQL Server key to be deleted.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      responses:
+        '200':
+          description: Successfully deleted the MySQL Server key.
+        '202':
+          description: Operation in progress
+        '204':
+          description: The specified MySQL Server key does not exist.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/privateLinkResources:
     x-api-version: '2018-06-01'
     get:
@@ -2491,6 +2583,216 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PrivateLinkResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/queryTexts/{queryId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - QueryTexts
+      operationId: QueryTexts_Get
+      description: Retrieve the Query-Store query texts for the queryId.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/QueryIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryText'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/queryTexts:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - QueryTexts
+      operationId: QueryTexts_ListByServer
+      description: Retrieve the Query-Store query texts for specified queryIds.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: queryIds
+          in: query
+          description: The query identifiers
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryTextsResultList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/topQueryStatistics/{queryStatisticId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - TopQueryStatistics
+      operationId: TopQueryStatistics_Get
+      description: Retrieve the query statistic for specified identifier.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/QueryStatisticIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryStatistic'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/topQueryStatistics:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - TopQueryStatistics
+      operationId: TopQueryStatistics_ListByServer
+      description: Retrieve the Query-Store top queries for specified metric and aggregation.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      requestBody:
+        description: The required parameters for retrieving top query statistics.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopQueryStatisticsInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopQueryStatisticsResultList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/waitStatistics/{waitStatisticsId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - WaitStatistics
+      operationId: WaitStatistics_Get
+      description: Retrieve wait statistics for specified identifier.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/WaitStatisticsIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitStatistic'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/waitStatistics:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - WaitStatistics
+      operationId: WaitStatistics_ListByServer
+      description: Retrieve wait statistics for specified aggregation window.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      requestBody:
+        description: The required parameters for retrieving wait statistics.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitStatisticsInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitStatisticsResultList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/resetQueryPerformanceInsightData:
+    x-api-version: '2018-06-01'
+    post:
+      tags:
+        - ResetQueryPerformanceInsightData
+      operationId: ResetQueryPerformanceInsightData
+      description: Reset data for Query Performance Insight.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryPerformanceInsightResetDataResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -3515,339 +3817,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/securityAlertPolicies/{securityAlertPolicyName}:
-    x-api-version: '2017-12-01'
-    get:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Get a server's security alert policy.
-      operationId: ServerSecurityAlertPolicies_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: securityAlertPolicyName
-          in: path
-          description: The name of the security alert policy.
-          required: true
-          schema:
-            enum:
-              - Default
-            x-ms-enum:
-              name: SecurityAlertPolicyName
-              modelAsString: true
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server threat detection policy.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-        default:
-          description: Error response describing why the operation of getting security alert policies failed.
-    put:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Creates or updates a threat detection policy.
-      operationId: ServerSecurityAlertPolicies_CreateOrUpdate
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: securityAlertPolicyName
-          in: path
-          description: The name of the threat detection policy.
-          required: true
-          schema:
-            enum:
-              - Default
-            x-ms-enum:
-              name: SecurityAlertPolicyName
-              modelAsString: true
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The server security alert policy.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-      responses:
-        '200':
-          description: Successfully updated the threat detection policy.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-        '202':
-          description: Created request to set the server threat detection policy.
-        default:
-          description: Error response describing why the operation of setting security alert policies failed.
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/securityAlertPolicies:
-    x-api-version: '2017-12-01'
-    get:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Get the server's threat detection policies.
-      operationId: ServerSecurityAlertPolicies_ListByServer
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server threat detection policies.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicyListResult'
-        default:
-          description: |-
-            *** Error Responses: ***
-
-             * 400 SecurityAlertPoliciesInvalidStorageAccountName - The provided storage account is not valid or does not exist.
-
-             * 400 SecurityAlertPoliciesInvalidStorageAccountCredentials - The provided storage account access key is not valid.
-
-             * 400 InvalidServerSecurityAlertPolicyCreateRequest - The create server Threat Detection security alert policy request does not exist or has no properties object.
-
-             * 400 DataSecurityInvalidUserSuppliedParameter - An invalid parameter value was provided by the client.
-
-             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 404 SubscriptionDoesNotHaveServer - The requested server was not found
-
-             * 404 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 409 ServerSecurityAlertPolicyInProgress - Set server security alert policy is already in progress
-
-             * 409 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 500 DatabaseIsUnavailable - Loading failed. Please try again later.
-
-             * 500 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 500 GetServerSecurityAlertPolicyFailed - Failed to get Threat Detection settings
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/queryTexts/{queryId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - QueryTexts
-      operationId: QueryTexts_Get
-      description: Retrieve the Query-Store query texts for the queryId.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/QueryIdParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryText'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/queryTexts:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - QueryTexts
-      operationId: QueryTexts_ListByServer
-      description: Retrieve the Query-Store query texts for specified queryIds.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: queryIds
-          in: query
-          description: The query identifiers
-          required: true
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryTextsResultList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/topQueryStatistics/{queryStatisticId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - TopQueryStatistics
-      operationId: TopQueryStatistics_Get
-      description: Retrieve the query statistic for specified identifier.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/QueryStatisticIdParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryStatistic'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/topQueryStatistics:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - TopQueryStatistics
-      operationId: TopQueryStatistics_ListByServer
-      description: Retrieve the Query-Store top queries for specified metric and aggregation.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      requestBody:
-        description: The required parameters for retrieving top query statistics.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TopQueryStatisticsInput'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopQueryStatisticsResultList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/waitStatistics/{waitStatisticsId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - WaitStatistics
-      operationId: WaitStatistics_Get
-      description: Retrieve wait statistics for specified identifier.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/WaitStatisticsIdParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WaitStatistic'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/waitStatistics:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - WaitStatistics
-      operationId: WaitStatistics_ListByServer
-      description: Retrieve wait statistics for specified aggregation window.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      requestBody:
-        description: The required parameters for retrieving wait statistics.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WaitStatisticsInput'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WaitStatisticsResultList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMySQL/servers/{serverName}/resetQueryPerformanceInsightData:
-    x-api-version: '2018-06-01'
-    post:
-      tags:
-        - ResetQueryPerformanceInsightData
-      operationId: ResetQueryPerformanceInsightData
-      description: Reset data for Query Performance Insight.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryPerformanceInsightResetDataResult'
         default:
           description: Error response describing why the operation failed.
           content:

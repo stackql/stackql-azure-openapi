@@ -19,96 +19,6 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    OperationDisplay:
-      description: Display metadata associated with the operation.
-      type: object
-      properties:
-        provider:
-          description: The localized friendly form of the resource provider name.
-          type: string
-        resource:
-          description: The localized friendly form of the resource type related to this action/operation.
-          type: string
-        operation:
-          description: The localized friendly name for the operation.
-          type: string
-        description:
-          description: The localized friendly description for the operation.
-          type: string
-      required:
-        - provider
-        - resource
-        - operation
-        - description
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -363,6 +273,56 @@ components:
           type: object
           description: The additional info.
       description: The resource management error additional info.
+    Operation:
+      description: Azure Data Services on Azure Arc operation definition.
+      type: object
+      properties:
+        name:
+          description: The name of the operation being performed on this particular object.
+          type: string
+        display:
+          $ref: '#/components/schemas/OperationDisplay'
+          description: The localized display information for this particular operation / action.
+        origin:
+          description: The intended executor of the operation.
+          enum:
+            - user
+            - system
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: OperationOrigin
+            modelAsString: true
+        isDataAction:
+          description: Indicates whether the operation is a data action
+          type: boolean
+        properties:
+          description: Additional descriptions for the operation.
+          type: object
+          additionalProperties:
+            type: object
+          readOnly: true
+          x-ms-client-flatten: false
+      required:
+        - name
+        - display
+        - isDataAction
+    OperationListResult:
+      description: Result of the request to list Azure Data Services on Azure Arc operations.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
     OperationStatusResult:
       description: The current status of an async operation.
       type: object
@@ -513,327 +473,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    PostgresInstanceSku:
-      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
-      type: object
-      properties:
-        tier:
-          type: string
-          enum:
-            - Hyperscale
-          x-ms-enum:
-            name: PostgresInstanceSkuTier
-            modelAsString: false
-          default: Hyperscale
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
-      allOf:
-        - $ref: '#/components/schemas/CommonSku'
-    PostgresInstanceProperties:
-      description: Postgres Instance properties.
-      type: object
-      properties:
-        dataControllerId:
-          type: string
-          description: The data controller id
-        admin:
-          type: string
-          description: The instance admin
-        basicLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Username and password for basic authentication.
-        k8sRaw:
-          type: object
-          description: The raw kubernetes information
-        lastUploadedDate:
-          type: string
-          format: date-time
-          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
-        provisioningState:
-          type: string
-          readOnly: true
-          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
-    PostgresInstance:
-      description: A Postgres Instance.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extendedLocation of the resource.
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-          description: 'null'
-        sku:
-          $ref: '#/components/schemas/PostgresInstanceSku'
-          description: Resource sku.
-      required:
-        - properties
-    PostgresInstanceUpdate:
-      description: An update to a Postgres Instance.
-      type: object
-      properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-    PostgresInstanceListResult:
-      description: A list of PostgresInstance.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/PostgresInstance'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    CommonSku:
-      description: The resource model definition representing SKU for ARM resources
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU.  It is typically a letter+number code
-        dev:
-          type: boolean
-          default: true
-          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    ErrorResponseBody:
-      type: object
-      properties:
-        code:
-          type: string
-          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
-        message:
-          type: string
-          description: A message describing the error, intended to be suitable for display in a user interface.
-        target:
-          type: string
-          description: The target of the particular error. For example, the name of the property in error.
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponseBody'
-          x-ms-identifiers:
-            - message
-            - target
-          description: A list of additional details about the error.
-      description: An error response from the Batch service.
-    ExtendedLocation:
-      type: object
-      description: The complex type of the extended location.
-      properties:
-        name:
-          type: string
-          description: The name of the extended location.
-        type:
-          $ref: '#/components/schemas/ExtendedLocationType'
-          description: The type of the extended location.
-    ExtendedLocationType:
-      type: string
-      description: The type of extendedLocation.
-      enum:
-        - CustomLocation
-      x-ms-enum:
-        name: ExtendedLocationTypes
-        modelAsString: true
-    BasicLoginInformation:
-      type: object
-      description: Username and password for basic login authentication.
-      properties:
-        username:
-          type: string
-          description: Login username.
-        password:
-          type: string
-          description: Login password.
-          x-ms-mutability:
-            - create
-            - update
-          x-ms-secret: true
-    ActiveDirectoryConnectorListResult:
-      description: A list of active directory connectors
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/ActiveDirectoryConnectorResource'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    ActiveDirectoryConnectorResource:
-      type: object
-      description: Active directory connector resource
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorProperties'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - properties
-    ActiveDirectoryConnectorProperties:
-      type: object
-      description: The properties of an Active Directory connector resource
-      properties:
-        domainServiceAccountLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Username and password for domain service account authentication.
-        provisioningState:
-          type: string
-          description: The provisioning state of the Active Directory connector resource.
-          readOnly: true
-        spec:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorSpec'
-          description: 'null'
-          x-ms-client-flatten: false
-        status:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorStatus'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - spec
-    ActiveDirectoryConnectorSpec:
-      description: The specifications of the AD Kubernetes resource.
-      type: object
-      properties:
-        activeDirectory:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorDomainDetails'
-          description: 'null'
-          x-ms-client-flatten: false
-        dns:
-          $ref: '#/components/schemas/ActiveDirectoryConnectorDNSDetails'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - activeDirectory
-        - dns
-    ActiveDirectoryConnectorDomainDetails:
-      type: object
-      description: Active Directory domain details
-      properties:
-        realm:
-          type: string
-          description: Name (uppercase) of the Active Directory domain that this AD connector will be associated with.
-        netbiosDomainName:
-          type: string
-          description: NETBIOS name of the Active Directory domain.
-        serviceAccountProvisioning:
-          type: string
-          enum:
-            - automatic
-            - manual
-          x-ms-enum:
-            name: accountProvisioningMode
-            modelAsString: true
-          default: manual
-          description: The service account provisioning mode for this Active Directory connector.
-        ouDistinguishedName:
-          type: string
-          description: The distinguished name of the Active Directory Organizational Unit.
-        domainControllers:
-          $ref: '#/components/schemas/ActiveDirectoryDomainControllers'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - realm
-        - domainControllers
-    ActiveDirectoryConnectorDNSDetails:
-      type: object
-      description: DNS server details
-      properties:
-        domainName:
-          type: string
-          description: DNS domain name for which DNS lookups should be forwarded to the Active Directory DNS servers.
-        nameserverIPAddresses:
-          type: array
-          description: List of Active Directory DNS server IP addresses.
-          items:
-            type: string
-            minimum: 1
-        replicas:
-          type: integer
-          description: Replica count for DNS proxy service. Default value is 1.
-          default: 1
-          format: int64
-        preferK8sDnsForPtrLookups:
-          type: boolean
-          description: Flag indicating whether to prefer Kubernetes DNS server response over AD DNS server response for IP address lookups.
-          default: true
-      required:
-        - nameserverIPAddresses
-    ActiveDirectoryDomainControllers:
-      type: object
-      description: Details about the Active Directory domain controllers associated with this AD connector instance
-      properties:
-        primaryDomainController:
-          $ref: '#/components/schemas/ActiveDirectoryDomainController'
-          description: Information about the Primary Domain Controller (PDC) in the AD domain.
-          x-ms-client-flatten: false
-        secondaryDomainControllers:
-          $ref: '#/components/schemas/ActiveDirectorySecondaryDomainControllers'
-          description: 'null'
-          x-ms-client-flatten: false
-    ActiveDirectoryDomainController:
-      type: object
-      description: Information about a domain controller in the AD domain.
-      properties:
-        hostname:
-          type: string
-          description: Fully-qualified domain name of a domain controller in the AD domain.
-      required:
-        - hostname
-    ActiveDirectorySecondaryDomainControllers:
-      type: array
-      description: Information about the secondary domain controllers in the AD domain.
-      items:
-        $ref: '#/components/schemas/ActiveDirectoryDomainController'
-        description: List of the fully-qualified domain names of the secondary domain controllers in the AD domain.
-        x-ms-client-flatten: false
-      x-ms-identifiers:
-        - hostname
-    ActiveDirectoryConnectorStatus:
-      type: object
-      description: The status of the Kubernetes custom resource.
-      properties:
-        lastUpdateTime:
-          type: string
-          description: The time that the custom resource was last updated.
-        observedGeneration:
-          type: integer
-          format: int64
-          description: The version of the replicaSet associated with the AD connector custom resource.
-        state:
-          type: string
-          description: The state of the AD connector custom resource.
-      additionalProperties:
-        type: object
     DataControllerResource:
       description: Data controller resource
       type: object
@@ -997,135 +636,86 @@ components:
             - create
             - update
           x-ms-secret: true
-    SqlServerInstance:
-      description: A SqlServerInstance.
+    OperationDisplay:
+      description: Display metadata associated with the operation.
+      type: object
+      properties:
+        provider:
+          description: The localized friendly form of the resource provider name.
+          type: string
+        resource:
+          description: The localized friendly form of the resource type related to this action/operation.
+          type: string
+        operation:
+          description: The localized friendly name for the operation.
+          type: string
+        description:
+          description: The localized friendly description for the operation.
+          type: string
+      required:
+        - provider
+        - resource
+        - operation
+        - description
+    PostgresInstanceSku:
+      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
+      type: object
+      properties:
+        tier:
+          type: string
+          enum:
+            - Hyperscale
+          x-ms-enum:
+            name: PostgresInstanceSkuTier
+            modelAsString: false
+          default: Hyperscale
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
+      allOf:
+        - $ref: '#/components/schemas/CommonSku'
+    PostgresInstanceProperties:
+      description: Postgres Instance properties.
+      type: object
+      properties:
+        dataControllerId:
+          type: string
+          description: The data controller id
+        admin:
+          type: string
+          description: The instance admin
+        basicLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Username and password for basic authentication.
+        k8sRaw:
+          type: object
+          description: The raw kubernetes information
+        lastUploadedDate:
+          type: string
+          format: date-time
+          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
+    PostgresInstance:
+      description: A Postgres Instance.
       type: object
       allOf:
         - $ref: '#/components/schemas/TrackedResource'
       properties:
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The extendedLocation of the resource.
         properties:
-          $ref: '#/components/schemas/SqlServerInstanceProperties'
-          description: 'null'
+          $ref: '#/components/schemas/PostgresInstanceProperties'
           x-ms-client-flatten: false
-    SqlServerInstanceProperties:
-      description: Properties of SqlServerInstance.
-      type: object
-      properties:
-        version:
-          type: string
-          description: SQL Server version.
-          enum:
-            - SQL Server 2012
-            - SQL Server 2014
-            - SQL Server 2016
-            - SQL Server 2017
-            - SQL Server 2019
-            - SQL Server 2022
-            - Unknown
-          x-ms-enum:
-            name: sqlVersion
-            modelAsString: true
-        edition:
-          type: string
-          description: SQL Server edition.
-          enum:
-            - Evaluation
-            - Enterprise
-            - Standard
-            - Web
-            - Developer
-            - Express
-          x-ms-enum:
-            name: editionType
-            modelAsString: true
-        containerResourceId:
-          type: string
-          description: ARM Resource id of the container resource (Azure Arc for Servers).
-        createTime:
-          type: string
-          description: The time when the resource was created.
-          readOnly: true
-        vCore:
-          type: string
-          description: The number of logical processors used by the SQL Server instance.
-        status:
-          type: string
-          description: The cloud connectivity status.
-          enum:
-            - Connected
-            - Disconnected
-            - Registered
-            - Unknown
-          x-ms-enum:
-            name: ConnectionStatus
-            modelAsString: true
-        patchLevel:
-          type: string
-          description: SQL Server update level.
-        collation:
-          type: string
-          description: SQL Server collation.
-        currentVersion:
-          type: string
-          description: SQL Server current version.
-        instanceName:
-          type: string
-          description: SQL Server instance name.
-        tcpDynamicPorts:
-          type: string
-          description: Dynamic TCP ports used by SQL Server.
-        tcpStaticPorts:
-          type: string
-          description: Static TCP ports used by SQL Server.
-        productId:
-          type: string
-          description: SQL Server product ID.
-        licenseType:
-          type: string
-          description: SQL Server license type.
-          enum:
-            - Paid
-            - Free
-            - HADR
-            - Undefined
-          x-ms-enum:
-            name: arcSqlServerLicenseType
-            modelAsString: true
-        azureDefenderStatusLastUpdated:
-          type: string
-          format: date-time
-          description: Timestamp of last Azure Defender status update.
-        azureDefenderStatus:
-          type: string
-          description: Status of Azure Defender.
-          enum:
-            - Protected
-            - Unprotected
-            - Unknown
-          x-ms-enum:
-            name: defenderStatus
-            modelAsString: true
-        provisioningState:
-          type: string
-          description: The provisioning state of the Arc-enabled SQL Server resource.
-          readOnly: true
-        hostType:
-          type: string
-          description: Type of host for Azure Arc SQL Server
-          enum:
-            - Virtual Machine
-            - Physical Server
-            - AWS Virtual Machine
-            - GCP Virtual Machine
-            - Other
-          x-ms-enum:
-            name: hostType
-            modelAsString: true
+          description: 'null'
+        sku:
+          $ref: '#/components/schemas/PostgresInstanceSku'
+          description: Resource sku.
       required:
-        - containerResourceId
-        - status
-    SqlServerInstanceUpdate:
-      description: An update to a SQL Server Instance.
+        - properties
+    PostgresInstanceUpdate:
+      description: An update to a Postgres Instance.
       type: object
       properties:
         tags:
@@ -1133,15 +723,18 @@ components:
           type: object
           additionalProperties:
             type: string
-    SqlServerInstanceListResult:
-      description: A list of SqlServerInstance.
+        properties:
+          $ref: '#/components/schemas/PostgresInstanceProperties'
+          x-ms-client-flatten: false
+    PostgresInstanceListResult:
+      description: A list of PostgresInstance.
       type: object
       properties:
         value:
           description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/SqlServerInstance'
+            $ref: '#/components/schemas/PostgresInstance'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
@@ -1348,79 +941,395 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
+    CommonSku:
+      description: The resource model definition representing SKU for ARM resources
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU.  It is typically a letter+number code
+        dev:
+          type: boolean
+          default: true
+          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    ErrorResponseBody:
+      type: object
+      properties:
+        code:
+          type: string
+          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
+        message:
+          type: string
+          description: A message describing the error, intended to be suitable for display in a user interface.
+        target:
+          type: string
+          description: The target of the particular error. For example, the name of the property in error.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponseBody'
+          x-ms-identifiers:
+            - message
+            - target
+          description: A list of additional details about the error.
+      description: An error response from the Batch service.
+    ExtendedLocation:
+      type: object
+      description: The complex type of the extended location.
+      properties:
+        name:
+          type: string
+          description: The name of the extended location.
+        type:
+          $ref: '#/components/schemas/ExtendedLocationType'
+          description: The type of the extended location.
+    ExtendedLocationType:
+      type: string
+      description: The type of extendedLocation.
+      enum:
+        - CustomLocation
+      x-ms-enum:
+        name: ExtendedLocationTypes
+        modelAsString: true
+    BasicLoginInformation:
+      type: object
+      description: Username and password for basic login authentication.
+      properties:
+        username:
+          type: string
+          description: Login username.
+        password:
+          type: string
+          description: Login password.
+          x-ms-mutability:
+            - create
+            - update
+          x-ms-secret: true
+    SqlServerInstance:
+      description: A SqlServerInstance.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/SqlServerInstanceProperties'
+          description: 'null'
+          x-ms-client-flatten: false
+    SqlServerInstanceProperties:
+      description: Properties of SqlServerInstance.
+      type: object
+      properties:
+        version:
+          type: string
+          description: SQL Server version.
+          enum:
+            - SQL Server 2012
+            - SQL Server 2014
+            - SQL Server 2016
+            - SQL Server 2017
+            - SQL Server 2019
+            - SQL Server 2022
+            - Unknown
+          x-ms-enum:
+            name: sqlVersion
+            modelAsString: true
+        edition:
+          type: string
+          description: SQL Server edition.
+          enum:
+            - Evaluation
+            - Enterprise
+            - Standard
+            - Web
+            - Developer
+            - Express
+          x-ms-enum:
+            name: editionType
+            modelAsString: true
+        containerResourceId:
+          type: string
+          description: ARM Resource id of the container resource (Azure Arc for Servers).
+        createTime:
+          type: string
+          description: The time when the resource was created.
+          readOnly: true
+        vCore:
+          type: string
+          description: The number of logical processors used by the SQL Server instance.
+        status:
+          type: string
+          description: The cloud connectivity status.
+          enum:
+            - Connected
+            - Disconnected
+            - Registered
+            - Unknown
+          x-ms-enum:
+            name: ConnectionStatus
+            modelAsString: true
+        patchLevel:
+          type: string
+          description: SQL Server update level.
+        collation:
+          type: string
+          description: SQL Server collation.
+        currentVersion:
+          type: string
+          description: SQL Server current version.
+        instanceName:
+          type: string
+          description: SQL Server instance name.
+        tcpDynamicPorts:
+          type: string
+          description: Dynamic TCP ports used by SQL Server.
+        tcpStaticPorts:
+          type: string
+          description: Static TCP ports used by SQL Server.
+        productId:
+          type: string
+          description: SQL Server product ID.
+        licenseType:
+          type: string
+          description: SQL Server license type.
+          enum:
+            - Paid
+            - Free
+            - HADR
+            - Undefined
+          x-ms-enum:
+            name: arcSqlServerLicenseType
+            modelAsString: true
+        azureDefenderStatusLastUpdated:
+          type: string
+          format: date-time
+          description: Timestamp of last Azure Defender status update.
+        azureDefenderStatus:
+          type: string
+          description: Status of Azure Defender.
+          enum:
+            - Protected
+            - Unprotected
+            - Unknown
+          x-ms-enum:
+            name: defenderStatus
+            modelAsString: true
+        provisioningState:
+          type: string
+          description: The provisioning state of the Arc-enabled SQL Server resource.
+          readOnly: true
+        hostType:
+          type: string
+          description: Type of host for Azure Arc SQL Server
+          enum:
+            - Virtual Machine
+            - Physical Server
+            - AWS Virtual Machine
+            - GCP Virtual Machine
+            - Other
+          x-ms-enum:
+            name: hostType
+            modelAsString: true
+      required:
+        - containerResourceId
+        - status
+    SqlServerInstanceUpdate:
+      description: An update to a SQL Server Instance.
+      type: object
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+    SqlServerInstanceListResult:
+      description: A list of SqlServerInstance.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/SqlServerInstance'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    ActiveDirectoryConnectorListResult:
+      description: A list of active directory connectors
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveDirectoryConnectorResource'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    ActiveDirectoryConnectorResource:
+      type: object
+      description: Active directory connector resource
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorProperties'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - properties
+    ActiveDirectoryConnectorProperties:
+      type: object
+      description: The properties of an Active Directory connector resource
+      properties:
+        domainServiceAccountLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Username and password for domain service account authentication.
+        provisioningState:
+          type: string
+          description: The provisioning state of the Active Directory connector resource.
+          readOnly: true
+        spec:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorSpec'
+          description: 'null'
+          x-ms-client-flatten: false
+        status:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorStatus'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - spec
+    ActiveDirectoryConnectorSpec:
+      description: The specifications of the AD Kubernetes resource.
+      type: object
+      properties:
+        activeDirectory:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorDomainDetails'
+          description: 'null'
+          x-ms-client-flatten: false
+        dns:
+          $ref: '#/components/schemas/ActiveDirectoryConnectorDNSDetails'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - activeDirectory
+        - dns
+    ActiveDirectoryConnectorDomainDetails:
+      type: object
+      description: Active Directory domain details
+      properties:
+        realm:
+          type: string
+          description: Name (uppercase) of the Active Directory domain that this AD connector will be associated with.
+        netbiosDomainName:
+          type: string
+          description: NETBIOS name of the Active Directory domain.
+        serviceAccountProvisioning:
+          type: string
+          enum:
+            - automatic
+            - manual
+          x-ms-enum:
+            name: accountProvisioningMode
+            modelAsString: true
+          default: manual
+          description: The service account provisioning mode for this Active Directory connector.
+        ouDistinguishedName:
+          type: string
+          description: The distinguished name of the Active Directory Organizational Unit.
+        domainControllers:
+          $ref: '#/components/schemas/ActiveDirectoryDomainControllers'
+          description: 'null'
+          x-ms-client-flatten: false
+      required:
+        - realm
+        - domainControllers
+    ActiveDirectoryConnectorDNSDetails:
+      type: object
+      description: DNS server details
+      properties:
+        domainName:
+          type: string
+          description: DNS domain name for which DNS lookups should be forwarded to the Active Directory DNS servers.
+        nameserverIPAddresses:
+          type: array
+          description: List of Active Directory DNS server IP addresses.
+          items:
+            type: string
+            minimum: 1
+        replicas:
+          type: integer
+          description: Replica count for DNS proxy service. Default value is 1.
+          default: 1
+          format: int64
+        preferK8sDnsForPtrLookups:
+          type: boolean
+          description: Flag indicating whether to prefer Kubernetes DNS server response over AD DNS server response for IP address lookups.
+          default: true
+      required:
+        - nameserverIPAddresses
+    ActiveDirectoryDomainControllers:
+      type: object
+      description: Details about the Active Directory domain controllers associated with this AD connector instance
+      properties:
+        primaryDomainController:
+          $ref: '#/components/schemas/ActiveDirectoryDomainController'
+          description: Information about the Primary Domain Controller (PDC) in the AD domain.
+          x-ms-client-flatten: false
+        secondaryDomainControllers:
+          $ref: '#/components/schemas/ActiveDirectorySecondaryDomainControllers'
+          description: 'null'
+          x-ms-client-flatten: false
+    ActiveDirectoryDomainController:
+      type: object
+      description: Information about a domain controller in the AD domain.
+      properties:
+        hostname:
+          type: string
+          description: Fully-qualified domain name of a domain controller in the AD domain.
+      required:
+        - hostname
+    ActiveDirectorySecondaryDomainControllers:
+      type: array
+      description: Information about the secondary domain controllers in the AD domain.
+      items:
+        $ref: '#/components/schemas/ActiveDirectoryDomainController'
+        description: List of the fully-qualified domain names of the secondary domain controllers in the AD domain.
+        x-ms-client-flatten: false
+      x-ms-identifiers:
+        - hostname
+    ActiveDirectoryConnectorStatus:
+      type: object
+      description: The status of the Kubernetes custom resource.
+      properties:
+        lastUpdateTime:
+          type: string
+          description: The time that the custom resource was last updated.
+        observedGeneration:
+          type: integer
+          format: int64
+          description: The version of the replicaSet associated with the AD connector custom resource.
+        state:
+          type: string
+          description: The state of the AD connector custom resource.
+      additionalProperties:
+        type: object
   parameters:
-    subscriptionId:
-      name: subscriptionId
-      in: path
-      description: The ID of the Azure subscription
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    resourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The name of the Azure resource group
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    location:
-      name: location
-      in: path
-      description: The Azure region to use for the request
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    apiVersion:
-      name: api-version
-      in: query
-      description: The API version to use for the request
-      required: true
-      x-ms-parameter-location: client
-      schema:
-        type: string
-    dataControllerName:
-      name: dataControllerName
-      in: path
-      description: The name of the data controller
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    activeDirectoryConnectorName:
-      name: activeDirectoryConnectorName
-      in: path
-      description: The name of the Active Directory connector instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    sqlManagedInstanceName:
-      name: sqlManagedInstanceName
-      in: path
-      description: Name of SQL Managed Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    sqlServerInstanceName:
-      name: sqlServerInstanceName
-      in: path
-      description: Name of SQL Server Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    postgresInstanceName:
-      name: postgresInstanceName
-      in: path
-      description: Name of Postgres Instance
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -1464,6 +1373,78 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
+        type: string
+    apiVersion:
+      name: api-version
+      in: query
+      description: The API version to use for the request
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    subscriptionId:
+      name: subscriptionId
+      in: path
+      description: The ID of the Azure subscription
+      required: true
+      x-ms-parameter-location: client
+      schema:
+        type: string
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The name of the Azure resource group
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    location:
+      name: location
+      in: path
+      description: The Azure region to use for the request
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    dataControllerName:
+      name: dataControllerName
+      in: path
+      description: The name of the data controller
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    activeDirectoryConnectorName:
+      name: activeDirectoryConnectorName
+      in: path
+      description: The name of the Active Directory connector instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    sqlManagedInstanceName:
+      name: sqlManagedInstanceName
+      in: path
+      description: Name of SQL Managed Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    sqlServerInstanceName:
+      name: sqlServerInstanceName
+      in: path
+      description: Name of SQL Server Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    postgresInstanceName:
+      name: postgresInstanceName
+      in: path
+      description: Name of Postgres Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
 paths:
   /providers/Microsoft.AzureArcData/operations:

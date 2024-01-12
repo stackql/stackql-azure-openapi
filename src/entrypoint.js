@@ -96,8 +96,12 @@ async function openapiTag(options) {
     });
   } else {
     // interate through all combined subdirs
-    const subdirs = (await readdir(`${combinedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
+   
+    const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });
+    const subdirs = allFilesAndDirs.filter(dirent => dirent.isDirectory());
+
     for (const subdir of subdirs){
+      logger.info(`Processing ${subdir.name}`);
       try {
         await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
           logger.info(`finished tagging!`);

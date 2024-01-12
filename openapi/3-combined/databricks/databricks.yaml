@@ -4,7 +4,7 @@ servers:
 info:
   title: DatabricksClient
   version: 2022-04-01-preview
-  description: These APIs allow end users to operate on Azure Databricks Workspace resources.
+  description: ARM Databricks
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,244 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorInfo:
+      title: The code and message for an error.
+      type: object
+      properties:
+        code:
+          description: A machine readable error code.
+          type: string
+        message:
+          description: A human readable error message.
+          type: string
+        details:
+          description: error details.
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        innererror:
+          description: Inner error details if they exist.
+          type: string
+      required:
+        - code
+        - message
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    VirtualNetworkPeeringList:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualNetworkPeering'
+          description: List of virtual network peerings on workspace.
+        nextLink:
+          type: string
+          description: URL to get the next set of virtual network peering list results if there are any.
+      description: Gets all virtual network peerings under a workspace.
+    VirtualNetworkPeering:
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/VirtualNetworkPeeringPropertiesFormat'
+          description: List of properties for vNet Peering
+        name:
+          type: string
+          description: Name of the virtual network peering resource
+          readOnly: true
+        id:
+          type: string
+          description: Resource ID.
+          readOnly: true
+        type:
+          type: string
+          description: type of the virtual network peering resource
+          readOnly: true
+      required:
+        - properties
+      description: Peerings in a VirtualNetwork resource
+      x-ms-azure-resource: true
+    VirtualNetworkPeeringPropertiesFormat:
+      properties:
+        allowVirtualNetworkAccess:
+          type: boolean
+          description: Whether the VMs in the local virtual network space would be able to access the VMs in remote virtual network space.
+        allowForwardedTraffic:
+          type: boolean
+          description: Whether the forwarded traffic from the VMs in the local virtual network will be allowed/disallowed in remote virtual network.
+        allowGatewayTransit:
+          type: boolean
+          description: If gateway links can be used in remote virtual networking to link to this virtual network.
+        useRemoteGateways:
+          type: boolean
+          description: If remote gateways can be used on this virtual network. If the flag is set to true, and allowGatewayTransit on remote peering is also true, virtual network will use gateways of remote virtual network for transit. Only one peering can have this flag set to true. This flag cannot be set if virtual network already has a gateway.
+        databricksVirtualNetwork:
+          properties:
+            id:
+              type: string
+              description: The Id of the databricks virtual network.
+          description: ' The remote virtual network should be in the same region. See here to learn more (https://docs.microsoft.com/en-us/azure/databricks/administration-guide/cloud-configurations/azure/vnet-peering).'
+        databricksAddressSpace:
+          $ref: '#/components/schemas/AddressSpace'
+          description: The reference to the databricks virtual network address space.
+        remoteVirtualNetwork:
+          properties:
+            id:
+              type: string
+              description: The Id of the remote virtual network.
+          description: ' The remote virtual network should be in the same region. See here to learn more (https://docs.microsoft.com/en-us/azure/databricks/administration-guide/cloud-configurations/azure/vnet-peering).'
+        remoteAddressSpace:
+          $ref: '#/components/schemas/AddressSpace'
+          description: The reference to the remote virtual network address space.
+        peeringState:
+          type: string
+          description: The status of the virtual network peering.
+          enum:
+            - Initiated
+            - Connected
+            - Disconnected
+          x-ms-enum:
+            name: peeringState
+            modelAsString: true
+          readOnly: true
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/PeeringProvisioningState'
+          description: The provisioning state of the virtual network peering resource.
+      required:
+        - remoteVirtualNetwork
+      description: Properties of the virtual network peering.
+    PeeringProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Updating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PeeringProvisioningState
+        modelAsString: true
+    AddressSpace:
+      properties:
+        addressPrefixes:
+          type: array
+          items:
+            type: string
+          description: A list of address blocks reserved for this virtual network in CIDR notation.
+      description: AddressSpace contains an array of IP address ranges that can be used by subnets of the virtual network.
+    AccessConnector:
+      type: object
+      properties:
+        identity:
+          $ref: '#/components/schemas/IdentityData'
+        properties:
+          description: Azure Databricks accessConnector properties
+          $ref: '#/components/schemas/AccessConnectorProperties'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: Information about azure databricks accessConnector.
+    AccessConnectorProperties:
+      type: object
+      properties:
+        provisioningState:
+          description: Provisioning status of the accessConnector.
+          readOnly: true
+          enum:
+            - Deleted
+            - Failed
+            - Succeeded
+          type: string
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+    IdentityData:
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - None
+            - SystemAssigned
+          x-ms-enum:
+            name: IdentityType
+            modelAsString: true
+      required:
+        - type
+      description: Identity for the resource.
+    AccessConnectorUpdate:
+      description: An update to an azure databricks accessConnector.
+      type: object
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        identity:
+          $ref: '#/components/schemas/IdentityData'
+          description: The identity of the resource.
+    AccessConnectorListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessConnector'
+          description: The array of azure databricks accessConnector.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of azure databricks accessConnector.
     Workspace:
       properties:
         properties:
@@ -205,18 +443,6 @@ components:
       type: string
       x-ms-enum:
         name: ProvisioningState
-        modelAsString: true
-    PeeringProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Updating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PeeringProvisioningState
         modelAsString: true
     ManagedIdentityConfiguration:
       description: The Managed Identity details for storage account.
@@ -445,67 +671,6 @@ components:
           type: object
           additionalProperties:
             type: string
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorInfo:
-      title: The code and message for an error.
-      type: object
-      properties:
-        code:
-          description: A machine readable error code.
-          type: string
-        message:
-          description: A human readable error message.
-          type: string
-        details:
-          description: error details.
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        innererror:
-          description: Inner error details if they exist.
-          type: string
-      required:
-        - code
-        - message
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
     WorkspaceListResult:
       properties:
         value:
@@ -784,97 +949,6 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/OutboundEnvironmentEndpoint'
-    VirtualNetworkPeeringList:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/VirtualNetworkPeering'
-          description: List of virtual network peerings on workspace.
-        nextLink:
-          type: string
-          description: URL to get the next set of virtual network peering list results if there are any.
-      description: Gets all virtual network peerings under a workspace.
-    VirtualNetworkPeering:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/VirtualNetworkPeeringPropertiesFormat'
-          description: List of properties for vNet Peering
-        name:
-          type: string
-          description: Name of the virtual network peering resource
-          readOnly: true
-        id:
-          type: string
-          description: Resource ID.
-          readOnly: true
-        type:
-          type: string
-          description: type of the virtual network peering resource
-          readOnly: true
-      required:
-        - properties
-      description: Peerings in a VirtualNetwork resource
-      x-ms-azure-resource: true
-    VirtualNetworkPeeringPropertiesFormat:
-      properties:
-        allowVirtualNetworkAccess:
-          type: boolean
-          description: Whether the VMs in the local virtual network space would be able to access the VMs in remote virtual network space.
-        allowForwardedTraffic:
-          type: boolean
-          description: Whether the forwarded traffic from the VMs in the local virtual network will be allowed/disallowed in remote virtual network.
-        allowGatewayTransit:
-          type: boolean
-          description: If gateway links can be used in remote virtual networking to link to this virtual network.
-        useRemoteGateways:
-          type: boolean
-          description: If remote gateways can be used on this virtual network. If the flag is set to true, and allowGatewayTransit on remote peering is also true, virtual network will use gateways of remote virtual network for transit. Only one peering can have this flag set to true. This flag cannot be set if virtual network already has a gateway.
-        databricksVirtualNetwork:
-          properties:
-            id:
-              type: string
-              description: The Id of the databricks virtual network.
-          description: ' The remote virtual network should be in the same region. See here to learn more (https://docs.microsoft.com/en-us/azure/databricks/administration-guide/cloud-configurations/azure/vnet-peering).'
-        databricksAddressSpace:
-          $ref: '#/components/schemas/AddressSpace'
-          description: The reference to the databricks virtual network address space.
-        remoteVirtualNetwork:
-          properties:
-            id:
-              type: string
-              description: The Id of the remote virtual network.
-          description: ' The remote virtual network should be in the same region. See here to learn more (https://docs.microsoft.com/en-us/azure/databricks/administration-guide/cloud-configurations/azure/vnet-peering).'
-        remoteAddressSpace:
-          $ref: '#/components/schemas/AddressSpace'
-          description: The reference to the remote virtual network address space.
-        peeringState:
-          type: string
-          description: The status of the virtual network peering.
-          enum:
-            - Initiated
-            - Connected
-            - Disconnected
-          x-ms-enum:
-            name: peeringState
-            modelAsString: true
-          readOnly: true
-        provisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/PeeringProvisioningState'
-          description: The provisioning state of the virtual network peering resource.
-      required:
-        - remoteVirtualNetwork
-      description: Properties of the virtual network peering.
-    AddressSpace:
-      properties:
-        addressPrefixes:
-          type: array
-          items:
-            type: string
-          description: A list of address blocks reserved for this virtual network in CIDR notation.
-      description: AddressSpace contains an array of IP address ranges that can be used by subnets of the virtual network.
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
@@ -1161,80 +1235,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    AccessConnector:
-      type: object
-      properties:
-        identity:
-          $ref: '#/components/schemas/IdentityData'
-        properties:
-          description: Azure Databricks accessConnector properties
-          $ref: '#/components/schemas/AccessConnectorProperties'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Information about azure databricks accessConnector.
-    AccessConnectorProperties:
-      type: object
-      properties:
-        provisioningState:
-          description: Provisioning status of the accessConnector.
-          readOnly: true
-          enum:
-            - Deleted
-            - Failed
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
-    IdentityData:
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - None
-            - SystemAssigned
-          x-ms-enum:
-            name: IdentityType
-            modelAsString: true
-      required:
-        - type
-      description: Identity for the resource.
-    AccessConnectorUpdate:
-      description: An update to an azure databricks accessConnector.
-      type: object
-      properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        identity:
-          $ref: '#/components/schemas/IdentityData'
-          description: The identity of the resource.
-    AccessConnectorListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccessConnector'
-          description: The array of azure databricks accessConnector.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of azure databricks accessConnector.
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1242,6 +1242,7 @@ components:
       description: The ID of the target subscription.
       required: true
       schema:
+        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
@@ -1249,6 +1250,7 @@ components:
       description: The API version to use for this operation.
       required: true
       schema:
+        minLength: 1
         type: string
     ResourceGroupName:
       name: resourceGroupName
@@ -1278,6 +1280,16 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        type: string
+    ConnectorName:
+      name: connectorName
+      in: path
+      description: The name of the azure databricks accessConnector.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 3
+        maxLength: 64
         type: string
     GroupId:
       name: groupId
@@ -1323,17 +1335,298 @@ components:
       schema:
         minLength: 1
         type: string
-    ConnectorName:
-      name: connectorName
-      in: path
-      description: The name of the azure databricks accessConnector.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 3
-        maxLength: 64
-        type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings/{peeringName}:
+    x-api-version: 2022-04-01-preview
+    get:
+      tags:
+        - vNetPeering
+      operationId: vNetPeering_Get
+      description: Gets the workspace vNet Peering.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/WorkspaceName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/PeeringNameParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualNetworkPeering'
+        '204':
+          description: OK - NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - vNetPeering
+      operationId: vNetPeering_Delete
+      description: Deletes the workspace vNetPeering.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/WorkspaceName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/PeeringNameParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        '204':
+          description: NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    put:
+      tags:
+        - vNetPeering
+      operationId: vNetPeering_CreateOrUpdate
+      description: Creates vNet Peering for workspace.
+      requestBody:
+        description: Parameters supplied to the create workspace vNet Peering.
+        required: true
+        x-ms-requestBody-name: VirtualNetworkPeeringParameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualNetworkPeering'
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/WorkspaceName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/PeeringNameParameter'
+      responses:
+        '200':
+          description: Update succeeded - Returns information about the workspace vNet peering.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualNetworkPeering'
+        '201':
+          description: Created - Returns information about the workspace vNet peering, including provisioning status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualNetworkPeering'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings:
+    x-api-version: 2022-04-01-preview
+    get:
+      tags:
+        - vNetPeering
+      operationId: vNetPeering_ListByWorkspace
+      description: Lists the workspace vNet Peerings.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/WorkspaceName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: List succeeded. Returns the resulting resource objects in response body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualNetworkPeeringList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors/{connectorName}:
+    x-api-version: 2022-04-01-preview
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Get
+      description: Gets an azure databricks accessConnector.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns the accessConnector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Delete
+      description: Deletes the azure databricks accessConnector.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        '204':
+          description: NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    put:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_CreateOrUpdate
+      description: Creates or updates azure databricks accessConnector.
+      requestBody:
+        description: Parameters supplied to the create or update an azure databricks accessConnector.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessConnector'
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Updated - Returns information about the azure databricks accessConnector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        '201':
+          description: Created - Returns information about the azure databricks accessConnector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    patch:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Update
+      description: Updates an azure databricks accessConnector.
+      requestBody:
+        description: The update to the azure databricks accessConnector.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessConnectorUpdate'
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully updated the azure databricks accessConnector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors:
+    x-api-version: 2022-04-01-preview
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_ListByResourceGroup
+      description: Gets all the azure databricks accessConnectors within a resource group.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns an array of azure databricks accessConnectors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnectorListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.Databricks/accessConnectors:
+    x-api-version: 2022-04-01-preview
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_ListBySubscription
+      description: Gets all the azure databricks accessConnectors within a subscription.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns an array of azure databricks accessConnectors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnectorListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}:
     x-api-version: 2022-04-01-preview
     get:
@@ -1732,294 +2025,3 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings/{peeringName}:
-    x-api-version: 2022-04-01-preview
-    get:
-      tags:
-        - vNetPeering
-      operationId: vNetPeering_Get
-      description: Gets the workspace vNet Peering.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/WorkspaceName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/PeeringNameParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualNetworkPeering'
-        '204':
-          description: OK - NoContent
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - vNetPeering
-      operationId: vNetPeering_Delete
-      description: Deletes the workspace vNetPeering.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/WorkspaceName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/PeeringNameParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-        '202':
-          description: Accepted - Returns this status until the asynchronous operation has completed.
-        '204':
-          description: NoContent
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    put:
-      tags:
-        - vNetPeering
-      operationId: vNetPeering_CreateOrUpdate
-      description: Creates vNet Peering for workspace.
-      requestBody:
-        description: Parameters supplied to the create workspace vNet Peering.
-        required: true
-        x-ms-requestBody-name: VirtualNetworkPeeringParameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VirtualNetworkPeering'
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/WorkspaceName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/PeeringNameParameter'
-      responses:
-        '200':
-          description: Update succeeded - Returns information about the workspace vNet peering.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualNetworkPeering'
-        '201':
-          description: Created - Returns information about the workspace vNet peering, including provisioning status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualNetworkPeering'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings:
-    x-api-version: 2022-04-01-preview
-    get:
-      tags:
-        - vNetPeering
-      operationId: vNetPeering_ListByWorkspace
-      description: Lists the workspace vNet Peerings.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/WorkspaceName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: List succeeded. Returns the resulting resource objects in response body.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualNetworkPeeringList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors/{connectorName}:
-    x-api-version: 2022-04-01-preview
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Get
-      description: Gets an azure databricks accessConnector.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns the accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Delete
-      description: Deletes the azure databricks accessConnector.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-        '202':
-          description: Accepted - Returns this status until the asynchronous operation has completed.
-        '204':
-          description: NoContent
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    put:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_CreateOrUpdate
-      description: Creates or updates azure databricks accessConnector.
-      requestBody:
-        description: Parameters supplied to the create or update an azure databricks accessConnector.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessConnector'
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Updated - Returns information about the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        '201':
-          description: Created - Returns information about the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    patch:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Update
-      description: Updates an azure databricks accessConnector.
-      requestBody:
-        description: The update to the azure databricks accessConnector.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessConnectorUpdate'
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Successfully updated the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        '202':
-          description: Accepted - Returns this status until the asynchronous operation has completed.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors:
-    x-api-version: 2022-04-01-preview
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_ListByResourceGroup
-      description: Gets all the azure databricks accessConnectors within a resource group.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns an array of azure databricks accessConnectors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnectorListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.Databricks/accessConnectors:
-    x-api-version: 2022-04-01-preview
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_ListBySubscription
-      description: Gets all the azure databricks accessConnectors within a subscription.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns an array of azure databricks accessConnectors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnectorListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
