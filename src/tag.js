@@ -48,7 +48,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     const title = serviceInfo[specificationDir].title;
     const description = serviceInfo[specificationDir].description;
         
-    const outputDir = `${taggedDir}/${providerName}/${serviceName}`;
+    const outputDir = `${taggedDir}/${providerName}/v00.00.00000/services/${serviceName}`;
 
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
