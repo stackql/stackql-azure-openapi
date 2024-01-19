@@ -4,7 +4,7 @@ servers:
 info:
   title: Hybrid Connectivity Management API
   description: REST API for Hybrid Connectivity
-  version: 2022-05-01-preview
+  version: '2023-03-15'
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,268 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    RelayNamespaceAccessProperties:
+      type: object
+      description: Azure relay hybrid connection access properties
+      required:
+        - namespaceName
+        - namespaceNameSuffix
+        - hybridConnectionName
+      properties:
+        namespaceName:
+          type: string
+          description: The namespace name.
+          minLength: 1
+          maxLength: 200
+        namespaceNameSuffix:
+          type: string
+          description: The suffix domain name of relay namespace.
+          minLength: 1
+          maxLength: 100
+        hybridConnectionName:
+          type: string
+          description: Azure Relay hybrid connection name for the resource.
+        accessKey:
+          type: string
+          description: Access key for hybrid connection.
+          readOnly: true
+        expiresOn:
+          type: integer
+          format: int64
+          description: The expiration of access key in unix time.
+        serviceConfigurationToken:
+          type: string
+          description: The token to access the enabled service.
+          x-ms-secret: true
+    IngressGatewayResource:
+      description: The ingress gateway access credentials
+      type: object
+      properties:
+        relay:
+          $ref: '#/components/schemas/RelayNamespaceAccessProperties'
+          x-ms-client-flatten: true
+        ingress:
+          $ref: '#/components/schemas/IngressProfileProperties'
+          x-ms-client-flatten: true
+    IngressProfileProperties:
+      type: object
+      description: Ingress gateway profile
+      required:
+        - hostname
+        - aadProfile
+      properties:
+        hostname:
+          type: string
+          description: The ingress hostname.
+        aadProfile:
+          $ref: '#/components/schemas/AADProfileProperties'
+          x-ms-client-flatten: true
+    AADProfileProperties:
+      type: object
+      description: The AAD Profile
+      required:
+        - serverId
+        - tenantId
+      properties:
+        serverId:
+          type: string
+          description: The arc ingress gateway server app id.
+        tenantId:
+          type: string
+          description: The target resource home tenant id.
+    EndpointAccessResource:
+      description: The endpoint access for the target resource.
+      type: object
+      properties:
+        relay:
+          $ref: '#/components/schemas/RelayNamespaceAccessProperties'
+          x-ms-client-flatten: true
+    EndpointProperties:
+      type: object
+      description: Endpoint details
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: The type of endpoint.
+          enum:
+            - default
+            - custom
+          x-ms-enum:
+            name: type
+            modelAsString: true
+        resourceId:
+          type: string
+          description: The resource Id of the connectivity endpoint (optional).
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The resource provisioning state.
+    ServiceConfigurationList:
+      description: The paginated list of serviceConfigurations
+      type: object
+      properties:
+        value:
+          description: The list of service configuration
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfigurationResource'
+        nextLink:
+          description: The link to fetch the next page of connected cluster
+          type: string
+    EndpointResource:
+      description: The endpoint for the target resource.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        systemData:
+          description: System data of endpoint resource
+          $ref: '#/components/schemas/systemData'
+          x-ms-client-flatten: true
+        properties:
+          description: The endpoint properties.
+          $ref: '#/components/schemas/EndpointProperties'
+          x-ms-client-flatten: false
+    ServiceConfigurationResource:
+      description: The service configuration details associated with the target resource.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        systemData:
+          description: System data of endpoint resource
+          $ref: '#/components/schemas/systemData'
+          x-ms-client-flatten: true
+        properties:
+          description: The service configuration properties.
+          $ref: '#/components/schemas/ServiceConfigurationProperties'
+          x-ms-client-flatten: true
+    ServiceConfigurationProperties:
+      type: object
+      description: Service configuration details
+      required:
+        - serviceName
+      properties:
+        serviceName:
+          type: string
+          description: Name of the service.
+          enum:
+            - SSH
+            - WAC
+          x-ms-enum:
+            name: serviceName
+            modelAsString: true
+        resourceId:
+          type: string
+          description: The resource Id of the connectivity endpoint (optional).
+        port:
+          type: integer
+          format: int64
+          description: The port on which service is enabled.
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The resource provisioning state.
+          enum:
+            - Succeeded
+            - Creating
+            - Updating
+            - Failed
+            - Canceled
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+    ServiceConfigurationResourcePatch:
+      description: The service details under service configuration for the target endpoint resource.
+      type: object
+      properties:
+        properties:
+          description: The service configuration properties.
+          $ref: '#/components/schemas/ServiceConfigurationPropertiesPatch'
+          x-ms-client-flatten: true
+    ServiceConfigurationPropertiesPatch:
+      type: object
+      description: Service configuration details
+      properties:
+        port:
+          type: integer
+          format: int64
+          description: The port on which service is enabled.
+    EndpointsList:
+      description: The list of endpoints.
+      type: object
+      properties:
+        nextLink:
+          description: The link used to get the next page of endpoints list.
+          type: string
+        value:
+          description: The list of endpoint.
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointResource'
+    ManagedProxyResource:
+      type: object
+      description: Managed Proxy
+      required:
+        - proxy
+        - expiresOn
+      properties:
+        proxy:
+          type: string
+          description: The short lived proxy name.
+        expiresOn:
+          type: integer
+          format: int64
+          description: The expiration time of short lived proxy name in unix epoch.
+    ManagedProxyRequest:
+      type: object
+      description: Represent ManageProxy Request object.
+      required:
+        - service
+      properties:
+        service:
+          type: string
+          description: The name of the service.
+        hostname:
+          type: string
+          description: The target host name.
+        serviceName:
+          type: string
+          description: The name of the service. It is an optional property, if not provided, service configuration tokens issue code would be by passed.
+          enum:
+            - SSH
+            - WAC
+          x-ms-enum:
+            name: serviceName
+            modelAsString: true
+    ListCredentialsRequest:
+      type: object
+      description: The details of the service for which credentials needs to be returned.
+      properties:
+        serviceName:
+          type: string
+          description: 'The name of the service. If not provided, the request will by pass the generation of service configuration token '
+          enum:
+            - SSH
+            - WAC
+          x-ms-enum:
+            name: serviceName
+            modelAsString: true
+    ListIngressGatewayCredentialsRequest:
+      type: object
+      description: Represent ListIngressGatewayCredentials Request object.
+      properties:
+        serviceName:
+          type: string
+          description: The name of the service.
+          enum:
+            - SSH
+            - WAC
+          x-ms-enum:
+            name: serviceName
+            modelAsString: true
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -27,7 +289,8 @@ components:
         id:
           readOnly: true
           type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         name:
           readOnly: true
           type: string
@@ -36,6 +299,10 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -83,28 +350,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -117,21 +362,12 @@ components:
           x-ms-mutability:
             - read
             - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
           pattern: ^[-\w\._,\(\)]+$
         etag:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -141,25 +377,29 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
       properties:
         name:
           type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -179,11 +419,13 @@ components:
         principalId:
           readOnly: true
           type: string
-          description: The principal ID of resource identity.
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
         tenantId:
           readOnly: true
           type: string
-          description: The tenant ID of resource.
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
         type:
           type: string
           description: The identity type.
@@ -334,6 +576,7 @@ components:
           readOnly: true
         nextLink:
           type: string
+          format: uri
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
     OperationStatusResult:
@@ -345,6 +588,12 @@ components:
         id:
           description: Fully qualified ID for the async operation.
           type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
         name:
           description: Name of the async operation.
           type: string
@@ -486,160 +735,53 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    RelayNamespaceAccessProperties:
-      type: object
-      description: Azure relay hybrid connection access properties
-      required:
-        - namespaceName
-        - namespaceNameSuffix
-        - hybridConnectionName
-      properties:
-        namespaceName:
-          type: string
-          description: The namespace name.
-          minLength: 1
-          maxLength: 200
-        namespaceNameSuffix:
-          type: string
-          description: The suffix domain name of relay namespace.
-          minLength: 1
-          maxLength: 100
-        hybridConnectionName:
-          type: string
-          description: Azure Relay hybrid connection name for the resource.
-        accessKey:
-          type: string
-          description: Access key for hybrid connection.
-          readOnly: true
-        expiresOn:
-          type: integer
-          format: int64
-          description: The expiration of access key in unix time.
-    IngressGatewayResource:
-      description: The ingress gateway access credentials
-      type: object
-      properties:
-        relay:
-          $ref: '#/components/schemas/RelayNamespaceAccessProperties'
-          x-ms-client-flatten: true
-        ingress:
-          $ref: '#/components/schemas/IngressProfileProperties'
-          x-ms-client-flatten: true
-    IngressProfileProperties:
-      type: object
-      description: Ingress gateway profile
-      required:
-        - hostname
-        - aadProfile
-      properties:
-        hostname:
-          type: string
-          description: The ingress hostname.
-        aadProfile:
-          $ref: '#/components/schemas/AADProfileProperties'
-          x-ms-client-flatten: true
-    AADProfileProperties:
-      type: object
-      description: The AAD Profile
-      required:
-        - serverId
-        - tenantId
-      properties:
-        serverId:
-          type: string
-          description: The arc ingress gateway server app id.
-        tenantId:
-          type: string
-          description: The target resource home tenant id.
-    EndpointAccessResource:
-      description: The endpoint access for the target resource.
-      type: object
-      properties:
-        relay:
-          $ref: '#/components/schemas/RelayNamespaceAccessProperties'
-          x-ms-client-flatten: true
-    EndpointProperties:
-      type: object
-      description: Endpoint details
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          description: The type of endpoint.
-          enum:
-            - default
-            - custom
-          x-ms-enum:
-            name: type
-            modelAsString: true
-        resourceId:
-          type: string
-          description: The resource Id of the connectivity endpoint (optional).
-        provisioningState:
-          type: string
-          readOnly: true
-          description: The resource provisioning state.
-    EndpointResource:
-      description: The endpoint for the target resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        systemData:
-          description: System data of endpoint resource
-          $ref: '#/components/schemas/systemData'
-          x-ms-client-flatten: true
-        properties:
-          description: The endpoint properties.
-          $ref: '#/components/schemas/EndpointProperties'
-          x-ms-client-flatten: true
-    EndpointsList:
-      description: The list of endpoints.
-      type: object
-      properties:
-        nextLink:
-          description: The link used to get the next page of endpoints list.
-          type: string
-        value:
-          description: The list of endpoint.
-          type: array
-          items:
-            $ref: '#/components/schemas/EndpointResource'
-    ManagedProxyResource:
-      type: object
-      description: Managed Proxy
-      required:
-        - proxy
-        - expiresOn
-      properties:
-        proxy:
-          type: string
-          description: The short lived proxy name.
-        expiresOn:
-          type: integer
-          format: int64
-          description: The expiration time of short lived proxy name in unix epoch.
-    ManagedProxyRequest:
-      type: object
-      description: Represent ManageProxy Request object.
-      required:
-        - service
-      properties:
-        service:
-          type: string
-          description: The name of the service.
-        hostname:
-          type: string
-          description: The target host name.
   parameters:
+    ResourceUriParameter:
+      name: resourceUri
+      in: path
+      description: The fully qualified Azure Resource manager identifier of the resource to be connected.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    EndpointNameParameter:
+      name: endpointName
+      in: path
+      description: The endpoint name.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ServiceConfigurationNameParameter:
+      name: serviceConfigurationName
+      in: path
+      description: The service name.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    AccessTokenExpirationParameter:
+      name: expiresin
+      in: query
+      description: The is how long the endpoint access token is valid (in seconds).
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int64
+        default: 10800
+        minimum: 600
+        maximum: 10800
+        type: integer
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription.
+      description: The ID of the target subscription. The value must be an UUID.
       required: true
       schema:
-        minLength: 1
+        format: uuid
         type: string
     ApiVersionParameter:
       name: api-version
@@ -659,6 +801,36 @@ components:
         minLength: 1
         maxLength: 90
         type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
     OperationIdParameter:
       name: operationId
       in: path
@@ -671,45 +843,31 @@ components:
     LocationParameter:
       name: location
       in: path
-      description: The name of Azure region.
+      description: The name of the Azure region.
       required: true
       x-ms-parameter-location: method
       schema:
         minLength: 1
         type: string
-    ResourceUriParameter:
-      name: resourceUri
-      in: path
-      description: The fully qualified Azure Resource manager identifier of the resource to be connected.
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
       required: true
-      x-ms-skip-url-encoding: true
       x-ms-parameter-location: method
       schema:
         type: string
-    EndpointNameParameter:
-      name: endpointName
-      in: path
-      description: The endpoint name.
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
       required: true
-      x-ms-skip-url-encoding: true
       x-ms-parameter-location: method
       schema:
         type: string
-    AccessTokenExpirationParameter:
-      name: expiresin
-      in: query
-      description: The is how long the endpoint access token is valid (in seconds).
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int64
-        default: 10800
-        minimum: 600
-        maximum: 10800
-        type: integer
 paths:
   /providers/Microsoft.HybridConnectivity/operations:
-    x-api-version: 2022-05-01-preview
+    x-api-version: '2023-03-15'
     get:
       tags:
         - Operations
@@ -734,7 +892,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints:
-    x-api-version: 2022-05-01-preview
+    x-api-version: '2023-03-15'
     get:
       tags:
         - Endpoints
@@ -760,7 +918,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}:
-    x-api-version: 2022-05-01-preview
+    x-api-version: '2023-03-15'
     get:
       tags:
         - Endpoints
@@ -864,8 +1022,150 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}/serviceConfigurations:
+    x-api-version: '2023-03-15'
+    get:
+      tags:
+        - ServiceConfigurations
+      summary: Lists of all the services associated with endpoint resource.
+      operationId: ServiceConfigurations_ListByEndpointResource
+      description: API to enumerate registered services in service configurations under a Endpoint Resource
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConfigurationList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}/serviceConfigurations/{serviceConfigurationName}:
+    x-api-version: '2023-03-15'
+    get:
+      tags:
+        - ServiceConfigurations
+      description: Gets the details about the service to the resource.
+      operationId: ServiceConfigurations_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+        - $ref: '#/components/parameters/ServiceConfigurationNameParameter'
+      responses:
+        '200':
+          description: Service configuration resource request was successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConfigurationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      deprecated: false
+    put:
+      tags:
+        - ServiceConfigurations
+      description: Create or update a service in serviceConfiguration for the endpoint resource.
+      operationId: ServiceConfigurations_CreateOrupdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+        - $ref: '#/components/parameters/ServiceConfigurationNameParameter'
+      requestBody:
+        description: Service details
+        required: true
+        x-ms-requestBody-name: ServiceConfigurationResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceConfigurationResource'
+      responses:
+        '200':
+          description: ServiceConfiguration resource create request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConfigurationResource'
+        '201':
+          description: ServiceConfiguration resource is successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConfigurationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - ServiceConfigurations
+      description: Update the service details in the service configurations of the target resource.
+      operationId: ServiceConfigurations_Update
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+        - $ref: '#/components/parameters/ServiceConfigurationNameParameter'
+      requestBody:
+        description: Service details
+        required: true
+        x-ms-requestBody-name: ServiceConfigurationResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceConfigurationResourcePatch'
+      responses:
+        '200':
+          description: ServiceConfiguration service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConfigurationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - ServiceConfigurations
+      description: Deletes the service details to the target resource.
+      operationId: ServiceConfigurations_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+        - $ref: '#/components/parameters/ServiceConfigurationNameParameter'
+      responses:
+        '200':
+          description: The service configuration resource is deleted successfully.
+        '204':
+          description: The service configuration resource has been deleted already.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}/listCredentials:
-    x-api-version: 2022-05-01-preview
+    x-api-version: '2023-03-15'
     post:
       tags:
         - Endpoints
@@ -876,6 +1176,13 @@ paths:
         - $ref: '#/components/parameters/ResourceUriParameter'
         - $ref: '#/components/parameters/EndpointNameParameter'
         - $ref: '#/components/parameters/AccessTokenExpirationParameter'
+      requestBody:
+        description: Object of type ListCredentialsRequest
+        x-ms-requestBody-name: ListCredentialsRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListCredentialsRequest'
       responses:
         '200':
           description: Endpoint access credentials
@@ -890,8 +1197,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       deprecated: false
+  /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}/listIngressGatewayCredentials:
+    x-api-version: '2023-03-15'
+    post:
+      tags:
+        - Endpoints
+      description: 'Gets the ingress gateway endpoint credentials '
+      operationId: Endpoints_ListIngressGatewayCredentials
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/EndpointNameParameter'
+        - $ref: '#/components/parameters/AccessTokenExpirationParameter'
+      requestBody:
+        description: Object of type ListIngressGatewayCredentialsRequest
+        x-ms-requestBody-name: ListIngressGatewayCredentialsRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListIngressGatewayCredentialsRequest'
+      responses:
+        '200':
+          description: Ingress gateway access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngressGatewayResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      deprecated: false
   /{resourceUri}/providers/Microsoft.HybridConnectivity/endpoints/{endpointName}/listManagedProxyDetails:
-    x-api-version: 2022-05-01-preview
+    x-api-version: '2023-03-15'
     post:
       tags:
         - Endpoints

@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure VMware Solution API
   description: Azure VMware Solution API
-  version: '2021-12-01'
+  version: '2023-03-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -69,7 +69,8 @@ components:
         id:
           readOnly: true
           type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         name:
           readOnly: true
           type: string
@@ -78,6 +79,10 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     TrackedResource:
       title: Tracked Resource
@@ -118,14 +123,6 @@ components:
       type: object
       allOf:
         - $ref: '#/components/schemas/Resource'
-    CloudError:
-      type: object
-      x-ms-external: true
-      properties:
-        error:
-          description: An error returned by the API
-          $ref: '#/components/schemas/ErrorResponse'
-      description: API error response
     OperationList:
       type: object
       description: Pageable list of operations
@@ -136,6 +133,8 @@ components:
           readOnly: true
           items:
             $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
         nextLink:
           description: URL to get the next page if any
           type: string
@@ -210,12 +209,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LogSpecification'
+          x-ms-identifiers:
+            - name
         metricSpecifications:
           description: Specifications of the Metrics for Azure Monitoring
           uniqueItems: false
           type: array
           items:
             $ref: '#/components/schemas/MetricSpecification'
+          x-ms-identifiers:
+            - name
     LogSpecification:
       description: Specifications of the Log for Azure Monitoring
       type: object
@@ -272,6 +275,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MetricDimension'
+          x-ms-identifiers:
+            - name
         enableRegionalMdmAccount:
           description: Whether or not the service is using regional MDM accounts.
           type: string
@@ -320,6 +325,7 @@ components:
             - Succeeded
             - Failed
             - Updating
+            - Canceled
           x-ms-enum:
             name: ExpressRouteAuthorizationProvisioningState
             modelAsString: true
@@ -378,6 +384,10 @@ components:
         keyVersion:
           type: string
           description: The version of the key.
+        autoDetectedKeyVersion:
+          type: string
+          readOnly: true
+          description: The auto-detected version of the key if versionType is auto-detected.
         keyVaultUrl:
           type: string
           description: The URL of the vault.
@@ -550,6 +560,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IdentitySource'
+          x-ms-identifiers:
+            - name
         availability:
           description: Properties describing how the cloud is distributed across availability zones
           $ref: '#/components/schemas/AvailabilityProperties'
@@ -559,6 +571,11 @@ components:
         encryption:
           description: Customer managed key encryption, can be enabled or disabled
           $ref: '#/components/schemas/Encryption'
+        extendedNetworkBlocks:
+          description: Array of additional networks noncontiguous with networkBlock. Networks must be unique and non-overlapping across VNet in your subscription, on-premise, and this privateCloud networkBlock attribute. Make sure the CIDR format conforms to (A.B.C.D/X).
+          type: array
+          items:
+            type: string
     PrivateCloudProperties:
       type: object
       description: The properties of a private cloud resource
@@ -580,6 +597,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: PrivateCloudProvisioningState
             modelAsString: true
@@ -633,6 +651,16 @@ components:
         secondaryCircuit:
           description: A secondary expressRoute circuit from a separate AZ. Only present in a stretched private cloud
           $ref: '#/components/schemas/Circuit'
+        nsxPublicIpQuotaRaised:
+          description: Flag to indicate whether the private cloud has the quota for provisioned NSX Public IP count raised from 64 to 1024
+          type: string
+          readOnly: true
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: nsxPublicIpQuotaRaisedEnum
+            modelAsString: true
     Cluster:
       type: object
       description: A cluster resource
@@ -679,6 +707,7 @@ components:
         - Cancelled
         - Deleting
         - Updating
+        - Canceled
       x-ms-enum:
         name: ClusterProvisioningState
         modelAsString: true
@@ -715,7 +744,6 @@ components:
       description: The properties of a cluster
       allOf:
         - $ref: '#/components/schemas/CommonClusterProperties'
-      properties: {}
     PrivateCloudList:
       type: object
       description: A paged list of private clouds
@@ -767,6 +795,7 @@ components:
             - SRM
             - VR
             - HCX
+            - Arc
           x-ms-enum:
             name: AddonType
             modelAsString: true
@@ -781,6 +810,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: AddonProvisioningState
             modelAsString: true
@@ -821,6 +851,16 @@ components:
           type: string
       required:
         - offer
+    AddonArcProperties:
+      type: object
+      description: The properties of an Arc addon
+      x-ms-discriminator-value: Arc
+      allOf:
+        - $ref: '#/components/schemas/AddonProperties'
+      properties:
+        vCenter:
+          description: The VMware vCenter resource ID
+          type: string
     AddonList:
       type: object
       description: A paged list of addons
@@ -875,6 +915,7 @@ components:
             - Creating
             - Updating
             - Deleting
+            - Canceled
           x-ms-enum:
             name: DatastoreProvisioningState
             modelAsString: true
@@ -963,18 +1004,9 @@ components:
       properties:
         name:
           type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -1068,6 +1100,7 @@ components:
             - Succeeded
             - Failed
             - Updating
+            - Canceled
           x-ms-enum:
             name: GlobalReachConnectionProvisioningState
             modelAsString: true
@@ -1176,6 +1209,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkloadNetworkSegmentPortVif'
+          x-ms-identifiers:
+            - portName
           readOnly: true
         status:
           description: Segment status.
@@ -1197,6 +1232,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkSegmentProvisioningState
             modelAsString: true
@@ -1204,6 +1240,11 @@ components:
           description: NSX revision number.
           type: integer
           format: int64
+    WorkloadNetwork:
+      type: object
+      description: Workload Network
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
     WorkloadNetworkSegment:
       type: object
       description: NSX Segment
@@ -1214,6 +1255,20 @@ components:
           description: The properties of a Workload Segment proxy resource.
           $ref: '#/components/schemas/WorkloadNetworkSegmentProperties'
           x-ms-client-flatten: true
+    WorkloadNetworkList:
+      type: object
+      description: A list of workload networks
+      properties:
+        value:
+          description: The items on the page
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/WorkloadNetwork'
+        nextLink:
+          description: URL to get the next page if any
+          type: string
+          readOnly: true
     WorkloadNetworkSegmentsList:
       type: object
       description: A list of NSX Segments
@@ -1262,6 +1317,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkDhcpProvisioningState
             modelAsString: true
@@ -1366,6 +1422,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkPortMirroringProvisioningState
             modelAsString: true
@@ -1429,6 +1486,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkVMGroupProvisioningState
             modelAsString: true
@@ -1587,6 +1645,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkDnsServiceProvisioningState
             modelAsString: true
@@ -1652,6 +1711,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkDnsZoneProvisioningState
             modelAsString: true
@@ -1708,6 +1768,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: WorkloadNetworkPublicIPProvisioningState
             modelAsString: true
@@ -1830,6 +1891,7 @@ components:
             - Building
             - Deleting
             - Updating
+            - Canceled
           x-ms-enum:
             name: PlacementPolicyProvisioningState
             modelAsString: true
@@ -1873,6 +1935,12 @@ components:
         affinityType:
           description: placement policy affinity type
           $ref: '#/components/schemas/AffinityType'
+        affinityStrength:
+          description: vm-host placement policy affinity strength (should/must)
+          $ref: '#/components/schemas/AffinityStrength'
+        azureHybridBenefitType:
+          description: placement policy azure hybrid benefit opt-in type
+          $ref: '#/components/schemas/AzureHybridBenefitType'
       required:
         - vmMembers
         - hostMembers
@@ -1932,6 +2000,12 @@ components:
           type: array
           items:
             type: string
+        affinityStrength:
+          description: vm-host placement policy affinity strength (should/must)
+          $ref: '#/components/schemas/AffinityStrength'
+        azureHybridBenefitType:
+          description: placement policy azure hybrid benefit opt-in type
+          $ref: '#/components/schemas/AzureHybridBenefitType'
     AffinityType:
       description: Placement policy affinity type
       type: string
@@ -1940,6 +2014,24 @@ components:
         - AntiAffinity
       x-ms-enum:
         name: AffinityType
+        modelAsString: true
+    AffinityStrength:
+      description: VM-Host placement policy affinity strength (should/must)
+      type: string
+      enum:
+        - Should
+        - Must
+      x-ms-enum:
+        name: AffinityStrength
+        modelAsString: true
+    AzureHybridBenefitType:
+      description: Placement policy hosts opt-in Azure Hybrid Benefit type
+      type: string
+      enum:
+        - SqlHost
+        - None
+      x-ms-enum:
+        name: AzureHybridBenefitType
         modelAsString: true
     ScriptPackageProperties:
       type: object
@@ -1951,6 +2043,14 @@ components:
           readOnly: true
         version:
           description: Module version
+          type: string
+          readOnly: true
+        company:
+          description: Company that created and supports the package
+          type: string
+          readOnly: true
+        uri:
+          description: Link to support by the package vendor
           type: string
           readOnly: true
     ScriptPackagesList:
@@ -2050,6 +2150,8 @@ components:
           readOnly: true
           items:
             $ref: '#/components/schemas/ScriptParameter'
+          x-ms-identifiers:
+            - name
     ScriptCmdletsList:
       type: object
       description: Pageable list of scripts/cmdlets
@@ -2108,11 +2210,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScriptExecutionParameter'
+          x-ms-identifiers:
+            - name
         hiddenParameters:
           description: Parameters that will be hidden/not visible to ARM, such as passwords and credentials
           type: array
           items:
             $ref: '#/components/schemas/ScriptExecutionParameter'
+          x-ms-identifiers:
+            - name
         failureReason:
           type: string
           description: Error message if the script was able to run, but if the script itself had errors or powershell threw an exception
@@ -2149,6 +2255,7 @@ components:
             - Cancelling
             - Cancelled
             - Deleting
+            - Canceled
           x-ms-enum:
             name: ScriptExecutionProvisioningState
             modelAsString: true
@@ -2253,6 +2360,31 @@ components:
             name: ResourceIdentityType
             modelAsString: true
       description: Identity for the virtual machine.
+    ClusterZone:
+      type: object
+      properties:
+        hosts:
+          readOnly: true
+          type: array
+          items:
+            type: string
+          description: List of hosts belonging to the availability zone in a cluster
+        zone:
+          readOnly: true
+          type: string
+          description: Availability zone identifier
+      description: Zone and associated hosts info
+    ClusterZoneList:
+      type: object
+      properties:
+        zones:
+          type: array
+          description: Zone and associated hosts info
+          items:
+            $ref: '#/components/schemas/ClusterZone'
+          x-ms-identifiers:
+            - zone
+      description: List of all zones and associated hosts for a cluster
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
@@ -2269,28 +2401,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -2303,21 +2413,12 @@ components:
           x-ms-mutability:
             - read
             - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
           pattern: ^[-\w\._,\(\)]+$
         etag:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -2327,7 +2428,20 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Identity:
       description: Identity for the resource.
       type: object
@@ -2335,11 +2449,13 @@ components:
         principalId:
           readOnly: true
           type: string
-          description: The principal ID of resource identity.
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
         tenantId:
           readOnly: true
           type: string
-          description: The tenant ID of resource.
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
         type:
           type: string
           description: The identity type.
@@ -2371,9 +2487,8 @@ components:
         - name
         - publisher
         - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+    ErrorDetail:
+      description: The error detail.
       type: object
       properties:
         code:
@@ -2392,7 +2507,7 @@ components:
           readOnly: true
           type: array
           items:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorDetail'
           x-ms-identifiers:
             - message
             - target
@@ -2404,6 +2519,14 @@ components:
             $ref: '#/components/schemas/ErrorAdditionalInfo'
           x-ms-identifiers: []
           description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -2430,8 +2553,51 @@ components:
           readOnly: true
         nextLink:
           type: string
+          format: uri
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
     locationData:
       description: Metadata pertaining to the geographic location of the resource.
       type: object
@@ -2517,6 +2683,35 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
   parameters:
     privateCloudName:
       name: privateCloudName
@@ -2525,6 +2720,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     clusterName:
       name: clusterName
@@ -2533,6 +2729,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     hcxEnterpriseSiteName:
       name: hcxEnterpriseSiteName
@@ -2541,6 +2738,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     addonName:
       name: addonName
@@ -2549,6 +2747,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     authorizationName:
       name: authorizationName
@@ -2557,6 +2756,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     globalReachConnectionName:
       name: globalReachConnectionName
@@ -2565,6 +2765,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     segmentId:
       name: segmentId
@@ -2645,6 +2846,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     cloudLinkName:
       name: cloudLinkName
@@ -2653,6 +2855,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     placementPolicyName:
       name: placementPolicyName
@@ -2661,6 +2864,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     scriptExecutionName:
       name: scriptExecutionName
@@ -2669,6 +2873,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
         type: string
     scriptPackageName:
       name: scriptPackageName
@@ -2677,6 +2882,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._@]+$
         type: string
     scriptCmdletName:
       name: scriptCmdletName
@@ -2685,14 +2891,37 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[-\w\._]+$
+        type: string
+    workloadNetworkName:
+      name: workloadNetworkName
+      in: path
+      description: Name for the workload network in the private cloud
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - default
+        x-ms-enum:
+          name: WorkloadNetworkName
+          modelAsString: true
+        pattern: ^[-\w\._]+$
+        type: string
+    provisionedNetworkName:
+      name: provisionedNetworkName
+      in: path
+      description: Name of the provisioned network in the private cloud
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription.
+      description: The ID of the target subscription. The value must be an UUID.
       required: true
       schema:
-        minLength: 1
+        format: uuid
         type: string
     ApiVersionParameter:
       name: api-version
@@ -2712,9 +2941,73 @@ components:
         minLength: 1
         maxLength: 90
         type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
 paths:
   /providers/Microsoft.AVS/operations:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       tags:
         - Operations
@@ -2736,9 +3029,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AVS/locations/{location}/checkTrialAvailability:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       tags:
         - Locations
@@ -2753,6 +3046,14 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The sku to check for trial availability
+        required: false
+        x-ms-requestBody-name: sku
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sku'
       responses:
         '200':
           description: Request has succeeded
@@ -2765,9 +3066,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AVS/locations/{location}/checkQuotaAvailability:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       tags:
         - Locations
@@ -2794,9 +3095,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: PrivateClouds_List
       x-ms-pageable:
@@ -2820,9 +3121,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AVS/privateClouds:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: PrivateClouds_ListInSubscription
       x-ms-pageable:
@@ -2845,9 +3146,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: PrivateClouds_Get
       tags:
@@ -2870,7 +3171,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: PrivateClouds_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -2908,7 +3209,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: PrivateClouds_Update
       x-ms-long-running-operation: true
@@ -2946,7 +3247,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: PrivateClouds_Delete
       x-ms-long-running-operation: true
@@ -2970,9 +3271,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/rotateVcenterPassword:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       operationId: PrivateClouds_RotateVcenterPassword
       tags:
@@ -2994,9 +3295,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/rotateNsxtPassword:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       operationId: PrivateClouds_RotateNsxtPassword
       tags:
@@ -3018,9 +3319,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Clusters_List
       x-ms-pageable:
@@ -3045,9 +3346,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Clusters_Get
       tags:
@@ -3071,7 +3372,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: Clusters_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3115,7 +3416,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: Clusters_Update
       x-ms-long-running-operation: true
@@ -3154,7 +3455,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: Clusters_Delete
       x-ms-long-running-operation: true
@@ -3179,9 +3480,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/listZones:
+    x-api-version: '2023-03-01'
+    post:
+      operationId: Clusters_ListZones
+      tags:
+        - Cluster
+        - Zone
+      summary: List hosts by zone in a cluster
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/privateCloudName'
+        - $ref: '#/components/parameters/clusterName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK, zones information is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterZoneList'
+        default:
+          description: Error response describing why the operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/datastores:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Datastores_List
       x-ms-pageable:
@@ -3207,9 +3535,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/datastores/{datastoreName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Datastores_Get
       tags:
@@ -3234,7 +3562,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: Datastores_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3274,7 +3602,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: Datastores_Delete
       x-ms-long-running-operation: true
@@ -3300,9 +3628,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/listAdminCredentials:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       operationId: PrivateClouds_ListAdminCredentials
       tags:
@@ -3325,16 +3653,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/hcxEnterpriseSites:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: HcxEnterpriseSites_List
       x-ms-pageable:
         nextLinkName: nextLink
       tags:
         - HcxEnterpriseSites
-      summary: List HCX Enterprise Sites in a private cloud
+      summary: List HCX on-premises key in a private cloud
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -3352,14 +3680,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/hcxEnterpriseSites/{hcxEnterpriseSiteName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: HcxEnterpriseSites_Get
       tags:
         - HcxEnterpriseSites
-      summary: Get an HCX Enterprise Site by name in a private cloud
+      summary: Get an HCX on-premises key by name in a private cloud
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -3378,12 +3706,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: HcxEnterpriseSites_CreateOrUpdate
       tags:
         - HcxEnterpriseSites
-      summary: Create or update an HCX Enterprise Site in a private cloud
+      summary: Create or update an activation key for on-premises HCX site
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -3421,12 +3749,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: HcxEnterpriseSites_Delete
       tags:
         - HcxEnterpriseSites
-      summary: Delete an HCX Enterprise Site in a private cloud
+      summary: Delete HCX on-premises key in a private cloud
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -3443,9 +3771,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/authorizations:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Authorizations_List
       x-ms-pageable:
@@ -3470,9 +3798,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/authorizations/{authorizationName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Authorizations_Get
       tags:
@@ -3496,7 +3824,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: Authorizations_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3540,7 +3868,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: Authorizations_Delete
       x-ms-long-running-operation: true
@@ -3565,9 +3893,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/globalReachConnections:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: GlobalReachConnections_List
       x-ms-pageable:
@@ -3592,9 +3920,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/globalReachConnections/{globalReachConnectionName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: GlobalReachConnections_Get
       tags:
@@ -3618,7 +3946,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: GlobalReachConnections_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -3662,7 +3990,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: GlobalReachConnections_Delete
       x-ms-long-running-operation: true
@@ -3687,9 +4015,62 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/{workloadNetworkName}:
+    x-api-version: '2023-03-01'
+    get:
+      operationId: WorkloadNetworks_Get
+      tags:
+        - WorkloadNetworks
+      summary: Get a private cloud workload network.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/privateCloudName'
+        - $ref: '#/components/parameters/workloadNetworkName'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkloadNetwork'
+        default:
+          description: Error response describing why the operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks:
+    x-api-version: '2023-03-01'
+    get:
+      operationId: WorkloadNetworks_List
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - WorkloadNetworks
+      summary: List of workload networks in a private cloud.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/privateCloudName'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkloadNetworkList'
+        default:
+          description: Error response describing why the operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/segments:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListSegments
       x-ms-pageable:
@@ -3714,9 +4095,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/segments/{segmentId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetSegment
       tags:
@@ -3740,7 +4121,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreateSegments
       x-ms-long-running-operation: true
@@ -3779,7 +4160,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdateSegments
       x-ms-long-running-operation: true
@@ -3814,7 +4195,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeleteSegment
       x-ms-long-running-operation: true
@@ -3839,9 +4220,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dhcpConfigurations:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListDhcp
       x-ms-pageable:
@@ -3866,9 +4247,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dhcpConfigurations/{dhcpId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetDhcp
       tags:
@@ -3892,7 +4273,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreateDhcp
       x-ms-long-running-operation: true
@@ -3931,7 +4312,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdateDhcp
       x-ms-long-running-operation: true
@@ -3966,7 +4347,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeleteDhcp
       x-ms-long-running-operation: true
@@ -3991,9 +4372,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/gateways:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListGateways
       x-ms-pageable:
@@ -4018,9 +4399,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/gateways/{gatewayId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetGateway
       tags:
@@ -4044,9 +4425,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/portMirroringProfiles:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListPortMirroring
       x-ms-pageable:
@@ -4071,9 +4452,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/portMirroringProfiles/{portMirroringId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetPortMirroring
       tags:
@@ -4097,7 +4478,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreatePortMirroring
       x-ms-long-running-operation: true
@@ -4136,7 +4517,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdatePortMirroring
       x-ms-long-running-operation: true
@@ -4171,7 +4552,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeletePortMirroring
       x-ms-long-running-operation: true
@@ -4196,9 +4577,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/vmGroups:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListVMGroups
       x-ms-pageable:
@@ -4223,9 +4604,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/vmGroups/{vmGroupId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetVMGroup
       tags:
@@ -4249,7 +4630,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreateVMGroup
       x-ms-long-running-operation: true
@@ -4288,7 +4669,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdateVMGroup
       x-ms-long-running-operation: true
@@ -4323,7 +4704,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeleteVMGroup
       x-ms-long-running-operation: true
@@ -4348,9 +4729,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/virtualMachines:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListVirtualMachines
       x-ms-pageable:
@@ -4375,9 +4756,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/virtualMachines/{virtualMachineId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetVirtualMachine
       tags:
@@ -4401,9 +4782,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dnsServices:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListDnsServices
       x-ms-pageable:
@@ -4428,9 +4809,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dnsServices/{dnsServiceId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetDnsService
       tags:
@@ -4454,7 +4835,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreateDnsService
       x-ms-long-running-operation: true
@@ -4493,7 +4874,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdateDnsService
       x-ms-long-running-operation: true
@@ -4528,7 +4909,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeleteDnsService
       x-ms-long-running-operation: true
@@ -4553,9 +4934,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dnsZones:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListDnsZones
       x-ms-pageable:
@@ -4580,9 +4961,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/dnsZones/{dnsZoneId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetDnsZone
       tags:
@@ -4606,7 +4987,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreateDnsZone
       x-ms-long-running-operation: true
@@ -4645,7 +5026,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: WorkloadNetworks_UpdateDnsZone
       x-ms-long-running-operation: true
@@ -4680,7 +5061,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeleteDnsZone
       x-ms-long-running-operation: true
@@ -4705,9 +5086,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/publicIPs:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_ListPublicIPs
       x-ms-pageable:
@@ -4732,9 +5113,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/workloadNetworks/default/publicIPs/{publicIPId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: WorkloadNetworks_GetPublicIP
       tags:
@@ -4758,7 +5139,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: WorkloadNetworks_CreatePublicIP
       x-ms-long-running-operation: true
@@ -4797,7 +5178,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: WorkloadNetworks_DeletePublicIP
       x-ms-long-running-operation: true
@@ -4822,9 +5203,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/cloudLinks:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: CloudLinks_List
       x-ms-pageable:
@@ -4849,9 +5230,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/cloudLinks/{cloudLinkName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: CloudLinks_Get
       tags:
@@ -4875,7 +5256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: CloudLinks_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -4919,7 +5300,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: CloudLinks_Delete
       x-ms-long-running-operation: true
@@ -4944,9 +5325,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/addons:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Addons_List
       x-ms-pageable:
@@ -4971,9 +5352,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/addons/{addonName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: Addons_Get
       tags:
@@ -4997,7 +5378,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: Addons_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5041,7 +5422,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: Addons_Delete
       x-ms-long-running-operation: true
@@ -5066,9 +5447,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/virtualMachines:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: VirtualMachines_List
       x-ms-pageable:
@@ -5094,9 +5475,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/virtualMachines/{virtualMachineId}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: VirtualMachines_Get
       tags:
@@ -5121,9 +5502,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/virtualMachines/{virtualMachineId}/restrictMovement:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       x-ms-long-running-operation: true
       operationId: VirtualMachines_RestrictMovement
@@ -5154,9 +5535,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/placementPolicies:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: PlacementPolicies_List
       x-ms-pageable:
@@ -5182,9 +5563,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/clusters/{clusterName}/placementPolicies/{placementPolicyName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: PlacementPolicies_Get
       tags:
@@ -5209,7 +5590,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: PlacementPolicies_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5249,7 +5630,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: PlacementPolicies_Update
       x-ms-long-running-operation: true
@@ -5289,7 +5670,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: PlacementPolicies_Delete
       x-ms-long-running-operation: true
@@ -5315,9 +5696,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptPackages:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       tags:
         - Scripts
@@ -5342,9 +5723,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptPackages/{scriptPackageName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       tags:
         - Scripts
@@ -5368,9 +5749,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptPackages/{scriptPackageName}/scriptCmdlets:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       tags:
         - Scripts
@@ -5396,9 +5777,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptPackages/{scriptPackageName}/scriptCmdlets/{scriptCmdletName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       tags:
         - Scripts
@@ -5423,9 +5804,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptExecutions:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: ScriptExecutions_List
       tags:
@@ -5450,9 +5831,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptExecutions/{scriptExecutionName}:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     get:
       operationId: ScriptExecutions_Get
       tags:
@@ -5476,7 +5857,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: ScriptExecutions_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -5520,7 +5901,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: ScriptExecutions_Delete
       x-ms-long-running-operation: true
@@ -5545,9 +5926,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AVS/privateClouds/{privateCloudName}/scriptExecutions/{scriptExecutionName}/getExecutionLogs:
-    x-api-version: '2021-12-01'
+    x-api-version: '2023-03-01'
     post:
       tags:
         - Scripts
@@ -5590,4 +5971,4 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CloudError'
+                $ref: '#/components/schemas/ErrorResponse'

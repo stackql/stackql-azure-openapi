@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2022-09-01-preview
+  version: '2023-12-01'
   title: AppPlatformManagementClient
   description: REST API for Azure Spring Apps
 security:
@@ -141,7 +141,7 @@ components:
           type: integer
           readOnly: true
         serviceId:
-          description: ServiceInstanceEntity GUID which uniquely identifies a created resource
+          description: ServiceInstanceEntity Id which uniquely identifies a created resource
           type: string
           readOnly: true
         powerState:
@@ -221,6 +221,98 @@ components:
         nextLink:
           description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
           type: string
+    ContainerRegistryResourceCollection:
+      description: Collection compose of container registry resources list and a possible link for next page.
+      type: object
+      properties:
+        value:
+          description: The container registry resources list.
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainerRegistryResource'
+        nextLink:
+          description: The link to next page of storage list.
+          type: string
+    ContainerRegistryResource:
+      description: Container registry resource payload.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ContainerRegistryProperties'
+          description: Properties of the container registry resource payload.
+          x-ms-client-flatten: false
+    ContainerRegistryProperties:
+      description: Container registry resource payload.
+      type: object
+      required:
+        - credentials
+      properties:
+        credentials:
+          $ref: '#/components/schemas/ContainerRegistryCredentials'
+          description: The credentials of the container registry resource.
+        provisioningState:
+          description: State of the Container Registry.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ContainerRegistryProvisioningState
+            modelAsString: true
+    ContainerRegistryCredentials:
+      description: The credential for the container registry resource.
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          description: The credential type of the container registry credentials.
+          type: string
+      discriminator:
+        propertyName: type
+    ContainerRegistryBasicCredentials:
+      description: The basic authentication properties for the container registry resource.
+      type: object
+      required:
+        - type
+        - server
+        - username
+        - password
+      allOf:
+        - $ref: '#/components/schemas/ContainerRegistryCredentials'
+      properties:
+        server:
+          description: The login server of the Container Registry.
+          type: string
+        username:
+          description: The username of the Container Registry.
+          type: string
+        password:
+          description: The password of the Container Registry.
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+      x-ms-discriminator-value: BasicAuth
+    ContainerRegistryValidateResult:
+      description: Validation result for container registry properties
+      type: object
+      properties:
+        isValid:
+          description: Indicate if the container registry properties are valid
+          type: boolean
+        message:
+          description: Detailed validation messages.
+          type: string
     BuildService:
       description: Build service resource payload
       type: object
@@ -235,11 +327,15 @@ components:
       description: Build service resource properties payload
       type: object
       properties:
+        containerRegistry:
+          description: The resource id of the container registry used in this build service.
+          type: string
         kPackVersion:
           description: The installed KPack version in this build service.
           type: string
+          readOnly: true
         provisioningState:
-          description: Provisioning state of the KPack build result
+          description: Provisioning state of the KPack build service
           enum:
             - Creating
             - Updating
@@ -317,6 +413,12 @@ components:
           type: object
           additionalProperties:
             type: string
+        apms:
+          $ref: '#/components/schemas/ApmReferenceCollection'
+          description: The APMs for this build
+        certificates:
+          $ref: '#/components/schemas/CertificateReferenceCollection'
+          description: The CA Certificates for this build
         triggeredBuildResult:
           $ref: '#/components/schemas/TriggeredBuildResult'
           description: ' The build result triggered by this build'
@@ -342,6 +444,33 @@ components:
       properties:
         id:
           description: The unique build id of this build result
+          type: string
+        provisioningState:
+          description: The provisioning state of this build result
+          enum:
+            - Queuing
+            - Building
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: TriggeredBuildResultProvisioningState
+            modelAsString: true
+        image:
+          description: The container image of this build result
+          type: string
+        lastTransitionTime:
+          format: date-time
+          description: The last transition time of this build result
+          type: string
+        lastTransitionReason:
+          description: The last transition reason of this build result
+          type: string
+        lastTransitionStatus:
+          description: The last transition status of this build result
           type: string
     BuildResultCollection:
       description: Object that includes an array of Build result resources and a possible link for next set
@@ -386,6 +515,9 @@ components:
           x-ms-enum:
             name: BuildResultProvisioningState
             modelAsString: true
+        error:
+          $ref: '#/components/schemas/Error'
+          description: Error when build is failed.
         buildPodName:
           description: The build pod name which can be used to get the build log streaming.
           type: string
@@ -395,6 +527,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BuildStageProperties'
+          readOnly: true
+        image:
+          description: The container registry image of this build result.
+          type: string
           readOnly: true
     BuildStageProperties:
       description: The build stage (init-container and container) resources in build pod.
@@ -416,6 +552,14 @@ components:
           x-ms-enum:
             name: KPackBuildStageProvisioningState
             modelAsString: true
+        exitCode:
+          description: The exit code of this build init container.
+          type: string
+          readOnly: true
+        reason:
+          description: The reason of this build init container.
+          type: string
+          readOnly: true
     BuildResultLog:
       description: Build result log resource properties payload
       type: object
@@ -648,6 +792,16 @@ components:
           x-ms-enum:
             name: ConfigurationServiceProvisioningState
             modelAsString: true
+        generation:
+          description: The generation of the Application Configuration Service.
+          enum:
+            - Gen1
+            - Gen2
+          type: string
+          default: Gen1
+          x-ms-enum:
+            name: ConfigurationServiceGeneration
+            modelAsString: true
         resourceRequests:
           $ref: '#/components/schemas/ConfigurationServiceResourceRequests'
           description: The requested resource quantity for required CPU and Memory.
@@ -785,6 +939,279 @@ components:
         strictHostKeyChecking:
           description: Strict host key checking or not.
           type: boolean
+        gitImplementation:
+          description: Git libraries used to support various repository providers
+          $ref: '#/components/schemas/GitImplementation'
+        caCertResourceId:
+          description: Resource Id of CA certificate for https URL of Git repository.
+          type: string
+    GitImplementation:
+      description: Git libraries used to support various repository providers
+      enum:
+        - go-git
+        - libgit2
+      type: string
+      x-ms-enum:
+        name: GitImplementation
+        modelAsString: true
+    ApplicationLiveViewResourceCollection:
+      description: Object that includes an array of Application Live View resources and a possible link for next set
+      type: object
+      properties:
+        value:
+          description: Collection of Application Live View resources
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationLiveViewResource'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    ApplicationLiveViewResource:
+      description: Application Live View resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ApplicationLiveViewProperties'
+    ApplicationLiveViewProperties:
+      description: Application Live View properties payload
+      type: object
+      properties:
+        provisioningState:
+          description: State of the Application Live View.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ApplicationLiveViewProvisioningState
+            modelAsString: true
+        components:
+          uniqueItems: false
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/ApplicationLiveViewComponent'
+          readOnly: true
+          description: Component details of Application Live View
+    ApplicationLiveViewComponent:
+      description: Application Live View properties payload
+      type: object
+      properties:
+        name:
+          description: Name of the component.
+          readOnly: true
+        resourceRequests:
+          $ref: '#/components/schemas/ApplicationLiveViewResourceRequests'
+          description: The requested resource quantity for required CPU and Memory.
+          readOnly: true
+        instances:
+          description: Collection of instances belong to Application Live View.
+          uniqueItems: false
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/ApplicationLiveViewInstance'
+          readOnly: true
+    ApplicationLiveViewResourceRequests:
+      description: The resource quantity for required CPU and Memory of Application Live View component
+      type: object
+      readOnly: true
+      properties:
+        cpu:
+          description: Cpu quantity allocated to each Application Live View component instance. 1 core can be represented by 1 or 1000m.
+          type: string
+          readOnly: true
+        memory:
+          description: Memory quantity allocated to each Application Live View component instance. 1 GB can be represented by 1Gi or 1024Mi.
+          type: string
+          readOnly: true
+        instanceCount:
+          description: Desired instance count of Application Live View component instance.
+          type: integer
+          format: int32
+          readOnly: true
+    ApplicationLiveViewInstance:
+      description: Collection of instances belong to the Application Live View
+      type: object
+      properties:
+        name:
+          description: Name of the Application Live View instance.
+          type: string
+          readOnly: true
+        status:
+          description: Status of the Application Live View instance. It can be Pending, Running, Succeeded, Failed, Unknown.
+          type: string
+          readOnly: true
+    DevToolPortalResourceCollection:
+      description: Object that includes an array of Dev Tool Portal resources and a possible link for next set
+      type: object
+      properties:
+        value:
+          description: Collection of Dev Tool Portal resources
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/DevToolPortalResource'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    DevToolPortalResource:
+      description: Dev Tool Portal resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/DevToolPortalProperties'
+    DevToolPortalProperties:
+      description: Dev Tool Portal properties payload
+      type: object
+      properties:
+        provisioningState:
+          description: State of the Dev Tool Portal.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DevToolPortalProvisioningState
+            modelAsString: true
+        components:
+          description: Collection of components belong to Dev Tool Portal.
+          uniqueItems: false
+          type: array
+          x-ms-identifiers:
+            - name
+          items:
+            $ref: '#/components/schemas/DevToolPortalComponent'
+          readOnly: true
+        public:
+          description: Indicates whether the resource exposes public endpoint
+          type: boolean
+          default: false
+        url:
+          description: URL of the resource, exposed when 'public' is true.
+          type: string
+          readOnly: true
+        ssoProperties:
+          $ref: '#/components/schemas/DevToolPortalSsoProperties'
+          description: Single sign-on related configuration
+        features:
+          $ref: '#/components/schemas/DevToolPortalFeatureSettings'
+          description: Settings for Dev Tool Portal
+    DevToolPortalComponent:
+      type: object
+      properties:
+        name:
+          type: string
+          readOnly: true
+        resourceRequests:
+          $ref: '#/components/schemas/DevToolPortalResourceRequests'
+          description: The requested resource quantity for required CPU and Memory.
+        instances:
+          description: Collection of instances belong to Dev Tool Portal.
+          uniqueItems: false
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/DevToolPortalInstance'
+          readOnly: true
+    DevToolPortalSsoProperties:
+      description: Single sign-on related configuration
+      type: object
+      properties:
+        scopes:
+          description: It defines the specific actions applications can be allowed to do on a user's behalf
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+        clientId:
+          description: The public identifier for the application
+          type: string
+        clientSecret:
+          description: The secret known only to the application and the authorization server
+          x-ms-secret: true
+          type: string
+        metadataUrl:
+          description: The URI of a JSON file with generic OIDC provider configuration.
+          type: string
+    DevToolPortalFeatureSettings:
+      description: Settings for Dev Tool Portal
+      type: object
+      properties:
+        applicationAccelerator:
+          $ref: '#/components/schemas/DevToolPortalFeatureDetail'
+          description: Detail of Accelerator plugin
+        applicationLiveView:
+          $ref: '#/components/schemas/DevToolPortalFeatureDetail'
+          description: Detail of App Live View plugin
+    DevToolPortalFeatureDetail:
+      description: Detail settings for Dev Tool Portal feature
+      type: object
+      properties:
+        state:
+          type: string
+          description: State of the plugin
+          default: Enabled
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            modelAsString: true
+            name: DevToolPortalFeatureState
+            values:
+              - description: Enable the plugin in Dev Tool Portal.
+                value: Enabled
+              - description: Disable the plugin in Dev Tool Portal.
+                value: Disabled
+        route:
+          type: string
+          description: Route path to visit the plugin
+          readOnly: true
+    DevToolPortalResourceRequests:
+      description: The resource quantity for required CPU and Memory of Dev Tool Portal
+      type: object
+      readOnly: true
+      properties:
+        cpu:
+          description: Cpu quantity allocated to each Dev Tool Portal instance. 1 core can be represented by 1 or 1000m
+          type: string
+          readOnly: true
+        memory:
+          description: Memory quantity allocated to each Dev Tool Portal instance. 1 GB can be represented by 1Gi or 1024Mi.
+          type: string
+          readOnly: true
+        instanceCount:
+          description: Desired instance count of Dev Tool Portal.
+          type: integer
+          format: int32
+          readOnly: true
+    DevToolPortalInstance:
+      description: Collection of instances belong to the Dev Tool Portal.
+      type: object
+      properties:
+        name:
+          description: Name of the Dev Tool Portal instance.
+          type: string
+          readOnly: true
+        status:
+          description: Status of the Dev Tool Portal instance. It can be Pending, Running, Succeeded, Failed, Unknown.
+          type: string
+          readOnly: true
     ServiceRegistryResourceCollection:
       description: Object that includes an array of Service Registry resources and a possible link for next set
       type: object
@@ -1125,6 +1552,10 @@ components:
           description: Indicates whether the log stream in vnet injection instance could be accessed from internet.
           type: boolean
           default: false
+        dataPlanePublicEndpoint:
+          description: Indicates whether the data plane components(log stream, app connect, remote debugging) in vnet injection instance could be accessed from internet.
+          type: boolean
+          default: false
     ConfigServerSettings:
       description: The settings of config server.
       type: object
@@ -1291,7 +1722,7 @@ components:
           description: Collection of addons
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/AddonProfile'
+            type: object
         provisioningState:
           description: Provisioning state of the App
           enum:
@@ -1508,7 +1939,7 @@ components:
           description: Binding parameters of the Binding resource
           type: object
           additionalProperties:
-            type: object
+            type: string
         generatedProperties:
           description: The generated Spring Boot property file for this binding. The secret will be deducted.
           type: string
@@ -1625,6 +2056,16 @@ components:
           description: Optional. If set to true, it will not import private key from key vault.
           type: boolean
           default: false
+        autoSync:
+          description: Indicates whether to automatically synchronize certificate from key vault or not.
+          enum:
+            - Disabled
+            - Enabled
+          default: Disabled
+          type: string
+          x-ms-enum:
+            name: KeyVaultCertificateAutoSync
+            modelAsString: true
       x-ms-discriminator-value: KeyVaultCertificate
     ContentCertificateProperties:
       description: Properties of certificate imported from key vault.
@@ -1748,6 +2189,10 @@ components:
         readOnly:
           description: Indicates whether the persistent disk is a readOnly one.
           type: boolean
+        enableSubPath:
+          description: If set to true, it will create and mount a dedicated directory for every individual app instance.
+          type: boolean
+          default: false
         mountOptions:
           description: These are the mount options for a persistent disk.
           uniqueItems: false
@@ -1767,7 +2212,6 @@ components:
       required:
         - type
         - mountPath
-        - shareName
       allOf:
         - $ref: '#/components/schemas/CustomPersistentDiskProperties'
       properties:
@@ -1981,6 +2425,22 @@ components:
           description: JVM parameter
           type: string
       x-ms-discriminator-value: Jar
+    WarUploadedUserSourceInfo:
+      description: Uploaded War binary for a deployment
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/UploadedUserSourceInfo'
+      properties:
+        runtimeVersion:
+          description: Runtime version of the war file
+          type: string
+        jvmOptions:
+          description: JVM parameter
+          type: string
+        serverVersion:
+          description: Server version, currently only Apache Tomcat is supported
+          type: string
+      x-ms-discriminator-value: War
     SourceUploadedUserSourceInfo:
       description: Uploaded Java source code binary for a deployment
       type: object
@@ -2052,7 +2512,7 @@ components:
           $ref: '#/components/schemas/ImageRegistryCredential'
           description: Credential of the image registry
         languageFramework:
-          description: Language framework of the container image uploaded
+          description: 'Language framework of the container image uploaded. Supported values: "springboot", "", null.'
           type: string
     ImageRegistryCredential:
       description: Credential of the image registry
@@ -2076,11 +2536,14 @@ components:
           type: object
           additionalProperties:
             type: string
+        apms:
+          $ref: '#/components/schemas/ApmReferenceCollection'
+          description: Collection of ApmReferences
         addonConfigs:
           description: Collection of addons
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/AddonProfile'
+            type: object
         livenessProbe:
           $ref: '#/components/schemas/Probe'
           description: 'Periodic probe of App Instance liveness. App Instance will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
@@ -2097,11 +2560,6 @@ components:
           default: 90
         containerProbeSettings:
           $ref: '#/components/schemas/ContainerProbeSettings'
-    AddonProfile:
-      type: object
-      additionalProperties:
-        type: object
-      description: Key-value pairs for configurations of add-on.
     Probe:
       description: Probe describes a health check to be performed against an App Instance to determine whether it is alive or ready to receive traffic.
       type: object
@@ -2684,6 +3142,35 @@ components:
           description: The detailed version (major.minor) of the platform.
           type: string
       readOnly: true
+    SupportedServerVersions:
+      description: Supported server versions.
+      type: object
+      properties:
+        value:
+          description: Collection of the supported server versions.
+          uniqueItems: false
+          type: array
+          x-ms-identifiers:
+            - value
+          items:
+            $ref: '#/components/schemas/SupportedServerVersion'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    SupportedServerVersion:
+      description: Supported server version.
+      type: object
+      properties:
+        value:
+          description: The raw server version value which could be passed to deployment CRUD operations.
+          type: string
+        server:
+          description: The server name.
+          type: string
+        version:
+          description: The Server version.
+          type: string
+      readOnly: true
     BuildpackBindingResourceCollection:
       description: Object that includes an array of BuildpackBinding resources and a possible link for next set
       type: object
@@ -2753,6 +3240,148 @@ components:
           type: object
           additionalProperties:
             type: string
+    ApmResourceCollection:
+      description: Object that includes an array of APM resources and a possible link for next set
+      type: object
+      properties:
+        value:
+          description: Collection of APM resources
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ApmResource'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    ApmResource:
+      description: APM Resource object
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ApmProperties'
+          description: Properties of an APM
+          x-ms-client-flatten: false
+    ApmProperties:
+      description: Properties of an APM
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          description: APM Type
+          type: string
+        provisioningState:
+          description: State of the APM.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ApmProvisioningState
+            modelAsString: true
+        properties:
+          description: Non-sensitive properties for the APM
+          type: object
+          additionalProperties:
+            type: string
+        secrets:
+          description: Sensitive properties for the APM
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+    ApmSecretKeys:
+      description: Keys of APM sensitive properties
+      type: object
+      properties:
+        value:
+          description: Collection of the keys for the APM sensitive properties
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+    SupportedApmTypes:
+      description: Supported APM types payload
+      type: object
+      properties:
+        value:
+          description: Collection of the supported APM type
+          uniqueItems: false
+          type: array
+          x-ms-identifiers:
+            - name
+          items:
+            $ref: '#/components/schemas/SupportedApmType'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    SupportedApmType:
+      description: Supported APM type
+      type: object
+      properties:
+        name:
+          description: The name of the supported APM type
+          type: string
+    GloballyEnabledApms:
+      description: Globally enabled APMs payload
+      type: object
+      properties:
+        value:
+          description: Collection of the globally enabled APMs
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+    ApmReference:
+      description: A reference to the APM
+      required:
+        - resourceId
+      type: object
+      properties:
+        resourceId:
+          description: Resource Id of the APM
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.AppPlatform/Spring/apms
+    ApmReferenceCollection:
+      description: Collection of ApmReferences
+      type: array
+      x-ms-identifiers:
+        - resourceId
+      items:
+        $ref: '#/components/schemas/ApmReference'
+    CertificateReference:
+      description: A reference to the certificate
+      required:
+        - resourceId
+      type: object
+      properties:
+        resourceId:
+          description: Resource Id of the certificate
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.AppPlatform/Spring/certificates
+    CertificateReferenceCollection:
+      description: Collection of CertificateReferences
+      type: array
+      x-ms-identifiers:
+        - resourceId
+      items:
+        $ref: '#/components/schemas/CertificateReference'
     GatewayResourceCollection:
       description: Object that includes an array of gateway resources and a possible link for next set
       type: object
@@ -2774,6 +3403,13 @@ components:
       properties:
         properties:
           $ref: '#/components/schemas/GatewayProperties'
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Sku of the Spring Cloud Gateway resource
+    SkuObject:
+      description: Resource Sku object used for scaling out and scaling in.
+      type: object
+      properties:
         sku:
           $ref: '#/components/schemas/Sku'
           description: Sku of the Spring Cloud Gateway resource
@@ -2812,6 +3448,49 @@ components:
           $ref: '#/components/schemas/GatewayApiMetadataProperties'
         corsProperties:
           $ref: '#/components/schemas/GatewayCorsProperties'
+        clientAuth:
+          description: Client-Certification Authentication.
+          type: object
+          properties:
+            certificates:
+              description: Collection of certificate resource Ids in Azure Spring Apps.
+              uniqueItems: true
+              type: array
+              items:
+                type: string
+            certificateVerification:
+              description: Whether to enable certificate verification or not
+              type: string
+              default: Disabled
+              enum:
+                - Enabled
+                - Disabled
+              x-ms-enum:
+                modelAsString: true
+                name: GatewayCertificateVerification
+                values:
+                  - description: Enable certificate verification in Spring Cloud Gateway.
+                    value: Enabled
+                  - description: Disable certificate verification in Spring Cloud Gateway.
+                    value: Disabled
+        apms:
+          $ref: '#/components/schemas/ApmReferenceCollection'
+          description: Collection of ApmReferences in service level
+        environmentVariables:
+          description: Environment variables of Spring Cloud Gateway
+          type: object
+          properties:
+            properties:
+              description: Non-sensitive properties
+              type: object
+              additionalProperties:
+                type: string
+            secrets:
+              description: Sensitive properties
+              type: object
+              x-ms-secret: true
+              additionalProperties:
+                type: string
         resourceRequests:
           $ref: '#/components/schemas/GatewayResourceRequests'
           description: The requested resource quantity for required CPU and Memory.
@@ -2869,6 +3548,11 @@ components:
       properties:
         allowedOrigins:
           description: Allowed origins to make cross-site requests. The special value `*` allows all domains.
+          type: array
+          items:
+            type: string
+        allowedOriginPatterns:
+          description: Allowed origin patterns to make cross-site requests.
           type: array
           items:
             type: string
@@ -2952,6 +3636,12 @@ components:
           description: Status of the Spring Cloud Gateway instance
           type: string
           readOnly: true
+    GatewayEnvSecrets:
+      description: Sensitive properties for Spring Cloud Gateway
+      type: object
+      x-ms-secret: true
+      additionalProperties:
+        type: string
     GatewayRouteConfigResource:
       description: Spring Cloud Gateway route config resource
       type: object
@@ -2998,6 +3688,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GatewayApiRoute'
+        ssoEnabled:
+          description: Enable Single Sign-On in app level.
+          type: boolean
+        predicates:
+          description: A number of conditions to evaluate a route for each request in app level. Each predicate may be evaluated against request headers and parameter values. All of the predicates associated with a route must evaluate to true for the route to be matched to the request.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
+        filters:
+          description: To modify the request before sending it to the target endpoint, or the received response in app level.
+          uniqueItems: false
+          type: array
+          items:
+            type: string
     GatewayRouteConfigOpenApiProperties:
       description: OpenAPI properties of Spring Cloud Gateway route config.
       type: object
@@ -3163,6 +3868,16 @@ components:
           items:
             $ref: '#/components/schemas/ApiPortalInstance'
           readOnly: true
+        apiTryOutEnabledState:
+          description: Indicates whether the API try-out feature is enabled or disabled. When enabled, users can try out the API by sending requests and viewing responses in API portal. When disabled, users cannot try out the API.
+          type: string
+          default: Enabled
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: ApiPortalApiTryOutEnabledState
+            modelAsString: true
     ApiPortalResourceRequests:
       description: Resource requests of the API portal
       type: object
@@ -3215,6 +3930,370 @@ components:
         nextLink:
           description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
           type: string
+    ApplicationAcceleratorResourceCollection:
+      description: Object that includes an array of application accelerator resources and a possible link for next set
+      type: object
+      properties:
+        value:
+          description: Collection of application accelerator resources
+          uniqueItems: false
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationAcceleratorResource'
+        nextLink:
+          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
+          type: string
+    ApplicationAcceleratorResource:
+      description: Application accelerator resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ApplicationAcceleratorProperties'
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Sku of the application accelerator resource
+    ApplicationAcceleratorProperties:
+      description: Application accelerator properties payload
+      type: object
+      properties:
+        provisioningState:
+          description: State of the application accelerator.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ApplicationAcceleratorProvisioningState
+            modelAsString: true
+        components:
+          description: Collection of components belong to application accelerator.
+          uniqueItems: false
+          type: array
+          x-ms-identifiers:
+            - name
+          items:
+            $ref: '#/components/schemas/ApplicationAcceleratorComponent'
+          readOnly: true
+    ApplicationAcceleratorComponent:
+      type: object
+      properties:
+        name:
+          type: string
+          readOnly: true
+        resourceRequests:
+          $ref: '#/components/schemas/ApplicationAcceleratorResourceRequests'
+        instances:
+          type: array
+          x-ms-identifiers:
+            - name
+          items:
+            $ref: '#/components/schemas/ApplicationAcceleratorInstance'
+          readOnly: true
+    ApplicationAcceleratorResourceRequests:
+      type: object
+      properties:
+        cpu:
+          description: Cpu allocated to each application accelerator component. 1 core can be represented by 1 or 1000m
+          type: string
+          readOnly: true
+        memory:
+          description: Memory allocated to each application accelerator component. 1 GB can be represented by 1Gi or 1024Mi.
+          type: string
+          readOnly: true
+        instanceCount:
+          format: int32
+          description: Instance count of the application accelerator component.
+          type: integer
+          readOnly: true
+    ApplicationAcceleratorInstance:
+      type: object
+      properties:
+        name:
+          description: Name of the Application Accelerator instance.
+          type: string
+          readOnly: true
+        status:
+          description: Status of the Application Accelerator instance. It can be Pending, Running, Succeeded, Failed, Unknown.
+          type: string
+          readOnly: true
+    CustomizedAcceleratorResourceCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomizedAcceleratorResource'
+        nextLink:
+          type: string
+    CustomizedAcceleratorResource:
+      description: Customized accelerator resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/CustomizedAcceleratorProperties'
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Sku of the customized accelerator resource
+    CustomizedAcceleratorProperties:
+      description: Customized accelerator properties payload
+      required:
+        - gitRepository
+      type: object
+      properties:
+        provisioningState:
+          description: State of the customized accelerator.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Deleting
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: CustomizedAcceleratorProvisioningState
+            modelAsString: true
+        acceleratorType:
+          description: Type of the customized accelerator.
+          enum:
+            - Accelerator
+            - Fragment
+          type: string
+          x-ms-enum:
+            name: CustomizedAcceleratorType
+            modelAsString: true
+        displayName:
+          type: string
+        description:
+          type: string
+        iconUrl:
+          type: string
+        acceleratorTags:
+          type: array
+          items:
+            type: string
+        imports:
+          type: array
+          readOnly: true
+          description: Imports references all imports that this accelerator/fragment depends upon.
+          items:
+            type: string
+        gitRepository:
+          $ref: '#/components/schemas/AcceleratorGitRepository'
+    AcceleratorGitRepository:
+      required:
+        - url
+        - authSetting
+      type: object
+      properties:
+        url:
+          description: Git repository URL for the accelerator.
+          type: string
+        intervalInSeconds:
+          description: Interval for checking for updates to Git or image repository.
+          format: int32
+          type: integer
+        branch:
+          description: Git repository branch to be used.
+          type: string
+        commit:
+          description: Git repository commit to be used.
+          type: string
+        gitTag:
+          description: Git repository tag to be used.
+          type: string
+        authSetting:
+          $ref: '#/components/schemas/AcceleratorAuthSetting'
+          description: Properties of the auth setting payload.
+          x-ms-client-flatten: false
+        subPath:
+          description: Folder path inside the git repository to consider as the root of the accelerator or fragment.
+          type: string
+    AcceleratorAuthSetting:
+      description: Auth setting payload.
+      required:
+        - authType
+      type: object
+      properties:
+        authType:
+          description: The type of the auth setting.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+      discriminator:
+        propertyName: authType
+    AcceleratorPublicSetting:
+      description: Auth setting for public url.
+      required:
+        - authType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AcceleratorAuthSetting'
+      properties:
+        caCertResourceId:
+          description: Resource Id of CA certificate for https URL of Git repository.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.AppPlatform/Spring/certificates
+      x-ms-discriminator-value: Public
+    AcceleratorBasicAuthSetting:
+      description: Auth setting for basic auth.
+      required:
+        - authType
+        - username
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AcceleratorAuthSetting'
+      properties:
+        caCertResourceId:
+          description: Resource Id of CA certificate for https URL of Git repository.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.AppPlatform/Spring/certificates
+        username:
+          description: Username of git repository basic auth.
+          type: string
+        password:
+          description: Password of git repository basic auth.
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+      x-ms-discriminator-value: BasicAuth
+    AcceleratorSshSetting:
+      description: Auth setting for SSH auth.
+      required:
+        - authType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AcceleratorAuthSetting'
+      properties:
+        hostKey:
+          description: Public SSH Key of git repository.
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+        hostKeyAlgorithm:
+          description: SSH Key algorithm of git repository.
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+        privateKey:
+          description: Private SSH Key algorithm of git repository.
+          type: string
+          x-ms-secret: true
+          x-ms-mutability:
+            - create
+            - update
+      x-ms-discriminator-value: SSH
+    CustomizedAcceleratorValidateResult:
+      description: Validation result for customized accelerator properties
+      type: object
+      properties:
+        state:
+          type: string
+          description: State of the customized accelerator validation result
+          default: Valid
+          enum:
+            - Valid
+            - Invalid
+          x-ms-enum:
+            modelAsString: true
+            name: CustomizedAcceleratorValidateResultState
+            values:
+              - description: Customized accelerator properties are valid.
+                value: Valid
+              - description: Customized accelerator properties are invalid.
+                value: Invalid
+        errorMessage:
+          description: The detail validation results
+          type: string
+    PredefinedAcceleratorResourceCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredefinedAcceleratorResource'
+        nextLink:
+          type: string
+    PredefinedAcceleratorResource:
+      description: Predefined accelerator resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PredefinedAcceleratorProperties'
+        sku:
+          $ref: '#/components/schemas/Sku'
+          description: Sku of the predefined accelerator resource
+    PredefinedAcceleratorProperties:
+      description: Predefined accelerator properties payload
+      type: object
+      properties:
+        provisioningState:
+          description: Provisioning state of the predefined accelerator.
+          enum:
+            - Creating
+            - Updating
+            - Succeeded
+            - Failed
+            - Canceled
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: PredefinedAcceleratorProvisioningState
+            modelAsString: true
+        displayName:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        iconUrl:
+          type: string
+          readOnly: true
+        acceleratorTags:
+          type: array
+          readOnly: true
+          items:
+            type: string
+        state:
+          type: string
+          description: State of the predefined accelerator.
+          default: Enabled
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            modelAsString: true
+            name: PredefinedAcceleratorState
+            values:
+              - description: Enable the predefined accelerator.
+                value: Enabled
+              - description: Disable the predefined accelerator.
+                value: Disabled
   parameters:
     ApiVersionParameter:
       name: api-version
@@ -3246,6 +4325,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
         type: string
     AppNameParameter:
       name: appName
@@ -3255,6 +4335,15 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ApmNameParameter:
+      name: apmName
+      in: path
+      description: The name of the APM
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
+        type: string
     DeploymentNameParameter:
       name: deploymentName
       in: path
@@ -3262,6 +4351,15 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        type: string
+    ContainerRegistryNameParameter:
+      name: containerRegistryName
+      in: path
+      description: The name of the container registry.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
         type: string
     BuildServiceNameParameter:
       name: buildServiceName
@@ -3374,6 +4472,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-z][a-z0-9]*$
         type: string
     ServiceRegistryNameParameter:
       name: serviceRegistryName
@@ -3383,6 +4482,24 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ApplicationLiveViewNameParameter:
+      name: applicationLiveViewName
+      in: path
+      description: The name of Application Live View.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9]*$
+        type: string
+    DevToolPortalNameParameter:
+      name: devToolPortalName
+      in: path
+      description: The name of Dev Tool Portal.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9]*$
+        type: string
     GatewayNameParameter:
       name: gatewayName
       in: path
@@ -3390,6 +4507,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-z][a-z0-9]*$
         type: string
     GatewayRouteConfigNameParameter:
       name: routeConfigName
@@ -3423,9 +4541,36 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ApplicationAcceleratorNameParameter:
+      name: applicationAcceleratorName
+      in: path
+      description: The name of the application accelerator.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
+        type: string
+    CustomizedAcceleratorNameParameter:
+      name: customizedAcceleratorName
+      in: path
+      description: The name of the customized accelerator.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])$
+        type: string
+    PredefinedAcceleratorNameParameter:
+      name: predefinedAcceleratorName
+      in: path
+      description: The name of the predefined accelerator.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
+        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -3556,7 +4701,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/listTestKeys:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3581,7 +4726,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/regenerateTestKey:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3614,7 +4759,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/disableTestEndpoint:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3635,7 +4780,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/enableTestEndpoint:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3660,7 +4805,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/stop:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3688,7 +4833,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/start:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3715,8 +4860,311 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/flushVirtualNetworkDnsSettings:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Flush Virtual Network DNS settings for a VNET injected Service.
+      operationId: Services_FlushVnetDnsSetting
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the Flush VNET DNS setting operation is performed in the background.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/supportedApmTypes:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: List supported APM types for a Service.
+      operationId: Services_ListSupportedApmTypes
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the supported APM types.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportedApmTypes'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/listGloballyEnabledApms:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: List globally enabled APMs for a Service.
+      operationId: Services_ListGloballyEnabledApms
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the globally enabled APMs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GloballyEnabledApms'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/enableApmGlobally:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Enable an APM globally.
+      operationId: Services_EnableApmGlobally
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      requestBody:
+        description: The target APM for the enable operation
+        required: true
+        x-ms-requestBody-name: apm
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApmReference'
+      responses:
+        '200':
+          description: Success.
+        '202':
+          description: Accepted. The response indicates the APM is now enabling globally and contains a Location header to query the operation result.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/disableApmGlobally:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Disable an APM globally.
+      operationId: Services_DisableApmGlobally
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      requestBody:
+        description: The target APM for the disable operation
+        required: true
+        x-ms-requestBody-name: apm
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApmReference'
+      responses:
+        '200':
+          description: Success.
+        '202':
+          description: Accepted. The response indicates the APM is now disabling globally and contains a Location header to query the operation result.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apms:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get collection of APMs.
+      operationId: Apms_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of APMs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApmResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apms/{apmName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the APM by name.
+      operationId: Apms_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApmNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the APM.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApmResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create or update an APM.
+      operationId: Apms_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApmNameParameter'
+      requestBody:
+        description: Parameters for the create or update operation
+        required: true
+        x-ms-requestBody-name: apmResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApmResource'
+      responses:
+        '200':
+          description: Success. The response describes the APM updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApmResource'
+        '201':
+          description: Created. The response describes the new APM created and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApmResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - AppPlatform
+      description: Operation to delete an APM
+      operationId: Apms_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApmNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the delete operation is performed in the background.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the resource doesn't exist.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apms/{apmName}/listSecretKeys:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: List keys of APM sensitive properties.
+      operationId: Apms_ListSecretKeys
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApmNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the keys of APM sensitive properties.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApmSecretKeys'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/default:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -3817,7 +5265,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configServers/validate:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -3859,7 +5307,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -3949,7 +5397,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -3976,7 +5424,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/validate:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -4018,8 +5466,51 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/configurationServices/{configurationServiceName}/validateResource:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Check if the Application Configuration Service resource is valid.
+      operationId: ConfigurationServices_ValidateResource
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ConfigurationServiceNameParameter'
+      requestBody:
+        description: Application Configuration Service resource to be validated
+        required: true
+        x-ms-requestBody-name: configurationServiceResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationServiceResource'
+      responses:
+        '200':
+          description: Success. The response describes the validation result of Application Configuration Service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationServiceSettingsValidateResult'
+        '202':
+          description: Accepted. The response indicates the ConfigurationServiceSettings is validating.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries/{serviceRegistryName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4101,7 +5592,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/serviceRegistries:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4127,8 +5618,412 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationLiveViews:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Handles requests to list all resources in a Service.
+      operationId: ApplicationLiveViews_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of Application Live View resources in the Service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationLiveViewResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationLiveViews/{applicationLiveViewName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the Application Live  and its properties.
+      operationId: ApplicationLiveViews_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationLiveViewNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the corresponding Application Live View.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationLiveViewResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create the default Application Live View or update the existing Application Live View.
+      operationId: ApplicationLiveViews_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationLiveViewNameParameter'
+      requestBody:
+        description: Parameters for the update operation
+        required: true
+        x-ms-requestBody-name: applicationLiveViewResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationLiveViewResource'
+      responses:
+        '200':
+          description: Success. The response describes the updated Application Live View.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationLiveViewResource'
+        '201':
+          description: Created. The response describes the new created Application Live View and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationLiveViewResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - AppPlatform
+      description: Disable the default Application Live View.
+      operationId: ApplicationLiveViews_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationLiveViewNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the default Application Live View is now deleting.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the defaultApplication Live View doesn't exist or has deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/devToolPortals:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Handles requests to list all resources in a Service.
+      operationId: DevToolPortals_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of Dev Tool Portal resources in the Service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevToolPortalResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/DevToolPortals/{devToolPortalName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the Application Live  and its properties.
+      operationId: DevToolPortals_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/DevToolPortalNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the corresponding Dev Tool Portal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevToolPortalResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create the default Dev Tool Portal or update the existing Dev Tool Portal.
+      operationId: DevToolPortals_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/DevToolPortalNameParameter'
+      requestBody:
+        description: Parameters for the create or update operation
+        required: true
+        x-ms-requestBody-name: DevToolPortalResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevToolPortalResource'
+      responses:
+        '200':
+          description: Success. The response describes the updated Dev Tool Portal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevToolPortalResource'
+        '201':
+          description: Created. The response describes the new created Dev Tool Portal and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevToolPortalResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - AppPlatform
+      description: Disable the default Dev Tool Portal.
+      operationId: DevToolPortals_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/DevToolPortalNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the default Dev Tool Portal is now deleting.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the defaultDev Tool Portal doesn't exist or has deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/containerRegistries:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: List container registries resource.
+      operationId: ContainerRegistries_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the Container Registries to one Azure Spring Apps resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerRegistryResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/containerRegistries/{containerRegistryName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the container registries resource.
+      operationId: ContainerRegistries_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ContainerRegistryNameParameter'
+      responses:
+        '200':
+          description: Success. The response describe the container registry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerRegistryResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create or update container registry resource.
+      operationId: ContainerRegistries_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ContainerRegistryNameParameter'
+      requestBody:
+        description: Parameters for the create or update operation
+        required: true
+        x-ms-requestBody-name: containerRegistryResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainerRegistryResource'
+      responses:
+        '200':
+          description: Success. The response describe the existed container registry updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerRegistryResource'
+        '201':
+          description: Created. The response describes the new container registry resource created and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerRegistryResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    delete:
+      tags:
+        - AppPlatform
+      description: Delete a container registry resource.
+      operationId: ContainerRegistries_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ContainerRegistryNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the delete operation is performed in the background.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the resource doesn't exist.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/containerRegistries/{containerRegistryName}/validate:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Check if the container registry properties are valid.
+      operationId: ContainerRegistries_Validate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ContainerRegistryNameParameter'
+      requestBody:
+        description: Parameters for the validate operation
+        required: true
+        x-ms-requestBody-name: ContainerRegistryProperties
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainerRegistryProperties'
+      responses:
+        '200':
+          description: Success. The response describe the validation result of container registry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerRegistryValidateResult'
+        '202':
+          description: Accepted. The response indicates the container registry properties is validating.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4155,7 +6050,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4180,8 +6075,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create a build service resource.
+      operationId: BuildService_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/BuildServiceNameParameter'
+      requestBody:
+        description: Parameters for the create operation
+        required: true
+        x-ms-requestBody-name: buildService
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildService'
+      responses:
+        '200':
+          description: Success. The response describes the Build Service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildService'
+        '201':
+          description: Created. The response describes the Build Service and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildService'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4209,7 +6145,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4274,8 +6210,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+    delete:
+      tags:
+        - AppPlatform
+      description: delete a KPack build.
+      operationId: BuildService_DeleteBuild
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/BuildServiceNameParameter'
+        - $ref: '#/components/parameters/BuildNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the delete operation is performed in the background.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the build resource doesn't exist or has deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildpackBindings:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get collection of buildpack bindings under all builders.
+      operationId: BuildpackBinding_ListForCluster
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of buildpack bindings under all builders in the cluster.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildpackBindingResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings/{buildpackBindingName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4371,7 +6364,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/buildpackBindings:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4400,7 +6393,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4429,7 +6422,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4457,7 +6450,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builds/{buildName}/results/{buildResultName}/getLogFileUrl:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -4485,7 +6478,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4578,7 +6571,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4606,7 +6599,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/getResourceUploadUrl:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -4632,7 +6625,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4658,7 +6651,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedBuildpacks/{buildpackName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4685,7 +6678,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4711,7 +6704,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/supportedStacks/{stackName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4738,7 +6731,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4766,7 +6759,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/agentPools/{agentPoolName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4833,7 +6826,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/monitoringSettings/default:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -4934,7 +6927,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5075,7 +7068,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5102,7 +7095,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/getResourceUploadUrl:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -5128,7 +7121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/setActiveDeployments:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -5169,7 +7162,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings/{bindingName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5308,7 +7301,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/bindings:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5336,7 +7329,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages/{storageName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5432,7 +7425,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/storages:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5459,7 +7452,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates/{certificateName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5555,7 +7548,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/certificates:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5582,7 +7575,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/locations/{location}/checkNameAvailability:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -5619,7 +7612,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains/{domainName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5758,7 +7751,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/domains:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5786,7 +7779,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/validateDomain:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -5820,7 +7813,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5959,7 +7952,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -5998,7 +7991,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/deployments:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6020,6 +8013,12 @@ paths:
             type: array
             items:
               type: string
+        - name: $expand
+          in: query
+          description: The expand expression to apply on the operation.
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: Success
@@ -6036,7 +8035,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/buildServices/{buildServiceName}/builders/{builderName}/listUsingDeployments:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6063,7 +8062,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/start:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6089,7 +8088,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/stop:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6115,7 +8114,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/restart:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6141,7 +8140,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/enableRemoteDebugging:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6183,7 +8182,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/disableRemoteDebugging:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6217,7 +8216,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getRemoteDebuggingConfig:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6244,7 +8243,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/getLogFileUrl:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6273,7 +8272,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateHeapDump:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6307,7 +8306,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/generateThreadDump:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6341,7 +8340,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apps/{appName}/deployments/{deploymentName}/startJFR:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6375,7 +8374,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/Spring:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6400,7 +8399,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6426,7 +8425,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.AppPlatform/operations:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6450,7 +8449,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.AppPlatform/runtimeVersions:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6472,7 +8471,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.AppPlatform/skus:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6496,8 +8495,35 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/supportedServerVersions:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Lists all of the available server versions supported by Microsoft.AppPlatform provider.
+      operationId: Services_ListSupportedServerVersions
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the supported server versions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportedServerVersions'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6586,8 +8612,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/listEnvSecrets:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: List sensitive environment variables of Spring Cloud Gateway.
+      operationId: Gateways_ListEnvSecrets
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/GatewayNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the sensitive environment variables of Spring Cloud Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayEnvSecrets'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/restart:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Restart the Spring Cloud Gateway.
+      operationId: Gateways_Restart
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/GatewayNameParameter'
+      responses:
+        '200':
+          description: Success.
+        '202':
+          description: "Accepted. The response indicates gateway is now restarting and contains a Location header\r\nto query the operation result."
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6614,7 +8697,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs/{routeConfigName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6707,7 +8790,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/routeConfigs:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6735,7 +8818,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains/{domainName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6828,7 +8911,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/domains:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6856,7 +8939,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/gateways/{gatewayName}/validateDomain:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -6890,7 +8973,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -6980,7 +9063,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -7007,7 +9090,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains/{domainName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -7100,7 +9183,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/domains:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     get:
       tags:
         - AppPlatform
@@ -7128,7 +9211,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/apiPortals/{apiPortalName}/validateDomain:
-    x-api-version: 2022-09-01-preview
+    x-api-version: '2023-12-01'
     post:
       tags:
         - AppPlatform
@@ -7161,3 +9244,402 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Handle requests to list all application accelerator.
+      operationId: ApplicationAccelerators_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of application accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAcceleratorResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the application accelerator.
+      operationId: ApplicationAccelerators_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the corresponding application accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAcceleratorResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create or update the application accelerator.
+      operationId: ApplicationAccelerators_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+      requestBody:
+        description: The application accelerator for the create or update operation
+        required: true
+        x-ms-requestBody-name: applicationAcceleratorResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationAcceleratorResource'
+      responses:
+        '200':
+          description: Success. The response describes the updated application accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAcceleratorResource'
+        '201':
+          description: Created. The response describes the new created application accelerator and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAcceleratorResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - AppPlatform
+      description: Delete the application accelerator.
+      operationId: ApplicationAccelerators_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the application accelerator is now deleting.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the application accelerator doesn't exist or has deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/customizedAccelerators:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Handle requests to list all customized accelerators.
+      operationId: CustomizedAccelerators_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of customized accelerators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizedAcceleratorResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/customizedAccelerators/{customizedAcceleratorName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the customized accelerator.
+      operationId: CustomizedAccelerators_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/CustomizedAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the corresponding customized accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizedAcceleratorResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - AppPlatform
+      description: Create or update the customized accelerator.
+      operationId: CustomizedAccelerators_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/CustomizedAcceleratorNameParameter'
+      requestBody:
+        description: The customized accelerator for the create or update operation
+        required: true
+        x-ms-requestBody-name: customizedAcceleratorResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomizedAcceleratorResource'
+      responses:
+        '200':
+          description: Success. The response describes the updated customized accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizedAcceleratorResource'
+        '201':
+          description: Created. The response describes the new created customized accelerator and contains an Azure-AsyncOperation header to query the operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizedAcceleratorResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - AppPlatform
+      description: Delete the customized accelerator.
+      operationId: CustomizedAccelerators_Delete
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/CustomizedAcceleratorNameParameter'
+      responses:
+        '202':
+          description: Accepted. The response indicates the customized accelerator is now deleting.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Success. The response indicates the customized accelerator doesn't exist or has deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/customizedAccelerators/{customizedAcceleratorName}/validate:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Check the customized accelerator are valid.
+      operationId: CustomizedAccelerators_Validate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/CustomizedAcceleratorNameParameter'
+      requestBody:
+        description: Customized accelerator properties to be validated
+        required: true
+        x-ms-requestBody-name: properties
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomizedAcceleratorProperties'
+      responses:
+        '200':
+          description: Success. The response describe the customized accelerator is valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizedAcceleratorValidateResult'
+        '202':
+          description: Accepted. The response indicates the CustomizedAccelerator is validating.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/predefinedAccelerators:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Handle requests to list all predefined accelerators.
+      operationId: PredefinedAccelerators_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the list of predefined accelerators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredefinedAcceleratorResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/predefinedAccelerators/{predefinedAcceleratorName}:
+    x-api-version: '2023-12-01'
+    get:
+      tags:
+        - AppPlatform
+      description: Get the predefined accelerator.
+      operationId: PredefinedAccelerators_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/PredefinedAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success. The response describes the corresponding predefined accelerator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredefinedAcceleratorResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/predefinedAccelerators/{predefinedAcceleratorName}/disable:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Disable predefined accelerator.
+      operationId: PredefinedAccelerators_Disable
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/PredefinedAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success.
+        '202':
+          description: Accepted. The response indicates the PredefinedAccelerator is now disabling and contains a Location header to query the operation result.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppPlatform/Spring/{serviceName}/applicationAccelerators/{applicationAcceleratorName}/predefinedAccelerators/{predefinedAcceleratorName}/enable:
+    x-api-version: '2023-12-01'
+    post:
+      tags:
+        - AppPlatform
+      description: Enable predefined accelerator.
+      operationId: PredefinedAccelerators_Enable
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ApplicationAcceleratorNameParameter'
+        - $ref: '#/components/parameters/PredefinedAcceleratorNameParameter'
+      responses:
+        '200':
+          description: Success.
+        '202':
+          description: Accepted. The response indicates the PredefinedAccelerator is now enabling and contains a Location header to query the operation result.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true

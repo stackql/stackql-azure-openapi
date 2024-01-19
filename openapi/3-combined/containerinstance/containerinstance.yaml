@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2021-10-01'
+  version: '2023-05-01'
   title: ContainerInstanceManagementClient
 security:
   - azure_auth:
@@ -104,6 +104,47 @@ components:
         readinessProbe:
           description: The readiness probe.
           $ref: '#/components/schemas/ContainerProbe'
+        securityContext:
+          description: The container security properties.
+          $ref: '#/components/schemas/SecurityContextDefinition'
+    SecurityContextDefinition:
+      description: The security context for the container.
+      type: object
+      properties:
+        privileged:
+          type: boolean
+          description: The flag to determine if the container permissions is elevated to Privileged.
+        allowPrivilegeEscalation:
+          type: boolean
+          description: A boolean value indicating whether the init process can elevate its privileges
+        capabilities:
+          description: The capabilities to add or drop from a container.
+          $ref: '#/components/schemas/SecurityContextCapabilitiesDefinition'
+        runAsGroup:
+          type: integer
+          format: int32
+          description: Sets the User GID for the container.
+        runAsUser:
+          type: integer
+          format: int32
+          description: Sets the User UID for the container.
+        seccompProfile:
+          type: string
+          description: a base64 encoded string containing the contents of the JSON in the seccomp profile
+    SecurityContextCapabilitiesDefinition:
+      description: The capabilities to add or drop from a container.
+      type: object
+      properties:
+        add:
+          type: array
+          items:
+            type: string
+          description: The capabilities to add to the container.
+        drop:
+          type: array
+          items:
+            type: string
+          description: The capabilities to drop from the container.
     ContainerState:
       description: The container instance state.
       type: object
@@ -489,9 +530,57 @@ components:
                 $ref: '#/components/schemas/InitContainerDefinition'
               x-ms-identifiers:
                 - name
+            extensions:
+              type: array
+              description: extensions used by virtual kubelet
+              items:
+                $ref: '#/components/schemas/DeploymentExtensionSpec'
+              x-ms-identifiers:
+                - name
+            confidentialComputeProperties:
+              description: The properties for confidential container group
+              $ref: '#/components/schemas/ConfidentialComputeProperties'
+            priority:
+              type: string
+              description: The priority of the container group.
+              enum:
+                - Regular
+                - Spot
+              x-ms-enum:
+                name: ContainerGroupPriority
+                modelAsString: true
           required:
             - containers
             - osType
+    DeploymentExtensionSpec:
+      description: Extension sidecars to be added to the deployment.
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the extension.
+        properties:
+          type: object
+          x-ms-client-flatten: true
+          description: Extension specific properties
+          properties:
+            extensionType:
+              type: string
+              description: Type of extension to be added.
+            version:
+              type: string
+              description: Version of the extension being used.
+            settings:
+              type: object
+              description: Settings for the extension.
+            protectedSettings:
+              type: object
+              description: Protected settings for the extension.
+          required:
+            - extensionType
+            - version
+      required:
+        - name
     ContainerGroupIdentity:
       description: Identity for the container group.
       properties:
@@ -1011,6 +1100,7 @@ components:
       enum:
         - Standard
         - Dedicated
+        - Confidential
       x-ms-enum:
         name: ContainerGroupSku
         modelAsString: true
@@ -1027,6 +1117,9 @@ components:
         keyVersion:
           description: The encryption key version.
           type: string
+        identity:
+          type: string
+          description: The keyvault managed identity.
       required:
         - vaultBaseUrl
         - keyName
@@ -1098,6 +1191,9 @@ components:
             $ref: '#/components/schemas/VolumeMount'
           x-ms-identifiers:
             - name
+        securityContext:
+          description: The container security properties.
+          $ref: '#/components/schemas/SecurityContextDefinition'
     CloudError:
       x-ms-external: true
       properties:
@@ -1130,6 +1226,13 @@ components:
       type: array
       items:
         type: string
+    ConfidentialComputeProperties:
+      description: The properties for confidential container group
+      type: object
+      properties:
+        ccePolicy:
+          type: string
+          description: The base64 encoded confidential compute enforcement policy
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1197,7 +1300,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.ContainerInstance/containerGroups:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: ContainerGroups_List
       summary: Get a list of container groups in the specified subscription.
@@ -1221,7 +1324,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: ContainerGroups_ListByResourceGroup
       summary: Get a list of container groups in the specified subscription and resource group.
@@ -1246,7 +1349,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: ContainerGroups_Get
       summary: Get the properties of the specified container group.
@@ -1364,7 +1467,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/restart:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     post:
       operationId: ContainerGroups_Restart
       summary: Restarts all containers in a container group.
@@ -1385,7 +1488,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/stop:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     post:
       operationId: ContainerGroups_Stop
       summary: Stops all containers in a container group.
@@ -1405,7 +1508,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/start:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     post:
       operationId: ContainerGroups_Start
       summary: Starts all containers in a container group.
@@ -1428,7 +1531,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /providers/Microsoft.ContainerInstance/operations:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       tags:
         - Operations
@@ -1452,7 +1555,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.ContainerInstance/locations/{location}/usages:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: Location_ListUsage
       description: Get the usage for a subscription
@@ -1476,7 +1579,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/containers/{containerName}/logs:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: Containers_ListLogs
       summary: Get the logs for a specified container instance.
@@ -1517,7 +1620,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/containers/{containerName}/exec:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     post:
       operationId: Containers_ExecuteCommand
       summary: Executes a command in a specific container instance.
@@ -1555,7 +1658,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/containers/{containerName}/attach:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     post:
       operationId: Containers_Attach
       summary: Attach to the output of a specific container instance.
@@ -1585,7 +1688,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.ContainerInstance/locations/{location}/cachedImages:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: Location_ListCachedImages
       summary: Get the list of cached images.
@@ -1610,7 +1713,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.ContainerInstance/locations/{location}/capabilities:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: Location_ListCapabilities
       summary: Get the list of capabilities of the location.
@@ -1635,7 +1738,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerInstance/containerGroups/{containerGroupName}/outboundNetworkDependenciesEndpoints:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     get:
       operationId: ContainerGroups_GetOutboundNetworkDependenciesEndpoints
       summary: Get all network dependencies for container group.
@@ -1659,7 +1762,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}/providers/Microsoft.ContainerInstance/serviceAssociationLinks/default:
-    x-api-version: '2021-10-01'
+    x-api-version: '2023-05-01'
     delete:
       operationId: SubnetServiceAssociationLink_Delete
       summary: Delete container group virtual network association links.

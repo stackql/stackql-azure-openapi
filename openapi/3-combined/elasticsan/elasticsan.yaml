@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2021-11-20-preview
+  version: '2023-01-01'
   title: ElasticSanManagement
 security:
   - azure_auth:
@@ -18,63 +18,8 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    ElasticSanOperationDisplay:
-      type: object
-      required:
-        - provider
-        - resource
-        - operation
-        - description
-      description: Metadata about an operation.
-      properties:
-        provider:
-          type: string
-          description: Localized friendly form of the resource provider name.
-        resource:
-          type: string
-          description: Localized friendly form of the resource type related to this action/operation.
-        operation:
-          type: string
-          description: Localized friendly name for the operation, as it should be shown to the user.
-        description:
-          type: string
-          description: Localized friendly description for the operation, as it should be shown to the user.
-    ElasticSanRPOperation:
-      type: object
-      required:
-        - name
-      description: Description of a ElasticSan RP Operation
-      properties:
-        name:
-          type: string
-          description: The name of the operation being performed on this particular object
-        isDataAction:
-          type: boolean
-          description: Indicates whether the operation applies to data-plane.
-          readOnly: true
-        display:
-          description: Additional metadata about RP operation.
-          $ref: '#/components/schemas/ElasticSanOperationDisplay'
-          readOnly: true
-    ElasticSanOperationListResult:
-      type: object
-      required:
-        - value
-      description: List of operations supported by the RP.
-      properties:
-        value:
-          type: array
-          description: An array of operations supported by the ElasticSan RP.
-          items:
-            $ref: '#/components/schemas/ElasticSanRPOperation'
-          x-ms-identifiers: []
-        nextLink:
-          description: URI to fetch the next section of the paginated response.
-          type: string
     ElasticSanList:
       type: object
-      required:
-        - value
       description: List of Elastic Sans
       properties:
         value:
@@ -91,15 +36,12 @@ components:
       description: Response for ElasticSan request.
       required:
         - properties
+        - location
       properties:
         properties:
           x-ms-client-flatten: true
           description: Properties of ElasticSan.
           $ref: '#/components/schemas/ElasticSanProperties'
-        systemData:
-          description: Resource metadata required by ARM RPC
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
       allOf:
         - $ref: '#/components/schemas/TrackedResource'
     ElasticSanProperties:
@@ -161,6 +103,21 @@ components:
           type: integer
           format: int64
           readOnly: true
+        privateEndpointConnections:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: The list of Private Endpoint Connections.
+        publicNetworkAccess:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          description: Allow or disallow public network access to ElasticSan. Value is optional but if passed in, must be 'Enabled' or 'Disabled'.
     ElasticSanUpdate:
       type: object
       description: Response for ElasticSan update request.
@@ -183,15 +140,22 @@ components:
           type: integer
           format: int64
           x-ms-mutability:
-            - read
-            - create
+            - update
         extendedCapacitySizeTiB:
           description: Extended size of the Elastic San appliance in TiB.
           type: integer
           format: int64
           x-ms-mutability:
-            - read
-            - create
+            - update
+        publicNetworkAccess:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: PublicNetworkAccess
+            modelAsString: true
+          description: Allow or disallow public network access to ElasticSan Account. Value is optional but if passed in, must be 'Enabled' or 'Disabled'.
     AvailabilityZone:
       type: string
       description: Availability zone.
@@ -205,6 +169,10 @@ components:
           items:
             $ref: '#/components/schemas/SkuInformation'
           x-ms-identifiers: []
+          readOnly: true
+        nextLink:
+          description: URI to fetch the next section of the paginated response.
+          type: string
           readOnly: true
     SkuInformation:
       description: ElasticSAN SKU and its properties
@@ -278,16 +246,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -317,14 +276,14 @@ components:
     SkuTier:
       type: string
       enum:
+        - Free
+        - Basic
+        - Standard
         - Premium
       x-ms-enum:
         name: SkuTier
-        modelAsString: true
-        values:
-          - value: Premium
-            description: Premium Tier
-      description: The sku tier.
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     IscsiTargetInfo:
       type: object
       description: Iscsi target information
@@ -353,20 +312,37 @@ components:
       type: object
       description: Response for Volume Group request.
       properties:
+        identity:
+          $ref: '#/components/schemas/Identity'
+          description: The identity of the resource.
         properties:
           x-ms-client-flatten: true
           description: Properties of VolumeGroup.
           $ref: '#/components/schemas/VolumeGroupProperties'
-        systemData:
-          description: Resource metadata required by ARM RPC
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
       allOf:
-        - $ref: '#/components/schemas/Resource'
+        - $ref: '#/components/schemas/ProxyResource'
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
     VolumeGroupList:
       type: object
-      required:
-        - value
       description: List of Volume Groups
       properties:
         value:
@@ -385,31 +361,80 @@ components:
         provisioningState:
           description: State of the operation on the resource.
           $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
         protocolType:
           description: Type of storage target
           $ref: '#/components/schemas/StorageTargetType'
         encryption:
           description: Type of encryption
           $ref: '#/components/schemas/EncryptionType'
+        encryptionProperties:
+          description: Encryption Properties describing Key Vault and Identity information
+          $ref: '#/components/schemas/EncryptionProperties'
         networkAcls:
           $ref: '#/components/schemas/NetworkRuleSet'
           description: A collection of rules governing the accessibility from specific network locations.
           x-ms-mutability:
             - create
             - read
+        privateEndpointConnections:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          description: The list of Private Endpoint Connections.
+    EncryptionProperties:
+      type: object
+      properties:
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          x-ms-client-name: KeyVaultProperties
+          description: Properties provided by key vault.
+        identity:
+          $ref: '#/components/schemas/EncryptionIdentity'
+          x-ms-client-name: EncryptionIdentity
+          description: The identity to be used with service-side encryption at rest.
+      description: The encryption settings on the volume group.
+    EncryptionIdentity:
+      type: object
+      properties:
+        userAssignedIdentity:
+          type: string
+          description: Resource identifier of the UserAssigned identity to be associated with server-side encryption on the volume group.
+          x-ms-client-name: EncryptionUserAssignedIdentity
+      description: Encryption identity for the volume group.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    UserAssignedIdentity:
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of the identity.
+        clientId:
+          readOnly: true
+          type: string
+          description: The client ID of the identity.
+      description: UserAssignedIdentity for the resource.
     VolumeGroupUpdate:
       type: object
       description: Volume Group request.
       properties:
+        identity:
+          $ref: '#/components/schemas/Identity'
+          description: The identity of the resource.
         properties:
           x-ms-client-flatten: true
           description: Properties of VolumeGroup.
           $ref: '#/components/schemas/VolumeGroupUpdateProperties'
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags.
     VolumeGroupUpdateProperties:
       type: object
       description: VolumeGroup response properties.
@@ -420,30 +445,28 @@ components:
         encryption:
           description: Type of encryption
           $ref: '#/components/schemas/EncryptionType'
+        encryptionProperties:
+          description: Encryption Properties describing Key Vault and Identity information
+          $ref: '#/components/schemas/EncryptionProperties'
         networkAcls:
           $ref: '#/components/schemas/NetworkRuleSet'
           description: A collection of rules governing the accessibility from specific network locations.
           x-ms-mutability:
-            - create
-            - read
+            - update
     Volume:
       type: object
       description: Response for Volume request.
+      required:
+        - properties
       properties:
         properties:
           x-ms-client-flatten: true
           description: Properties of Volume.
           $ref: '#/components/schemas/VolumeProperties'
-        systemData:
-          description: Resource metadata required by ARM RPC
-          readOnly: true
-          $ref: '#/components/schemas/systemData'
       allOf:
-        - $ref: '#/components/schemas/Resource'
+        - $ref: '#/components/schemas/ProxyResource'
     VolumeList:
       type: object
-      required:
-        - value
       description: List of Volumes
       properties:
         value:
@@ -457,6 +480,8 @@ components:
           readOnly: true
     VolumeProperties:
       type: object
+      required:
+        - sizeGiB
       description: Volume response properties.
       properties:
         volumeId:
@@ -473,6 +498,21 @@ components:
         storageTarget:
           description: Storage target information
           $ref: '#/components/schemas/IscsiTargetInfo'
+        managedBy:
+          description: Parent resource information.
+          $ref: '#/components/schemas/ManagedByInfo'
+        provisioningState:
+          description: State of the operation on the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+    ManagedByInfo:
+      type: object
+      description: Parent resource information.
+      properties:
+        resourceId:
+          type: string
+          x-ms-client-name: ResourceId
+          description: Resource ID of the resource managing the volume, this is a restricted field and can only be set for internal use.
     VolumeUpdate:
       type: object
       description: Response for Volume request.
@@ -481,11 +521,6 @@ components:
           x-ms-client-flatten: true
           description: Properties of Volume.
           $ref: '#/components/schemas/VolumeUpdateProperties'
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags.
     VolumeUpdateProperties:
       type: object
       description: Volume response properties.
@@ -494,6 +529,9 @@ components:
           description: Volume size.
           type: integer
           format: int64
+        managedBy:
+          description: Parent resource information.
+          $ref: '#/components/schemas/ManagedByInfo'
     SourceCreationData:
       type: object
       description: Data source used when creating the volume.
@@ -502,20 +540,17 @@ components:
           type: string
           enum:
             - None
+            - VolumeSnapshot
+            - DiskSnapshot
+            - Disk
+            - DiskRestorePoint
           x-ms-enum:
             name: VolumeCreateOption
-            modelAsString: false
+            modelAsString: true
           description: This enumerates the possible sources of a volume creation.
-        sourceUri:
+        sourceId:
           type: string
-          description: If createOption is Copy, this is the ARM id of the source snapshot or disk. If createOption is Restore, this is the ARM-like id of the source disk restore point.
-    Error:
-      type: object
-      description: The resource management error response.
-      properties:
-        error:
-          description: RP error response.
-          $ref: '#/components/schemas/ErrorResponse'
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
     ProvisioningState:
       type: string
       enum:
@@ -561,12 +596,254 @@ components:
       description: The type of key used to encrypt the data of the disk.
       enum:
         - EncryptionAtRestWithPlatformKey
+        - EncryptionAtRestWithCustomerManagedKey
       x-ms-enum:
         name: EncryptionType
         modelAsString: true
         values:
           - value: EncryptionAtRestWithPlatformKey
             description: Volume is encrypted at rest with Platform managed key. It is the default encryption type.
+          - value: EncryptionAtRestWithCustomerManagedKey
+            description: Volume is encrypted at rest with Customer managed key that can be changed and revoked by a customer.
+    NetworkRuleSet:
+      type: object
+      properties:
+        virtualNetworkRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualNetworkRule'
+          description: The list of virtual network rules.
+      description: A set of rules governing the network accessibility.
+    VirtualNetworkRule:
+      type: object
+      properties:
+        id:
+          type: string
+          x-ms-client-name: VirtualNetworkResourceId
+          description: 'Resource ID of a subnet, for example: /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}.'
+        action:
+          type: string
+          enum:
+            - Allow
+          x-ms-enum:
+            name: Action
+            modelAsString: true
+          default: Allow
+          description: The action of virtual network rule.
+      required:
+        - id
+      description: Virtual Network rule.
+    PrivateEndpointConnection:
+      type: object
+      description: ' Response for PrivateEndpoint Connection object'
+      required:
+        - properties
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          description: Private Endpoint Connection Properties.
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    PrivateEndpointConnectionProperties:
+      type: object
+      description: ' Response for PrivateEndpoint connection properties'
+      properties:
+        provisioningState:
+          description: Provisioning State of Private Endpoint connection resource
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        privateEndpoint:
+          description: Private Endpoint resource
+          $ref: '#/components/schemas/PrivateEndpoint'
+        privateLinkServiceConnectionState:
+          description: Private Link Service Connection State.
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+        groupIds:
+          description: ' List of resources private endpoint is mapped'
+          type: array
+          items:
+            type: string
+      required:
+        - privateLinkServiceConnectionState
+    PrivateEndpoint:
+      type: object
+      description: Response for PrivateEndpoint
+      properties:
+        id:
+          type: string
+          description: The ARM identifier for Private Endpoint
+          readOnly: true
+    PrivateLinkServiceConnectionState:
+      type: object
+      description: Response for Private Link Service Connection state
+      properties:
+        status:
+          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
+        description:
+          type: string
+          description: The reason for approval/rejection of the connection.
+        actionsRequired:
+          type: string
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+    PrivateEndpointServiceConnectionStatus:
+      type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Failed
+        - Rejected
+      x-ms-enum:
+        name: PrivateEndpointServiceConnectionStatus
+        modelAsString: true
+    PrivateLinkResourceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private link resources
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+        nextLink:
+          description: URI to fetch the next section of the paginated response.
+          type: string
+          readOnly: true
+      description: A list of private link resources
+    PrivateLinkResource:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: A private link resource
+    PrivateLinkResourceProperties:
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource Private link DNS zone name.
+      description: Properties of a private link resource.
+    PrivateEndpointConnectionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private endpoint connections
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+        nextLink:
+          description: URI to fetch the next section of the paginated response.
+          type: string
+          readOnly: true
+      description: List of private endpoint connections associated with SAN
+    Snapshot:
+      type: object
+      required:
+        - properties
+      description: Response for Volume Snapshot request.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          description: Properties of Volume Snapshot.
+          $ref: '#/components/schemas/SnapshotProperties'
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    SnapshotList:
+      type: object
+      description: List of Snapshots
+      properties:
+        value:
+          description: An array of Snapshot objects.
+          type: array
+          items:
+            $ref: '#/components/schemas/Snapshot'
+        nextLink:
+          description: URI to fetch the next section of the paginated response.
+          type: string
+          readOnly: true
+    SnapshotProperties:
+      type: object
+      required:
+        - creationData
+      description: Properties for Snapshot.
+      properties:
+        creationData:
+          description: Data used when creating a volume snapshot.
+          $ref: '#/components/schemas/SnapshotCreationData'
+        provisioningState:
+          description: State of the operation on the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        sourceVolumeSizeGiB:
+          description: Size of Source Volume
+          type: integer
+          format: int64
+          readOnly: true
+        volumeName:
+          description: Source Volume Name of a snapshot
+          type: string
+          readOnly: true
+    SnapshotCreationData:
+      type: object
+      required:
+        - sourceId
+      description: Data used when creating a volume snapshot.
+      properties:
+        sourceId:
+          type: string
+          description: Fully qualified resource ID of the volume. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}/volumes/{volumeName}"
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
     TrackedResource:
       title: Tracked Resource
       description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
@@ -591,97 +868,6 @@ components:
         - location
       allOf:
         - $ref: '#/components/schemas/Resource'
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    NetworkRuleSet:
-      type: object
-      properties:
-        virtualNetworkRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/VirtualNetworkRule'
-          description: The list of virtual network rules.
-      description: A set of rules governing the network accessibility.
-    VirtualNetworkRule:
-      type: object
-      properties:
-        id:
-          type: string
-          x-ms-client-name: VirtualNetworkResourceId
-          description: 'Resource ID of a subnet, for example: /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}.'
-        action:
-          type: string
-          enum:
-            - Allow
-          x-ms-enum:
-            name: Action
-            modelAsString: false
-          default: Allow
-          description: The action of virtual network rule.
-        state:
-          type: string
-          readOnly: true
-          enum:
-            - provisioning
-            - deprovisioning
-            - succeeded
-            - failed
-            - networkSourceDeleted
-          x-ms-enum:
-            name: State
-            modelAsString: false
-          description: Gets the state of virtual network rule.
-      required:
-        - id
-      description: Virtual Network rule.
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
     ProxyResource:
       title: Proxy Resource
       description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
@@ -692,28 +878,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -732,15 +896,6 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -750,27 +905,9 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
     Plan:
       type: object
       properties:
@@ -826,6 +963,26 @@ components:
             $ref: '#/components/schemas/ErrorAdditionalInfo'
           x-ms-identifiers: []
           description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
     Operation:
       title: REST API Operation
       description: Details of a REST API operation, returned from the Resource Provider Operations API
@@ -1007,15 +1164,6 @@ components:
         keyVaultProperties:
           $ref: '#/components/schemas/KeyVaultProperties'
           description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
     CheckNameAvailabilityRequest:
       description: The check availability request body.
       type: object
@@ -1046,32 +1194,6 @@ components:
           description: Detailed reason why the given name is available.
           type: string
   parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
     ElasticSanNameParameter:
       name: elasticSanName
       in: path
@@ -1105,6 +1227,51 @@ components:
         minLength: 3
         maxLength: 63
         type: string
+    PrivateEndpointConnectionNameParameter:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the Private Endpoint connection.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SnapshotNameParameter:
+      name: snapshotName
+      in: path
+      description: The name of the volume snapshot within the given volume group.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-z0-9]+(?:[._-][a-z0-9]+)*$
+        minLength: 1
+        maxLength: 80
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
     OperationIdParameter:
       name: operationId
       in: path
@@ -1125,7 +1292,7 @@ components:
         type: string
 paths:
   /providers/Microsoft.ElasticSan/operations:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - Elastic San Operations
@@ -1139,17 +1306,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ElasticSanOperationListResult'
+                $ref: '#/components/schemas/OperationListResult'
         default:
           description: Error from the ElasticSan Resource Provider
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.ElasticSan/skus:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - Elastic San Skus
@@ -1176,11 +1343,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.ElasticSan/elasticSans:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - ElasticSans
@@ -1201,11 +1368,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - ElasticSan
@@ -1227,11 +1394,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     put:
       tags:
         - ElasticSans
@@ -1252,13 +1419,13 @@ paths:
               $ref: '#/components/schemas/ElasticSan'
       responses:
         '200':
-          description: OK -- Returned when the create operation is successfully completed.
+          description: OK -- Resource Create or Update operation is successfully completed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ElasticSan'
-        '202':
-          description: Accepted -- Create request accepted; operation will complete asynchronously.
+        '201':
+          description: Created -- Resource Create; operation will complete asynchronously.
           content:
             application/json:
               schema:
@@ -1268,10 +1435,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     patch:
       tags:
         - ElasticSans
@@ -1299,15 +1466,19 @@ paths:
                 $ref: '#/components/schemas/ElasticSan'
         '202':
           description: Accepted -- Update request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error from the ElasticSan Resource Provider.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     delete:
       tags:
         - ElasticSans
@@ -1323,6 +1494,10 @@ paths:
           description: OK -- Delete operation completed successfully.
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: NoContent --ElasticSAN does not exist in the subscription.
         default:
@@ -1330,10 +1505,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     get:
       tags:
         - ElasticSans
@@ -1356,9 +1531,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumeGroups:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - VolumeGroups
@@ -1381,11 +1556,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     put:
       tags:
         - VolumeGroups
@@ -1407,13 +1582,13 @@ paths:
               $ref: '#/components/schemas/VolumeGroup'
       responses:
         '200':
-          description: OK -- Returned when the create operation is successfully completed.
+          description: OK -- Resource Create or Update operation is successfully completed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VolumeGroup'
-        '202':
-          description: Accepted -- Create request accepted; operation will complete asynchronously.
+        '201':
+          description: Created -- Resource Create; operation will complete asynchronously.
           content:
             application/json:
               schema:
@@ -1423,10 +1598,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     patch:
       tags:
         - VolumeGroups
@@ -1455,15 +1630,19 @@ paths:
                 $ref: '#/components/schemas/VolumeGroup'
         '202':
           description: Accepted -- Update request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error from the ElasticSan Resource Provider.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     delete:
       tags:
         - VolumeGroups
@@ -1480,6 +1659,10 @@ paths:
           description: OK -- Delete operation completed successfully.
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: NoContent -- Resource does not exist in the subscription.
         default:
@@ -1487,10 +1670,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     get:
       tags:
         - VolumeGroups
@@ -1514,9 +1697,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}/volumes/{volumeName}:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     put:
       tags:
         - Volumes
@@ -1539,13 +1722,13 @@ paths:
               $ref: '#/components/schemas/Volume'
       responses:
         '200':
-          description: OK -- Returned when the create operation is successfully completed.
+          description: OK -- Resource Create or Update operation is successfully completed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Volume'
-        '202':
-          description: Accepted -- Create request accepted; operation will complete asynchronously.
+        '201':
+          description: Created -- Resource Create; operation will complete asynchronously.
           content:
             application/json:
               schema:
@@ -1555,10 +1738,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     patch:
       tags:
         - Volumes
@@ -1588,15 +1771,19 @@ paths:
                 $ref: '#/components/schemas/Volume'
         '202':
           description: Accepted -- Update request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error from the ElasticSan Resource Provider.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     delete:
       tags:
         - Volumes
@@ -1609,11 +1796,39 @@ paths:
         - $ref: '#/components/parameters/VolumeGroupNameParameter'
         - $ref: '#/components/parameters/VolumeNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: x-ms-delete-snapshots
+          in: header
+          description: Optional, used to delete snapshots under volume. Allowed value are only true or false. Default value is false.
+          required: false
+          schema:
+            enum:
+              - 'true'
+              - 'false'
+            x-ms-enum:
+              name: x-ms-delete-snapshots
+              modelAsString: true
+            type: string
+        - name: x-ms-force-delete
+          in: header
+          description: Optional, used to delete volume if active sessions present. Allowed value are only true or false. Default value is false.
+          required: false
+          schema:
+            enum:
+              - 'true'
+              - 'false'
+            x-ms-enum:
+              name: x-ms-force-delete
+              modelAsString: true
+            type: string
       responses:
         '200':
           description: Delete operation completed successfully.
         '202':
           description: Delete request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: Resource does not exist in the subscription.
         default:
@@ -1621,10 +1836,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
     get:
       tags:
         - Volumes
@@ -1649,9 +1864,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}/volumes:
-    x-api-version: 2021-11-20-preview
+    x-api-version: '2023-01-01'
     get:
       tags:
         - Volumes
@@ -1675,6 +1890,291 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/privateEndpointConnections/{privateEndpointConnectionName}:
+    x-api-version: '2023-01-01'
+    put:
+      tags:
+        - PrivateEndpointConnections
+      description: Update the state of specified private endpoint connection associated with the Elastic San
+      operationId: PrivateEndpointConnections_Create
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/PrivateEndpointConnectionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Private Endpoint Connection Approval object.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivateEndpointConnection'
+      responses:
+        '200':
+          description: OK -- Resource Create or Update operation is successfully completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
+        '201':
+          description: Created -- Resource Create; operation will complete asynchronously
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
+        default:
+          description: Error from Elastic SAN resource provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    get:
+      tags:
+        - PrivateEndpointConnections
+      description: Gets the specified private endpoint connection associated with the Elastic San
+      operationId: PrivateEndpointConnections_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/PrivateEndpointConnectionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- Get the private endpoint connection properties successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
+        default:
+          description: Error from Elastic SAN resource provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - PrivateEndpointConnections
+      description: Deletes the specified private endpoint connection associated with the Elastic San
+      operationId: PrivateEndpointConnections_Delete
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/PrivateEndpointConnectionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- Get the private endpoint connection properties successfully
+        '202':
+          description: Delete request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: No Content -- The Private Endpoint Connection does not exist.
+        default:
+          description: Error from Elastic SAN resource provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/privateEndpointConnections:
+    x-api-version: '2023-01-01'
+    get:
+      tags:
+        - PrivateEndpointConnections
+      description: List all Private Endpoint Connections associated with the Elastic San.
+      operationId: PrivateEndpointConnections_List
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- Successfully retrieved private endpoint connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnectionListResult'
+        default:
+          description: Error from the ElasticSan Resource Provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/privateLinkResources:
+    x-api-version: '2023-01-01'
+    get:
+      tags:
+        - PrivateLinkResources
+      operationId: PrivateLinkResources_ListByElasticSan
+      description: Gets the private link resources that need to be created for a elastic San.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- Successfully retrieved private endpoint connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResourceListResult'
+        default:
+          description: Error from the ElasticSan Resource Provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}/snapshots:
+    x-api-version: '2023-01-01'
+    get:
+      tags:
+        - Snapshots
+      description: List Snapshots in a VolumeGroup or List Snapshots by Volume (name) in a VolumeGroup using filter
+      operationId: VolumeSnapshots_ListByVolumeGroup
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/VolumeGroupNameParameter'
+        - name: $filter
+          in: query
+          description: Specify $filter='volumeName eq <volume name>' to filter on volume.
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Operation completed successfully; retrieved snapshots in a volume group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotList'
+        default:
+          description: Error from the ElasticSan Resource Provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{elasticSanName}/volumegroups/{volumeGroupName}/snapshots/{snapshotName}:
+    x-api-version: '2023-01-01'
+    put:
+      tags:
+        - Snapshots
+      description: Create a Volume Snapshot.
+      operationId: VolumeSnapshots_Create
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/VolumeGroupNameParameter'
+        - $ref: '#/components/parameters/SnapshotNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Snapshot object.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Snapshot'
+      responses:
+        '200':
+          description: OK -- Returned when the create operation is successfully completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        '201':
+          description: Created -- Resource Created; operation will complete asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        default:
+          description: Error from the ElasticSan Resource Provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    delete:
+      tags:
+        - Snapshots
+      description: Delete a Volume Snapshot.
+      operationId: VolumeSnapshots_Delete
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/VolumeGroupNameParameter'
+        - $ref: '#/components/parameters/SnapshotNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- Delete operation completed successfully.
+        '202':
+          description: Accepted -- Delete request accepted; operation will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: NoContent -- Resource does not exist in the subscription.
+        default:
+          description: Error from the ElasticSan Resource Provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    get:
+      tags:
+        - Snapshots
+      description: Get a Volume Snapshot.
+      operationId: VolumeSnapshots_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ElasticSanNameParameter'
+        - $ref: '#/components/parameters/VolumeGroupNameParameter'
+        - $ref: '#/components/parameters/SnapshotNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Operation completed successfully; retrieved Volume Snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        default:
+          description: Error from the ElasticSan Resource Provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

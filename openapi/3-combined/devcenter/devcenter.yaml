@@ -2,8 +2,8 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2022-09-01-preview
-  title: DevCenterClient
+  version: 2023-10-01-preview
+  title: DevCenter
   description: DevCenter Management API
 security:
   - azure_auth:
@@ -19,6 +19,122 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Capability:
+      description: A name/value pair to describe a capability.
+      type: object
+      properties:
+        name:
+          description: Name of the capability.
+          type: string
+          readOnly: true
+        value:
+          description: Value of the capability.
+          type: string
+          readOnly: true
+    TrackedResourceUpdate:
+      description: Base tracked resource type for PATCH updates
+      type: object
+      properties:
+        tags:
+          $ref: '#/components/schemas/Tags'
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+    Tags:
+      type: object
+      additionalProperties:
+        type: string
+      x-ms-mutability:
+        - read
+        - create
+        - update
+      description: Resource tags.
+    CloudError:
+      x-ms-external: true
+      type: object
+      properties:
+        error:
+          description: Error body
+          $ref: '#/components/schemas/CloudErrorBody'
+      description: An error response from the DevCenter service.
+      required:
+        - error
+    CloudErrorBody:
+      x-ms-external: true
+      type: object
+      properties:
+        code:
+          type: string
+          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
+        message:
+          type: string
+          description: A message describing the error, intended to be suitable for display in a user interface.
+        target:
+          type: string
+          description: The target of the particular error. For example, the name of the property in error.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/CloudErrorBody'
+          x-ms-identifiers: []
+          description: A list of additional details about the error.
+      description: An error response from the DevCenter service.
+      required:
+        - code
+        - message
+    DevCenterSku:
+      description: The resource model definition representing SKU for DevCenter resources
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Sku'
+      properties:
+        resourceType:
+          type: string
+          description: The name of the resource type
+          readOnly: true
+        locations:
+          description: SKU supported locations.
+          type: array
+          readOnly: true
+          items:
+            type: string
+        capabilities:
+          description: Collection of name/value pairs to describe the SKU capabilities.
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/Capability'
+          x-ms-identifiers: []
+      required:
+        - name
+    ProvisioningState:
+      type: string
+      description: Provisioning state of the resource.
+      enum:
+        - NotSpecified
+        - Accepted
+        - Running
+        - Creating
+        - Created
+        - Updating
+        - Updated
+        - Deleting
+        - Deleted
+        - Succeeded
+        - Failed
+        - Canceled
+        - MovingResources
+        - TransientFailure
+        - RolloutInProgress
+        - StorageProvisioningFailed
+      readOnly: true
+      x-ms-enum:
+        name: ProvisioningState
+        modelAsString: true
     UserAssignedIdentities:
       title: User-Assigned Identities
       description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
@@ -138,12 +254,44 @@ components:
         localAdministrator:
           description: Indicates whether owners of Dev Boxes in this pool are added as local administrators on the Dev Box.
           $ref: '#/components/schemas/LocalAdminStatus'
+        stopOnDisconnect:
+          description: Stop on disconnect configuration settings for Dev Boxes created in this pool.
+          $ref: '#/components/schemas/StopOnDisconnectConfiguration'
+        singleSignOnStatus:
+          description: Indicates whether Dev Boxes in this pool are created with single sign on enabled. The also requires that single sign on be enabled on the tenant.
+          $ref: '#/components/schemas/SingleSignOnStatus'
+        displayName:
+          type: string
+          description: The display name of the pool.
+        virtualNetworkType:
+          description: Indicates whether the pool uses a Virtual Network managed by Microsoft or a customer provided network.
+          $ref: '#/components/schemas/VirtualNetworkType'
+        managedVirtualNetworkRegions:
+          type: array
+          description: The regions of the managed virtual network (required when managedNetworkType is Managed).
+          items:
+            type: string
     PoolProperties:
       type: object
       description: Properties of a Pool
       allOf:
         - $ref: '#/components/schemas/PoolUpdateProperties'
       properties:
+        healthStatus:
+          description: Overall health status of the Pool. Indicates whether or not the Pool is available to create Dev Boxes.
+          $ref: '#/components/schemas/HealthStatus'
+          readOnly: true
+        healthStatusDetails:
+          description: Details on the Pool health status to help diagnose issues. This is only populated when the pool status indicates the pool is in a non-healthy state
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthStatusDetail'
+          readOnly: true
+        devBoxCount:
+          description: Indicates the number of provisioned Dev Boxes in this pool.
+          type: integer
+          format: int32
+          readOnly: true
         provisioningState:
           description: The provisioning state of the resource.
           $ref: '#/components/schemas/ProvisioningState'
@@ -153,6 +301,30 @@ components:
         - networkConnectionName
         - licenseType
         - localAdministrator
+    HealthStatus:
+      description: Health status indicating whether a pool is available to create Dev Boxes.
+      enum:
+        - Unknown
+        - Pending
+        - Healthy
+        - Warning
+        - Unhealthy
+      type: string
+      x-ms-enum:
+        name: HealthStatus
+        modelAsString: true
+    HealthStatusDetail:
+      type: object
+      description: Pool health status detail.
+      properties:
+        code:
+          type: string
+          description: An identifier for the issue.
+          readOnly: true
+        message:
+          type: string
+          description: A message describing the issue, intended to be suitable for display in a user interface
+          readOnly: true
     LicenseType:
       description: License Types
       enum:
@@ -162,12 +334,51 @@ components:
         name: LicenseType
         modelAsString: true
     LocalAdminStatus:
+      description: Local Administrator enable or disable status. Indicates whether owners of Dev Boxes are added as local administrators on the Dev Box.
       type: string
       enum:
         - Disabled
         - Enabled
       x-ms-enum:
         name: LocalAdminStatus
+        modelAsString: true
+    SingleSignOnStatus:
+      description: SingleSignOn (SSO) enable or disable status. Indicates whether Dev Boxes in the Pool will have SSO enabled or disabled.
+      type: string
+      enum:
+        - Disabled
+        - Enabled
+      x-ms-enum:
+        name: SingleSignOnStatus
+        modelAsString: true
+    VirtualNetworkType:
+      description: Indicates a pool uses a Virtual Network managed by Microsoft (Managed), or a customer provided Network (Unmanaged).
+      type: string
+      enum:
+        - Managed
+        - Unmanaged
+      x-ms-enum:
+        name: VirtualNetworkType
+        modelAsString: true
+    StopOnDisconnectConfiguration:
+      type: object
+      description: Stop on disconnect configuration settings for Dev Boxes created in this pool.
+      properties:
+        status:
+          description: Whether the feature to stop the Dev Box on disconnect once the grace period has lapsed is enabled.
+          $ref: '#/components/schemas/StopOnDisconnectEnableStatus'
+        gracePeriodMinutes:
+          description: The specified time in minutes to wait before stopping a Dev Box once disconnect is detected.
+          type: integer
+          format: int32
+    StopOnDisconnectEnableStatus:
+      description: Stop on disconnect enable or disable status. Indicates whether stop on disconnect to is either enabled or disabled.
+      enum:
+        - Enabled
+        - Disabled
+      type: string
+      x-ms-enum:
+        name: StopOnDisconnectEnableStatus
         modelAsString: true
     PoolListResult:
       description: Results of the machine pool list operation.
@@ -204,15 +415,6 @@ components:
           type: string
           readOnly: true
           description: The actual version of the image after use. When id references a gallery image latest version, this will indicate the actual version in use.
-        publisher:
-          description: The image publisher.
-          type: string
-        offer:
-          description: The image offer.
-          type: string
-        sku:
-          description: The image sku.
-          type: string
     ImageValidationStatus:
       description: Image validation status
       enum:
@@ -228,6 +430,38 @@ components:
     ImageValidationErrorDetails:
       type: object
       description: Image validation error details
+      properties:
+        code:
+          type: string
+          description: An identifier for the error.
+        message:
+          type: string
+          description: A message describing the error.
+    CatalogResourceValidationStatus:
+      description: Catalog resource validation status
+      enum:
+        - Unknown
+        - Pending
+        - Succeeded
+        - Failed
+      type: string
+      x-ms-enum:
+        name: CatalogResourceValidationStatus
+        modelAsString: true
+    CatalogResourceValidationErrorDetails:
+      type: object
+      description: List of validator error details. Populated when changes are made to the resource or its dependent resources that impact the validity of the Catalog resource.
+      properties:
+        errors:
+          description: Errors associated with resources synchronized from the catalog.
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogErrorDetails'
+          x-ms-identifiers: []
+          readOnly: true
+    CatalogErrorDetails:
+      type: object
+      description: Catalog error details
       properties:
         code:
           type: string
@@ -330,12 +564,12 @@ components:
     HealthCheckStatus:
       description: Health check status values
       enum:
+        - Unknown
         - Pending
         - Running
         - Passed
-        - Failed
         - Warning
-        - Unknown
+        - Failed
       type: string
       x-ms-enum:
         name: HealthCheckStatus
@@ -419,6 +653,64 @@ components:
           description: URL to get the next set of results if there are any.
           type: string
           readOnly: true
+    OutboundEnvironmentEndpointCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/OutboundEnvironmentEndpoint'
+          x-ms-identifiers:
+            - category
+          description: The collection of outbound network dependency endpoints returned by the listing operation.
+        nextLink:
+          type: string
+          description: The continuation token.
+      description: Values returned by the List operation.
+    OutboundEnvironmentEndpoint:
+      type: object
+      properties:
+        category:
+          type: string
+          readOnly: true
+          description: The type of service that the agent connects to.
+        endpoints:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/EndpointDependency'
+          x-ms-identifiers:
+            - domainName
+          description: The endpoints for this service for which the agent requires outbound access.
+      description: A collection of related endpoints from the same service for which the agent requires outbound access.
+    EndpointDependency:
+      type: object
+      properties:
+        domainName:
+          type: string
+          readOnly: true
+          description: The domain name of the dependency. Domain names may be fully qualified or may contain a * wildcard.
+        description:
+          type: string
+          readOnly: true
+          description: Human-readable supplemental information about the dependency and when it is applicable.
+        endpointDetails:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/EndpointDetail'
+          description: The list of connection details for this endpoint.
+      description: A domain name and connection details used to access a dependency.
+    EndpointDetail:
+      type: object
+      properties:
+        port:
+          type: integer
+          format: int32
+          readOnly: true
+          description: The port an endpoint is connected to.
+      description: Details about the connection between the Batch service and the endpoint.
     Schedule:
       type: object
       description: Represents a Schedule to execute a task.
@@ -457,7 +749,7 @@ components:
           type: string
         state:
           description: Indicates whether or not this scheduled task is enabled.
-          $ref: '#/components/schemas/EnableStatus'
+          $ref: '#/components/schemas/ScheduleEnableStatus'
     ScheduleProperties:
       description: The Schedule properties defining when and what to execute.
       type: object
@@ -503,6 +795,1163 @@ components:
       x-ms-enum:
         name: ScheduledFrequency
         modelAsString: true
+    ScheduleEnableStatus:
+      description: Schedule enable or disable status. Indicates whether the schedule applied to is either enabled or disabled.
+      enum:
+        - Enabled
+        - Disabled
+      type: string
+      x-ms-enum:
+        name: ScheduleEnableStatus
+        modelAsString: true
+    DevCenter:
+      type: object
+      description: Represents a devcenter resource.
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          description: DevCenter properties
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DevCenterProperties'
+        identity:
+          description: Managed identity properties
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+    DevCenterProperties:
+      description: Properties of the devcenter.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/DevCenterUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        devCenterUri:
+          description: The URI of the Dev Center.
+          $ref: '#/components/schemas/DevCenterUri'
+    DevCenterUpdateProperties:
+      description: Properties of the devcenter. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        encryption:
+          $ref: '#/components/schemas/Encryption'
+          description: Encryption settings to be used for server-side encryption for proprietary content (such as catalogs, logs, customizations).
+        displayName:
+          type: string
+          description: The display name of the devcenter.
+    Encryption:
+      type: object
+      properties:
+        customerManagedKeyEncryption:
+          $ref: '#/components/schemas/customerManagedKeyEncryption'
+    DevCenterUpdate:
+      description: The devcenter resource for partial updates. Properties not provided in the update request will not be changed.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResourceUpdate'
+      properties:
+        identity:
+          description: Managed identity properties
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DevCenterUpdateProperties'
+          description: Properties of a Dev Center to be updated.
+    DevCenterListResult:
+      description: Result of the list devcenters operation
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/DevCenter'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    DevCenterUri:
+      description: The URI of the resource.
+      readOnly: true
+      type: string
+    Project:
+      description: Represents a project resource.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ProjectProperties'
+          description: Properties of a project.
+    ProjectUpdateProperties:
+      description: Properties of a project. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        devCenterId:
+          type: string
+          description: Resource Id of an associated DevCenter
+        description:
+          type: string
+          description: Description of the project.
+        maxDevBoxesPerUser:
+          type: integer
+          format: int32
+          minimum: 0
+          description: When specified, limits the maximum number of Dev Boxes a single user can create across all pools in the project. This will have no effect on existing Dev Boxes when reduced.
+        displayName:
+          type: string
+          description: The display name of the project.
+    ProjectProperties:
+      description: Properties of a project.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProjectUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        devCenterUri:
+          description: The URI of the Dev Center resource this project is associated with.
+          $ref: '#/components/schemas/DevCenterUri'
+    ProjectUpdate:
+      description: The project properties for partial update. Properties not provided in the update request will not be changed.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResourceUpdate'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ProjectUpdateProperties'
+          description: Properties of a project to be updated.
+    ProjectListResult:
+      description: Results of the project list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    Catalog:
+      description: Represents a catalog.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/CatalogProperties'
+          description: Catalog properties.
+    CatalogUpdateProperties:
+      description: Properties of a catalog. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        gitHub:
+          description: Properties for a GitHub catalog type.
+          $ref: '#/components/schemas/GitCatalog'
+        adoGit:
+          description: Properties for an Azure DevOps catalog type.
+          $ref: '#/components/schemas/GitCatalog'
+        syncType:
+          enum:
+            - Manual
+            - Scheduled
+          description: Indicates the type of sync that is configured for the catalog.
+          type: string
+          x-ms-enum:
+            name: CatalogSyncType
+            modelAsString: true
+    CatalogProperties:
+      description: Properties of a catalog.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/CatalogUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        syncState:
+          enum:
+            - Succeeded
+            - InProgress
+            - Failed
+            - Canceled
+          description: The synchronization state of the catalog.
+          readOnly: true
+          type: string
+          x-ms-enum:
+            name: CatalogSyncState
+            modelAsString: true
+        lastSyncStats:
+          description: Stats of the latest synchronization.
+          $ref: '#/components/schemas/SyncStats'
+          readOnly: true
+        connectionState:
+          enum:
+            - Connected
+            - Disconnected
+          description: The connection state of the catalog.
+          readOnly: true
+          type: string
+          x-ms-enum:
+            name: CatalogConnectionState
+            modelAsString: true
+        lastConnectionTime:
+          description: When the catalog was last connected.
+          type: string
+          readOnly: true
+          format: date-time
+        lastSyncTime:
+          description: When the catalog was last synced.
+          type: string
+          readOnly: true
+          format: date-time
+    SyncStats:
+      description: Stats of the synchronization.
+      type: object
+      properties:
+        added:
+          description: Count of catalog items added during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+        updated:
+          description: Count of catalog items updated during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+        unchanged:
+          description: Count of catalog items that were unchanged during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+        removed:
+          description: Count of catalog items removed during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+        validationErrors:
+          description: Count of catalog items that had validation errors during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+        synchronizationErrors:
+          description: Count of synchronization errors that occured during synchronization.
+          type: integer
+          format: int32
+          readOnly: true
+          minimum: 0
+    GitCatalog:
+      description: Properties for a Git repository catalog.
+      type: object
+      properties:
+        uri:
+          description: Git URI.
+          type: string
+        branch:
+          description: Git branch.
+          type: string
+        secretIdentifier:
+          description: A reference to the Key Vault secret containing a security token to authenticate to a Git repository.
+          type: string
+        path:
+          description: The folder where the catalog items can be found inside the repository.
+          type: string
+    CatalogUpdate:
+      description: The catalog's properties for partial update. Properties not provided in the update request will not be changed.
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/CatalogUpdateProperties'
+          description: Catalog properties for update.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+    CatalogListResult:
+      description: Results of the catalog list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/Catalog'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    SyncErrorDetails:
+      description: Synchronization error details.
+      type: object
+      properties:
+        operationError:
+          description: Error information for the overall synchronization operation.
+          readOnly: true
+          $ref: '#/components/schemas/CatalogErrorDetails'
+        conflicts:
+          description: Catalog items that have conflicting names.
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogConflictError'
+          x-ms-identifiers: []
+          readOnly: true
+        errors:
+          description: Errors that occured during synchronization.
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogSyncError'
+          x-ms-identifiers: []
+          readOnly: true
+    CatalogSyncError:
+      description: An individual synchronization error.
+      type: object
+      properties:
+        path:
+          description: The path of the file the error is associated with.
+          type: string
+          readOnly: true
+        errorDetails:
+          description: Errors associated with the file.
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogErrorDetails'
+          x-ms-identifiers: []
+          readOnly: true
+    CatalogConflictError:
+      description: An individual conflict error.
+      type: object
+      properties:
+        path:
+          description: The path of the file that has a conflicting name.
+          type: string
+          readOnly: true
+        name:
+          description: Name of the conflicting catalog item.
+          type: string
+          readOnly: true
+    Gallery:
+      description: Represents a gallery.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/GalleryProperties'
+          description: Gallery properties.
+    GalleryProperties:
+      description: Properties of a gallery.
+      type: object
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        galleryResourceId:
+          description: The resource ID of the backing Azure Compute Gallery.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+      required:
+        - galleryResourceId
+    Image:
+      description: Represents an image.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ImageProperties'
+          description: Image properties.
+    ImageProperties:
+      description: Properties of an image.
+      type: object
+      properties:
+        description:
+          description: The description of the image.
+          type: string
+          readOnly: true
+        publisher:
+          description: The publisher of the image.
+          type: string
+          readOnly: true
+        offer:
+          description: The name of the image offer.
+          type: string
+          readOnly: true
+        sku:
+          description: The SKU name for the image.
+          type: string
+          readOnly: true
+        recommendedMachineConfiguration:
+          description: The recommended machine configuration to use with the image.
+          $ref: '#/components/schemas/RecommendedMachineConfiguration'
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        hibernateSupport:
+          description: Indicates whether this image has hibernate enabled. Not all images are capable of supporting hibernation. To find out more see https://aka.ms/devbox/hibernate
+          readOnly: true
+          $ref: '#/components/schemas/HibernateSupport'
+    RecommendedMachineConfiguration:
+      description: Properties for a recommended machine configuration.
+      type: object
+      properties:
+        memory:
+          description: Recommended memory range.
+          $ref: '#/components/schemas/ResourceRange'
+          readOnly: true
+        vCPUs:
+          description: Recommended vCPU range.
+          $ref: '#/components/schemas/ResourceRange'
+          readOnly: true
+    ResourceRange:
+      description: Properties for a range of values.
+      type: object
+      properties:
+        min:
+          description: Minimum value.
+          type: integer
+          format: int32
+          readOnly: true
+        max:
+          description: Maximum value.
+          type: integer
+          format: int32
+          readOnly: true
+    ImageVersion:
+      description: Represents an image version.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ImageVersionProperties'
+          description: Image version properties.
+    ImageVersionProperties:
+      description: Properties of an image version.
+      type: object
+      properties:
+        name:
+          description: The semantic version string.
+          type: string
+          readOnly: true
+        publishedDate:
+          description: The datetime that the backing image version was published.
+          type: string
+          readOnly: true
+          format: date-time
+        excludeFromLatest:
+          description: If the version should be excluded from being treated as the latest version.
+          type: boolean
+          readOnly: true
+        osDiskImageSizeInGb:
+          description: The size of the OS disk image, in GB.
+          type: integer
+          format: int32
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+    GalleryListResult:
+      description: Results of the gallery list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/Gallery'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    ImageListResult:
+      description: Results of the image list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    ImageVersionListResult:
+      description: Results of the image version list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageVersion'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    AllowedEnvironmentType:
+      description: Represents an allowed environment type.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/AllowedEnvironmentTypeProperties'
+          description: Properties of an allowed environment type.
+    AllowedEnvironmentTypeProperties:
+      description: Properties of an allowed environment type.
+      type: object
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        displayName:
+          description: The display name of the allowed environment type.
+          type: string
+          readOnly: true
+    AllowedEnvironmentTypeListResult:
+      description: Result of the allowed environment type list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowedEnvironmentType'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    EnvironmentType:
+      description: Represents an environment type.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/EnvironmentTypeProperties'
+          description: Properties of an environment type.
+        tags:
+          $ref: '#/components/schemas/Tags'
+          description: Resource tags.
+    EnvironmentTypeProperties:
+      description: Properties of an environment type.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EnvironmentTypeUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+    EnvironmentTypeUpdate:
+      description: The environment type for partial update. Properties not provided in the update request will not be changed.
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/EnvironmentTypeUpdateProperties'
+          description: Properties of an environment type to be updated.
+        tags:
+          $ref: '#/components/schemas/Tags'
+          description: Resource tags.
+    EnvironmentTypeUpdateProperties:
+      description: Properties of an environment type. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        displayName:
+          type: string
+          description: The display name of the environment type.
+    EnvironmentTypeListResult:
+      description: Result of the environment type list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentType'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    ProjectEnvironmentType:
+      description: Represents an environment type.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ProjectEnvironmentTypeProperties'
+          description: Properties of an environment type.
+        tags:
+          $ref: '#/components/schemas/Tags'
+          description: Resource tags.
+        identity:
+          description: Managed identity properties
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+        location:
+          type: string
+          description: The geo-location for the environment type
+    ProjectEnvironmentTypeUpdateProperties:
+      description: Properties of a project environment type. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        deploymentTargetId:
+          description: Id of a subscription that the environment type will be mapped to. The environment's resources will be deployed into this subscription.
+          type: string
+        status:
+          description: Defines whether this Environment Type can be used in this Project.
+          $ref: '#/components/schemas/EnvironmentTypeEnableStatus'
+        creatorRoleAssignment:
+          description: The role definition assigned to the environment creator on backing resources.
+          type: object
+          properties:
+            roles:
+              type: object
+              description: A map of roles to assign to the environment creator.
+              additionalProperties:
+                $ref: '#/components/schemas/EnvironmentRole'
+        userRoleAssignments:
+          description: Role Assignments created on environment backing resources. This is a mapping from a user object ID to an object of role definition IDs.
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UserRoleAssignment'
+    ProjectEnvironmentTypeProperties:
+      description: Properties of a project environment type.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProjectEnvironmentTypeUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        displayName:
+          description: The display name of the project environment type.
+          type: string
+        environmentCount:
+          description: The number of environments of this type.
+          type: integer
+          format: int32
+          minimum: 0
+          readOnly: true
+    ProjectEnvironmentTypeUpdate:
+      description: The project environment type for partial update. Properties not provided in the update request will not be changed.
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ProjectEnvironmentTypeUpdateProperties'
+          description: Properties to configure an environment type.
+        tags:
+          $ref: '#/components/schemas/Tags'
+          description: Resource tags.
+        identity:
+          description: Managed identity properties
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+    ProjectEnvironmentTypeListResult:
+      description: Result of the project environment type list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectEnvironmentType'
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    DevBoxDefinitionListResult:
+      description: Results of the Dev Box definition list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/DevBoxDefinition'
+          readOnly: true
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    DevBoxDefinitionUpdate:
+      description: Partial update of a Dev Box definition resource.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResourceUpdate'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DevBoxDefinitionUpdateProperties'
+          description: Properties of a Dev Box definition to be updated.
+    DevBoxDefinition:
+      description: Represents a definition for a Developer Machine.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          description: Dev Box definition properties
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DevBoxDefinitionProperties'
+    DevBoxDefinitionUpdateProperties:
+      description: Properties of a Dev Box definition. These properties can be updated after the resource has been created.
+      type: object
+      properties:
+        imageReference:
+          $ref: '#/components/schemas/ImageReference'
+          description: Image reference information.
+        sku:
+          description: The SKU for Dev Boxes created using this definition.
+          $ref: '#/components/schemas/Sku'
+        osStorageType:
+          description: The storage type used for the Operating System disk of Dev Boxes created using this definition.
+          type: string
+        hibernateSupport:
+          description: Indicates whether Dev Boxes created with this definition are capable of hibernation. Not all images are capable of supporting hibernation. To find out more see https://aka.ms/devbox/hibernate
+          $ref: '#/components/schemas/HibernateSupport'
+    DevBoxDefinitionProperties:
+      description: Properties of a Dev Box definition.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/DevBoxDefinitionUpdateProperties'
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        imageValidationStatus:
+          description: Validation status of the configured image.
+          $ref: '#/components/schemas/ImageValidationStatus'
+          readOnly: true
+        imageValidationErrorDetails:
+          description: Details for image validator error. Populated when the image validation is not successful.
+          $ref: '#/components/schemas/ImageValidationErrorDetails'
+          readOnly: true
+        validationStatus:
+          description: Validation status for the Dev Box Definition.
+          $ref: '#/components/schemas/CatalogResourceValidationStatus'
+          readOnly: true
+        activeImageReference:
+          $ref: '#/components/schemas/ImageReference'
+          description: Image reference information for the currently active image (only populated during updates).
+          readOnly: true
+      required:
+        - imageReference
+        - sku
+    AttachedNetworkConnection:
+      description: Represents an attached NetworkConnection.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/AttachedNetworkConnectionProperties'
+          description: Attached NetworkConnection properties.
+    AttachedNetworkConnectionProperties:
+      description: Properties of an attached NetworkConnection.
+      type: object
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+          readOnly: true
+        networkConnectionId:
+          description: The resource ID of the NetworkConnection you want to attach.
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+        networkConnectionLocation:
+          description: The geo-location where the NetworkConnection resource specified in 'networkConnectionResourceId' property lives.
+          type: string
+          readOnly: true
+        healthCheckStatus:
+          $ref: '#/components/schemas/HealthCheckStatus'
+          readOnly: true
+        domainJoinType:
+          description: AAD Join type of the network. This is populated based on the referenced Network Connection.
+          $ref: '#/components/schemas/DomainJoinType'
+          readOnly: true
+      required:
+        - networkConnectionId
+    AttachedNetworkListResult:
+      description: Results of the Attached Networks list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachedNetworkConnection'
+          readOnly: true
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    EnvironmentRole:
+      type: object
+      description: A role that can be assigned to a user.
+      properties:
+        roleName:
+          description: The common name of the Role Assignment. This is a descriptive name such as 'AcrPush'.
+          type: string
+          readOnly: true
+        description:
+          description: This is a description of the Role Assignment.
+          type: string
+          readOnly: true
+    UserRoleAssignment:
+      type: object
+      description: Mapping of user object ID to role assignments.
+      x-ms-client-name: userRoleAssignmentValue
+      properties:
+        roles:
+          type: object
+          description: A map of roles to assign to the parent user.
+          additionalProperties:
+            $ref: '#/components/schemas/EnvironmentRole'
+    OperationStatus:
+      description: The current status of an async operation
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/OperationStatusResult'
+      properties:
+        resourceId:
+          description: The id of the resource.
+          type: string
+          readOnly: true
+        properties:
+          description: Custom operation properties, populated only for a successful operation.
+          type: object
+          readOnly: true
+    EnvironmentTypeEnableStatus:
+      description: Indicates whether the environment type is either enabled or disabled.
+      enum:
+        - Enabled
+        - Disabled
+      type: string
+      x-ms-enum:
+        name: EnvironmentTypeEnableStatus
+        modelAsString: true
+    HibernateSupport:
+      description: Indicates whether hibernate is enabled/disabled.
+      enum:
+        - Disabled
+        - Enabled
+      type: string
+      x-ms-enum:
+        name: HibernateSupport
+        modelAsString: true
+    ListUsagesResult:
+      description: List of Core Usages.
+      type: object
+      properties:
+        value:
+          description: The array page of Usages.
+          type: array
+          items:
+            $ref: '#/components/schemas/Usage'
+          x-ms-identifiers: []
+          readOnly: true
+        nextLink:
+          description: The link to get the next page of Usage result.
+          type: string
+          readOnly: true
+    Usage:
+      description: The core usage details.
+      type: object
+      properties:
+        currentValue:
+          description: The current usage.
+          type: integer
+          format: int64
+        limit:
+          description: The limit integer.
+          type: integer
+          format: int64
+        unit:
+          description: The unit details.
+          type: string
+          enum:
+            - Count
+          x-ms-enum:
+            name: UsageUnit
+            modelAsString: true
+        name:
+          description: The name.
+          $ref: '#/components/schemas/UsageName'
+        id:
+          description: The fully qualified arm resource id.
+          type: string
+    UsageName:
+      description: The Usage Names.
+      type: object
+      properties:
+        localizedValue:
+          description: The localized name of the resource.
+          type: string
+        value:
+          description: The name of the resource.
+          type: string
+    CustomizationTaskListResult:
+      description: Results of the Task list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomizationTask'
+          readOnly: true
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    CustomizationTask:
+      description: Represents a Task to be used in customizing a Dev Box.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          description: Task properties
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/CustomizationTaskProperties'
+    CustomizationTaskProperties:
+      description: Properties of a Task.
+      type: object
+      properties:
+        inputs:
+          description: Inputs to the task.
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CustomizationTaskInput'
+          readOnly: true
+        timeout:
+          description: The default timeout for the task.
+          type: integer
+          format: int32
+          readOnly: true
+        validationStatus:
+          description: Validation status for the Task.
+          $ref: '#/components/schemas/CatalogResourceValidationStatus'
+          readOnly: true
+    CustomizationTaskInput:
+      description: Input for a Task.
+      type: object
+      properties:
+        description:
+          description: Description of the input.
+          type: string
+          readOnly: true
+        type:
+          description: Type of the input.
+          type: string
+          enum:
+            - string
+            - number
+            - boolean
+          x-ms-enum:
+            name: CustomizationTaskInputType
+            modelAsString: true
+          readOnly: true
+        required:
+          description: Whether or not the input is required.
+          type: boolean
+          readOnly: true
+    EnvironmentDefinitionListResult:
+      description: Results of the environment definition list operation.
+      type: object
+      properties:
+        value:
+          description: Current page of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentDefinition'
+          readOnly: true
+        nextLink:
+          description: URL to get the next set of results if there are any.
+          type: string
+          readOnly: true
+    EnvironmentDefinition:
+      description: Represents an environment definition catalog item.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          description: Environment definition properties.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/EnvironmentDefinitionProperties'
+    EnvironmentDefinitionProperties:
+      description: Properties of an environment definition.
+      type: object
+      properties:
+        description:
+          description: A short description of the environment definition.
+          type: string
+          readOnly: true
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentDefinitionParameter'
+          description: Input parameters passed to an environment.
+          readOnly: true
+        templatePath:
+          description: Path to the Environment Definition entrypoint file.
+          type: string
+          readOnly: true
+        validationStatus:
+          description: Validation status for the environment definition.
+          $ref: '#/components/schemas/CatalogResourceValidationStatus'
+          readOnly: true
+    EnvironmentDefinitionParameter:
+      type: object
+      description: Properties of an Environment Definition parameter
+      properties:
+        id:
+          type: string
+          description: Unique ID of the parameter
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the parameter
+          readOnly: true
+        description:
+          type: string
+          description: Description of the parameter
+          readOnly: true
+        type:
+          description: A string of one of the basic JSON types (number, integer, array, object, boolean, string)
+          $ref: '#/components/schemas/ParameterType'
+          readOnly: true
+        readOnly:
+          type: boolean
+          description: Whether or not this parameter is read-only.  If true, default should have a value.
+          readOnly: true
+        required:
+          type: boolean
+          description: Whether or not this parameter is required
+          readOnly: true
+    ParameterType:
+      type: string
+      enum:
+        - array
+        - boolean
+        - integer
+        - number
+        - object
+        - string
+      description: The type of data a parameter accepts.
+      readOnly: true
+      x-ms-enum:
+        name: ParameterType
+        modelAsString: true
+        values:
+          - value: array
+            description: The parameter accepts an array of values.
+          - value: boolean
+            description: The parameter accepts a boolean value.
+          - value: integer
+            description: The parameter accepts an integer value.
+          - value: number
+            description: The parameter accepts a number value.
+          - value: object
+            description: The parameter accepts an object value.
+          - value: string
+            description: The parameter accepts a string value.
+    encryption:
+      type: object
+      description: (Optional) Discouraged to include in resource definition. Only needed where it is possible to disable platform (AKA infrastructure) encryption. Azure SQL TDE is an example of this. Values are enabled and disabled.
+      properties:
+        infrastructureEncryption:
+          type: string
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: InfrastructureEncryption
+            modelAsString: true
+          description: Values are enabled and disabled.
+        customerManagedKeyEncryption:
+          description: All Customer-managed key encryption properties for the resource.
+          $ref: '#/components/schemas/customerManagedKeyEncryption'
+    customerManagedKeyEncryption:
+      type: object
+      description: All Customer-managed key encryption properties for the resource.
+      properties:
+        keyEncryptionKeyIdentity:
+          type: object
+          description: All identity configuration for Customer-managed key settings defining which identity should be used to auth to Key Vault.
+          properties:
+            identityType:
+              type: string
+              enum:
+                - systemAssignedIdentity
+                - userAssignedIdentity
+                - delegatedResourceIdentity
+              x-ms-enum:
+                name: IdentityType
+                modelAsString: true
+              description: Values can be systemAssignedIdentity or userAssignedIdentity
+            userAssignedIdentityResourceId:
+              type: string
+              format: arm-id
+              description: 'user assigned identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity and delegatedResourceIdentity.'
+            delegatedIdentityClientId:
+              type: string
+              format: uuid
+              description: 'delegated identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity and userAssignedIdentity - internal use only.'
+        keyEncryptionKeyUrl:
+          type: string
+          description: 'key encryption key Url, versioned or non-versioned. Ex: https://contosovault.vault.azure.net/keys/contosokek/562a4bb76b524a1493a6afe8e536ee78 or https://contosovault.vault.azure.net/keys/contosokek.'
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -572,28 +2021,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -612,15 +2039,6 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -630,6 +2048,8 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
     SkuTier:
       type: string
@@ -977,857 +2397,27 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    Capability:
-      description: A name/value pair to describe a capability.
-      type: object
-      properties:
-        name:
-          description: Name of the capability.
-          type: string
-          readOnly: true
-        value:
-          description: Value of the capability.
-          type: string
-          readOnly: true
-    TrackedResourceUpdate:
-      description: Base tracked resource type for PATCH updates
-      type: object
-      properties:
-        tags:
-          $ref: '#/components/schemas/Tags'
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-    Tags:
-      type: object
-      additionalProperties:
-        type: string
-      x-ms-mutability:
-        - read
-        - create
-        - update
-      description: Resource tags.
-    CloudError:
-      x-ms-external: true
-      type: object
-      properties:
-        error:
-          description: Error body
-          $ref: '#/components/schemas/CloudErrorBody'
-      description: An error response from the DevCenter service.
-      required:
-        - error
-    CloudErrorBody:
-      x-ms-external: true
-      type: object
-      properties:
-        code:
-          type: string
-          description: An identifier for the error. Codes are invariant and are intended to be consumed programmatically.
-        message:
-          type: string
-          description: A message describing the error, intended to be suitable for display in a user interface.
-        target:
-          type: string
-          description: The target of the particular error. For example, the name of the property in error.
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/CloudErrorBody'
-          x-ms-identifiers: []
-          description: A list of additional details about the error.
-      description: An error response from the DevCenter service.
-      required:
-        - code
-        - message
-    DevCenterSku:
-      description: The resource model definition representing SKU for DevCenter resources
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Sku'
-      properties:
-        resourceType:
-          type: string
-          description: The name of the resource type
-          readOnly: true
-        locations:
-          description: SKU supported locations.
-          type: array
-          readOnly: true
-          items:
-            type: string
-        capabilities:
-          description: Collection of name/value pairs to describe the SKU capabilities.
-          type: array
-          readOnly: true
-          items:
-            $ref: '#/components/schemas/Capability'
-          x-ms-identifiers: []
-      required:
-        - name
-    ProvisioningState:
-      type: string
-      description: Provisioning state of the resource.
-      readOnly: true
-    DevCenter:
-      type: object
-      description: Represents a devcenter resource.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          description: DevCenter properties
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DevCenterProperties'
-        identity:
-          description: Managed identity properties
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-    DevCenterProperties:
-      description: Properties of the devcenter.
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    DevCenterUpdate:
-      description: The devcenter resource for partial updates. Properties not provided in the update request will not be changed.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResourceUpdate'
-      properties:
-        identity:
-          description: Managed identity properties
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-    DevCenterListResult:
-      description: Result of the list devcenters operation
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/DevCenter'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    Project:
-      description: Represents a project resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProjectProperties'
-          description: Properties of a project.
-    ProjectUpdateProperties:
-      description: Properties of a project. These properties can be updated after the resource has been created.
-      type: object
-      properties:
-        devCenterId:
-          type: string
-          description: Resource Id of an associated DevCenter
-        description:
-          type: string
-          description: Description of the project.
-    ProjectProperties:
-      description: Properties of a project.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProjectUpdateProperties'
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    ProjectUpdate:
-      description: The project properties for partial update. Properties not provided in the update request will not be changed.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResourceUpdate'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProjectUpdateProperties'
-          description: Properties of a project to be updated.
-    ProjectListResult:
-      description: Results of the project list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/Project'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    Catalog:
-      description: Represents a catalog.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CatalogProperties'
-          description: Catalog properties.
-    CatalogUpdateProperties:
-      description: Properties of a catalog. These properties can be updated after the resource has been created.
-      type: object
-      properties:
-        gitHub:
-          description: Properties for a GitHub catalog type.
-          $ref: '#/components/schemas/GitCatalog'
-        adoGit:
-          description: Properties for an Azure DevOps catalog type.
-          $ref: '#/components/schemas/GitCatalog'
-    CatalogProperties:
-      description: Properties of a catalog.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/CatalogUpdateProperties'
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-        lastSyncTime:
-          description: When the catalog was last synced.
-          type: string
-          readOnly: true
-          format: date-time
-    GitCatalog:
-      description: Properties for a Git repository catalog.
-      type: object
-      properties:
-        uri:
-          description: Git URI.
-          type: string
-        branch:
-          description: Git branch.
-          type: string
-        secretIdentifier:
-          description: A reference to the Key Vault secret containing a security token to authenticate to a Git repository.
-          type: string
-        path:
-          description: The folder where the catalog items can be found inside the repository.
-          type: string
-    CatalogUpdate:
-      description: The catalog's properties for partial update. Properties not provided in the update request will not be changed.
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/CatalogUpdateProperties'
-          description: Catalog properties for update.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-    CatalogListResult:
-      description: Results of the catalog list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/Catalog'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    Gallery:
-      description: Represents a gallery.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/GalleryProperties'
-          description: Gallery properties.
-    GalleryProperties:
-      description: Properties of a gallery.
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-        galleryResourceId:
-          description: The resource ID of the backing Azure Compute Gallery.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-      required:
-        - galleryResourceId
-    Image:
-      description: Represents an image.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ImageProperties'
-          description: Image properties.
-    ImageProperties:
-      description: Properties of an image.
-      type: object
-      properties:
-        description:
-          description: The description of the image.
-          type: string
-          readOnly: true
-        publisher:
-          description: The publisher of the image.
-          type: string
-          readOnly: true
-        offer:
-          description: The name of the image offer.
-          type: string
-          readOnly: true
-        sku:
-          description: The SKU name for the image.
-          type: string
-          readOnly: true
-        recommendedMachineConfiguration:
-          description: The recommended machine configuration to use with the image.
-          $ref: '#/components/schemas/RecommendedMachineConfiguration'
-          readOnly: true
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    RecommendedMachineConfiguration:
-      description: Properties for a recommended machine configuration.
-      type: object
-      properties:
-        memory:
-          description: Recommended memory range.
-          $ref: '#/components/schemas/ResourceRange'
-          readOnly: true
-        vCPUs:
-          description: Recommended vCPU range.
-          $ref: '#/components/schemas/ResourceRange'
-          readOnly: true
-    ResourceRange:
-      description: Properties for a range of values.
-      type: object
-      properties:
-        min:
-          description: Minimum value.
-          type: integer
-          format: int32
-          readOnly: true
-        max:
-          description: Maximum value.
-          type: integer
-          format: int32
-          readOnly: true
-    ImageVersion:
-      description: Represents an image version.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ImageVersionProperties'
-          description: Image version properties.
-    ImageVersionProperties:
-      description: Properties of an image version.
-      type: object
-      properties:
-        name:
-          description: The semantic version string.
-          type: string
-          readOnly: true
-        publishedDate:
-          description: The datetime that the backing image version was published.
-          type: string
-          readOnly: true
-          format: date-time
-        excludeFromLatest:
-          description: If the version should be excluded from being treated as the latest version.
-          type: boolean
-          readOnly: true
-        osDiskImageSizeInGb:
-          description: The size of the OS disk image, in GB.
-          type: integer
-          format: int32
-          readOnly: true
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    GalleryListResult:
-      description: Results of the gallery list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/Gallery'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    ImageListResult:
-      description: Results of the image list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/Image'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    ImageVersionListResult:
-      description: Results of the image version list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ImageVersion'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    AllowedEnvironmentType:
-      description: Represents an allowed environment type.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AllowedEnvironmentTypeProperties'
-          description: Properties of an allowed environment type.
-    AllowedEnvironmentTypeProperties:
-      description: Properties of an allowed environment type.
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    AllowedEnvironmentTypeListResult:
-      description: Result of the allowed environment type list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/AllowedEnvironmentType'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    EnvironmentType:
-      description: Represents an environment type.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/EnvironmentTypeProperties'
-          description: Properties of an environment type.
-        tags:
-          $ref: '#/components/schemas/Tags'
-          description: Resource tags.
-    EnvironmentTypeProperties:
-      description: Properties of an environment type.
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    EnvironmentTypeUpdate:
-      description: The environment type for partial update. Properties not provided in the update request will not be changed.
-      type: object
-      properties:
-        tags:
-          $ref: '#/components/schemas/Tags'
-          description: Resource tags.
-    EnvironmentTypeListResult:
-      description: Result of the environment type list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/EnvironmentType'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    ProjectEnvironmentType:
-      description: Represents an environment type.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProjectEnvironmentTypeProperties'
-          description: Properties of an environment type.
-        tags:
-          $ref: '#/components/schemas/Tags'
-          description: Resource tags.
-        identity:
-          description: Managed identity properties
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-        location:
-          type: string
-          description: The geo-location for the environment type
-    ProjectEnvironmentTypeUpdateProperties:
-      description: Properties of a project environment type. These properties can be updated after the resource has been created.
-      type: object
-      properties:
-        deploymentTargetId:
-          description: Id of a subscription that the environment type will be mapped to. The environment's resources will be deployed into this subscription.
-          type: string
-        status:
-          description: Defines whether this Environment Type can be used in this Project.
-          $ref: '#/components/schemas/EnableStatus'
-        creatorRoleAssignment:
-          description: The role definition assigned to the environment creator on backing resources.
-          type: object
-          properties:
-            roles:
-              type: object
-              description: A map of roles to assign to the environment creator.
-              additionalProperties:
-                $ref: '#/components/schemas/EnvironmentRole'
-        userRoleAssignments:
-          description: Role Assignments created on environment backing resources. This is a mapping from a user object ID to an object of role definition IDs.
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/UserRoleAssignment'
-    ProjectEnvironmentTypeProperties:
-      description: Properties of a project environment type.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProjectEnvironmentTypeUpdateProperties'
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-    ProjectEnvironmentTypeUpdate:
-      description: The project environment type for partial update. Properties not provided in the update request will not be changed.
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ProjectEnvironmentTypeUpdateProperties'
-          description: Properties to configure an environment type.
-        tags:
-          $ref: '#/components/schemas/Tags'
-          description: Resource tags.
-        identity:
-          description: Managed identity properties
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-    ProjectEnvironmentTypeListResult:
-      description: Result of the project environment type list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ProjectEnvironmentType'
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    DevBoxDefinitionListResult:
-      description: Results of the Dev Box definition list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/DevBoxDefinition'
-          readOnly: true
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    DevBoxDefinitionUpdate:
-      description: Partial update of a Dev Box definition resource.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResourceUpdate'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DevBoxDefinitionUpdateProperties'
-          description: Properties of a Dev Box definition to be updated.
-    DevBoxDefinition:
-      description: Represents a definition for a Developer Machine.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          description: Dev Box definition properties
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DevBoxDefinitionProperties'
-    DevBoxDefinitionUpdateProperties:
-      description: Properties of a Dev Box definition. These properties can be updated after the resource has been created.
-      type: object
-      properties:
-        imageReference:
-          $ref: '#/components/schemas/ImageReference'
-          description: Image reference information.
-        sku:
-          description: The SKU for Dev Boxes created using this definition.
-          $ref: '#/components/schemas/Sku'
-        osStorageType:
-          description: The storage type used for the Operating System disk of Dev Boxes created using this definition.
-          type: string
-    DevBoxDefinitionProperties:
-      description: Properties of a Dev Box definition.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/DevBoxDefinitionUpdateProperties'
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-        imageValidationStatus:
-          description: Validation status of the configured image.
-          $ref: '#/components/schemas/ImageValidationStatus'
-          readOnly: true
-        imageValidationErrorDetails:
-          description: Details for image validator error. Populated when the image validation is not successful.
-          $ref: '#/components/schemas/ImageValidationErrorDetails'
-          readOnly: true
-        activeImageReference:
-          $ref: '#/components/schemas/ImageReference'
-          description: Image reference information for the currently active image (only populated during updates).
-          readOnly: true
-      required:
-        - imageReference
-        - sku
-        - osStorageType
-    AttachedNetworkConnection:
-      description: Represents an attached NetworkConnection.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/AttachedNetworkConnectionProperties'
-          description: Attached NetworkConnection properties.
-    AttachedNetworkConnectionProperties:
-      description: Properties of an attached NetworkConnection.
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-          readOnly: true
-        networkConnectionId:
-          description: The resource ID of the NetworkConnection you want to attach.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        networkConnectionLocation:
-          description: The geo-location where the NetworkConnection resource specified in 'networkConnectionResourceId' property lives.
-          type: string
-          readOnly: true
-        healthCheckStatus:
-          $ref: '#/components/schemas/HealthCheckStatus'
-          readOnly: true
-        domainJoinType:
-          description: AAD Join type of the network. This is populated based on the referenced Network Connection.
-          $ref: '#/components/schemas/DomainJoinType'
-          readOnly: true
-      required:
-        - networkConnectionId
-    AttachedNetworkListResult:
-      description: Results of the Attached Networks list operation.
-      type: object
-      properties:
-        value:
-          description: Current page of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/AttachedNetworkConnection'
-          readOnly: true
-        nextLink:
-          description: URL to get the next set of results if there are any.
-          type: string
-          readOnly: true
-    EnvironmentRole:
-      type: object
-      description: A role that can be assigned to a user.
-      properties:
-        roleName:
-          description: The common name of the Role Assignment. This is a descriptive name such as 'AcrPush'.
-          type: string
-          readOnly: true
-        description:
-          description: This is a description of the Role Assignment.
-          type: string
-          readOnly: true
-    UserRoleAssignment:
-      type: object
-      description: Mapping of user object ID to role assignments.
-      x-ms-client-name: userRoleAssignmentValue
-      properties:
-        roles:
-          type: object
-          description: A map of roles to assign to the parent user.
-          additionalProperties:
-            $ref: '#/components/schemas/EnvironmentRole'
-    OperationStatus:
-      description: The current status of an async operation
-      type: object
-      properties:
-        id:
-          description: Fully qualified ID for the operation status.
-          type: string
-          readOnly: true
-        name:
-          description: The operation id name
-          type: string
-          readOnly: true
-        status:
-          description: Provisioning state of the resource.
-          type: string
-          readOnly: true
-        startTime:
-          description: The start time of the operation
-          type: string
-          readOnly: true
-          format: date-time
-        endTime:
-          description: The end time of the operation
-          type: string
-          readOnly: true
-          format: date-time
-        percentComplete:
-          description: Percent of the operation that is complete
-          type: number
-          readOnly: true
-          minimum: 0
-          maximum: 100
-        properties:
-          description: Custom operation properties, populated only for a successful operation.
-          type: object
-          readOnly: true
-        error:
-          description: Operation Error message
-          type: object
-          properties:
-            code:
-              readOnly: true
-              type: string
-              description: The error code.
-            message:
-              readOnly: true
-              type: string
-              description: The error message.
-    EnableStatus:
-      description: Enable or disable status. Indicates whether the property applied to is either enabled or disabled.
-      enum:
-        - Enabled
-        - Disabled
-      type: string
-      x-ms-enum:
-        name: EnableStatus
-        modelAsString: true
-    ListUsagesResult:
-      description: List of Core Usages.
-      type: object
-      properties:
-        value:
-          description: The array page of Usages.
-          type: array
-          items:
-            $ref: '#/components/schemas/Usage'
-          x-ms-identifiers: []
-          readOnly: true
-        nextLink:
-          description: The link to get the next page of Usage result.
-          type: string
-          readOnly: true
-    Usage:
-      description: The core usage details.
-      type: object
-      properties:
-        currentValue:
-          description: The current usage.
-          type: integer
-          format: int64
-        limit:
-          description: The limit integer.
-          type: integer
-          format: int64
-        unit:
-          description: The unit details.
-          type: string
-          enum:
-            - Count
-          x-ms-enum:
-            name: UsageUnit
-            modelAsString: true
-        name:
-          description: The name.
-          $ref: '#/components/schemas/UsageName'
-    UsageName:
-      description: The Usage Names.
-      type: object
-      properties:
-        localizedValue:
-          description: The localized name of the resource.
-          type: string
-        value:
-          description: The name of the resource.
-          type: string
   parameters:
+    ProjectNameParameter:
+      name: projectName
+      in: path
+      description: The name of the project.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
+        type: string
+    TopParameter:
+      name: $top
+      in: query
+      description: 'The maximum number of resources to return from the operation. Example: ''$top=10''.'
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int32
+        type: integer
     PoolNameParameter:
       name: poolName
       in: path
@@ -1835,6 +2425,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     NetworkConnectionName:
       name: networkConnectionName
@@ -1843,6 +2436,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     ScheduleNameParameter:
       name: scheduleName
@@ -1863,62 +2459,6 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Unique identifier of the Azure subscription. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000).
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: Name of the resource group within the Azure subscription.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The Azure region
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ProjectNameParameter:
-      name: projectName
-      in: path
-      description: The name of the project.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    TopParameter:
-      name: $top
-      in: query
-      description: 'The maximum number of resources to return from the operation. Example: ''$top=10''.'
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int32
-        type: integer
     DevCenterNameParameter:
       name: devCenterName
       in: path
@@ -1926,6 +2466,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-]{2,25}$
+        minLength: 3
+        maxLength: 26
         type: string
     CatalogNameParameter:
       name: catalogName
@@ -1934,6 +2477,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     GalleryNameParameter:
       name: galleryName
@@ -1942,6 +2488,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     ImageNameParameter:
       name: imageName
@@ -1966,6 +2515,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     AttachedNetworkConnectionNameParameter:
       name: attachedNetworkConnectionName
@@ -1974,6 +2526,9 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
         type: string
     DevBoxDefinitionName:
       name: devBoxDefinitionName
@@ -1982,10 +2537,79 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    CustomizationTaskNameParameter:
+      name: taskName
+      in: path
+      description: The name of the Task.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
+        type: string
+    EnvironmentDefinitionNameParameter:
+      name: environmentDefinitionName
+      in: path
+      description: The name of the Environment Definition.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9-_.]{2,62}$
+        minLength: 3
+        maxLength: 63
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/skus:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2011,7 +2635,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/pools:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2039,7 +2663,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/pools/{poolName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2151,8 +2775,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/pools/{poolName}/runHealthChecks:
+    x-api-version: 2023-10-01-preview
+    post:
+      tags:
+        - Pools
+      description: Triggers a refresh of the pool status.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ProjectNameParameter'
+        - $ref: '#/components/parameters/PoolNameParameter'
+      operationId: Pools_RunHealthChecks
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      responses:
+        '200':
+          description: OK. Successfully initiated refresh.
+        '202':
+          description: Accepted. Initiating pool status refresh.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/pools/{poolName}/schedules:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2181,7 +2832,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/pools/{poolName}/schedules/{scheduleName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2225,6 +2876,12 @@ paths:
             schema:
               $ref: '#/components/schemas/Schedule'
       responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
         '201':
           description: Created. Operation will complete asynchronously.
           content:
@@ -2254,6 +2911,12 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
       responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
         '202':
           description: Accepted. Operation will complete asynchronously
         default:
@@ -2284,7 +2947,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/networkConnections:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2310,7 +2973,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2337,7 +3000,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections/{networkConnectionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2449,7 +3112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections/{networkConnectionName}/healthChecks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2477,7 +3140,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections/{networkConnectionName}/healthChecks/latest:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Network Connections
@@ -2502,10 +3165,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections/{networkConnectionName}/runHealthChecks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     post:
       tags:
-        - Network Settings
+        - Network Connection
       description: Triggers a new health check run. The execution and health check result can be tracked via the network Connection health check details
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2513,17 +3176,50 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/NetworkConnectionName'
       operationId: NetworkConnections_RunHealthChecks
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
       responses:
         '200':
           description: OK. Successfully initiated health check.
+        '202':
+          description: Accepted. Initiating health checks.
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/networkConnections/{networkConnectionName}/outboundNetworkDependenciesEndpoints:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/TopParameter'
+      - $ref: '#/components/parameters/NetworkConnectionName'
+    get:
+      tags:
+        - Network Connection
+      operationId: NetworkConnections_ListOutboundNetworkDependenciesEndpoints
+      description: Lists the endpoints that agents may call as part of Dev Box service administration. These FQDNs should be allowed for outbound access in order for the Dev Box service to function.
+      responses:
+        '200':
+          description: The operation was successful. The response contains a list of outbound network dependencies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutboundEnvironmentEndpointCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/devcenters:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - DevCenters
@@ -2549,7 +3245,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - DevCenters
@@ -2576,7 +3272,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - DevCenters
@@ -2703,7 +3399,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/projects:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Projects
@@ -2729,7 +3425,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Projects
@@ -2756,7 +3452,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Projects
@@ -2883,7 +3579,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/attachednetworks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Attached NetworkConnections.
@@ -2911,7 +3607,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/attachednetworks/{attachedNetworkConnectionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Attached NetworkConnections
@@ -2937,7 +3633,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Galleries
@@ -2965,7 +3661,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries/{galleryName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Galleries
@@ -3053,7 +3749,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/images:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Images
@@ -3081,7 +3777,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries/{galleryName}/images:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Images
@@ -3110,7 +3806,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries/{galleryName}/images/{imageName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Images
@@ -3137,7 +3833,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries/{galleryName}/images/{imageName}/versions:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Image Versions
@@ -3166,7 +3862,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/galleries/{galleryName}/images/{imageName}/versions/{versionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Image Versions
@@ -3194,7 +3890,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/attachednetworks:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Attached NetworkConnections.
@@ -3222,7 +3918,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/attachednetworks/{attachedNetworkConnectionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Attached NetworkConnections
@@ -3310,7 +4006,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Catalogs
@@ -3338,7 +4034,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Catalogs
@@ -3462,8 +4158,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/getSyncErrorDetails:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+    post:
+      tags:
+        - Catalogs
+      description: Gets catalog synchronization error details
+      operationId: Catalogs_GetSyncErrorDetails
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncErrorDetails'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/sync:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     post:
       tags:
         - Catalogs
@@ -3486,9 +4208,34 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: location
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/connect:
+    x-api-version: 2023-10-01-preview
+    post:
+      tags:
+        - Catalogs
+      description: Connects a catalog to enable syncing.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/DevCenterNameParameter'
+        - $ref: '#/components/parameters/CatalogNameParameter'
+      operationId: Catalogs_Connect
+      responses:
+        '202':
+          description: Accepted. Operation will complete asynchronously.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/environmentTypes:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3516,7 +4263,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/environmentTypes/{environmentTypeName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3628,7 +4375,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/allowedEnvironmentTypes:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3656,7 +4403,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/allowedEnvironmentTypes/{environmentTypeName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3682,7 +4429,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/environmentTypes:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3710,7 +4457,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/environmentTypes/{environmentTypeName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Environment Types
@@ -3822,7 +4569,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/devboxdefinitions:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -3850,7 +4597,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/devboxdefinitions/{devBoxDefinitionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -3963,7 +4710,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/devboxdefinitions:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -3991,7 +4738,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/projects/{projectName}/devboxdefinitions/{devBoxDefinitionName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -4017,7 +4764,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /providers/Microsoft.DevCenter/operations:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       tags:
         - Operations
@@ -4041,7 +4788,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/locations/{location}/operationStatuses/{operationId}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       description: Gets the current status of an async operation.
       operationId: OperationStatuses_Get
@@ -4073,7 +4820,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/locations/{location}/usages:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-10-01-preview
     get:
       operationId: Usages_ListByLocation
       description: Lists the current usages and limits in this location for the provided subscription.
@@ -4098,3 +4845,283 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.DevCenter/checkNameAvailability:
+    x-api-version: 2023-10-01-preview
+    post:
+      tags:
+        - CheckNameAvailability
+      operationId: CheckNameAvailability_Execute
+      description: Check the availability of name for resource
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: The required parameters for checking if resource name is available.
+        required: true
+        x-ms-requestBody-name: nameAvailabilityRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckNameAvailabilityRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckNameAvailabilityResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/devboxdefinitions:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/TopParameter'
+    get:
+      tags:
+        - Catalog Dev Box Definitions
+      description: List Dev Box definitions in the catalog.
+      operationId: CatalogDevBoxDefinitions_ListByCatalog
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevBoxDefinitionListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/devboxdefinitions/{devBoxDefinitionName}:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/DevBoxDefinitionName'
+    get:
+      tags:
+        - Catalog Dev Box Definitions
+      description: Gets a Dev Box definition from the catalog
+      operationId: CatalogDevBoxDefinitions_Get
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevBoxDefinition'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/devboxdefinitions/{devBoxDefinitionName}/getErrorDetails:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/DevBoxDefinitionName'
+    post:
+      tags:
+        - Catalog Dev Box Definitions
+      description: Gets Catalog Devbox Definition error details
+      operationId: CatalogDevBoxDefinitions_GetErrorDetails
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResourceValidationErrorDetails'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/tasks:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/TopParameter'
+    get:
+      tags:
+        - Customization Tasks
+      description: List Tasks in the catalog.
+      operationId: CustomizationTasks_ListByCatalog
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizationTaskListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/tasks/{taskName}:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/CustomizationTaskNameParameter'
+    get:
+      tags:
+        - Customization Tasks
+      description: Gets a Task from the catalog
+      operationId: CustomizationTasks_Get
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizationTask'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/tasks/{taskName}/getErrorDetails:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/CustomizationTaskNameParameter'
+    post:
+      tags:
+        - Customization Tasks
+      description: Gets Customization Task error details
+      operationId: CustomizationTasks_GetErrorDetails
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResourceValidationErrorDetails'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/environmentDefinitions:
+    x-api-version: 2023-10-01-preview
+    get:
+      tags:
+        - Environment Definitions
+      description: List environment definitions in the catalog.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/DevCenterNameParameter'
+        - $ref: '#/components/parameters/CatalogNameParameter'
+        - $ref: '#/components/parameters/TopParameter'
+      operationId: EnvironmentDefinitions_ListByCatalog
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentDefinitionListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/environmentDefinitions/{environmentDefinitionName}:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/EnvironmentDefinitionNameParameter'
+    get:
+      tags:
+        - Environment Definitions
+      description: Gets an environment definition from the catalog.
+      operationId: EnvironmentDefinitions_Get
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentDefinition'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DevCenter/devcenters/{devCenterName}/catalogs/{catalogName}/environmentDefinitions/{environmentDefinitionName}/getErrorDetails:
+    x-api-version: 2023-10-01-preview
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+      - $ref: '#/components/parameters/SubscriptionIdParameter'
+      - $ref: '#/components/parameters/ResourceGroupNameParameter'
+      - $ref: '#/components/parameters/DevCenterNameParameter'
+      - $ref: '#/components/parameters/CatalogNameParameter'
+      - $ref: '#/components/parameters/EnvironmentDefinitionNameParameter'
+    post:
+      tags:
+        - Environment Definitions
+      description: Gets Environment Definition error details
+      operationId: EnvironmentDefinitions_GetErrorDetails
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResourceValidationErrorDetails'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'

@@ -4,7 +4,7 @@ servers:
 info:
   title: Microsoft.ServiceLinker
   description: Microsoft.ServiceLinker provider
-  version: '2022-05-01'
+  version: 2022-11-01-preview
 security:
   - azure_auth:
       - user_impersonation
@@ -36,6 +36,11 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -83,28 +88,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -123,15 +106,6 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -141,7 +115,20 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -150,16 +137,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -493,6 +471,7 @@ components:
         - AzureResource
         - ConfluentBootstrapServer
         - ConfluentSchemaRegistry
+        - SelfHostedServer
       x-ms-enum:
         name: targetServiceType
         modelAsString: true
@@ -562,6 +541,16 @@ components:
         endpoint:
           description: The endpoint of service.
           type: string
+    SelfHostedServer:
+      x-ms-discriminator-value: SelfHostedServer
+      type: object
+      description: The service properties when target service type is SelfHostedServer
+      allOf:
+        - $ref: '#/components/schemas/TargetServiceBase'
+      properties:
+        endpoint:
+          description: The endpoint of service.
+          type: string
     ConfluentSchemaRegistry:
       x-ms-discriminator-value: ConfluentSchemaRegistry
       type: object
@@ -572,6 +561,34 @@ components:
         endpoint:
           description: The endpoint of service.
           type: string
+    DeleteOrUpdateBehavior:
+      description: The cleanup behavior to indicate whether clean up operation when resource is deleted or updated
+      type: string
+      enum:
+        - Default
+        - ForcedCleanup
+      x-ms-enum:
+        name: DeleteOrUpdateBehavior
+        modelAsString: true
+    ClientType:
+      description: The application client type
+      type: string
+      enum:
+        - none
+        - dotnet
+        - java
+        - python
+        - go
+        - php
+        - ruby
+        - django
+        - nodejs
+        - springBoot
+        - kafka-springBoot
+        - dapr
+      x-ms-enum:
+        name: clientType
+        modelAsString: true
     AuthType:
       description: The authentication type.
       type: string
@@ -581,6 +598,8 @@ components:
         - servicePrincipalSecret
         - servicePrincipalCertificate
         - secret
+        - accessKey
+        - userAccount
       x-ms-enum:
         name: AuthType
         modelAsString: true
@@ -652,6 +671,35 @@ components:
           $ref: '#/components/schemas/AuthType'
       required:
         - authType
+    AccessKeyInfoBase:
+      description: The access key directly from target resource properties, which target service is Azure Resource, such as Microsoft.Storage
+      x-ms-discriminator-value: accessKey
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AuthInfoBase'
+      properties:
+        permissions:
+          description: Permissions of the accessKey. `Read` and `Write` are for Azure Cosmos DB and Azure App Configuration, `Listen`, `Send` and `Manage` are for Azure Event Hub and Azure Service Bus.
+          type: array
+          items:
+            type: string
+            enum:
+              - Read
+              - Write
+              - Listen
+              - Send
+              - Manage
+            x-ms-enum:
+              name: accessKeyPermissions
+              modelAsString: true
+    DatabaseAadAuthInfo:
+      description: The extra auth info required by Database AAD authentication.
+      type: object
+      properties:
+        userName:
+          nullable: true
+          description: Username created in the database which is mapped to a user in AAD.
+          type: string
     SecretAuthInfo:
       x-ms-discriminator-value: secret
       type: object
@@ -674,6 +722,7 @@ components:
       description: The authentication info when authType is userAssignedIdentity
       allOf:
         - $ref: '#/components/schemas/AuthInfoBase'
+        - $ref: '#/components/schemas/DatabaseAadAuthInfo'
       properties:
         clientId:
           description: Client Id for userAssignedIdentity.
@@ -681,18 +730,37 @@ components:
         subscriptionId:
           description: Subscription id for userAssignedIdentity.
           type: string
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        roles:
+          type: array
+          items:
+            type: string
+          description: Optional, this value specifies the Azure role to be assigned
     SystemAssignedIdentityAuthInfo:
       x-ms-discriminator-value: systemAssignedIdentity
       type: object
       description: The authentication info when authType is systemAssignedIdentity
       allOf:
         - $ref: '#/components/schemas/AuthInfoBase'
+        - $ref: '#/components/schemas/DatabaseAadAuthInfo'
+      properties:
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        roles:
+          type: array
+          items:
+            type: string
+          description: Optional, this value specifies the Azure role to be assigned
     ServicePrincipalSecretAuthInfo:
       x-ms-discriminator-value: servicePrincipalSecret
       type: object
       description: The authentication info when authType is servicePrincipal secret
       allOf:
         - $ref: '#/components/schemas/AuthInfoBase'
+        - $ref: '#/components/schemas/DatabaseAadAuthInfo'
       properties:
         clientId:
           description: ServicePrincipal application clientId for servicePrincipal auth.
@@ -704,6 +772,14 @@ components:
           description: Secret for servicePrincipal auth.
           type: string
           x-ms-secret: true
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        roles:
+          type: array
+          items:
+            type: string
+          description: 'Optional, this value specifies the Azure roles to be assigned. Automatically '
       required:
         - clientId
         - principalId
@@ -725,10 +801,37 @@ components:
           description: ServicePrincipal certificate for servicePrincipal auth.
           type: string
           x-ms-secret: true
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        roles:
+          type: array
+          items:
+            type: string
+          description: 'Optional, this value specifies the Azure roles to be assigned. Automatically '
       required:
         - clientId
         - principalId
         - certificate
+    UserAccountAuthInfo:
+      x-ms-discriminator-value: userAccount
+      type: object
+      description: The authentication info when authType is user account
+      allOf:
+        - $ref: '#/components/schemas/AuthInfoBase'
+        - $ref: '#/components/schemas/DatabaseAadAuthInfo'
+      properties:
+        principalId:
+          description: Principal Id for user account.
+          type: string
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        roles:
+          type: array
+          items:
+            type: string
+          description: 'Optional, this value specifies the Azure roles to be assigned. Automatically '
     LinkerResource:
       type: object
       description: Linker of source and target resource
@@ -739,7 +842,7 @@ components:
         - properties
       properties:
         properties:
-          description: The properties of the linker.
+          description: The properties of the Linker.
           $ref: '#/components/schemas/LinkerProperties'
           x-ms-client-flatten: true
         systemData:
@@ -749,7 +852,7 @@ components:
           $ref: '#/components/schemas/systemData'
           description: The system data.
     LinkerPatch:
-      description: A linker to be updated.
+      description: A Linker to be updated.
       type: object
       properties:
         properties:
@@ -757,13 +860,13 @@ components:
           type: object
           x-ms-client-flatten: true
           $ref: '#/components/schemas/LinkerProperties'
-    LinkerList:
+    ResourceList:
       description: The list of Linker.
       type: object
       properties:
         nextLink:
           nullable: true
-          description: The link used to get the next page of Linker list.
+          description: The Linker used to get the next page of Linker list.
           type: string
         value:
           description: The list of Linkers.
@@ -771,7 +874,7 @@ components:
           items:
             $ref: '#/components/schemas/LinkerResource'
     LinkerProperties:
-      description: The properties of the linker.
+      description: The properties of the Linker.
       type: object
       properties:
         targetService:
@@ -782,22 +885,7 @@ components:
           $ref: '#/components/schemas/AuthInfoBase'
         clientType:
           description: The application client type
-          type: string
-          enum:
-            - none
-            - dotnet
-            - java
-            - python
-            - go
-            - php
-            - ruby
-            - django
-            - nodejs
-            - springBoot
-            - kafka-springBoot
-          x-ms-enum:
-            name: clientType
-            modelAsString: true
+          $ref: '#/components/schemas/ClientType'
         provisioningState:
           readOnly: true
           type: string
@@ -816,6 +904,16 @@ components:
           nullable: true
           type: string
           description: connection scope in source service.
+        publicNetworkSolution:
+          nullable: true
+          x-nullable: true
+          description: The network solution.
+          $ref: '#/components/schemas/PublicNetworkSolution'
+        configurationInfo:
+          nullable: true
+          x-nullable: true
+          description: The connection information consumed by applications, including secrets, connection strings.
+          $ref: '#/components/schemas/ConfigurationInfo'
     SourceConfiguration:
       description: A configuration item for source resource
       type: object
@@ -827,7 +925,63 @@ components:
           nullable: true
           description: The value of setting
           type: string
-    SourceConfigurationResult:
+    ConfigurationNameItem:
+      type: object
+      properties:
+        properties:
+          nullable: true
+          x-nullable: true
+          description: The result detail.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ConfigurationNames'
+    ConfigurationNames:
+      type: object
+      description: The configuration names which will be set based on specific target resource, client type, auth type.
+      properties:
+        targetService:
+          type: string
+          description: The target service provider name and resource name.
+        clientType:
+          $ref: '#/components/schemas/ClientType'
+          description: The client type for configuration names.
+        authType:
+          $ref: '#/components/schemas/AuthType'
+          description: The auth type.
+        daprProperties:
+          description: Indicates some additional properties for dapr client type
+          $ref: '#/components/schemas/DaprProperties'
+        names:
+          type: array
+          description: The configuration names to be set in compute service environment.
+          items:
+            $ref: '#/components/schemas/ConfigurationName'
+    ConfigurationName:
+      type: object
+      description: The configuration names.
+      properties:
+        value:
+          type: string
+        description:
+          type: string
+          description: Description for the configuration name.
+        required:
+          type: boolean
+          description: Represent the configuration is required or not
+    ConfigurationNameResult:
+      description: Configuration Name list which will be set based on different target resource, client type, auth type.
+      type: object
+      properties:
+        value:
+          description: Expected configuration names for each target service.
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigurationNameItem'
+          x-ms-identifiers: []
+        nextLink:
+          description: Link to next page of resources.
+          type: string
+          readOnly: true
+    ConfigurationResult:
       description: Configurations for source resource, include appSettings, connectionString and serviceBindings
       type: object
       properties:
@@ -839,7 +993,7 @@ components:
           x-ms-identifiers:
             - name
     ValidateOperationResult:
-      description: The validation operation result for a linker.
+      description: The validation operation result for a Linker.
       type: object
       properties:
         properties:
@@ -850,14 +1004,14 @@ components:
           $ref: '#/components/schemas/ValidateResult'
         resourceId:
           nullable: true
-          description: Validated linker id.
+          description: Validated Linker id.
           type: string
         status:
           nullable: true
           description: Validation operation status.
           type: string
     ValidateResult:
-      description: The validation result for a linker.
+      description: The validation result for a Linker.
       type: object
       properties:
         linkerName:
@@ -880,7 +1034,7 @@ components:
           description: The end time of the validation report.
         sourceId:
           nullable: true
-          description: The resource id of the linker source application.
+          description: The resource id of the Linker source application.
           type: string
         targetId:
           nullable: true
@@ -899,7 +1053,7 @@ components:
           x-ms-identifiers:
             - name
     ValidationResultItem:
-      description: The validation item for a linker.
+      description: The validation item for a Linker.
       type: object
       properties:
         name:
@@ -942,6 +1096,101 @@ components:
           x-ms-enum:
             name: vNetSolutionType
             modelAsString: true
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+    PublicNetworkSolution:
+      type: object
+      description: Indicates public network solution, include firewall rules
+      properties:
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation(such as firewall rules) when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        action:
+          description: Optional. Indicates public network solution. If enable, enable public network access of target service with best try. Default is enable. If optOut, opt out public network access configuration.
+          $ref: '#/components/schemas/ActionType'
+        firewallRules:
+          description: Describe firewall rules of target service to make sure source application could connect to the target.
+          $ref: '#/components/schemas/FirewallRules'
+    FirewallRules:
+      type: object
+      description: Target service's firewall rules. to allow connections from source service.
+      properties:
+        ipRanges:
+          type: array
+          items:
+            type: string
+          description: This value specifies the set of IP addresses or IP address ranges in CIDR form to be included as the allowed list of client IPs for a given database account.
+        azureServices:
+          description: Allow Azure services to access the target service if true.
+          $ref: '#/components/schemas/AllowType'
+        callerClientIP:
+          description: Allow caller client IP to access the target service if true. the property is used when connecting local application to target service.
+          $ref: '#/components/schemas/AllowType'
+    ConfigurationInfo:
+      type: object
+      description: The configuration information, used to generate configurations or save to applications
+      properties:
+        deleteOrUpdateBehavior:
+          description: Indicates whether to clean up previous operation when Linker is updating or deleting
+          $ref: '#/components/schemas/DeleteOrUpdateBehavior'
+        action:
+          description: Optional, indicate whether to apply configurations on source application. If enable, generate configurations and applied to the source application. Default is enable. If optOut, no configuration change will be made on source.
+          $ref: '#/components/schemas/ActionType'
+        customizedKeys:
+          description: Optional. A dictionary of default key name and customized key name mapping. If not specified, default key name will be used for generate configurations
+          type: object
+          additionalProperties:
+            type: string
+        daprProperties:
+          description: Indicates some additional properties for dapr client type
+          $ref: '#/components/schemas/DaprProperties'
+        additionalConfigurations:
+          description: A dictionary of additional configurations to be added. Service will auto generate a set of basic configurations and this property is to full fill more customized configurations
+          type: object
+          additionalProperties:
+            type: string
+    DaprProperties:
+      type: object
+      description: Indicates some additional properties for dapr client type
+      properties:
+        version:
+          nullable: true
+          type: string
+          description: The dapr component version
+        componentType:
+          nullable: true
+          type: string
+          description: The dapr component type
+        secretStoreComponent:
+          nullable: true
+          type: string
+          description: The name of a secret store dapr to retrieve secret
+        metadata:
+          description: Additional dapr metadata
+          type: array
+          items:
+            $ref: '#/components/schemas/DaprMetadata'
+          x-ms-identifiers:
+            - name
+        scopes:
+          description: The dapr component scopes
+          type: array
+          items:
+            type: string
+    DaprMetadata:
+      description: The dapr component metadata.
+      type: object
+      properties:
+        name:
+          description: Metadata property name.
+          type: string
+        value:
+          description: Metadata property value.
+          type: string
+        secretRef:
+          description: The secret name where dapr could get value
+          type: string
     SecretStore:
       type: object
       description: An option to store secret value in secure place
@@ -950,12 +1199,193 @@ components:
           nullable: true
           type: string
           description: The key vault id to store secret
+        keyVaultSecretName:
+          nullable: true
+          type: string
+          description: The key vault secret name to store secret, only valid when storing one secret
+    DryrunList:
+      description: The list of dryrun.
+      type: object
+      properties:
+        nextLink:
+          nullable: true
+          description: The link used to get the next page of dryrun list.
+          type: string
+        value:
+          description: The list of dryrun.
+          type: array
+          items:
+            $ref: '#/components/schemas/DryrunResource'
+    DryrunResource:
+      type: object
+      description: a dryrun job resource
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+          description: The resource model definition for an Azure Resource Manager proxy resource.
+      properties:
+        properties:
+          description: The properties of the dryrun job.
+          $ref: '#/components/schemas/DryrunProperties'
+          x-ms-client-flatten: true
+    DryrunPatch:
+      type: object
+      description: a dryrun job to be updated.
+      properties:
+        properties:
+          description: The properties of the dryrun job.
+          $ref: '#/components/schemas/DryrunProperties'
+          x-ms-client-flatten: true
+    DryrunProperties:
+      description: The properties of the dryrun job
+      type: object
+      properties:
+        parameters:
+          description: The parameters of the dryrun
+          $ref: '#/components/schemas/DryrunParameters'
+        prerequisiteResults:
+          readOnly: true
+          description: the result of the dryrun
+          type: array
+          items:
+            $ref: '#/components/schemas/DryrunPrerequisiteResult'
+          x-ms-identifiers: []
+        operationPreviews:
+          readOnly: true
+          description: the preview of the operations for creation
+          type: array
+          items:
+            $ref: '#/components/schemas/DryrunOperationPreview'
+          x-ms-identifiers: []
+        provisioningState:
+          readOnly: true
+          type: string
+          description: 'The provisioning state. '
+    DryrunActionName:
+      description: The name of action for you dryrun job.
+      type: string
+      enum:
+        - createOrUpdate
+      x-ms-enum:
+        name: DryrunActionName
+        modelAsString: true
+    DryrunParameters:
+      description: The parameters of the dryrun
+      discriminator:
+        propertyName: actionName
+      type: object
+      properties:
+        actionName:
+          $ref: '#/components/schemas/DryrunActionName'
+      required:
+        - actionName
+    CreateOrUpdateDryrunParameters:
+      x-ms-discriminator-value: createOrUpdate
+      type: object
+      description: The dryrun parameters for creation or update a linker
+      allOf:
+        - $ref: '#/components/schemas/DryrunParameters'
+        - $ref: '#/components/schemas/LinkerProperties'
+    DryrunPrerequisiteResultType:
+      description: The type of dryrun result.
+      type: string
+      enum:
+        - basicError
+        - permissionsMissing
+      x-ms-enum:
+        name: DryrunPrerequisiteResultType
+        modelAsString: true
+    DryrunPrerequisiteResult:
+      description: A result of dryrun
+      discriminator:
+        propertyName: type
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/DryrunPrerequisiteResultType'
+      required:
+        - type
+    BasicErrorDryrunPrerequisiteResult:
+      x-ms-discriminator-value: basicError
+      description: The represent of basic error
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/DryrunPrerequisiteResult'
+      properties:
+        code:
+          type: string
+          description: The error code.
+        message:
+          type: string
+          description: The error message.
+    PermissionsMissingDryrunPrerequisiteResult:
+      x-ms-discriminator-value: permissionsMissing
+      description: The represent of missing permissions
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/DryrunPrerequisiteResult'
+      properties:
+        scope:
+          description: The permission scope
+          type: string
+        permissions:
+          description: The permission list
+          type: array
+          items:
+            type: string
+        recommendedRole:
+          description: The recommended role to resolve permissions missing
+          type: string
+    DryrunOperationPreview:
+      description: The preview of the operations for creation
+      type: object
+      properties:
+        name:
+          description: The operation name
+          type: string
+        operationType:
+          description: The operation type
+          type: string
+          enum:
+            - configConnection
+            - configNetwork
+            - configAuth
+          x-ms-enum:
+            name: DryrunPreviewOperationType
+            modelAsString: true
+        description:
+          description: The description of the operation
+          type: string
+        action:
+          description: The action defined by RBAC, refer https://docs.microsoft.com/azure/role-based-access-control/role-definitions#actions-format
+          type: string
+        scope:
+          description: The scope of the operation, refer https://docs.microsoft.com/azure/role-based-access-control/scope-overview
+          type: string
+    ActionType:
+      description: Indicates how to apply the connector operations, such as opt out network configuration, opt in configuration.
+      type: string
+      enum:
+        - enable
+        - optOut
+      x-ms-enum:
+        name: actionType
+        modelAsString: true
+    AllowType:
+      description: Whether to allow firewall rules.
+      type: string
+      enum:
+        - 'true'
+        - 'false'
+      x-ms-enum:
+        name: allowType
+        modelAsString: true
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
       description: The ID of the target subscription.
       required: true
+      x-ms-parameter-location: method
       schema:
         minLength: 1
         type: string
@@ -1003,6 +1433,14 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ConnectorNameParameter:
+      name: connectorName
+      in: path
+      description: The name of resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     ResourceUriParameter:
       name: resourceUri
       in: path
@@ -1013,22 +1451,421 @@ components:
       schema:
         type: string
 paths:
-  /{resourceUri}/providers/Microsoft.ServiceLinker/linkers:
-    x-api-version: '2022-05-01'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/dryruns:
+    x-api-version: 2022-11-01-preview
+    get:
+      tags:
+        - Connector
+      operationId: Connector_ListDryrun
+      description: list dryrun jobs
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/dryruns/{dryrunName}:
+    x-api-version: 2022-11-01-preview
+    get:
+      tags:
+        - Connector
+      operationId: Connector_GetDryrun
+      description: get a dryrun job
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Connector
+      operationId: Connector_CreateDryrun
+      description: create a dryrun job to do necessary check before actual creation
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      requestBody:
+        description: dryrun resource.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DryrunResource'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        '201':
+          description: Long running operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Connector
+      operationId: Connector_UpdateDryrun
+      description: update a dryrun job to do necessary check before actual creation
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      requestBody:
+        description: dryrun resource.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DryrunPatch'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Connector
+      operationId: Connector_DeleteDryrun
+      description: delete a dryrun job
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK. The job is deleted.
+        '204':
+          description: Deleted. The job is not found.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/connectors:
+    x-api-version: 2022-11-01-preview
     get:
       deprecated: false
-      description: Returns list of Linkers which connects to the resource.
+      description: Returns list of connector which connects to the resource, which supports to config the target service during the resource provision.
+      operationId: Connector_List
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Connector details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/connectors/{connectorName}:
+    x-api-version: 2022-11-01-preview
+    get:
+      description: Returns Connector resource for a given name.
+      operationId: Connector_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Connector details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkerResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      description: Create or update Connector resource.
+      operationId: Connector_CreateOrUpdate
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Connector details.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkerResource'
+      responses:
+        '200':
+          description: Successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkerResource'
+        '201':
+          description: Long running operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkerResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Connector
+      operationId: Connector_Delete
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      description: Delete a Connector.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. The Connector is deleted.
+        '202':
+          description: Long running operation.
+        '204':
+          description: Deleted. The Connector is not found.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Connector
+      operationId: Connector_Update
+      description: Operation to update an existing Connector.
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Connector details.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkerPatch'
+      responses:
+        '200':
+          description: Success. The response describes a Connector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkerResource'
+        '202':
+          description: Long running operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkerResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/connectors/{connectorName}/validate:
+    x-api-version: 2022-11-01-preview
+    post:
+      tags:
+        - Connector
+      operationId: Connector_Validate
+      description: Validate a Connector.
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateOperationResult'
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.ServiceLinker/locations/{location}/connectors/{connectorName}/generateConfigurations:
+    x-api-version: 2022-11-01-preview
+    post:
+      tags:
+        - Connector
+      operationId: Connector_GenerateConfigurations
+      description: Generate configurations for a Connector.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ConnectorNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Connection Info, including format, secret store, etc
+        required: false
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationInfo'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{resourceUri}/providers/Microsoft.ServiceLinker/linkers:
+    x-api-version: 2022-11-01-preview
+    get:
+      deprecated: false
+      description: Returns list of Linkers which connects to the resource. which supports to config both application and target service during the resource provision.
       operationId: Linker_List
       parameters:
         - $ref: '#/components/parameters/ResourceUriParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: linker details.
+          description: Linker details.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LinkerList'
+                $ref: '#/components/schemas/ResourceList'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -1038,7 +1875,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /{resourceUri}/providers/Microsoft.ServiceLinker/linkers/{linkerName}:
-    x-api-version: '2022-05-01'
+    x-api-version: 2022-11-01-preview
     get:
       description: Returns Linker resource for a given name.
       operationId: Linker_Get
@@ -1060,7 +1897,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
-      description: Create or update linker resource.
+      description: Create or update Linker resource.
       operationId: Linker_CreateOrUpdate
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
@@ -1098,23 +1935,23 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags:
-        - Links
+        - Linkers
       operationId: Linker_Delete
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
-      description: Delete a link.
+      description: Delete a Linker.
       parameters:
         - $ref: '#/components/parameters/ResourceUriParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/LinkerNameParameter'
       responses:
         '200':
-          description: OK. The link is deleted.
+          description: OK. The Linker is deleted.
         '202':
           description: Long running operation.
         '204':
-          description: Deleted. The link is not found.
+          description: Deleted. The Linker is not found.
         default:
           description: Error response describing why the operation failed.
           content:
@@ -1123,9 +1960,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     patch:
       tags:
-        - Links
+        - Linkers
       operationId: Linker_Update
-      description: Operation to update an existing link.
+      description: Operation to update an existing Linker.
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -1143,7 +1980,7 @@ paths:
               $ref: '#/components/schemas/LinkerPatch'
       responses:
         '200':
-          description: Success. The response describes a link.
+          description: Success. The response describes a Linker.
           content:
             application/json:
               schema:
@@ -1161,15 +1998,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /{resourceUri}/providers/Microsoft.ServiceLinker/linkers/{linkerName}/validateLinker:
-    x-api-version: '2022-05-01'
+    x-api-version: 2022-11-01-preview
     post:
       tags:
-        - Links
+        - Linkers
       operationId: Linker_Validate
-      description: Validate a link.
+      description: Validate a Linker.
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
+        final-state-via: location
       parameters:
         - $ref: '#/components/parameters/ResourceUriParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -1190,12 +2027,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /{resourceUri}/providers/Microsoft.ServiceLinker/linkers/{linkerName}/listConfigurations:
-    x-api-version: '2022-05-01'
+    x-api-version: 2022-11-01-preview
     post:
       tags:
-        - Links
+        - Linkers
       operationId: Linker_ListConfigurations
-      description: list source configurations for a linker.
+      description: list source configurations for a Linker.
       parameters:
         - $ref: '#/components/parameters/ResourceUriParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -1206,7 +2043,206 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SourceConfigurationResult'
+                $ref: '#/components/schemas/ConfigurationResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{resourceUri}/providers/Microsoft.ServiceLinker/dryruns:
+    x-api-version: 2022-11-01-preview
+    get:
+      tags:
+        - Linkers
+      operationId: Linkers_ListDryrun
+      description: list dryrun jobs
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /{resourceUri}/providers/Microsoft.ServiceLinker/dryruns/{dryrunName}:
+    x-api-version: 2022-11-01-preview
+    get:
+      tags:
+        - Linkers
+      operationId: Linkers_GetDryrun
+      description: get a dryrun job
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Linkers
+      operationId: Linkers_CreateDryrun
+      description: create a dryrun job to do necessary check before actual creation
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      requestBody:
+        description: dryrun resource.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DryrunResource'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        '201':
+          description: Long running operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Linkers
+      operationId: Linkers_UpdateDryrun
+      description: add a dryrun job to do necessary check before actual creation
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      requestBody:
+        description: dryrun resource.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DryrunPatch'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DryrunResource'
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Linkers
+      operationId: Linkers_DeleteDryrun
+      description: delete a dryrun job
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: dryrunName
+          in: path
+          description: The name of dryrun.
+          required: true
+          x-ms-parameter-location: method
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK. The job is deleted.
+        '204':
+          description: Deleted. The job is not found.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{resourceUri}/providers/Microsoft.ServiceLinker/linkers/{linkerName}/generateConfigurations:
+    x-api-version: 2022-11-01-preview
+    post:
+      tags:
+        - Linkers
+      operationId: Linkers_GenerateConfigurations
+      description: Generate configurations for a Linker.
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/LinkerNameParameter'
+      requestBody:
+        description: Connection Info, including format, secret store, etc
+        required: false
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationInfo'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -1214,7 +2250,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.ServiceLinker/operations:
-    x-api-version: '2022-05-01'
+    x-api-version: 2022-11-01-preview
     get:
       tags:
         - Operations
@@ -1229,6 +2265,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /providers/Microsoft.ServiceLinker/configurationNames:
+    x-api-version: 2022-11-01-preview
+    get:
+      tags:
+        - ConfigurationNames
+      operationId: ConfigurationNames_List
+      description: Lists the configuration names generated by Service Connector for all target, client types, auth types.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: $filter
+          in: query
+          description: OData filter options.
+          required: false
+          schema:
+            type: string
+        - name: $skipToken
+          in: query
+          description: OData skipToken option for pagination.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationNameResult'
         default:
           description: Error response describing why the operation failed.
           content:

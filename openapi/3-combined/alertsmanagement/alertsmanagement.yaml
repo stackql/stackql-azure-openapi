@@ -2,9 +2,9 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2019-05-05-preview
+  version: 2023-05-01-preview
   title: Azure Alerts Management Service Resource Provider
-  description: Azure Alerts Management Service provides a single pane of glass of alerts across Azure Monitor.
+  description: APIs for Azure alert processing rules CRUD operations.
 security:
   - azure_auth:
       - user_impersonation
@@ -19,515 +19,14 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    Resource:
-      x-ms-azure-resource: true
-      description: An azure resource object
-      properties:
-        id:
-          type: string
-          readOnly: true
-          description: Azure resource Id
-        type:
-          type: string
-          readOnly: true
-          description: Azure resource type
-        name:
-          type: string
-          readOnly: true
-          description: Azure resource name
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
-    operation:
-      description: Operation provided by provider
-      properties:
-        name:
-          type: string
-          description: Name of the operation
-        display:
-          type: object
-          description: Properties of the operation
-          properties:
-            provider:
-              type: string
-              description: Provider name
-            resource:
-              type: string
-              description: Resource name
-            operation:
-              type: string
-              description: Operation name
-            description:
-              type: string
-              description: Description of the operation
-        origin:
-          type: string
-          description: Origin of the operation
-    operationsList:
-      description: Lists the operations available in the AlertsManagement RP.
-      properties:
-        nextLink:
-          description: URL to fetch the next set of alerts.
-          type: string
-        value:
-          description: Array of operations
-          type: array
-          items:
-            $ref: '#/components/schemas/operation'
-      required:
-        - value
     errorResponse:
+      type: object
       description: An error response from the service.
       properties:
         error:
           $ref: '#/components/schemas/errorResponseBody'
     errorResponseBody:
+      type: object
       description: Details of error response.
       properties:
         code:
@@ -544,326 +43,29 @@ components:
           description: A list of additional details about the error.
           items:
             $ref: '#/components/schemas/errorResponseBody'
-    alert:
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
       type: object
-      description: An alert created in alert management service.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
       properties:
-        properties:
-          $ref: '#/components/schemas/alertProperties'
-    alertsList:
-      type: object
-      description: List the alerts.
-      properties:
-        nextLink:
-          description: URL to fetch the next set of alerts.
-          type: string
-        value:
-          description: List of alerts
-          type: array
-          items:
-            $ref: '#/components/schemas/alert'
-    alertProperties:
-      type: object
-      description: Alert property bag
-      properties:
-        essentials:
-          $ref: '#/components/schemas/essentials'
-        context:
-          $ref: '#/components/schemas/alertContext'
-        egressConfig:
-          $ref: '#/components/schemas/egressConfig'
-    egressConfig:
-      type: object
-      description: Config which would be used for displaying the data in portal.
-      readOnly: true
-    alertContext:
-      type: object
-      description: Information specific to the monitor service that gives more contextual details about the alert.
-      readOnly: true
-    actionStatus:
-      type: object
-      description: Action status
-      properties:
-        isSuppressed:
-          type: boolean
-          description: Value indicating whether alert is suppressed.
-    essentials:
-      type: object
-      description: This object contains consistent fields across different monitor services.
-      properties:
-        severity:
-          type: string
-          description: Severity of alert Sev0 being highest and Sev4 being lowest.
+        id:
           readOnly: true
-          enum:
-            - Sev0
-            - Sev1
-            - Sev2
-            - Sev3
-            - Sev4
-          x-ms-enum:
-            name: Severity
-            modelAsString: true
-        signalType:
           type: string
-          description: The type of signal the alert is based on, which could be metrics, logs or activity logs.
-          readOnly: true
-          enum:
-            - Metric
-            - Log
-            - Unknown
-          x-ms-enum:
-            name: SignalType
-            modelAsString: true
-        alertState:
-          type: string
-          description: Alert object state, which can be modified by the user.
-          readOnly: true
-          enum:
-            - New
-            - Acknowledged
-            - Closed
-          x-ms-enum:
-            name: AlertState
-            modelAsString: true
-        monitorCondition:
-          type: string
-          description: Condition of the rule at the monitor service. It represents whether the underlying conditions have crossed the defined alert rule thresholds.
-          readOnly: true
-          enum:
-            - Fired
-            - Resolved
-          x-ms-enum:
-            name: MonitorCondition
-            modelAsString: true
-        targetResource:
-          type: string
-          description: Target ARM resource, on which alert got created.
-        targetResourceName:
-          type: string
-          description: Name of the target ARM resource name, on which alert got created.
-        targetResourceGroup:
-          type: string
-          description: Resource group of target ARM resource, on which alert got created.
-        targetResourceType:
-          type: string
-          description: Resource type of target ARM resource, on which alert got created.
-        monitorService:
-          type: string
-          description: Monitor service on which the rule(monitor) is set.
-          readOnly: true
-          enum:
-            - Application Insights
-            - ActivityLog Administrative
-            - ActivityLog Security
-            - ActivityLog Recommendation
-            - ActivityLog Policy
-            - ActivityLog Autoscale
-            - Log Analytics
-            - Nagios
-            - Platform
-            - SCOM
-            - ServiceHealth
-            - SmartDetector
-            - VM Insights
-            - Zabbix
-          x-ms-enum:
-            name: MonitorService
-            modelAsString: true
-        alertRule:
-          type: string
-          description: Rule(monitor) which fired alert instance. Depending on the monitor service,  this would be ARM id or name of the rule.
-          readOnly: true
-        sourceCreatedId:
-          type: string
-          description: Unique Id created by monitor service for each alert instance. This could be used to track the issue at the monitor service, in case of Nagios, Zabbix, SCOM etc.
-          readOnly: true
-        smartGroupId:
-          type: string
-          description: Unique Id of the smart group
-          readOnly: true
-        smartGroupingReason:
-          type: string
-          description: Verbose reason describing the reason why this alert instance is added to a smart group
-          readOnly: true
-        startDateTime:
-          type: string
-          format: date-time
-          description: Creation time(ISO-8601 format) of alert instance.
-          readOnly: true
-        lastModifiedDateTime:
-          type: string
-          format: date-time
-          description: Last modification time(ISO-8601 format) of alert instance.
-          readOnly: true
-        monitorConditionResolvedDateTime:
-          type: string
-          format: date-time
-          description: Resolved time(ISO-8601 format) of alert instance. This will be updated when monitor service resolves the alert instance because the rule condition is no longer met.
-          readOnly: true
-        lastModifiedUserName:
-          type: string
-          description: User who last modified the alert, in case of monitor service updates user would be 'system', otherwise name of the user.
-          readOnly: true
-        actionStatus:
-          $ref: '#/components/schemas/actionStatus'
-        description:
-          type: string
-          description: Alert description.
-    alertModification:
-      type: object
-      description: Alert Modification details
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/alertModificationProperties'
-    alertModificationProperties:
-      type: object
-      description: Properties of the alert modification item.
-      properties:
-        alertId:
-          type: string
-          description: Unique Id of the alert for which the history is being retrieved
-          readOnly: true
-        modifications:
-          type: array
-          description: Modification details
-          items:
-            $ref: '#/components/schemas/alertModificationItem'
-    alertModificationItem:
-      type: object
-      description: Alert modification item.
-      properties:
-        modificationEvent:
-          type: string
-          description: Reason for the modification
-          enum:
-            - AlertCreated
-            - StateChange
-            - MonitorConditionChange
-            - SeverityChange
-            - ActionRuleTriggered
-            - ActionRuleSuppressed
-            - ActionsTriggered
-            - ActionsSuppressed
-            - ActionsFailed
-          x-ms-enum:
-            name: AlertModificationEvent
-        oldValue:
-          type: string
-          description: Old value
-        newValue:
-          type: string
-          description: New value
-        modifiedAt:
-          type: string
-          description: Modified date and time
-        modifiedBy:
-          type: string
-          description: Modified user details (Principal client name)
-        comments:
-          type: string
-          description: Modification comments
-        description:
-          type: string
-          description: Description of the modification
-    alertsSummary:
-      type: object
-      description: Summary of alerts based on the input filters and 'groupby' parameters.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/alertsSummaryGroup'
-    alertsSummaryGroup:
-      type: object
-      description: Group the result set.
-      properties:
-        total:
-          type: integer
-          format: int64
-          description: Total count of the result set.
-        smartGroupsCount:
-          type: integer
-          format: int64
-          description: Total count of the smart groups.
-        groupedby:
-          type: string
-          description: Name of the field aggregated
-        values:
-          type: array
-          description: List of the items
-          items:
-            $ref: '#/components/schemas/alertsSummaryGroupItem'
-    alertsSummaryGroupItem:
-      type: object
-      description: Alerts summary group item
-      properties:
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         name:
+          readOnly: true
           type: string
-          description: Value of the aggregated field
-        count:
-          type: integer
-          format: int64
-          description: Count of the aggregated field
-        groupedby:
+          description: The name of the resource
+        type:
+          readOnly: true
           type: string
-          description: Name of the field aggregated
-        values:
-          type: array
-          description: List of the items
-          items:
-            $ref: '#/components/schemas/alertsSummaryGroupItem'
-    alertsMetaData:
-      type: object
-      description: alert meta data information.
-      properties:
-        properties:
-          $ref: '#/components/schemas/alertsMetaDataProperties'
-    alertsMetaDataProperties:
-      type: object
-      description: alert meta data property bag
-      discriminator:
-        propertyName: metadataIdentifier
-      required:
-        - metadataIdentifier
-      properties:
-        metadataIdentifier:
-          type: string
-          description: Identification of the information to be retrieved by API call
-          enum:
-            - MonitorServiceList
-          x-ms-enum:
-            name: metadataIdentifier
-            modelAsString: true
-    MonitorServiceList:
-      type: object
-      title: Monitor service details
-      description: Monitor service details
-      required:
-        - data
-      allOf:
-        - $ref: '#/components/schemas/alertsMetaDataProperties'
-        - type: object
-      properties:
-        data:
-          description: Array of operations
-          type: array
-          items:
-            $ref: '#/components/schemas/MonitorServiceDetails'
-    MonitorServiceDetails:
-      type: object
-      description: Details of a monitor service
-      properties:
-        name:
-          type: string
-          description: Monitor service name
-        displayName:
-          type: string
-          description: Monitor service display name
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
     ManagedResource:
       description: An azure managed resource object.
       allOf:
@@ -1080,6 +282,7 @@ components:
           enum:
             - AddActionGroups
             - RemoveAllActionGroups
+            - CorrelateAlerts
           x-ms-enum:
             name: actionType
             modelAsString: true
@@ -1103,6 +306,47 @@ components:
       description: Indicates if all action groups should be removed.
       allOf:
         - $ref: '#/components/schemas/Action'
+    CorrelateAlerts:
+      x-ms-discriminator-value: CorrelateAlerts
+      type: object
+      description: Add logic for alerts correlation.
+      required:
+        - correlateBy
+        - correlationInterval
+        - priority
+      allOf:
+        - $ref: '#/components/schemas/Action'
+      properties:
+        correlateBy:
+          type: array
+          description: The list of conditions for the alerts correlations.
+          items:
+            $ref: '#/components/schemas/CorrelateBy'
+          x-ms-identifiers: []
+        correlationInterval:
+          type: string
+          description: The required duration (in ISO8601 format) for the alerts correlation.
+        priority:
+          type: integer
+          format: int32
+          description: The priority of this correlation.
+        notificationsForCorrelatedAlerts:
+          type: string
+          default: SuppressAlways
+          description: Indicates how to handle child alerts notifications.
+          enum:
+            - NotifyAlways
+            - SuppressAlways
+          x-ms-enum:
+            name: NotificationsForCorrelatedAlerts
+            modelAsString: true
+    CorrelateBy:
+      type: object
+      description: The logic for the correlation.
+      properties:
+        field:
+          type: string
+          description: The JPath of the property that the alerts should be correlated by.
     AlertProcessingRulesList:
       type: object
       description: List of alert processing rules.
@@ -1133,6 +377,125 @@ components:
           additionalProperties:
             type: string
           description: Tags to be updated.
+    AlertRuleRecommendationsListResponse:
+      type: object
+      description: List of alert rule recommendations.
+      required:
+        - value
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRuleRecommendationResource'
+          description: the values for the alert rule recommendations.
+        nextLink:
+          description: URL to fetch the next set of recommendations.
+          type: string
+    AlertRuleRecommendationResource:
+      type: object
+      description: A single alert rule recommendation resource.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      required:
+        - properties
+      properties:
+        properties:
+          $ref: '#/components/schemas/AlertRuleRecommendationProperties'
+          x-ms-client-flatten: true
+          description: recommendation properties.
+    AlertRuleRecommendationProperties:
+      description: Describes the format of Alert Rule Recommendations response.
+      type: object
+      required:
+        - alertRuleType
+        - displayInformation
+        - ruleArmTemplate
+      properties:
+        alertRuleType:
+          type: string
+          description: The recommendation alert rule type.
+        category:
+          type: string
+          description: The recommendation alert rule category.
+        displayInformation:
+          description: A dictionary that provides the display information for an alert rule recommendation.
+          type: object
+          additionalProperties:
+            type: string
+        ruleArmTemplate:
+          $ref: '#/components/schemas/ruleArmTemplate'
+    MetricAlertsDisplayUnit:
+      type: string
+      description: The unit to display for a metric alert rule.
+      enum:
+        - None
+        - Percentage
+        - Bytes
+        - Kilobytes
+        - Megabytes
+        - Gigabytes
+        - Terabytes
+        - Petabytes
+        - BytesPerDay
+        - BytesPerHour
+        - BytesPerMinute
+        - BytesPerSecond
+        - KilobytesPerSecond
+        - MegabytesPerSecond
+        - GigabytesPerSecond
+        - TerabytesPerSecond
+        - PetabytesPerSecond
+        - Count
+        - Thousand
+        - Million
+        - Billion
+        - Trillion
+        - MicroSeconds
+        - MilliSeconds
+        - Seconds
+        - Minutes
+        - Hours
+        - Days
+        - CountPerDay
+        - CountPerHour
+        - CountPerMinute
+        - CountPerSecond
+        - ThousandPerSecond
+        - MillionPerSecond
+        - BillionPerSecond
+        - TrillionPerSecond
+      x-ms-enum:
+        name: MetricAlertsDisplayUnit
+        modelAsString: true
+    ruleArmTemplate:
+      description: A complete ARM template to deploy the alert rules.
+      type: object
+      required:
+        - $schema
+        - contentVersion
+        - variables
+        - parameters
+        - resources
+      properties:
+        $schema:
+          type: string
+          description: JSON schema reference
+        contentVersion:
+          type: string
+          pattern: (^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$)
+          description: A 4 number format for the version number of this template file. For example, 1.0.0.0
+        variables:
+          type: object
+          description: Variable definitions
+        parameters:
+          type: object
+          description: Input parameter definitions
+        resources:
+          type: array
+          description: Alert rule resource definitions
+          items:
+            type: object
+          x-ms-identifiers: []
     smartGroupModification:
       type: object
       description: Alert Modification details
@@ -1305,51 +668,1082 @@ components:
           type: integer
           format: int64
           description: Total number of items of type.
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
+        tenantId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    operation:
+      type: object
+      description: Operation provided by provider
+      properties:
+        name:
+          type: string
+          description: Name of the operation
+        display:
+          type: object
+          description: Properties of the operation
+          properties:
+            provider:
+              type: string
+              description: Provider name
+            resource:
+              type: string
+              description: Resource name
+            operation:
+              type: string
+              description: Operation name
+            description:
+              type: string
+              description: Description of the operation
+        origin:
+          type: string
+          description: Origin of the operation
+    operationsList:
+      type: object
+      description: Lists the operations available in the AlertsManagement RP.
+      properties:
+        nextLink:
+          description: URL to fetch the next set of alerts.
+          type: string
+        value:
+          description: Array of operations
+          type: array
+          items:
+            $ref: '#/components/schemas/operation'
+          x-ms-identifiers: []
+      required:
+        - value
+    alert:
+      type: object
+      description: An alert created in alert management service.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/alertProperties'
+    alertsList:
+      type: object
+      description: List the alerts.
+      properties:
+        nextLink:
+          description: URL to fetch the next set of alerts.
+          type: string
+        value:
+          description: List of alerts
+          type: array
+          items:
+            $ref: '#/components/schemas/alert'
+    alertProperties:
+      type: object
+      description: Alert property bag
+      properties:
+        essentials:
+          $ref: '#/components/schemas/essentials'
+        context:
+          $ref: '#/components/schemas/alertContext'
+        egressConfig:
+          $ref: '#/components/schemas/egressConfig'
+    comments:
+      type: object
+      description: Change alert state reason
+      properties:
+        comments:
+          type: string
+    egressConfig:
+      type: object
+      description: Config which would be used for displaying the data in portal.
+      readOnly: true
+    alertContext:
+      type: object
+      description: Information specific to the monitor service that gives more contextual details about the alert.
+      readOnly: true
+    actionStatus:
+      type: object
+      description: Action status
+      properties:
+        isSuppressed:
+          type: boolean
+          description: Value indicating whether alert is suppressed.
+    essentials:
+      type: object
+      description: This object contains consistent fields across different monitor services.
+      properties:
+        severity:
+          type: string
+          description: Severity of alert Sev0 being highest and Sev4 being lowest.
+          readOnly: true
+          enum:
+            - Sev0
+            - Sev1
+            - Sev2
+            - Sev3
+            - Sev4
+          x-ms-enum:
+            name: Severity
+            modelAsString: true
+        signalType:
+          type: string
+          description: The type of signal the alert is based on, which could be metrics, logs or activity logs.
+          readOnly: true
+          enum:
+            - Metric
+            - Log
+            - Unknown
+          x-ms-enum:
+            name: SignalType
+            modelAsString: true
+        alertState:
+          type: string
+          description: Alert object state, which can be modified by the user.
+          readOnly: true
+          enum:
+            - New
+            - Acknowledged
+            - Closed
+          x-ms-enum:
+            name: AlertState
+            modelAsString: true
+        monitorCondition:
+          type: string
+          description: Condition of the rule at the monitor service. It represents whether the underlying conditions have crossed the defined alert rule thresholds.
+          readOnly: true
+          enum:
+            - Fired
+            - Resolved
+          x-ms-enum:
+            name: MonitorCondition
+            modelAsString: true
+        targetResource:
+          type: string
+          description: Target ARM resource, on which alert got created.
+        targetResourceName:
+          type: string
+          description: Name of the target ARM resource name, on which alert got created.
+        targetResourceGroup:
+          type: string
+          description: Resource group of target ARM resource, on which alert got created.
+        targetResourceType:
+          type: string
+          description: Resource type of target ARM resource, on which alert got created.
+        monitorService:
+          type: string
+          description: Monitor service on which the rule(monitor) is set.
+          readOnly: true
+          enum:
+            - Application Insights
+            - ActivityLog Administrative
+            - ActivityLog Security
+            - ActivityLog Recommendation
+            - ActivityLog Policy
+            - ActivityLog Autoscale
+            - Log Analytics
+            - Nagios
+            - Platform
+            - SCOM
+            - ServiceHealth
+            - SmartDetector
+            - VM Insights
+            - Zabbix
+            - Resource Health
+          x-ms-enum:
+            name: MonitorService
+            modelAsString: true
+        alertRule:
+          type: string
+          description: Rule(monitor) which fired alert instance. Depending on the monitor service,  this would be ARM id or name of the rule.
+          readOnly: true
+        sourceCreatedId:
+          type: string
+          description: Unique Id created by monitor service for each alert instance. This could be used to track the issue at the monitor service, in case of Nagios, Zabbix, SCOM etc.
+          readOnly: true
+        smartGroupId:
+          type: string
+          description: Unique Id of the smart group
+          readOnly: true
+        smartGroupingReason:
+          type: string
+          description: Verbose reason describing the reason why this alert instance is added to a smart group
+          readOnly: true
+        startDateTime:
+          type: string
+          format: date-time
+          description: Creation time(ISO-8601 format) of alert instance.
+          readOnly: true
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+          description: Last modification time(ISO-8601 format) of alert instance.
+          readOnly: true
+        monitorConditionResolvedDateTime:
+          type: string
+          format: date-time
+          description: Resolved time(ISO-8601 format) of alert instance. This will be updated when monitor service resolves the alert instance because the rule condition is no longer met.
+          readOnly: true
+        lastModifiedUserName:
+          type: string
+          description: User who last modified the alert, in case of monitor service updates user would be 'system', otherwise name of the user.
+          readOnly: true
+        actionStatus:
+          $ref: '#/components/schemas/actionStatus'
+        description:
+          type: string
+          description: Alert description.
+    alertModification:
+      type: object
+      description: Alert Modification details
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/alertModificationProperties'
+    alertModificationProperties:
+      type: object
+      description: Properties of the alert modification item.
+      properties:
+        alertId:
+          type: string
+          description: Unique Id of the alert for which the history is being retrieved
+          readOnly: true
+        modifications:
+          type: array
+          description: Modification details
+          items:
+            $ref: '#/components/schemas/alertModificationItem'
+          x-ms-identifiers: []
+    alertModificationItem:
+      type: object
+      description: Alert modification item.
+      properties:
+        modificationEvent:
+          type: string
+          description: Reason for the modification
+          enum:
+            - AlertCreated
+            - StateChange
+            - MonitorConditionChange
+            - SeverityChange
+            - ActionRuleTriggered
+            - ActionRuleSuppressed
+            - ActionsTriggered
+            - ActionsSuppressed
+            - ActionsFailed
+          x-ms-enum:
+            name: AlertModificationEvent
+        oldValue:
+          type: string
+          description: Old value
+        newValue:
+          type: string
+          description: New value
+        modifiedAt:
+          type: string
+          description: Modified date and time
+        modifiedBy:
+          type: string
+          description: Modified user details (Principal client name)
+        comments:
+          type: string
+          description: Modification comments
+        description:
+          type: string
+          description: Description of the modification
+    alertsSummary:
+      type: object
+      description: Summary of alerts based on the input filters and 'groupby' parameters.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/alertsSummaryGroup'
+    alertsSummaryGroup:
+      type: object
+      description: Group the result set.
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: Total count of the result set.
+        smartGroupsCount:
+          type: integer
+          format: int64
+          description: Total count of the smart groups.
+        groupedby:
+          type: string
+          description: Name of the field aggregated
+        values:
+          type: array
+          description: List of the items
+          items:
+            $ref: '#/components/schemas/alertsSummaryGroupItem'
+          x-ms-identifiers: []
+    alertsSummaryGroupItem:
+      type: object
+      description: Alerts summary group item
+      properties:
+        name:
+          type: string
+          description: Value of the aggregated field
+        count:
+          type: integer
+          format: int64
+          description: Count of the aggregated field
+        groupedby:
+          type: string
+          description: Name of the field aggregated
+        values:
+          type: array
+          description: List of the items
+          items:
+            $ref: '#/components/schemas/alertsSummaryGroupItem'
+          x-ms-identifiers: []
+    alertsMetaData:
+      type: object
+      description: alert meta data information.
+      properties:
+        properties:
+          $ref: '#/components/schemas/alertsMetaDataProperties'
+    alertsMetaDataProperties:
+      type: object
+      description: alert meta data property bag
+      discriminator:
+        propertyName: metadataIdentifier
+      required:
+        - metadataIdentifier
+      properties:
+        metadataIdentifier:
+          type: string
+          description: Identification of the information to be retrieved by API call
+          enum:
+            - MonitorServiceList
+          x-ms-enum:
+            name: metadataIdentifier
+            modelAsString: true
+    MonitorServiceList:
+      type: object
+      title: Monitor service details
+      description: Monitor service details
+      required:
+        - data
+      allOf:
+        - $ref: '#/components/schemas/alertsMetaDataProperties'
+        - type: object
+      properties:
+        data:
+          description: Array of operations
+          type: array
+          items:
+            $ref: '#/components/schemas/MonitorServiceDetails'
+          x-ms-identifiers: []
+    MonitorServiceDetails:
+      type: object
+      description: Details of a monitor service
+      properties:
+        name:
+          type: string
+          description: Monitor service name
+        displayName:
+          type: string
+          description: Monitor service display name
+    alertEnrichmentResponse:
+      description: The alert's enrichments.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/alertEnrichmentProperties'
+    alertEnrichmentsList:
+      description: List the alert's enrichments.
+      type: object
+      properties:
+        value:
+          description: List the alert's enrichments
+          type: array
+          items:
+            $ref: '#/components/schemas/alertEnrichmentResponse'
+        nextLink:
+          type: string
+          description: Request URL that can be used to query next page.
+    alertEnrichmentProperties:
+      type: object
+      description: Properties of the alert enrichment item.
+      properties:
+        alertId:
+          type: string
+          description: Unique Id (GUID) of the alert for which the enrichments are being retrieved.
+          readOnly: true
+        enrichments:
+          type: array
+          description: Enrichment details
+          items:
+            $ref: '#/components/schemas/alertEnrichmentItem'
+          x-ms-identifiers: []
+    alertEnrichmentItem:
+      type: object
+      description: Alert enrichment item.
+      discriminator:
+        propertyName: type
+      required:
+        - title
+        - description
+        - status
+        - type
+      properties:
+        title:
+          type: string
+          description: The enrichment title.
+        description:
+          type: string
+          description: The enrichment description.
+        status:
+          type: string
+          description: The status of the evaluation of the enrichment.
+          enum:
+            - Succeeded
+            - Failed
+          x-ms-enum:
+            name: status
+            modelAsString: true
+        errorMessage:
+          type: string
+          description: The error message. Will be present only if the status is 'Failed'.
+        type:
+          type: string
+          description: The enrichment type.
+          enum:
+            - PrometheusInstantQuery
+            - PrometheusRangeQuery
+          x-ms-enum:
+            name: type
+            modelAsString: true
+    PrometheusEnrichmentItem:
+      type: object
+      description: Prometheus enrichment object.
+      required:
+        - linkToApi
+        - datasources
+        - grafanaExplorePath
+        - query
+      allOf:
+        - $ref: '#/components/schemas/alertEnrichmentItem'
+      properties:
+        linkToApi:
+          type: string
+          description: Link to Prometheus query API (Url format).
+        datasources:
+          type: array
+          description: An array of the azure monitor workspace resource ids.
+          items:
+            type: string
+            description: The azure monitor workspace resource id.
+          x-ms-identifiers: []
+        grafanaExplorePath:
+          type: string
+          description: Partial link to the Grafana explore API.
+        query:
+          type: string
+          description: The Prometheus expression query.
+    PrometheusInstantQuery:
+      x-ms-discriminator-value: PrometheusInstantQuery
+      type: object
+      description: Prometheus instant query enrichment object.
+      required:
+        - time
+      allOf:
+        - $ref: '#/components/schemas/PrometheusEnrichmentItem'
+      properties:
+        time:
+          type: string
+          description: The date and the time of the evaluation.
+    PrometheusRangeQuery:
+      type: object
+      x-ms-discriminator-value: PrometheusRangeQuery
+      description: Prometheus instant query enrichment object.
+      required:
+        - start
+        - end
+        - step
+      allOf:
+        - $ref: '#/components/schemas/PrometheusEnrichmentItem'
+      properties:
+        start:
+          type: string
+          description: The start evaluation date and time in ISO8601 format.
+          format: date-time
+        end:
+          type: string
+          description: The end evaluation date and time in ISO8601 format.
+          format: date-time
+        step:
+          type: string
+          description: Query resolution step width in ISO8601 format.
+    PrometheusRuleGroupResource:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      required:
+        - properties
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/PrometheusRuleGroupProperties'
+          description: The Prometheus rule group properties of the resource.
+      description: The Prometheus rule group resource.
+    PrometheusRuleGroupResourcePatchParameters:
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+        properties:
+          type: object
+          x-ms-client-flatten: true
+          properties:
+            enabled:
+              type: boolean
+              description: the flag that indicates whether the Prometheus rule group is enabled.
+      description: The Prometheus rule group resource for patch operations.
+    PrometheusRuleGroupResourceCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrometheusRuleGroupResource'
+          description: the values for the alert rule resources.
+      description: Represents a collection of alert rule resources.
+    PrometheusRuleGroupProperties:
+      description: An Azure Prometheus rule group.
+      type: object
+      required:
+        - scopes
+        - rules
+      properties:
+        description:
+          type: string
+          description: Rule group description.
+        enabled:
+          type: boolean
+          description: Enable/disable rule group.
+        clusterName:
+          type: string
+          description: Apply rule to data from a specific cluster.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Target Azure Monitor workspaces resource ids. This api-version is currently limited to creating with one scope. This may change in future.
+        interval:
+          type: string
+          description: The interval in which to run the Prometheus rule group represented in ISO 8601 duration format. Should be between 1 and 15 minutes
+          format: duration
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrometheusRule'
+          description: Defines the rules in the Prometheus rule group.
+          x-ms-identifiers: []
+    PrometheusRule:
+      type: object
+      description: An Azure Prometheus alerting or recording rule.
+      required:
+        - expression
+      properties:
+        record:
+          description: Recorded metrics name.
+          type: string
+        alert:
+          description: Alert rule name.
+          type: string
+        enabled:
+          type: boolean
+          description: Enable/disable rule.
+        expression:
+          description: The PromQL expression to evaluate. https://prometheus.io/docs/prometheus/latest/querying/basics/. Evaluated periodically as given by 'interval', and the result recorded as a new set of time series with the metric name as given by 'record'.
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Labels to add or overwrite before storing the result.
+        severity:
+          type: integer
+          format: int32
+          description: The severity of the alerts fired by the rule. Must be between 0 and 4.
+        for:
+          type: string
+          description: The amount of time alert must be active before firing.
+          format: duration
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+          description: The annotations clause specifies a set of informational labels that can be used to store longer additional information such as alert descriptions or runbook links. The annotation values can be templated.
+        actions:
+          $ref: '#/components/schemas/PrometheusRuleGroupActions'
+          description: Actions that are performed when the alert rule becomes active, and when an alert condition is resolved.
+        resolveConfiguration:
+          $ref: '#/components/schemas/PrometheusRuleResolveConfiguration'
+          description: Defines the configuration for resolving fired alerts. Only relevant for alerts.
+    PrometheusRuleGroupActions:
+      type: array
+      items:
+        $ref: '#/components/schemas/PrometheusRuleGroupAction'
+      x-ms-identifiers: []
+      description: The array of actions that are performed when the alert rule becomes active, and when an alert condition is resolved. Only relevant for alerts.
+    PrometheusRuleGroupAction:
+      type: object
+      description: An alert action. Only relevant for alerts.
+      properties:
+        actionGroupId:
+          type: string
+          description: The resource id of the action group to use.
+        actionProperties:
+          type: object
+          additionalProperties:
+            type: string
+          description: The properties of an action group object.
+    PrometheusRuleResolveConfiguration:
+      type: object
+      description: Specifies the Prometheus alert rule configuration.
+      properties:
+        autoResolved:
+          type: boolean
+          description: Enable alert auto-resolution.
+        timeToResolve:
+          type: string
+          description: Alert auto-resolution timeout.
+          format: duration
   parameters:
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
     subscriptionId:
       name: subscriptionId
       in: path
@@ -1357,6 +1751,31 @@ components:
       required: true
       schema:
         minLength: 1
+        type: string
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: Resource group name where the resource is created.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ResourceUriParameter:
+      name: resourceUri
+      in: path
+      description: The identifier of the resource.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    TargetTypeParameter:
+      name: targetType
+      in: query
+      description: The recommendations target type.
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     api-version:
       name: api-version
@@ -1369,14 +1788,6 @@ components:
         x-ms-enum:
           name: api-version
           modelAsString: true
-        type: string
-    alertId:
-      name: alertId
-      in: path
-      description: Unique ID of an alert instance.
-      required: true
-      x-ms-parameter-location: method
-      schema:
         type: string
     targetResourceGroup:
       name: targetResourceGroup
@@ -1424,6 +1835,7 @@ components:
           - SmartDetector
           - VM Insights
           - Zabbix
+          - Resource Health
         x-ms-enum:
           name: MonitorService
           modelAsString: true
@@ -1445,11 +1857,11 @@ components:
           name: Severity
           modelAsString: true
         type: string
-    smartGroupIdFilter:
+    smartGroupId:
       name: smartGroupId
-      in: query
-      description: Filter the alerts list by the Smart Group Id. Default value is none.
-      required: false
+      in: path
+      description: 'Smart group unique id. '
+      required: true
       x-ms-parameter-location: method
       schema:
         type: string
@@ -1468,10 +1880,10 @@ components:
           name: AlertState
           modelAsString: true
         type: string
-    alertState:
-      name: alertState
+    smartGroupState:
+      name: smartGroupState
       in: query
-      description: Filter by state of the alert instance. Default value is to select all.
+      description: Filter by state of the smart group. Default value is to select all.
       required: false
       x-ms-parameter-location: method
       schema:
@@ -1497,14 +1909,6 @@ components:
           name: MonitorCondition
           modelAsString: true
         type: string
-    alertRule:
-      name: alertRule
-      in: query
-      description: Filter by specific alert rule.  Default value is to select all.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
     timeRange:
       name: timeRange
       in: query
@@ -1520,6 +1924,138 @@ components:
         x-ms-enum:
           name: TimeRange
           modelAsString: true
+        type: string
+    pageCount:
+      name: pageCount
+      in: query
+      description: Determines number of alerts returned per page in response. Permissible value is between 1 to 250. When the "includeContent"  filter is selected, maximum value allowed is 25. Default value is 25.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        format: int64
+        type: integer
+    smartGroupsSortBy:
+      name: sortBy
+      in: query
+      description: Sort the query results by input field. Default value is sort by 'lastModifiedDateTime'.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - alertsCount
+          - state
+          - severity
+          - startDateTime
+          - lastModifiedDateTime
+        x-ms-enum:
+          name: SmartGroupsSortByFields
+          modelAsString: true
+        type: string
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort the query results order in either ascending or descending.  Default value is 'desc' for time fields and 'asc' for others.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - asc
+          - desc
+        x-ms-enum:
+          name: SortOrder
+          modelAsString: true
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription. The value must be an UUID.
+      required: true
+      schema:
+        format: uuid
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    scope:
+      name: scope
+      in: path
+      description: scope here is resourceId for which alert is created.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    alertId:
+      name: alertId
+      in: path
+      description: Unique ID of an alert instance.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    smartGroupIdFilter:
+      name: smartGroupId
+      in: query
+      description: Filter the alerts list by the Smart Group Id. Default value is none.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    alertState:
+      name: alertState
+      in: query
+      description: Filter by state of the alert instance. Default value is to select all.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - New
+          - Acknowledged
+          - Closed
+        x-ms-enum:
+          name: AlertState
+          modelAsString: true
+        type: string
+    alertRule:
+      name: alertRule
+      in: query
+      description: Filter by specific alert rule.  Default value is to select all.
+      required: false
+      x-ms-parameter-location: method
+      schema:
         type: string
     customTimeRange:
       name: customTimeRange
@@ -1553,15 +2089,6 @@ components:
       x-ms-parameter-location: method
       schema:
         type: boolean
-    pageCount:
-      name: pageCount
-      in: query
-      description: Determines number of alerts returned per page in response. Permissible value is between 1 to 250. When the "includeContent"  filter is selected, maximum value allowed is 25. Default value is 25.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        format: int64
-        type: integer
     alertsSortBy:
       name: sortBy
       in: query
@@ -1602,20 +2129,6 @@ components:
           name: AlertsSummaryGroupByFields
           modelAsString: true
         type: string
-    sortOrder:
-      name: sortOrder
-      in: query
-      description: Sort the query results order in either ascending or descending.  Default value is 'desc' for time fields and 'asc' for others.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - asc
-          - desc
-        x-ms-enum:
-          name: SortOrder
-          modelAsString: true
-        type: string
     select:
       name: select
       in: query
@@ -1637,256 +2150,70 @@ components:
           name: identifier
           modelAsString: true
         type: string
-    resourceGroupName:
-      name: resourceGroupName
+    ManagementGroupNameParameter:
+      name: managementGroupName
       in: path
-      description: Resource group name where the resource is created.
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
       required: true
       x-ms-parameter-location: method
       schema:
         type: string
-    smartGroupId:
-      name: smartGroupId
-      in: path
-      description: 'Smart group unique id. '
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
       required: true
       x-ms-parameter-location: method
       schema:
         type: string
-    smartGroupState:
-      name: smartGroupState
-      in: query
-      description: Filter by state of the smart group. Default value is to select all.
-      required: false
+    RuleGroupNameParameter:
+      name: ruleGroupName
+      in: path
+      description: The name of the rule group.
+      required: true
       x-ms-parameter-location: method
       schema:
-        enum:
-          - New
-          - Acknowledged
-          - Closed
-        x-ms-enum:
-          name: AlertState
-          modelAsString: true
-        type: string
-    smartGroupsSortBy:
-      name: sortBy
-      in: query
-      description: Sort the query results by input field. Default value is sort by 'lastModifiedDateTime'.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - alertsCount
-          - state
-          - severity
-          - startDateTime
-          - lastModifiedDateTime
-        x-ms-enum:
-          name: SmartGroupsSortByFields
-          modelAsString: true
+        pattern: ^[^:@/#{}%&+*<>?]+$
         type: string
 paths:
-  /providers/Microsoft.AlertsManagement/operations:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Operations_List
-      description: List all operations available through Azure Alerts Management Resource Provider.
-      parameters:
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: OK. Successfully retrieved operations list.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/operationsList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /providers/Microsoft.AlertsManagement/alertsMetaData:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Alerts_MetaData
-      description: List alerts meta data information based on value of identifier parameter.
-      parameters:
-        - $ref: '#/components/parameters/api-version'
-        - $ref: '#/components/parameters/identifier'
-      responses:
-        '200':
-          description: OK. Successfully listed alert meta data.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alertsMetaData'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alerts:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Alerts_GetAll
-      description: 'List all existing alerts, where the results can be filtered on the basis of multiple parameters (e.g. time range). The results can then be sorted on the basis specific fields, with the default being lastModifiedDateTime. '
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/targetResource'
-        - $ref: '#/components/parameters/targetResourceType'
-        - $ref: '#/components/parameters/targetResourceGroup'
-        - $ref: '#/components/parameters/monitorService'
-        - $ref: '#/components/parameters/monitorCondition'
-        - $ref: '#/components/parameters/severity'
-        - $ref: '#/components/parameters/alertState'
-        - $ref: '#/components/parameters/alertRule'
-        - $ref: '#/components/parameters/smartGroupIdFilter'
-        - $ref: '#/components/parameters/includeContext'
-        - $ref: '#/components/parameters/includeEgressConfig'
-        - $ref: '#/components/parameters/pageCount'
-        - $ref: '#/components/parameters/alertsSortBy'
-        - $ref: '#/components/parameters/sortOrder'
-        - $ref: '#/components/parameters/select'
-        - $ref: '#/components/parameters/timeRange'
-        - $ref: '#/components/parameters/customTimeRange'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: OK. Successfully listed alert objects.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alertsList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alerts/{alertId}:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Alerts_GetById
-      summary: Get a specific alert.
-      description: Get information related to a specific alert
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/alertId'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: OK. Returns the alert with the specified ID.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alert'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alerts/{alertId}/changestate:
-    x-api-version: 2019-05-05-preview
-    post:
-      operationId: Alerts_ChangeState
-      description: Change the state of an alert.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/alertId'
-        - $ref: '#/components/parameters/api-version'
-        - $ref: '#/components/parameters/newState'
-      requestBody:
-        description: reason of change alert state
-        required: false
-        x-ms-requestBody-name: comment
-        x-ms-parameter-location: method
-        content:
-          application/json:
-            schema:
-              type: string
-      responses:
-        '200':
-          description: OK. Alert state updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alert'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alerts/{alertId}/history:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Alerts_GetHistory
-      description: Get the history of an alert, which captures any monitor condition changes (Fired/Resolved) and alert state changes (New/Acknowledged/Closed).
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/alertId'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: OK. Returns the history of the specified alert.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alertModification'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alertsSummary:
-    x-api-version: 2019-05-05-preview
-    get:
-      operationId: Alerts_GetSummary
-      description: Get a summarized count of your alerts grouped by various parameters (e.g. grouping by 'Severity' returns the count of alerts for each severity).
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/alertsSummaryGroupBy'
-        - $ref: '#/components/parameters/includeSmartGroupsCount'
-        - $ref: '#/components/parameters/targetResource'
-        - $ref: '#/components/parameters/targetResourceType'
-        - $ref: '#/components/parameters/targetResourceGroup'
-        - $ref: '#/components/parameters/monitorService'
-        - $ref: '#/components/parameters/monitorCondition'
-        - $ref: '#/components/parameters/severity'
-        - $ref: '#/components/parameters/alertState'
-        - $ref: '#/components/parameters/alertRule'
-        - $ref: '#/components/parameters/timeRange'
-        - $ref: '#/components/parameters/customTimeRange'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: OK. Alert summary returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/alertsSummary'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/actionRules:
-    x-api-version: '2021-08-08'
+    x-api-version: 2023-05-01-preview
     get:
       description: List all alert processing rules in a subscription.
       operationId: AlertProcessingRules_ListBySubscription
       parameters:
         - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Return the list of alert processing rules.
@@ -1908,14 +2235,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AlertsManagement/actionRules:
-    x-api-version: '2021-08-08'
+    x-api-version: 2023-05-01-preview
     get:
       operationId: AlertProcessingRules_ListByResourceGroup
       description: List all alert processing rules in a resource group.
       parameters:
         - $ref: '#/components/parameters/subscriptionId'
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Return the list of alert processing rules.
@@ -1937,7 +2264,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AlertsManagement/actionRules/{alertProcessingRuleName}:
-    x-api-version: '2021-08-08'
+    x-api-version: 2023-05-01-preview
     get:
       description: Get an alert processing rule by name.
       operationId: AlertProcessingRules_GetByName
@@ -1950,7 +2277,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. Returns the specific alert processing rule.
@@ -1981,7 +2308,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Alert processing rule to be created/updated.
         required: true
@@ -2031,7 +2358,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: Successful request to delete an alert processing rule.
@@ -2065,7 +2392,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/api-version'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Parameters supplied to the operation.
         required: true
@@ -2092,6 +2419,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResponse'
+  /{resourceUri}/providers/Microsoft.AlertsManagement/alertRuleRecommendations:
+    x-api-version: 2023-08-01-preview
+    get:
+      tags:
+        - alertRuleRecommendations
+      description: Retrieve alert rule recommendations for a resource.
+      operationId: AlertRuleRecommendations_ListByResource
+      parameters:
+        - $ref: '#/components/parameters/ResourceUriParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successful request for a list of alert rule recommendations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRuleRecommendationsListResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/alertRuleRecommendations:
+    x-api-version: 2023-08-01-preview
+    get:
+      tags:
+        - alertRuleRecommendations
+      description: Retrieve alert rule recommendations for a target type.
+      operationId: AlertRuleRecommendations_ListByTargetType
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetTypeParameter'
+      responses:
+        '200':
+          description: Successful request for a list of alert rule recommendations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRuleRecommendationsListResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/smartGroups:
     x-api-version: 2019-05-05-preview
     get:
@@ -2206,3 +2584,407 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResponse'
+  /providers/Microsoft.AlertsManagement/operations:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Operations_List
+      description: List all operations available through Azure Alerts Management Resource Provider.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Successfully retrieved operations list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/operationsList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /providers/Microsoft.AlertsManagement/alertsMetaData:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_MetaData
+      description: List alerts meta data information based on value of identifier parameter.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/identifier'
+      responses:
+        '200':
+          description: OK. Successfully listed alert meta data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertsMetaData'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+  /{scope}/providers/Microsoft.AlertsManagement/alerts:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_GetAll
+      description: 'List all existing alerts, where the results can be filtered on the basis of multiple parameters (e.g. time range). The results can then be sorted on the basis specific fields, with the default being lastModifiedDateTime. '
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/targetResource'
+        - $ref: '#/components/parameters/targetResourceType'
+        - $ref: '#/components/parameters/targetResourceGroup'
+        - $ref: '#/components/parameters/monitorService'
+        - $ref: '#/components/parameters/monitorCondition'
+        - $ref: '#/components/parameters/severity'
+        - $ref: '#/components/parameters/alertState'
+        - $ref: '#/components/parameters/alertRule'
+        - $ref: '#/components/parameters/smartGroupIdFilter'
+        - $ref: '#/components/parameters/includeContext'
+        - $ref: '#/components/parameters/includeEgressConfig'
+        - $ref: '#/components/parameters/pageCount'
+        - $ref: '#/components/parameters/alertsSortBy'
+        - $ref: '#/components/parameters/sortOrder'
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/timeRange'
+        - $ref: '#/components/parameters/customTimeRange'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Successfully listed alert objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertsList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /{scope}/providers/Microsoft.AlertsManagement/alerts/{alertId}:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_GetById
+      summary: Get a specific alert.
+      description: Get information related to a specific alert
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the alert with the specified ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alert'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+  /{scope}/providers/Microsoft.AlertsManagement/alerts/{alertId}/changestate:
+    x-api-version: 2023-07-12-preview
+    post:
+      operationId: Alerts_ChangeState
+      description: Change the state of an alert.
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/newState'
+      requestBody:
+        description: reason of change alert state
+        required: false
+        x-ms-requestBody-name: comment
+        x-ms-parameter-location: method
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/comments'
+      responses:
+        '200':
+          description: OK. Alert state updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alert'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+  /{scope}/providers/Microsoft.AlertsManagement/alerts/{alertId}/history:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_GetHistory
+      description: Get the history of an alert, which captures any monitor condition changes (Fired/Resolved) and alert state changes (New/Acknowledged/Closed).
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the history of the specified alert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertModification'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+  /{scope}/providers/Microsoft.AlertsManagement/alertsSummary:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_GetSummary
+      description: Get a summarized count of your alerts grouped by various parameters (e.g. grouping by 'Severity' returns the count of alerts for each severity).
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertsSummaryGroupBy'
+        - $ref: '#/components/parameters/includeSmartGroupsCount'
+        - $ref: '#/components/parameters/targetResource'
+        - $ref: '#/components/parameters/targetResourceType'
+        - $ref: '#/components/parameters/targetResourceGroup'
+        - $ref: '#/components/parameters/monitorService'
+        - $ref: '#/components/parameters/monitorCondition'
+        - $ref: '#/components/parameters/severity'
+        - $ref: '#/components/parameters/alertState'
+        - $ref: '#/components/parameters/alertRule'
+        - $ref: '#/components/parameters/timeRange'
+        - $ref: '#/components/parameters/customTimeRange'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Alert summary returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertsSummary'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+  /{scope}/providers/Microsoft.AlertsManagement/alerts/{alertId}/enrichments:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_ListEnrichments
+      description: List the enrichments of an alert. It returns a collection of one object named default.
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the enrichments of the specified alert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertEnrichmentsList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
+  /{scope}/providers/Microsoft.AlertsManagement/alerts/{alertId}/enrichments/default:
+    x-api-version: 2023-07-12-preview
+    get:
+      operationId: Alerts_GetEnrichments
+      description: Get the enrichments of an alert.
+      parameters:
+        - $ref: '#/components/parameters/scope'
+        - $ref: '#/components/parameters/alertId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the enrichments of the specified alert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/alertEnrichmentResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.AlertsManagement/prometheusRuleGroups:
+    x-api-version: '2023-03-01'
+    get:
+      tags:
+        - PrometheusRuleGroups
+      description: Retrieve Prometheus all rule group definitions in a subscription.
+      operationId: PrometheusRuleGroups_ListBySubscription
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successful request for a list of Prometheus rule groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AlertsManagement/prometheusRuleGroups:
+    x-api-version: '2023-03-01'
+    get:
+      tags:
+        - PrometheusRuleGroups
+      description: Retrieve Prometheus rule group definitions in a resource group.
+      operationId: PrometheusRuleGroups_ListByResourceGroup
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successful request for a list of Prometheus rule groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResourceCollection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AlertsManagement/prometheusRuleGroups/{ruleGroupName}:
+    x-api-version: '2023-03-01'
+    get:
+      tags:
+        - PrometheusRuleGroups
+      description: Retrieve a Prometheus rule group definition.
+      operationId: PrometheusRuleGroups_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/RuleGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successful request for a list of Prometheus rule groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - PrometheusRuleGroups
+      description: Create or update a Prometheus rule group definition.
+      operationId: PrometheusRuleGroups_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/RuleGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The parameters of the rule group to create or update.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrometheusRuleGroupResource'
+      responses:
+        '200':
+          description: OK (Updated).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResource'
+        '201':
+          description: Created (New Alert rule was created).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - PrometheusRuleGroups
+      description: Update an Prometheus rule group definition.
+      operationId: PrometheusRuleGroups_Update
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/RuleGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The parameters of the rule group to update.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrometheusRuleGroupResourcePatchParameters'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusRuleGroupResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - PrometheusRuleGroups
+      description: Delete a Prometheus rule group definition.
+      operationId: PrometheusRuleGroups_Delete
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/RuleGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successful request to delete a Prometheus rule group
+        '204':
+          description: 'No content: the request was successful, but the response is empty'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

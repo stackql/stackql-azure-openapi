@@ -4,7 +4,7 @@ servers:
 info:
   title: Microsoft NetApp
   description: Microsoft NetApp Azure Resource Provider specification
-  version: '2022-05-01'
+  version: '2023-07-01'
   x-ms-code-generation-settings:
     name: AzureNetAppFilesManagementClient
 security:
@@ -21,9 +21,345 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
       type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+        nullable: true
+        x-nullable: true
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
+        tenantId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      description: Microsoft.NetApp REST API operation definition.
+      type: object
+      properties:
+        name:
+          description: 'Operation name: {provider}/{resource}/{operation}'
+          type: string
+        display:
+          description: Display metadata associated with the operation.
+          properties:
+            provider:
+              description: 'Service provider: Microsoft NetApp.'
+              type: string
+            resource:
+              description: Resource on which the operation is performed etc.
+              type: string
+            operation:
+              description: 'Type of operation: get, read, delete, etc.'
+              type: string
+            description:
+              description: Operation description.
+              type: string
+        origin:
+          type: string
+          description: The origin of operations.
+        properties:
+          $ref: '#/components/schemas/OperationProperties'
+          description: Properties of operation, include metric specifications.
+          x-ms-client-flatten: true
+    OperationListResult:
+      description: Result of the request to list Cloud Volume operations. It contains a list of operations and a URL link to get the next set of results.
       properties:
         value:
           type: array
@@ -31,65 +367,203 @@ components:
             $ref: '#/components/schemas/Operation'
           x-ms-identifiers:
             - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
+          description: List of Storage operations supported by the Storage resource provider.
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
           type: string
-          description: URL to get the next set of operation list results (if there are any).
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
           readOnly: true
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
       type: object
       properties:
         name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
           type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      description: Properties of key vault.
+      type: object
+      required:
+        - keyVaultUri
+        - keyName
+        - keyVaultResourceId
+      properties:
+        keyVaultId:
+          type: string
+          description: UUID v4 used to identify the Azure Key Vault configuration
           readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          pattern: ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$
+          maxLength: 36
+          minLength: 36
+          example: 9760acf5-4638-11e7-9bdb-020073ca7778
+        keyVaultUri:
+          type: string
+          description: The Uri of KeyVault.
+        keyName:
+          type: string
+          description: The name of KeyVault key.
+        keyVaultResourceId:
+          type: string
+          description: The resource ID of KeyVault.
+        status:
+          type: string
+          description: Status of the KeyVault connection.
+          readOnly: true
+          enum:
+            - Created
+            - Updating
+            - InUse
+            - Deleted
+            - Error
+          x-ms-enum:
+            name: KeyVaultStatus
+            modelAsString: true
+            values:
+              - value: Created
+                description: KeyVault connection created but not in use
+              - value: InUse
+                description: KeyVault connection in use by SMB Volume
+              - value: Deleted
+                description: KeyVault connection Deleted
+              - value: Error
+                description: Error with the KeyVault connection
+              - value: Updating
+                description: KeyVault connection Updating
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
           type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+        reason:
+          description: The reason why the given name is not available.
           type: string
-          readOnly: true
           enum:
-            - user
-            - system
-            - user,system
+            - Invalid
+            - AlreadyExists
           x-ms-enum:
-            name: Origin
+            name: CheckNameAvailabilityReason
             modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+        message:
+          description: Detailed reason why the given name is available.
           type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
     OperationProperties:
       description: Properties of operation, include metric specifications.
       properties:
@@ -228,7 +702,11 @@ components:
             - Default
             - T1
             - T2
+            - AcrossT2
             - T1AndT2
+            - T1AndAcrossT2
+            - T2AndAcrossT2
+            - T1AndT2AndAcrossT2
           x-ms-enum:
             name: RegionStorageToNetworkProximity
             modelAsString: true
@@ -239,8 +717,16 @@ components:
                 description: Standard T1 network connectivity.
               - value: T2
                 description: Standard T2 network connectivity.
+              - value: AcrossT2
+                description: Standard AcrossT2 network connectivity.
               - value: T1AndT2
                 description: Standard T1 and T2 network connectivity.
+              - value: T1AndAcrossT2
+                description: Standard T1 and AcrossT2 network connectivity.
+              - value: T2AndAcrossT2
+                description: Standard T2 and AcrossT2 network connectivity.
+              - value: T1AndT2AndAcrossT2
+                description: Standard T1, T2 and AcrossT2 network connectivity.
           example: T2
         availabilityZoneMappings:
           title: Logical availability zone mappings.
@@ -384,40 +870,8 @@ components:
           $ref: '#/components/schemas/accountProperties'
           x-ms-client-flatten: true
         identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    UserAssignedIdentity:
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of the identity.
-        clientId:
-          readOnly: true
-          type: string
-          description: The client ID of the identity.
-      description: UserAssignedIdentity for the resource.
+          description: The identity used for the resource.
+          $ref: '#/components/schemas/ManagedServiceIdentity'
     netAppAccountPatch:
       description: NetApp account patch resource
       type: object
@@ -445,6 +899,9 @@ components:
           description: NetApp Account properties
           $ref: '#/components/schemas/accountProperties'
           x-ms-client-flatten: true
+        identity:
+          description: The identity used for the resource.
+          $ref: '#/components/schemas/ManagedServiceIdentity'
     accountProperties:
       description: NetApp account properties
       type: object
@@ -478,10 +935,11 @@ components:
           description: Id of the Active Directory
         username:
           type: string
-          description: Username of Active Directory domain administrator
+          description: A domain user account with permission to create machine accounts
         password:
           type: string
           x-ms-secret: true
+          maxLength: 64
           description: Plain text password of Active Directory domain administrator, value is masked in the response
         domain:
           type: string
@@ -595,6 +1053,12 @@ components:
         ldapSearchScope:
           description: LDAP Search scope options
           $ref: '#/components/schemas/ldapSearchScopeOpt'
+        preferredServersForLdapClient:
+          type: string
+          maxLength: 32
+          pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)((, ?)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))?)?$
+          description: Comma separated list of IPv4 addresses of preferred servers for LDAP client. At most two comma separated IPv4 addresses can be passed.
+          example: 101.102.103.104, 101.102.103.105
     ldapSearchScopeOpt:
       type: object
       description: 'LDAP search scope '
@@ -639,15 +1103,6 @@ components:
         identity:
           $ref: '#/components/schemas/EncryptionIdentity'
           description: Identity used to authenticate to KeyVault. Applicable if keySource is 'Microsoft.KeyVault'.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
     EncryptionIdentity:
       description: Identity used to authenticate with key vault.
       type: object
@@ -920,9 +1375,9 @@ components:
           title: usageThreshold
           type: integer
           format: int64
-          description: Maximum storage quota allowed for a file system in bytes. This is a soft quota used for alerting only. Minimum size is 500 GiB. Upper limit is 100TiB, 500Tib for LargeVolume. Specified in bytes.
+          description: Maximum storage quota allowed for a file system in bytes. This is a soft quota used for alerting only. Minimum size is 100 GiB. Upper limit is 100TiB, 500Tib for LargeVolume or 2400Tib for LargeVolume on exceptional basis. Specified in bytes.
           minimum: 107374182400
-          maximum: 549755813888000
+          maximum: 2638827906662400
           default: 107374182400
           example: 107374182400
         exportPolicy:
@@ -954,6 +1409,7 @@ components:
           type: string
           nullable: true
           x-ms-mutability:
+            - read
             - create
           description: UUID v4 or resource identifier used to identify the Snapshot.
           example: 9760acf5-4638-11e7-9bdb-020073ca3333
@@ -965,6 +1421,7 @@ components:
           type: string
           nullable: true
           x-ms-mutability:
+            - read
             - create
           description: UUID v4 or resource identifier used to identify the Backup.
           example: 9760acf5-4638-11e7-9bdb-020073ca3333
@@ -978,22 +1435,7 @@ components:
           type: string
           description: The Azure Resource URI for a delegated subnet. Must have the delegation Microsoft.NetApp/volumes
         networkFeatures:
-          title: Network features
-          description: Basic network, or Standard features available to the volume.
-          type: string
-          enum:
-            - Basic
-            - Standard
-          x-ms-enum:
-            name: NetworkFeatures
-            modelAsString: true
-            values:
-              - value: Basic
-                description: Basic network feature.
-              - value: Standard
-                description: Standard network feature.
-          example: Standard
-          default: Basic
+          $ref: '#/components/schemas/networkFeatures'
         networkSiblingSetId:
           title: Network Sibling Set ID
           description: Network Sibling Set ID for the the group of volumes sharing networking resources.
@@ -1011,6 +1453,7 @@ components:
             - Default
             - T1
             - T2
+            - AcrossT2
           readOnly: true
           x-ms-enum:
             name: VolumeStorageToNetworkProximity
@@ -1022,6 +1465,8 @@ components:
                 description: Standard T1 storage to network connectivity.
               - value: T2
                 description: Standard T2 storage to network connectivity.
+              - value: AcrossT2
+                description: Standard AcrossT2 storage to network connectivity.
           example: T1
         mountTargets:
           title: mountTargets
@@ -1040,31 +1485,33 @@ components:
           title: DataProtection
           description: DataProtection type volumes include an object containing details of the replication
           properties:
-            backup:
-              title: Backup
-              description: Backup Properties
-              $ref: '#/components/schemas/volumeBackupProperties'
             replication:
               title: Replication
               description: Replication properties
+              type: object
               $ref: '#/components/schemas/replicationObject'
             snapshot:
               title: Snapshot
               description: Snapshot properties.
               $ref: '#/components/schemas/volumeSnapshotProperties'
+            volumeRelocation:
+              title: VolumeRelocation
+              description: VolumeRelocation properties
+              type: object
+              $ref: '#/components/schemas/volumeRelocationProperties'
         isRestoring:
           type: boolean
           description: Restoring
         snapshotDirectoryVisible:
           type: boolean
           default: true
-          description: If enabled (true) the volume will contain a read-only snapshot directory which provides access to each of the volume's snapshots (default to true).
+          description: If enabled (true) the volume will contain a read-only snapshot directory which provides access to each of the volume's snapshots (defaults to true).
         kerberosEnabled:
           type: boolean
+          description: Describe if a volume is KerberosEnabled. To be use with swagger version 2020-05-01 or later
           x-ms-mutability:
             - read
             - create
-          description: Describe if a volume is KerberosEnabled. To be use with swagger version 2020-05-01 or later
           example: false
           default: false
         securityStyle:
@@ -1083,37 +1530,9 @@ components:
           example: false
           default: false
         smbAccessBasedEnumeration:
-          title: smbAccessBasedEnumeration
-          type: string
-          description: Enables access based enumeration share property for SMB Shares. Only applicable for SMB/DualProtocol volume
-          enum:
-            - Disabled
-            - Enabled
-          x-ms-enum:
-            name: smbAccessBasedEnumeration
-            modelAsString: true
-            values:
-              - value: Disabled
-                description: smbAccessBasedEnumeration share setting is disabled
-              - value: Enabled
-                description: smbAccessBasedEnumeration share setting is enabled
-          example: Enabled
+          $ref: '#/components/schemas/smbAccessBasedEnumeration'
         smbNonBrowsable:
-          title: smbNonBrowsable
-          type: string
-          description: Enables non browsable property for SMB Shares. Only applicable for SMB/DualProtocol volume
-          enum:
-            - Disabled
-            - Enabled
-          x-ms-enum:
-            name: smbNonBrowsable
-            modelAsString: true
-            values:
-              - value: Disabled
-                description: smbNonBrowsable share setting is disabled
-              - value: Enabled
-                description: smbNonBrowsable share setting is enabled
-          example: Enabled
+          $ref: '#/components/schemas/smbNonBrowsable'
         smbContinuouslyAvailable:
           type: boolean
           description: Enables continuously available share property for smb volume. Only applicable for SMB volume
@@ -1122,7 +1541,13 @@ components:
         throughputMibps:
           title: Maximum throughput in MiB/s that can be achieved by this volume and this will be accepted as input only for manual qosType volume
           type: number
-          example: 128.22
+          nullable: true
+          example: 128.223
+        actualThroughputMibps:
+          type: number
+          description: Actual throughput in MiB/s for auto qosType volumes calculated based on size and serviceLevel
+          example: 164.221
+          readOnly: true
         encryptionKeySource:
           description: 'Source of key used to encrypt data in volume. Applicable if NetApp account has encryption.keySource = ''Microsoft.KeyVault''. Possible values (case-insensitive) are: ''Microsoft.NetApp, Microsoft.KeyVault'''
           type: string
@@ -1156,8 +1581,10 @@ components:
           description: Specifies the number of days after which data that is not accessed by clients will be tiered.
           example: 7
           minimum: 7
-          maximum: 63
+          maximum: 183
           format: int32
+        coolAccessRetrievalPolicy:
+          $ref: '#/components/schemas/coolAccessRetrievalPolicy'
         unixPermissions:
           type: string
           description: 'UNIX permissions for NFS volume accepted in octal 4 digit format. First digit selects the set user ID(4), set group ID (2) and sticky (1) attributes. Second digit selects permission for the owner of the file: read (4), write (2) and execute (1). Third selects permissions for other users in the same group. the fourth for other users not in the group. 0755 - gives read/write/execute permissions to owner and read/execute to group and other users.'
@@ -1165,7 +1592,6 @@ components:
           maxLength: 4
           nullable: true
           example: '0770'
-          default: '0770'
         cloneProgress:
           description: When a volume is being restored from another volume's snapshot, will show the percentage completion of this cloning process. When this value is empty/null there is no cloning process currently happening on this volume. This value will update every 5 minutes during cloning.
           type: integer
@@ -1173,6 +1599,23 @@ components:
           example: 10
           nullable: true
           readOnly: true
+        fileAccessLogs:
+          type: string
+          description: Flag indicating whether file access logs are enabled for the volume, based on active diagnostic settings present on the volume.
+          readOnly: true
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: fileAccessLogs
+            modelAsString: true
+            values:
+              - value: Enabled
+                description: fileAccessLogs are enabled
+              - value: Disabled
+                description: fileAccessLogs are not enabled
+          example: Disabled
+          default: Disabled
         avsDataStore:
           title: avsDataStore
           type: string
@@ -1190,6 +1633,13 @@ components:
                 description: avsDataStore is disabled
           example: Enabled
           default: Disabled
+        dataStoreResourceId:
+          title: dataStoreResourceId
+          description: Data store resource unique identifier
+          type: array
+          items:
+            type: string
+          readOnly: true
         isDefaultQuotaEnabled:
           type: boolean
           description: Specifies if default quota is enabled for the volume.
@@ -1261,6 +1711,26 @@ components:
                 description: subvolumes are enabled
               - value: Disabled
                 description: subvolumes are not enabled
+        provisionedAvailabilityZone:
+          title: Provisioned Availability Zone
+          type: string
+          readOnly: true
+          description: The availability zone where the volume is provisioned. This refers to the logical availability zone where the volume resides.
+          example: '2'
+          nullable: true
+        isLargeVolume:
+          title: Is Large Volume
+          type: boolean
+          description: Specifies whether volume is a Large Volume or Regular Volume.
+          example: false
+          default: false
+        originatingResourceId:
+          title: Originating Resource Id
+          type: string
+          description: Id of the snapshot or backup that the volume is restored from.
+          example: /subscriptions/aaaaaaaa-1234-1234-1224-234567891011/resourceGroups/testGroup/providers/Microsoft.NetApp/netAppAccounts/accountOriginatingResourceId/capacityPools/originatingResourceIdPool/volumes/theOriginalVolume/snapshots/theSnapshot
+          readOnly: true
+          nullable: true
     exportPolicyRule:
       description: Volume Export Policy Rule
       type: object
@@ -1332,22 +1802,6 @@ components:
           x-ms-enum:
             name: ChownMode
             modelAsString: true
-    volumeBackupProperties:
-      description: Volume Backup Properties
-      type: object
-      properties:
-        backupPolicyId:
-          type: string
-          description: Backup Policy Resource ID
-        policyEnforced:
-          type: boolean
-          description: Policy Enforced
-        vaultId:
-          type: string
-          description: Vault Resource ID
-        backupEnabled:
-          type: boolean
-          description: Backup Enabled
     replicationObject:
       description: Replication properties
       type: object
@@ -1357,6 +1811,7 @@ components:
         replicationId:
           type: string
           description: Id
+          readOnly: true
         endpointType:
           type: string
           description: Indicates whether the local volume is the source or destination for the Volume Replication
@@ -1417,15 +1872,13 @@ components:
       description: Volume relocation properties
       type: object
       properties:
-        oldVolumeId:
-          type: string
-          description: The id of the old volume that is being relocated
-        oldBareMetalTenantId:
-          type: string
-          description: The id of the bare metal tenant owned by the existing volume
         relocationRequested:
           type: boolean
           description: Has relocation been requested for this volume
+        readyToBeFinalized:
+          type: boolean
+          readOnly: true
+          description: Has relocation finished and is ready to be cleaned up
     volumeSnapshotProperties:
       description: Volume Snapshot Properties
       type: object
@@ -1513,9 +1966,9 @@ components:
           title: usageThreshold
           type: integer
           format: int64
-          description: Maximum storage quota allowed for a file system in bytes. This is a soft quota used for alerting only. Minimum size is 100 GiB. Upper limit is 100TiB, 500Tib for LargeVolume. Specified in bytes.
+          description: Maximum storage quota allowed for a file system in bytes. This is a soft quota used for alerting only. Minimum size is 100 GiB. Upper limit is 100TiB, 500Tib for LargeVolume or 2400Tib for LargeVolume on exceptional basis. Specified in bytes.
           minimum: 107374182400
-          maximum: 549755813888000
+          maximum: 2638827906662400
           default: 107374182400
           example: 107374182400
         exportPolicy:
@@ -1531,17 +1984,13 @@ components:
               x-ms-identifiers:
                 - ruleIndex
         throughputMibps:
-          title: Maximum throughput in Mibps that can be achieved by this volume and this will be accepted as input only for manual qosType volume
+          title: Maximum throughput in MiB/s that can be achieved by this volume and this will be accepted as input only for manual qosType volume
           type: number
           example: 128.22
         dataProtection:
           title: DataProtection
           description: DataProtection type volumes include an object containing details of the replication
           properties:
-            backup:
-              title: Backup
-              description: Backup Properties
-              $ref: '#/components/schemas/volumeBackupProperties'
             snapshot:
               title: Snapshot
               description: Snapshot properties.
@@ -1579,8 +2028,17 @@ components:
           description: Specifies the number of days after which data that is not accessed by clients will be tiered.
           example: 7
           minimum: 7
-          maximum: 63
+          maximum: 183
           format: int32
+        coolAccessRetrievalPolicy:
+          $ref: '#/components/schemas/coolAccessRetrievalPolicy'
+        snapshotDirectoryVisible:
+          type: boolean
+          description: If enabled (true) the volume will contain a read-only snapshot directory which provides access to each of the volume's snapshots.
+        smbAccessBasedEnumeration:
+          $ref: '#/components/schemas/smbAccessBasedEnumeration'
+        smbNonBrowsable:
+          $ref: '#/components/schemas/smbNonBrowsable'
     mountTarget:
       description: Mount Target
       type: object
@@ -1657,9 +2115,10 @@ components:
     snapshot:
       description: Snapshot of a Volume
       type: object
-      x-ms-azure-resource: true
       required:
         - location
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
       properties:
         location:
           type: string
@@ -1667,18 +2126,6 @@ components:
           x-ms-mutability:
             - read
             - create
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource name
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
         properties:
           description: Snapshot Properties
           $ref: '#/components/schemas/snapshotProperties'
@@ -1686,7 +2133,6 @@ components:
     snapshotPatch:
       description: Snapshot patch
       type: object
-      x-ms-azure-resource: true
       properties: {}
     snapshotProperties:
       description: Snapshot properties
@@ -1719,18 +2165,22 @@ components:
         hourlySchedule:
           title: hourlySchedule
           description: Schedule for hourly snapshots
+          type: object
           $ref: '#/components/schemas/hourlySchedule'
         dailySchedule:
           title: dailySchedule
           description: Schedule for daily snapshots
+          type: object
           $ref: '#/components/schemas/dailySchedule'
         weeklySchedule:
           title: weeklySchedule
           description: Schedule for weekly snapshots
+          type: object
           $ref: '#/components/schemas/weeklySchedule'
         monthlySchedule:
           title: monthlySchedule
           description: Schedule for monthly snapshots
+          type: object
           $ref: '#/components/schemas/monthlySchedule'
         enabled:
           type: boolean
@@ -1955,6 +2405,19 @@ components:
         creationToken:
           type: string
           description: New creation token for the volume that controls the mount point name
+    breakFileLocksRequest:
+      description: Break file locks request
+      type: object
+      properties:
+        clientIp:
+          type: string
+          description: To clear file locks on a volume for a particular client
+          pattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
+          example: 101.102.103.104
+        confirmRunningDisruptiveOperation:
+          type: boolean
+          description: Break File locks could be a disruptive operation for application as locks on the volume will be broken, if want to process, set to true.
+          default: false
     poolChangeRequest:
       description: Pool change request
       type: object
@@ -1964,119 +2427,6 @@ components:
         newPoolResourceId:
           type: string
           description: Resource id of the pool to move volume to
-    backupsList:
-      description: List of Backups
-      type: object
-      properties:
-        value:
-          description: A list of Backups
-          type: array
-          items:
-            $ref: '#/components/schemas/backup'
-    backup:
-      description: Backup of a Volume
-      type: object
-      x-ms-azure-resource: true
-      required:
-        - location
-        - properties
-      properties:
-        location:
-          type: string
-          description: Resource location
-          x-ms-mutability:
-            - read
-            - create
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource name
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
-        properties:
-          description: Backup Properties
-          $ref: '#/components/schemas/backupProperties'
-          x-ms-client-flatten: true
-    backupPatch:
-      description: Backup patch
-      type: object
-      x-ms-azure-resource: true
-      properties:
-        tags:
-          description: Resource tags
-          $ref: '#/components/schemas/resourceTags'
-        properties:
-          description: Backup Properties
-          $ref: '#/components/schemas/backupProperties'
-          x-ms-client-flatten: true
-    backupProperties:
-      description: Backup properties
-      type: object
-      properties:
-        backupId:
-          title: backupId
-          type: string
-          readOnly: true
-          description: UUID v4 used to identify the Backup
-          pattern: ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$
-          maxLength: 36
-          minLength: 36
-          example: 9760acf5-4638-11e7-9bdb-020073ca3333
-        creationDate:
-          title: creationDate
-          type: string
-          format: date-time
-          readOnly: true
-          description: The creation date of the backup
-          example: '2017-08-15 13:23:33'
-        provisioningState:
-          type: string
-          readOnly: true
-          description: Azure lifecycle management
-        size:
-          type: integer
-          readOnly: true
-          description: Size of backup
-          format: int64
-        label:
-          type: string
-          description: Label for backup
-        backupType:
-          title: backupType
-          type: string
-          readOnly: true
-          description: Type of backup Manual or Scheduled
-          enum:
-            - Manual
-            - Scheduled
-          x-ms-enum:
-            name: backupType
-            modelAsString: true
-            values:
-              - value: Manual
-                description: Manual backup
-              - value: Scheduled
-                description: Scheduled backup
-          example: Manual
-        failureReason:
-          type: string
-          readOnly: true
-          description: Failure reason
-        volumeName:
-          type: string
-          readOnly: true
-          description: Volume name
-        useExistingSnapshot:
-          type: boolean
-          description: Manual backup an already existing snapshot. This will always be false for scheduled backups and true/false for manual backups
-          example: true
-          default: false
     backupPolicyProperties:
       description: Backup policy properties
       type: object
@@ -2143,36 +2493,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/backupPolicy'
-    backupPolicyDetails:
-      description: Backup policy properties
-      x-ms-azure-resource: true
-      type: object
-      properties:
-        location:
-          type: string
-          description: Resource location
-          x-ms-mutability:
-            - read
-            - create
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource name
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
-        tags:
-          description: Resource tags
-          $ref: '#/components/schemas/resourceTags'
-        properties:
-          description: Backup policy Properties
-          $ref: '#/components/schemas/backupPolicyProperties'
-          x-ms-client-flatten: true
     backupPolicyPatch:
       description: Backup policy Details for create and update
       type: object
@@ -2218,97 +2538,6 @@ components:
         policyEnabled:
           type: boolean
           description: Policy enabled
-    vaultList:
-      description: List of Vaults
-      type: object
-      properties:
-        value:
-          description: A list of vaults
-          type: array
-          items:
-            $ref: '#/components/schemas/vault'
-    vault:
-      description: Vault information
-      type: object
-      x-ms-azure-resource: true
-      required:
-        - properties
-      properties:
-        id:
-          type: string
-          readOnly: true
-          description: Resource Id
-        name:
-          type: string
-          readOnly: true
-          description: Resource name
-        type:
-          type: string
-          readOnly: true
-          description: Resource type
-        properties:
-          description: Vault Properties
-          $ref: '#/components/schemas/vaultProperties'
-          x-ms-client-flatten: true
-    vaultProperties:
-      description: Vault properties
-      type: object
-      properties:
-        vaultName:
-          type: string
-          readOnly: false
-          description: Vault Name
-    backupStatus:
-      description: Backup status
-      type: object
-      properties:
-        healthy:
-          type: boolean
-          readOnly: true
-          description: Backup health status
-        relationshipStatus:
-          type: string
-          readOnly: true
-          description: Status of the backup mirror relationship
-          enum:
-            - Idle
-            - Transferring
-          x-ms-enum:
-            name: RelationshipStatus
-            modelAsString: true
-        mirrorState:
-          type: string
-          readOnly: true
-          description: The status of the backup
-          enum:
-            - Uninitialized
-            - Mirrored
-            - Broken
-          x-ms-enum:
-            name: MirrorState
-            modelAsString: true
-        unhealthyReason:
-          type: string
-          readOnly: true
-          description: Reason for the unhealthy backup relationship
-        errorMessage:
-          type: string
-          readOnly: true
-          description: Displays error message if the backup is in an error state
-        lastTransferSize:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Displays the last transfer size
-        lastTransferType:
-          type: string
-          readOnly: true
-          description: Displays the last transfer type
-        totalTransferBytes:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Displays the total bytes transferred
     restoreStatus:
       description: Restore status
       type: object
@@ -2324,6 +2553,8 @@ components:
           enum:
             - Idle
             - Transferring
+            - Failed
+            - Unknown
           x-ms-enum:
             name: RelationshipStatus
             modelAsString: true
@@ -2351,6 +2582,29 @@ components:
           format: int64
           readOnly: true
           description: Displays the total bytes transferred
+    getGroupIdListForLDAPUserRequest:
+      description: Get group Id list for LDAP User request
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          description: username is required to fetch the group to which user is part of
+          maxLength: 255
+          minLength: 1
+    getGroupIdListForLDAPUserResponse:
+      description: Group Id list for Ldap user
+      type: object
+      properties:
+        groupIdsForLdapUser:
+          description: Group Id list
+          type: array
+          items:
+            type: string
+          example:
+            - '123'
+            - '224'
     cloudError:
       x-ms-external: true
       properties:
@@ -2413,6 +2667,9 @@ components:
       description: Patchable Quota Rule of a Volume
       type: object
       properties:
+        tags:
+          description: Resource tags
+          $ref: '#/components/schemas/resourceTags'
         properties:
           description: Volume Quota Rule Properties
           $ref: '#/components/schemas/volumeQuotaRulesProperties'
@@ -2533,6 +2790,7 @@ components:
           description: Application Type
           enum:
             - SAP-HANA
+            - ORACLE
           x-ms-enum:
             name: ApplicationType
             modelAsString: true
@@ -2549,10 +2807,6 @@ components:
             $ref: '#/components/schemas/placementKeyValuePairs'
           x-ms-identifiers:
             - key
-        deploymentSpecId:
-          type: string
-          description: Application specific identifier of deployment rules for the volume group
-          example: 12345678-1234-1234-1234-123456676765
         volumesCount:
           type: integer
           format: int64
@@ -2571,6 +2825,7 @@ components:
         groupMetaData:
           title: groupMetaData
           description: Volume group details
+          type: object
           $ref: '#/components/schemas/volumeGroupMetaData'
         volumes:
           description: List of volumes from group
@@ -2589,6 +2844,7 @@ components:
         groupMetaData:
           title: groupMetaData
           description: Volume group details
+          type: object
           $ref: '#/components/schemas/volumeGroupMetaData'
     volumeGroupVolumeProperties:
       description: Volume resource
@@ -2611,6 +2867,17 @@ components:
         tags:
           description: Resource tags
           $ref: '#/components/schemas/resourceTags'
+        zones:
+          type: array
+          description: Availability Zone
+          x-ms-mutability:
+            - read
+            - create
+          items:
+            type: string
+            maxLength: 255
+            minLength: 1
+            example: '1'
         properties:
           description: Volume properties
           $ref: '#/components/schemas/volumeProperties'
@@ -2630,6 +2897,138 @@ components:
           type: string
           description: Value for an application specific parameter for the placement of volumes in the volume group
           example: value1
+    networkSiblingSet:
+      title: Network sibling set
+      description: Describes the contents of a network sibling set.
+      type: object
+      properties:
+        networkSiblingSetId:
+          $ref: '#/components/schemas/networkSiblingSetId'
+        subnetId:
+          $ref: '#/components/schemas/subnetId'
+        networkSiblingSetStateId:
+          $ref: '#/components/schemas/networkSiblingSetStateId'
+        networkFeatures:
+          $ref: '#/components/schemas/networkFeatures'
+        provisioningState:
+          $ref: '#/components/schemas/networkSiblingSetProvisioningState'
+        nicInfoList:
+          type: array
+          x-ms-identifiers: []
+          description: List of NIC information
+          items:
+            $ref: '#/components/schemas/nicInfo'
+    QueryNetworkSiblingSetRequest:
+      title: QueryNetworkSiblingSetRequest
+      description: Network sibling set query.
+      type: object
+      required:
+        - networkSiblingSetId
+        - subnetId
+      properties:
+        networkSiblingSetId:
+          $ref: '#/components/schemas/networkSiblingSetId'
+        subnetId:
+          $ref: '#/components/schemas/subnetId'
+    UpdateNetworkSiblingSetRequest:
+      title: UpdateNetworkSiblingSetRequest
+      description: Network sibling set update.
+      type: object
+      required:
+        - networkSiblingSetId
+        - subnetId
+        - networkSiblingSetStateId
+        - networkFeatures
+      properties:
+        networkSiblingSetId:
+          $ref: '#/components/schemas/networkSiblingSetId'
+        subnetId:
+          $ref: '#/components/schemas/subnetId'
+        networkSiblingSetStateId:
+          $ref: '#/components/schemas/networkSiblingSetStateId'
+        networkFeatures:
+          $ref: '#/components/schemas/networkFeatures'
+          description: Network features available to the volume, some such
+    networkFeatures:
+      title: Network features
+      description: Network features available to the volume, or current state of update.
+      type: string
+      enum:
+        - Basic
+        - Standard
+        - Basic_Standard
+        - Standard_Basic
+      x-ms-enum:
+        name: NetworkFeatures
+        modelAsString: true
+        values:
+          - value: Basic
+            description: Basic network features.
+          - value: Standard
+            description: Standard network features.
+          - value: Basic_Standard
+            description: Updating from Basic to Standard network features.
+          - value: Standard_Basic
+            description: Updating from Standard to Basic network features.
+      example: Standard
+      default: Basic
+    networkSiblingSetProvisioningState:
+      readOnly: true
+      type: string
+      description: Gets the status of the NetworkSiblingSet at the time the operation was called.
+      enum:
+        - Succeeded
+        - Failed
+        - Canceled
+        - Updating
+      x-ms-enum:
+        name: NetworkSiblingSetProvisioningState
+        modelAsString: true
+    networkSiblingSetId:
+      title: Network Sibling Set ID
+      description: Network Sibling Set ID for a group of volumes sharing networking resources in a subnet.
+      type: string
+      pattern: ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$
+      maxLength: 36
+      minLength: 36
+      example: 9760acf5-4638-11e7-9bdb-020073ca3333
+    networkSiblingSetStateId:
+      title: Network sibling set state Id
+      description: Network sibling set state Id identifying the current state of the sibling set.
+      type: string
+      example: '12345_44420.8001578125'
+    nicInfo:
+      title: NIC information
+      description: NIC information and list of volumes for which the NIC has the primary mount ip address.
+      type: object
+      properties:
+        ipAddress:
+          $ref: '#/components/schemas/ipAddress'
+        volumeResourceIds:
+          $ref: '#/components/schemas/volumeResourceIds'
+    ipAddress:
+      title: ipAddress
+      type: string
+      readOnly: true
+      example: 1.2.3.4
+    volumeResourceIds:
+      title: Volume resource Ids
+      type: array
+      items:
+        title: Resource Id of volume
+        type: string
+        format: arm-id
+        x-ms-arm-id-details:
+          allowedResources:
+            - type: Microsoft.NetApp/netAppAccounts/capacityPools/volumes
+    subnetId:
+      title: Subnet resource Id
+      description: The Azure Resource URI for a delegated subnet. Must have the delegation Microsoft.NetApp/volumes. Example /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}
+      type: string
+      format: arm-id
+      x-ms-arm-id-details:
+        allowedResources:
+          - type: Microsoft.Network/virtualNetworks/subnets
     snapshotRestoreFiles:
       description: Restore payload for Single File Snapshot Restore
       type: object
@@ -2713,9 +3112,6 @@ components:
           title: size
           type: integer
           nullable: true
-          x-ms-mutability:
-            - create
-            - update
           format: int64
           description: Truncate subvolume to the provided size in bytes
           example: 5
@@ -2824,408 +3220,143 @@ components:
       x-ms-enum:
         name: ProvisioningState
         modelAsString: false
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          $ref: '#/components/schemas/SkuTier'
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
-    SkuTier:
+    coolAccessRetrievalPolicy:
       type: string
+      description: |-
+        coolAccessRetrievalPolicy determines the data retrieval behavior from the cool tier to standard storage based on the read pattern for cool access enabled volumes. The possible values for this field are: 
+         Default - Data will be pulled from cool tier to standard storage on random reads. This policy is the default.
+         OnRead - All client-driven data read is pulled from cool tier to standard storage on both sequential and random reads.
+         Never - No client-driven data is pulled from cool tier to standard storage.
       enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
+        - Default
+        - OnRead
+        - Never
       x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        name: coolAccessRetrievalPolicy
+        modelAsString: true
+    smbAccessBasedEnumeration:
+      title: smbAccessBasedEnumeration
+      type: string
+      description: Enables access-based enumeration share property for SMB Shares. Only applicable for SMB/DualProtocol volume
+      enum:
+        - Disabled
+        - Enabled
+      x-ms-enum:
+        name: smbAccessBasedEnumeration
+        modelAsString: true
+        values:
+          - value: Disabled
+            description: smbAccessBasedEnumeration share setting is disabled
+          - value: Enabled
+            description: smbAccessBasedEnumeration share setting is enabled
+      nullable: true
+      example: Enabled
+    smbNonBrowsable:
+      title: smbNonBrowsable
+      type: string
+      description: Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol volume
+      enum:
+        - Disabled
+        - Enabled
+      x-ms-enum:
+        name: smbNonBrowsable
+        modelAsString: true
+        values:
+          - value: Disabled
+            description: smbNonBrowsable share setting is disabled
+          - value: Enabled
+            description: smbNonBrowsable share setting is enabled
+      example: Enabled
   parameters:
-    SubscriptionId:
+    SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: Subscription credentials which uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
+      description: The ID of the target subscription. The value must be an UUID.
       required: true
       schema:
+        format: uuid
         type: string
-    location:
-      name: location
-      in: path
-      description: The location
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
       required: true
-      x-ms-parameter-location: method
       schema:
+        minLength: 1
         type: string
-    ResourceGroup:
+    ResourceGroupNameParameter:
       name: resourceGroupName
       in: path
-      description: The name of the resource group.
+      description: The name of the resource group. The name is case insensitive.
       required: true
       x-ms-parameter-location: method
       schema:
-        pattern: ^[-\w\._\(\)]+$
         minLength: 1
         maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     AccountName:
       name: accountName
@@ -3234,6 +3365,7 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[a-zA-Z0-9][a-zA-Z0-9\-_]{0,127}$
         type: string
     PoolName:
       name: poolName
@@ -3277,14 +3409,6 @@ components:
       name: snapshotPolicyName
       in: path
       description: The name of the snapshot policy
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    BackupName:
-      name: backupName
-      in: path
-      description: The name of the backup
       required: true
       x-ms-parameter-location: method
       schema:
@@ -3335,53 +3459,9 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
 paths:
   /providers/Microsoft.NetApp/operations:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Operations
@@ -3401,8 +3481,12 @@ paths:
                 $ref: '#/components/schemas/OperationListResult'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/checkNameAvailability:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - NetApp Resource
@@ -3419,8 +3503,8 @@ paths:
             schema:
               $ref: '#/components/schemas/ResourceNameAvailabilityRequest'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -3431,8 +3515,12 @@ paths:
                 $ref: '#/components/schemas/CheckAvailabilityResponse'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/checkFilePathAvailability:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - NetApp Resource
@@ -3449,8 +3537,8 @@ paths:
             schema:
               $ref: '#/components/schemas/FilePathAvailabilityRequest'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -3461,8 +3549,12 @@ paths:
                 $ref: '#/components/schemas/CheckAvailabilityResponse'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/checkQuotaAvailability:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - NetApp Resource
@@ -3479,8 +3571,8 @@ paths:
             schema:
               $ref: '#/components/schemas/QuotaAvailabilityRequest'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -3491,8 +3583,12 @@ paths:
                 $ref: '#/components/schemas/CheckAvailabilityResponse'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/quotaLimits:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - NetApp Resource
@@ -3500,8 +3596,8 @@ paths:
       description: Get the default and current limits for quotas
       operationId: NetAppResourceQuotaLimits_List
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: null
@@ -3514,8 +3610,12 @@ paths:
                 $ref: '#/components/schemas/SubscriptionQuotaItemList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/quotaLimits/{quotaLimitName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - NetApp Resource
@@ -3523,8 +3623,8 @@ paths:
       description: Get the default and current subscription quota limit
       operationId: NetAppResourceQuotaLimits_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/QuotaLimitName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -3536,8 +3636,12 @@ paths:
                 $ref: '#/components/schemas/SubscriptionQuotaItem'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/regionInfo:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describes region specific information.
       description: Provides storage to network proximity and logical zone mapping information.
@@ -3545,8 +3649,8 @@ paths:
         - NetApp Resource
       operationId: NetAppResource_QueryRegionInfo
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -3557,8 +3661,89 @@ paths:
                 $ref: '#/components/schemas/regionInfo'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/queryNetworkSiblingSet:
+    x-api-version: '2023-07-01'
+    post:
+      tags:
+        - NetApp Resource
+      summary: Describe a network sibling set
+      description: Get details of the specified network sibling set.
+      operationId: NetAppResource_QueryNetworkSiblingSet
+      requestBody:
+        description: Network sibling set to query.
+        required: true
+        x-ms-requestBody-name: body
+        x-ms-client-flatten: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryNetworkSiblingSetRequest'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/networkSiblingSet'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/locations/{location}/updateNetworkSiblingSet:
+    x-api-version: '2023-07-01'
+    post:
+      tags:
+        - NetApp Resource
+      summary: Update the network features of a network sibling set
+      description: Update the network features of the specified network sibling set.
+      operationId: NetAppResource_UpdateNetworkSiblingSet
+      requestBody:
+        description: Update for the specified network sibling set.
+        required: true
+        x-ms-requestBody-name: body
+        x-ms-client-flatten: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNetworkSiblingSetRequest'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/networkSiblingSet'
+        '202':
+          description: Accepted -- Update request accepted; operation will complete asynchronously
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/providers/Microsoft.NetApp/netAppAccounts:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe all NetApp Accounts in a subscription
       description: List and describe all NetApp accounts in the subscription.
@@ -3566,7 +3751,7 @@ paths:
         - NetApp Accounts
       operationId: Accounts_ListBySubscription
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
@@ -3579,8 +3764,12 @@ paths:
                 $ref: '#/components/schemas/netAppAccountList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe all NetApp Accounts in a resource group
       description: List and describe all NetApp accounts in the resource group.
@@ -3588,8 +3777,8 @@ paths:
         - NetApp Accounts
       operationId: Accounts_List
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
         nextLinkName: nextLink
@@ -3602,8 +3791,12 @@ paths:
                 $ref: '#/components/schemas/netAppAccountList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe a NetApp Account
       description: Get the NetApp account
@@ -3611,8 +3804,8 @@ paths:
         - NetApp Accounts
       operationId: Accounts_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -3624,6 +3817,10 @@ paths:
                 $ref: '#/components/schemas/netAppAccount'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - NetApp Accounts
@@ -3639,8 +3836,8 @@ paths:
             schema:
               $ref: '#/components/schemas/netAppAccount'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -3658,6 +3855,10 @@ paths:
                 $ref: '#/components/schemas/netAppAccount'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -3667,8 +3868,8 @@ paths:
       operationId: Accounts_Delete
       summary: Delete a NetApp account
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       description: Delete the specified NetApp account
@@ -3679,6 +3880,10 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -3697,8 +3902,8 @@ paths:
             schema:
               $ref: '#/components/schemas/netAppAccountPatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -3719,12 +3924,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/cloudError'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/renewCredentials:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - NetApp Accounts
@@ -3732,9 +3937,10 @@ paths:
       summary: Renew identity credentials
       description: Renew identity credentials that are used to authenticate to key vault, for customer-managed key encryption. If encryption.identity.principalId does not match identity.principalId, running this operation will fix it.
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK - terminal state
@@ -3742,11 +3948,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe all Capacity Pools
       description: List all capacity pools in the NetApp Account
@@ -3754,8 +3964,8 @@ paths:
         - Capacity Pools
       operationId: Pools_List
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
@@ -3769,8 +3979,12 @@ paths:
                 $ref: '#/components/schemas/capacityPoolList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe a Capacity Pool
       description: Get details of the specified capacity pool
@@ -3778,8 +3992,8 @@ paths:
         - Capacity Pools
       operationId: Pools_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -3792,6 +4006,10 @@ paths:
                 $ref: '#/components/schemas/capacityPool'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Capacity Pools
@@ -3807,8 +4025,8 @@ paths:
             schema:
               $ref: '#/components/schemas/capacityPool'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -3827,6 +4045,10 @@ paths:
                 $ref: '#/components/schemas/capacityPool'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -3845,8 +4067,8 @@ paths:
             schema:
               $ref: '#/components/schemas/capacityPoolPatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -3861,6 +4083,10 @@ paths:
           description: Accepted -- Update request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -3871,8 +4097,8 @@ paths:
       summary: Delete a capacity pool
       description: Delete the specified capacity pool
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -3883,17 +4109,21 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe all volumes
       description: List all volumes within the capacity pool
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -3911,8 +4141,12 @@ paths:
                 $ref: '#/components/schemas/volumeList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Volumes
@@ -3920,8 +4154,8 @@ paths:
       summary: Describe a volume
       description: Get the details of the specified volume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -3935,6 +4169,10 @@ paths:
                 $ref: '#/components/schemas/volume'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Volumes
@@ -3950,8 +4188,8 @@ paths:
             schema:
               $ref: '#/components/schemas/volume'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -3973,6 +4211,10 @@ paths:
           description: Accepted -- Create request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -3991,8 +4233,8 @@ paths:
             schema:
               $ref: '#/components/schemas/volumePatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4011,7 +4253,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/cloudError'
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -4022,8 +4264,8 @@ paths:
       summary: Delete a volume
       description: Delete the specified volume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4041,11 +4283,52 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/populateAvailabilityZone:
+    x-api-version: '2023-07-01'
+    post:
+      tags:
+        - Volumes
+      summary: Populate Availability Zone
+      description: This operation will populate availability zone information for a volume
+      operationId: Volumes_PopulateAvailabilityZone
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/AccountName'
+        - $ref: '#/components/parameters/PoolName'
+        - $ref: '#/components/parameters/VolumeName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/volume'
+        '202':
+          description: Accepted -- populate availability zone accepted; operation will complete asynchronously
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/revert:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Revert
@@ -4053,8 +4336,8 @@ paths:
       description: Revert a volume to the snapshot specified in the body
       operationId: Volumes_Revert
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4074,11 +4357,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/resetCifsPassword:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Reset Cifs Password
@@ -4086,22 +4373,114 @@ paths:
       description: Reset cifs password from volume
       operationId: Volumes_ResetCifsPassword
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
+        '202':
+          description: Accepted -- Update request accepted; operation will complete asynchronously
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/breakFileLocks:
+    x-api-version: '2023-07-01'
+    post:
+      tags:
+        - File Locks
+      summary: Break file locks
+      description: Break all the file locks on a volume
+      operationId: Volumes_BreakFileLocks
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/AccountName'
+        - $ref: '#/components/parameters/PoolName'
+        - $ref: '#/components/parameters/VolumeName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Optional body to provide the ability to clear file locks with selected options
+        required: false
+        x-ms-requestBody-name: body
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/breakFileLocksRequest'
+      responses:
         '200':
           description: OK - terminal state
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/getGroupIdListForLdapUser:
+    x-api-version: '2023-07-01'
+    post:
+      tags:
+        - Group Id List for LDAP User
+      summary: ' Get Group Id List for LDAP User'
+      description: Returns the list of group Ids for a specific LDAP User
+      operationId: Volumes_ListGetGroupIdListForLdapUser
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/AccountName'
+        - $ref: '#/components/parameters/PoolName'
+        - $ref: '#/components/parameters/VolumeName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Returns group Id list for a specific LDAP user
+        required: true
+        x-ms-requestBody-name: body
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/getGroupIdListForLDAPUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/getGroupIdListForLDAPUserResponse'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/breakReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4109,8 +4488,8 @@ paths:
       description: Break the replication connection on the destination volume
       operationId: Volumes_BreakReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4130,11 +4509,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/reestablishReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4142,8 +4525,8 @@ paths:
       description: Re-establish a previously deleted replication between 2 volumes that have a common ad-hoc or policy-based snapshots
       operationId: Volumes_ReestablishReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4161,11 +4544,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/replicationStatus:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Volumes Replication
@@ -4173,8 +4560,8 @@ paths:
       description: Get the status of the replication
       operationId: Volumes_ReplicationStatus
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4188,8 +4575,12 @@ paths:
                 $ref: '#/components/schemas/replicationStatus'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/listReplications:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4197,8 +4588,8 @@ paths:
       description: List all replications for a specified volume
       operationId: Volumes_ListReplications
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4214,8 +4605,12 @@ paths:
                 $ref: '#/components/schemas/listReplications'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/resyncReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4223,8 +4618,8 @@ paths:
       description: Resync the connection on the destination volume. If the operation is ran on the source volume it will reverse-resync the connection and sync from destination to source.
       operationId: Volumes_ResyncReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4236,11 +4631,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/deleteReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4248,8 +4647,8 @@ paths:
       description: Delete the replication connection on the destination volume, and send release to the source replication
       operationId: Volumes_DeleteReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4261,11 +4660,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/authorizeReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4273,8 +4676,8 @@ paths:
       description: Authorize the replication connection on the source volume
       operationId: Volumes_AuthorizeReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4294,11 +4697,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/reinitializeReplication:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Replication
@@ -4306,8 +4713,8 @@ paths:
       description: Re-Initializes the replication connection on the destination volume
       operationId: Volumes_ReInitializeReplication
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4319,11 +4726,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/poolChange:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Pool Change
@@ -4331,8 +4742,8 @@ paths:
       description: Moves volume to another pool
       operationId: Volumes_PoolChange
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4352,11 +4763,15 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/relocate:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Relocation
@@ -4364,8 +4779,8 @@ paths:
       description: Relocates volume to a new stamp
       operationId: Volumes_Relocate
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4385,9 +4800,13 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/finalizeRelocation:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Relocation
@@ -4395,8 +4814,8 @@ paths:
       description: Finalizes the relocation of the volume and cleans up the old volume.
       operationId: Volumes_FinalizeRelocation
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4408,9 +4827,13 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/revertRelocation:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Volumes Relocation
@@ -4418,8 +4841,8 @@ paths:
       description: Reverts the volume relocation process, cleans up the new volume and starts using the former-existing volume.
       operationId: Volumes_RevertRelocation
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4431,17 +4854,21 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/snapshots:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Snapshots
       operationId: Snapshots_List
       summary: Describe all snapshots
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4458,8 +4885,12 @@ paths:
                 $ref: '#/components/schemas/snapshotsList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/snapshots/{snapshotName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Snapshots
@@ -4467,8 +4898,8 @@ paths:
       summary: Describe a snapshot
       description: Get details of the specified snapshot
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4483,6 +4914,10 @@ paths:
                 $ref: '#/components/schemas/snapshot'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Snapshots
@@ -4498,8 +4933,8 @@ paths:
             schema:
               $ref: '#/components/schemas/snapshot'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4516,6 +4951,10 @@ paths:
           description: Accepted -- Create request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -4534,8 +4973,8 @@ paths:
             schema:
               $ref: '#/components/schemas/snapshotPatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4552,6 +4991,10 @@ paths:
           description: Accepted -- Update request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -4562,8 +5005,8 @@ paths:
       summary: Delete a snapshot
       description: Delete snapshot
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4578,11 +5021,15 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/snapshots/{snapshotName}/restoreFiles:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Snapshots
@@ -4598,8 +5045,8 @@ paths:
             schema:
               $ref: '#/components/schemas/snapshotRestoreFiles'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4612,17 +5059,23 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/snapshotPolicies:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       operationId: SnapshotPolicies_List
       description: List snapshot policy
       tags:
         - Snapshot Policy
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
@@ -4636,16 +5089,20 @@ paths:
                 $ref: '#/components/schemas/snapshotPoliciesList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/snapshotPolicies/{snapshotPolicyName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       operationId: SnapshotPolicies_Get
       description: Get a snapshot Policy
       tags:
         - Snapshot Policy
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -4658,6 +5115,10 @@ paths:
                 $ref: '#/components/schemas/snapshotPolicy'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: SnapshotPolicies_Create
       description: Create a snapshot policy
@@ -4672,8 +5133,8 @@ paths:
             schema:
               $ref: '#/components/schemas/snapshotPolicy'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -4692,6 +5153,10 @@ paths:
                 $ref: '#/components/schemas/snapshotPolicy'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: false
     patch:
       tags:
@@ -4707,8 +5172,8 @@ paths:
             schema:
               $ref: '#/components/schemas/snapshotPolicyPatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -4727,6 +5192,10 @@ paths:
                 $ref: '#/components/schemas/snapshotPolicy'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -4736,8 +5205,8 @@ paths:
       tags:
         - Snapshot Policy
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -4750,11 +5219,15 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/snapshotPolicies/{snapshotPolicyName}/volumes:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Snapshot Policy List Volumes
@@ -4762,8 +5235,8 @@ paths:
       description: Get volumes associated with snapshot policy
       operationId: SnapshotPolicies_ListVolumes
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/SnapshotPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -4776,32 +5249,12 @@ paths:
                 $ref: '#/components/schemas/snapshotPolicyVolumeList'
         default:
           description: Error response describing why the operation failed.
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/backupStatus:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Backups
-      summary: Get volume's backup status
-      description: Get the status of the backup for a volume
-      operationId: Backups_GetStatus
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/backupStatus'
-        default:
-          description: Error response describing why the operation failed.
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/restoreStatus:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Restore
@@ -4809,8 +5262,8 @@ paths:
       description: Get the status of the restore for a volume
       operationId: Backups_GetVolumeRestoreStatus
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -4824,237 +5277,12 @@ paths:
                 $ref: '#/components/schemas/restoreStatus'
         default:
           description: Error response describing why the operation failed.
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/accountBackups:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Backups
-      summary: List Backups for a Netapp Account
-      description: List all Backups for a Netapp Account
-      operationId: AccountBackups_List
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      x-ms-pageable:
-        nextLinkName: null
-      responses:
-        '200':
-          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/backupsList'
-        default:
-          description: Error response describing why the operation failed.
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/accountBackups/{backupName}:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Backups
-      summary: Get Backup for a Netapp Account
-      description: Gets the specified backup for a Netapp Account
-      operationId: AccountBackups_Get
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        default:
-          description: Error response describing why the operation failed.
-    delete:
-      tags:
-        - Backups
-      summary: Delete Backup for a Netapp Account
-      description: Delete the specified Backup for a Netapp Account
-      operationId: AccountBackups_Delete
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted -- Create or update request accepted; operation will complete asynchronously
-        '204':
-          description: NoContent -- Resource does not exist.
-        default:
-          description: Error response describing why the operation failed.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/backups:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Backups
-      summary: List Backups
-      description: List all backups for a volume
-      operationId: Backups_List
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      x-ms-pageable:
-        nextLinkName: null
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backupsList'
-        default:
-          description: Error response describing why the operation failed.
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/backups/{backupName}:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Backups
-      summary: Get a backup
-      description: Gets the specified backup of the volume
-      operationId: Backups_Get
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        default:
-          description: Error response describing why the operation failed.
-    put:
-      tags:
-        - Backups
-      summary: Create a backup
-      description: Create a backup for the volume
-      operationId: Backups_Create
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Backup object supplied in the body of the operation.
-        required: true
-        x-ms-requestBody-name: body
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/backup'
-      responses:
-        '200':
-          description: OK created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        '201':
-          description: Backup created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        '202':
-          description: Accepted -- Create request accepted; operation will complete asynchronously
-        default:
-          description: Error response describing why the operation failed.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-    patch:
-      tags:
-        - Backups
-      summary: Patch a backup
-      description: Patch a backup for the volume
-      operationId: Backups_Update
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Backup object supplied in the body of the operation.
-        x-ms-requestBody-name: body
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/backupPatch'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        '202':
-          description: Accepted -- Create or update request accepted; operation will complete asynchronously
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/backup'
-        default:
-          description: Error response describing why the operation failed.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-    delete:
-      tags:
-        - Backups
-      summary: Delete backup
-      description: Delete a backup of the volume
-      operationId: Backups_Delete
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/PoolName'
-        - $ref: '#/components/parameters/VolumeName'
-        - $ref: '#/components/parameters/BackupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted -- Create or update request accepted; operation will complete asynchronously
-        '204':
-          description: NoContent -- Resource does not exist.
-        default:
-          description: Error response describing why the operation failed.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/backupPolicies:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Backup Policy
@@ -5062,8 +5290,8 @@ paths:
       description: List backup policies for Netapp Account
       operationId: BackupPolicies_List
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       x-ms-pageable:
@@ -5077,8 +5305,12 @@ paths:
                 $ref: '#/components/schemas/backupPoliciesList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/backupPolicies/{backupPolicyName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Backup Policy
@@ -5086,8 +5318,8 @@ paths:
       description: Get a particular backup Policy
       operationId: BackupPolicies_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5100,6 +5332,10 @@ paths:
                 $ref: '#/components/schemas/backupPolicy'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Backup Policy
@@ -5107,8 +5343,8 @@ paths:
       description: Create a backup policy for Netapp Account
       operationId: BackupPolicies_Create
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5137,6 +5373,10 @@ paths:
           description: Accepted -- Create request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -5147,8 +5387,8 @@ paths:
       description: Patch a backup policy for Netapp Account
       operationId: BackupPolicies_Update
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5175,6 +5415,10 @@ paths:
                 $ref: '#/components/schemas/backupPolicy'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -5185,8 +5429,8 @@ paths:
       description: Delete backup policy
       operationId: BackupPolicies_Delete
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/BackupPolicyName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5199,19 +5443,23 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/volumeQuotaRules:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - VolumeQuotaRules
       operationId: VolumeQuotaRules_ListByVolume
       summary: Get all quota rules for a volume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5228,8 +5476,12 @@ paths:
                 $ref: '#/components/schemas/volumeQuotaRulesList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/volumeQuotaRules/{volumeQuotaRuleName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - VolumeQuotaRules
@@ -5237,8 +5489,8 @@ paths:
       summary: Describe a quota rule
       description: Get details of the specified quota rule
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5253,6 +5505,10 @@ paths:
                 $ref: '#/components/schemas/volumeQuotaRule'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - VolumeQuotaRules
@@ -5268,8 +5524,8 @@ paths:
             schema:
               $ref: '#/components/schemas/volumeQuotaRule'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5290,6 +5546,10 @@ paths:
                 $ref: '#/components/schemas/volumeQuotaRule'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -5308,8 +5568,8 @@ paths:
             schema:
               $ref: '#/components/schemas/volumeQuotaRulePatch'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5326,6 +5586,10 @@ paths:
           description: Accepted -- Update request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
@@ -5336,55 +5600,37 @@ paths:
       summary: Delete a quota rule
       description: Delete quota rule
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
         - $ref: '#/components/parameters/VolumeQuotaRuleName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
+        '200':
+          description: OK
         '202':
           description: Accepted -- Delete request accepted; operation will complete asynchronously
         '204':
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/vaults:
-    x-api-version: '2022-05-01'
-    get:
-      tags:
-        - Vaults
-      summary: List vaults
-      description: List vaults for a Netapp Account
-      operationId: Vaults_List
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
-        - $ref: '#/components/parameters/AccountName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      x-ms-pageable:
-        nextLinkName: null
-      responses:
-        '200':
-          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/vaultList'
-        default:
-          description: Error response describing why the operation failed.
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/volumeGroups:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe all volume groups
       description: List all volume groups for given account
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/ApiVersionParameter'
       tags:
@@ -5401,8 +5647,12 @@ paths:
                 $ref: '#/components/schemas/volumeGroupList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/volumeGroups/{volumeGroupName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       summary: Describe a Volume Group
       description: Get details of the specified volume group
@@ -5410,8 +5660,8 @@ paths:
         - Volume Groups
       operationId: VolumeGroups_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5424,6 +5674,10 @@ paths:
                 $ref: '#/components/schemas/volumeGroupDetails'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Volume Groups
@@ -5439,8 +5693,8 @@ paths:
             schema:
               $ref: '#/components/schemas/volumeGroupDetails'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5453,6 +5707,10 @@ paths:
                 $ref: '#/components/schemas/volumeGroupDetails'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
     delete:
       tags:
@@ -5461,8 +5719,8 @@ paths:
       summary: Delete a volume group
       description: Delete the specified volume group only if there are no volumes under volume group.
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/VolumeGroupName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -5475,9 +5733,13 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/subvolumes:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Subvolumes
@@ -5485,8 +5747,8 @@ paths:
       summary: List of all the subvolumes
       description: Returns a list of the subvolumes in the volume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5502,8 +5764,12 @@ paths:
                 $ref: '#/components/schemas/subvolumesList'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/subvolumes/{subvolumeName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     get:
       tags:
         - Subvolumes
@@ -5511,8 +5777,8 @@ paths:
       description: Returns the path associated with the subvolumeName provided
       operationId: Subvolumes_Get
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5527,6 +5793,10 @@ paths:
                 $ref: '#/components/schemas/subvolumeInfo'
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - Subvolumes
@@ -5542,8 +5812,8 @@ paths:
             schema:
               $ref: '#/components/schemas/subvolumeInfo'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5566,6 +5836,10 @@ paths:
           description: Accepted -- Create request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -5584,8 +5858,8 @@ paths:
             schema:
               $ref: '#/components/schemas/subvolumePatchRequest'
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5602,6 +5876,10 @@ paths:
           description: Accepted -- Update request accepted; operation will complete asynchronously
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
@@ -5612,8 +5890,8 @@ paths:
       summary: Delete a subvolume
       description: Delete subvolume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5628,11 +5906,15 @@ paths:
           description: NoContent -- Resource does not exist.
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.NetApp/netAppAccounts/{accountName}/capacityPools/{poolName}/volumes/{volumeName}/subvolumes/{subvolumeName}/getMetadata:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-07-01'
     post:
       tags:
         - Subvolumes
@@ -5640,8 +5922,8 @@ paths:
       summary: Describe a subvolume
       description: Get details of the specified subvolume
       parameters:
-        - $ref: '#/components/parameters/SubscriptionId'
-        - $ref: '#/components/parameters/ResourceGroup'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AccountName'
         - $ref: '#/components/parameters/PoolName'
         - $ref: '#/components/parameters/VolumeName'
@@ -5658,6 +5940,10 @@ paths:
           description: Accepted
         default:
           description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation

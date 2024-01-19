@@ -74,6 +74,7 @@ async function openapiCombine(options) {
   } else {
     // interate through all dereferenced subdirs
     const subdirs = (await readdir(`${derefedDir}`, { withFileTypes: true })).filter(dirent => dirent.isDirectory());
+    
     for (const subdir of subdirs){
       try {
         await combine(derefedDir, combinedDir, subdir.name, options.debug, options.dryrun).finally(() => {

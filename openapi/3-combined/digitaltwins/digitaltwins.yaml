@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2022-05-31'
+  version: '2023-01-31'
   title: AzureDigitalTwinsManagementClient
   description: Azure Digital Twins Client for managing DigitalTwinsInstance
 security:
@@ -165,10 +165,12 @@ components:
           enum:
             - None
             - SystemAssigned
+            - UserAssigned
+            - SystemAssigned,UserAssigned
           x-ms-enum:
             name: DigitalTwinsIdentityType
             modelAsString: true
-          description: The type of Managed Identity used by the DigitalTwinsInstance. Only SystemAssigned is supported.
+          description: The type of Managed Identity used by the DigitalTwinsInstance.
         principalId:
           readOnly: true
           type: string
@@ -179,6 +181,41 @@ components:
           type: string
           nullable: true
           description: The tenant id of the Managed Identity Resource. This will be sent to the RP from ARM via the x-ms-client-tenant-id header in the PUT request if the resource has a systemAssigned(implicit) identity
+        userAssignedIdentities:
+          type: object
+          nullable: true
+          description: "The list of user identities associated with the resource. The user identity dictionary key references will be ARM resource ids in the form:\r\n'/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.\r\n."
+          additionalProperties:
+            $ref: '#/components/schemas/UserAssignedIdentity'
+    UserAssignedIdentity:
+      description: The information about the user assigned identity.
+      type: object
+      properties:
+        clientId:
+          readOnly: true
+          type: string
+          description: The client id of the User Assigned Identity Resource.
+        principalId:
+          readOnly: true
+          type: string
+          description: The object id of the User Assigned Identity Resource.
+    ManagedIdentityReference:
+      description: The properties of the Managed Identity.
+      type: object
+      properties:
+        type:
+          description: The type of managed identity used.
+          enum:
+            - SystemAssigned
+            - UserAssigned
+          type: string
+          x-ms-enum:
+            name: IdentityType
+            modelAsString: true
+        userAssignedIdentity:
+          description: The user identity ARM resource id if the managed identity type is 'UserAssigned'.
+          type: string
+          nullable: true
     ErrorResponse:
       description: Error response.
       properties:
@@ -458,6 +495,11 @@ components:
           description: Dead letter storage URL for identity-based authentication.
           type: string
           nullable: true
+        identity:
+          $ref: '#/components/schemas/ManagedIdentityReference'
+          description: Managed identity properties for the endpoint.
+          nullable: true
+          x-nullable: true
     ServiceBus:
       description: Properties related to ServiceBus.
       x-ms-discriminator-value: ServiceBus
@@ -730,6 +772,11 @@ components:
           x-ms-enum:
             name: TimeSeriesDatabaseConnectionState
             modelAsString: true
+        identity:
+          $ref: '#/components/schemas/ManagedIdentityReference'
+          description: Managed identity properties for the time series database connection resource.
+          nullable: true
+          x-nullable: true
     TimeSeriesDatabaseConnection:
       description: Describes a time series database connection resource.
       type: object
@@ -763,7 +810,16 @@ components:
           description: The name of the Azure Data Explorer database.
           type: string
         adxTableName:
-          description: The name of the Azure Data Explorer table.
+          description: The name of the Azure Data Explorer table used for storing updates to properties of twins and relationships. Defaults to AdtPropertyEvents.
+          type: string
+          default: AdtPropertyEvents
+          nullable: true
+        adxTwinLifecycleEventsTableName:
+          description: The name of the Azure Data Explorer table used for recording twin lifecycle events. The table will not be created if this property is left unspecified.
+          type: string
+          nullable: true
+        adxRelationshipLifecycleEventsTableName:
+          description: The name of the Azure Data Explorer table used for recording relationship lifecycle events. The table will not be created if this property is left unspecified.
           type: string
           nullable: true
         eventHubEndpointUri:
@@ -778,6 +834,18 @@ components:
         eventHubConsumerGroup:
           description: The EventHub consumer group to use when ADX reads from EventHub. Defaults to $Default.
           type: string
+          default: $Default
+          nullable: true
+        recordPropertyAndItemRemovals:
+          description: Specifies whether or not to record twin / relationship property and item removals, including removals of indexed or keyed values (such as map entries, array elements, etc.). This feature is de-activated unless explicitly set to 'true'. Setting this property to 'true' will generate an additional column in the property events table in ADX.
+          enum:
+            - 'true'
+            - 'false'
+          type: string
+          x-ms-enum:
+            name: recordPropertyAndItemRemovals
+            modelAsString: true
+          default: 'false'
           nullable: true
     TimeSeriesDatabaseConnectionListResult:
       description: A pageable list of time series database connection resources.
@@ -876,9 +944,24 @@ components:
         minLength: 2
         maxLength: 49
         type: string
+    cleanupConnectionArtifacts:
+      name: cleanupConnectionArtifacts
+      in: query
+      description: Specifies whether or not to attempt to clean up artifacts that were created in order to establish a connection to the time series database. This is a best-effort attempt that will fail if appropriate permissions are not in place. Setting this to 'true' does not delete any recorded data.
+      required: false
+      x-nullable: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - 'true'
+          - 'false'
+        x-ms-enum:
+          name: cleanupConnectionArtifacts
+          modelAsString: true
+        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - DigitalTwinsInstance
@@ -1011,7 +1094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/endpoints:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - Endpoints
@@ -1038,7 +1121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/endpoints/{endpointName}:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - Endpoints
@@ -1136,7 +1219,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.DigitalTwins/digitalTwinsInstances:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - DigitalTwinsInstance
@@ -1161,7 +1244,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - DigitalTwinsInstance
@@ -1187,7 +1270,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.DigitalTwins/operations:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - Operations
@@ -1211,7 +1294,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.DigitalTwins/locations/{location}/checkNameAvailability:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     post:
       tags:
         - CheckNameAvailability
@@ -1243,7 +1326,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/privateLinkResources:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - PrivateEndpoints
@@ -1268,7 +1351,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/privateLinkResources/{resourceId}:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - PrivateEndpoints
@@ -1294,7 +1377,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/privateEndpointConnections:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - PrivateEndpoints
@@ -1319,7 +1402,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - PrivateEndpoints
@@ -1409,7 +1492,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/timeSeriesDatabaseConnections:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - TimeSeriesDatabaseConnections
@@ -1436,7 +1519,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DigitalTwins/digitalTwinsInstances/{resourceName}/timeSeriesDatabaseConnections/{timeSeriesDatabaseConnectionName}:
-    x-api-version: '2022-05-31'
+    x-api-version: '2023-01-31'
     get:
       tags:
         - TimeSeriesDatabaseConnections
@@ -1512,6 +1595,7 @@ paths:
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/timeSeriesDatabaseConnectionName'
+        - $ref: '#/components/parameters/cleanupConnectionArtifacts'
       responses:
         '200':
           description: Returned if the operation was canceled or failed.

@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure Log Analytics
   description: Azure Log Analytics API reference
-  version: 2021-12-01-preview
+  version: '2020-08-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -19,75 +19,101 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+    OperationStatus:
+      description: The status of operation.
       type: object
+      properties:
+        id:
+          type: string
+          description: The operation Id.
+        name:
+          type: string
+          description: The operation name.
+        startTime:
+          type: string
+          description: The start time of the operation.
+        endTime:
+          type: string
+          description: The end time of the operation.
+        status:
+          type: string
+          description: The status of the operation.
+        error:
+          type: object
+          description: The error detail of the operation if any.
+          $ref: '#/components/schemas/ErrorResponse'
+    DataExport:
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DataExportProperties'
+          description: data export properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: The top level data export resource container.
+      x-ms-azure-resource: true
+    DataExportListResult:
+      description: Result of the request to list data exports.
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
+            $ref: '#/components/schemas/DataExport'
+          description: List of data export instances within a workspace..
+    DataExportProperties:
       properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+        dataExportId:
           type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          description: The data export rule ID.
+        tableNames:
+          type: array
+          items:
+            type: string
+          description: 'An array of tables to export, for example: [“Heartbeat, SecurityEvent”].'
+        destination:
+          $ref: '#/components/schemas/Destination'
+          description: destination properties.
+          x-ms-client-flatten: true
+        enable:
           type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          description: Active when enabled.
+        createdDate:
+          type: string
+          description: The latest data export rule modification time.
+        lastModifiedDate:
+          type: string
+          description: Date and time when the export was last modified.
+      required:
+        - tableNames
+      description: Data Export properties.
+    Destination:
+      properties:
+        resourceId:
+          type: string
+          description: The destination resource ID. This can be copied from the Properties entry of the destination resource in Azure.
+        type:
           type: string
           readOnly: true
+          description: The type of the destination resource
           enum:
-            - user
-            - system
-            - user,system
+            - StorageAccount
+            - EventHub
           x-ms-enum:
-            name: Origin
+            name: type
             modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+        metaData:
+          $ref: '#/components/schemas/DestinationMetaData'
+          description: destination meta data.
+          x-ms-client-flatten: true
+      required:
+        - resourceId
+      description: Destination properties.
+    DestinationMetaData:
+      properties:
+        eventHubName:
           type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
+          description: Optional. Allows to define an Event Hub name. Not applicable when destination is Storage Account.
+      description: Destination meta data.
     WorkspacePurgeBody:
       description: Describes the body of a purge request for an App Insights Workspace
       required:
@@ -139,83 +165,66 @@ components:
             modelAsString: true
       required:
         - status
-    ClusterProperties:
+    StorageAccount:
       properties:
-        clusterId:
+        id:
           type: string
-          readOnly: true
-          description: The ID associated with the cluster.
-        provisioningState:
+          description: The Azure Resource Manager ID of the storage account resource.
+        key:
           type: string
-          readOnly: true
-          description: The provisioning state of the cluster.
+          description: The storage account key.
+      required:
+        - id
+        - key
+      description: Describes a storage account connection.
+    StorageInsightStatus:
+      properties:
+        state:
+          type: string
+          description: The state of the storage insight connection to the workspace
           enum:
-            - Creating
-            - Succeeded
-            - Failed
-            - Canceled
-            - Deleting
-            - ProvisioningAccount
-            - Updating
+            - OK
+            - ERROR
           x-ms-enum:
-            name: ClusterEntityStatus
+            name: StorageInsightState
             modelAsString: true
-        isDoubleEncryptionEnabled:
-          type: boolean
-          readOnly: false
-          description: Configures whether cluster will use double encryption. This Property can not be modified after cluster creation. Default value is 'true'
-          x-ms-mutability:
-            - create
-        isAvailabilityZonesEnabled:
-          type: boolean
-          readOnly: false
-          description: Sets whether the cluster will support availability zones. This can be set as true only in regions where Azure Data Explorer support Availability Zones. This Property can not be modified after cluster creation. Default value is 'true' if region supports Availability Zones.
-        billingType:
-          $ref: '#/components/schemas/billingType'
-          description: The cluster's billing type.
-        keyVaultProperties:
-          $ref: '#/components/schemas/keyVaultProperties'
-          description: The associated key properties.
-        lastModifiedDate:
+        description:
           type: string
-          description: The last time the cluster was updated.
-          readOnly: true
-        createdDate:
-          type: string
-          description: The cluster creation time
-          readOnly: true
-        associatedWorkspaces:
-          description: The list of Log Analytics workspaces associated with the cluster
+          description: Description of the state of the storage insight.
+      required:
+        - state
+      description: The status of the storage insight.
+    StorageInsightProperties:
+      properties:
+        containers:
           type: array
           items:
-            $ref: '#/components/schemas/AssociatedWorkspace'
-          x-ms-identifiers:
-            - workspaceId
-        capacityReservationProperties:
-          $ref: '#/components/schemas/CapacityReservationProperties'
-          description: Additional properties for capacity reservation
-      description: Cluster properties.
-    ClusterPatchProperties:
-      properties:
-        keyVaultProperties:
-          $ref: '#/components/schemas/keyVaultProperties'
-          description: The associated key properties.
-        billingType:
-          $ref: '#/components/schemas/billingType'
-          description: The cluster's billing type.
-      description: Log Analytics cluster patch properties.
-    ClusterPatch:
+            type: string
+          description: The names of the blob containers that the workspace should read
+        tables:
+          type: array
+          items:
+            type: string
+          description: The names of the Azure tables that the workspace should read
+        storageAccount:
+          $ref: '#/components/schemas/StorageAccount'
+          description: The storage account connection details
+        status:
+          $ref: '#/components/schemas/StorageInsightStatus'
+          description: The status of the storage insight
+          readOnly: true
+      required:
+        - storageAccount
+      description: Storage insight properties.
+    StorageInsight:
       properties:
         properties:
           x-ms-client-flatten: true
-          $ref: '#/components/schemas/ClusterPatchProperties'
-          description: Log Analytics cluster properties.
-        identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-        sku:
-          $ref: '#/components/schemas/ClusterSku'
-          description: The sku properties.
+          $ref: '#/components/schemas/StorageInsightProperties'
+          description: Storage insight properties.
+        eTag:
+          type: string
+          description: The ETag of the storage insight.
         tags:
           type: object
           additionalProperties:
@@ -225,189 +234,67 @@ components:
             - create
             - update
           description: Resource tags.
-      description: The top level Log Analytics cluster resource container.
-      x-ms-azure-resource: true
-    Cluster:
-      properties:
-        identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-        sku:
-          $ref: '#/components/schemas/ClusterSku'
-          description: The sku properties.
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ClusterProperties'
-          description: Log Analytics cluster properties.
       allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: The top level Log Analytics cluster resource container.
-    ClusterListResult:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: The top level storage insight resource container.
+    StorageInsightListResult:
       properties:
-        nextLink:
-          description: The link used to get the next page of recommendations.
-          type: string
         value:
           type: array
           items:
-            $ref: '#/components/schemas/Cluster'
-          description: A list of Log Analytics clusters.
-      description: The list clusters operation response.
-    keyVaultProperties:
-      description: The key vault properties.
+            $ref: '#/components/schemas/StorageInsight'
+          description: A list of storage insight items.
+        '@odata.nextLink':
+          type: string
+          description: The link (url) to the next page of results.
+          x-ms-client-name: odataNextLink
+      description: The list storage insights operation response.
+    AvailableServiceTier:
+      description: Service Tier details.
       properties:
-        keyVaultUri:
-          description: The Key Vault uri which holds they key associated with the Log Analytics cluster.
+        serviceTier:
+          readOnly: true
           type: string
-        keyName:
-          description: The name of the key associated with the Log Analytics cluster.
-          type: string
-        keyVersion:
-          description: The version of the key associated with the Log Analytics cluster.
-          type: string
-        keyRsaSize:
-          description: Selected key minimum required size.
-          type: integer
-          format: int32
-    billingType:
-      type: string
-      readOnly: false
-      description: Configures whether billing will be only on the cluster or each workspace will be billed by its proportional use. This does not change the overall billing, only how it will be distributed. Default value is 'Cluster'
-      enum:
-        - Cluster
-        - Workspaces
-      x-ms-enum:
-        name: BillingType
-        modelAsString: true
-    ClusterSku:
-      description: The cluster sku definition.
-      properties:
-        capacity:
-          description: The capacity value
-          type: integer
-          format: int64
+          description: The name of the Service Tier.
           enum:
-            - 500
-            - 1000
-            - 2000
-            - 5000
-          x-ms-enum:
-            name: Capacity
-        name:
-          type: string
-          description: The name of the SKU.
-          enum:
+            - Free
+            - Standard
+            - Premium
+            - PerNode
+            - PerGB2018
+            - Standalone
             - CapacityReservation
           x-ms-enum:
-            name: ClusterSkuNameEnum
+            name: SkuNameEnum
             modelAsString: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
+        enabled:
           readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
+          type: boolean
+          description: True if the Service Tier is enabled for the workspace.
+        minimumRetention:
           readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    UserIdentityProperties:
-      type: object
-      description: User assigned identity properties.
-      properties:
-        principalId:
-          readOnly: true
-          description: The principal id of user assigned identity.
-          type: string
-        clientId:
-          readOnly: true
-          description: The client id of user assigned identity.
-          type: string
-    AssociatedWorkspace:
-      type: object
-      description: The list of Log Analytics workspaces associated with the cluster.
-      properties:
-        workspaceId:
-          readOnly: true
-          description: The id of the assigned workspace.
-          type: string
-        workspaceName:
-          readOnly: true
-          description: The name id the assigned workspace.
-          type: string
-        resourceId:
-          readOnly: true
-          description: The ResourceId id the assigned workspace.
-          type: string
-        associateDate:
-          readOnly: true
-          description: The time of workspace association.
-          type: string
-    CapacityReservationProperties:
-      description: The Capacity Reservation properties.
-      properties:
-        lastSkuUpdate:
-          readOnly: true
-          description: The last time Sku was updated.
-          type: string
-        minCapacity:
-          readOnly: true
-          description: Minimum CapacityReservation value in GB.
           type: integer
           format: int64
-    MetricName:
-      properties:
-        value:
+          description: The minimum retention for the Service Tier, in days.
+        maximumRetention:
+          readOnly: true
+          type: integer
+          format: int64
+          description: The maximum retention for the Service Tier, in days.
+        defaultRetention:
+          readOnly: true
+          type: integer
+          format: int64
+          description: The default retention for the Service Tier, in days.
+        capacityReservationLevel:
+          readOnly: true
+          type: integer
+          format: int64
+          description: The capacity reservation level in GB per day. Returned for the Capacity Reservation Service Tier.
+        lastSkuUpdate:
+          readOnly: true
           type: string
-          description: The system name of the metric.
-        localizedValue:
-          type: string
-          description: The localized name of the metric.
-      description: The name of a metric.
-    UsageMetric:
-      properties:
-        name:
-          $ref: '#/components/schemas/MetricName'
-          description: The name of the metric.
-        unit:
-          type: string
-          description: The units used for the metric.
-        currentValue:
-          type: number
-          format: double
-          description: The current value of the metric.
-        limit:
-          type: number
-          format: double
-          description: The quota limit for the metric.
-        nextResetTime:
-          type: string
-          format: date-time
-          description: The time that the metric's value will reset.
-        quotaPeriod:
-          type: string
-          description: The quota period that determines the length of time between value resets.
-      description: A metric describing the usage of a resource.
-    WorkspaceListUsagesResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/UsageMetric'
-          x-ms-identifiers:
-            - name
-          description: Gets or sets a list of usage metrics for a workspace.
-      description: The list workspace usages operation response.
+          description: Time when the sku was last updated for the workspace. Returned for the Capacity Reservation Service Tier.
     LinkedServiceProperties:
       properties:
         resourceId:
@@ -456,15 +343,6 @@ components:
             $ref: '#/components/schemas/LinkedService'
           description: The list of linked service instances
       description: The list linked service operation response.
-    SharedKeys:
-      properties:
-        primarySharedKey:
-          type: string
-          description: The primary shared key of a workspace.
-        secondarySharedKey:
-          type: string
-          description: The secondary shared key of a workspace.
-      description: The shared keys for a workspace.
     AzureResourceProperties:
       type: object
       properties:
@@ -642,298 +520,47 @@ components:
       x-ms-enum:
         name: IdentityType
         modelAsString: true
-    IntelligencePack:
+    LinkedStorageAccountsProperties:
+      description: Linked storage accounts properties.
+      type: object
       properties:
-        name:
+        dataSourceType:
+          description: Linked storage accounts type.
           type: string
-          description: The name of the intelligence pack.
-        enabled:
-          type: boolean
-          description: The enabled boolean for the intelligence pack.
-        displayName:
-          type: string
-          description: The display name of the intelligence pack.
-      description: Intelligence Pack containing a string name and boolean indicating if it's enabled.
-    StorageAccount:
-      properties:
-        id:
-          type: string
-          description: The Azure Resource Manager ID of the storage account resource.
-        key:
-          type: string
-          description: The storage account key.
-      required:
-        - id
-        - key
-      description: Describes a storage account connection.
-    StorageInsightStatus:
-      properties:
-        state:
-          type: string
-          description: The state of the storage insight connection to the workspace
-          enum:
-            - OK
-            - ERROR
-          x-ms-enum:
-            name: StorageInsightState
-            modelAsString: true
-        description:
-          type: string
-          description: Description of the state of the storage insight.
-      required:
-        - state
-      description: The status of the storage insight.
-    StorageInsightProperties:
-      properties:
-        containers:
-          type: array
-          items:
-            type: string
-          description: The names of the blob containers that the workspace should read
-        tables:
-          type: array
-          items:
-            type: string
-          description: The names of the Azure tables that the workspace should read
-        storageAccount:
-          $ref: '#/components/schemas/StorageAccount'
-          description: The storage account connection details
-        status:
-          $ref: '#/components/schemas/StorageInsightStatus'
-          description: The status of the storage insight
           readOnly: true
-      required:
-        - storageAccount
-      description: Storage insight properties.
-    StorageInsight:
+          enum:
+            - CustomLogs
+            - AzureWatson
+            - Query
+            - Ingestion
+            - Alerts
+          x-ms-enum:
+            name: DataSourceType
+            modelAsString: false
+        storageAccountIds:
+          description: Linked storage accounts resources ids.
+          type: array
+          items:
+            type: string
+    LinkedStorageAccountsResource:
       properties:
         properties:
           x-ms-client-flatten: true
-          $ref: '#/components/schemas/StorageInsightProperties'
-          description: Storage insight properties.
-        eTag:
-          type: string
-          description: The ETag of the storage insight.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
+          $ref: '#/components/schemas/LinkedStorageAccountsProperties'
+          description: Linked storage accounts properties.
+      required:
+        - properties
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
-      description: The top level storage insight resource container.
-    StorageInsightListResult:
+      description: Linked storage accounts top level resource container.
+    LinkedStorageAccountsListResult:
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/StorageInsight'
-          description: A list of storage insight items.
-        '@odata.nextLink':
-          type: string
-          description: The link (url) to the next page of results.
-          x-ms-client-name: odataNextLink
-      description: The list storage insights operation response.
-    CoreSummary:
-      properties:
-        status:
-          type: string
-          description: The status of a core summary.
-        numberOfDocuments:
-          type: integer
-          format: int64
-          description: The number of documents of a core summary.
-      required:
-        - numberOfDocuments
-      description: The core summary of a search.
-    SearchSort:
-      properties:
-        name:
-          type: string
-          description: The name of the field the search query is sorted on.
-        order:
-          type: string
-          description: The sort order of the search.
-          enum:
-            - asc
-            - desc
-          x-ms-enum:
-            name: SearchSortEnum
-            modelAsString: true
-      description: The sort parameters for search.
-    SearchMetadataSchema:
-      properties:
-        name:
-          type: string
-          description: The name of the metadata schema.
-        version:
-          type: integer
-          format: int32
-          description: The version of the metadata schema.
-      description: Schema metadata for search.
-    SearchMetadata:
-      properties:
-        requestId:
-          x-ms-client-name: SearchId
-          type: string
-          description: The request id of the search.
-        resultType:
-          type: string
-          description: The search result type.
-        total:
-          type: integer
-          format: int64
-          description: The total number of search results.
-        top:
-          type: integer
-          format: int64
-          description: The number of top search results.
-        id:
-          type: string
-          description: The id of the search results request.
-        coreSummaries:
-          type: array
-          items:
-            $ref: '#/components/schemas/CoreSummary'
-          x-ms-identifiers: []
-          description: The core summaries.
-        status:
-          type: string
-          description: The status of the search results.
-        startTime:
-          type: string
-          format: date-time
-          description: The start time for the search.
-        lastUpdated:
-          type: string
-          format: date-time
-          description: The time of last update.
-        eTag:
-          type: string
-          description: The ETag of the search results.
-        sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/SearchSort'
-          x-ms-identifiers:
-            - name
-          description: How the results are sorted.
-        requestTime:
-          type: integer
-          format: int64
-          description: The request time.
-        aggregatedValueField:
-          type: string
-          description: The aggregated value field.
-        aggregatedGroupingFields:
-          type: string
-          description: The aggregated grouping fields.
-        sum:
-          type: integer
-          format: int64
-          description: The sum of all aggregates returned in the result set.
-        max:
-          type: integer
-          format: int64
-          description: The max of all aggregates returned in the result set.
-        schema:
-          $ref: '#/components/schemas/SearchMetadataSchema'
-          description: The schema.
-      description: Metadata for search results.
-    SearchSchemaValue:
-      properties:
-        name:
-          type: string
-          description: The name of the schema.
-        displayName:
-          type: string
-          description: The display name of the schema.
-        type:
-          type: string
-          description: The type.
-        indexed:
-          type: boolean
-          description: The boolean that indicates the field is searchable as free text.
-        stored:
-          type: boolean
-          description: The boolean that indicates whether or not the field is stored.
-        facet:
-          type: boolean
-          description: The boolean that indicates whether or not the field is a facet.
-        ownerType:
-          type: array
-          items:
-            type: string
-          description: The array of workflows containing the field.
-      required:
-        - facet
-        - stored
-        - indexed
-      description: Value object for schema results.
-    SearchGetSchemaResponse:
-      properties:
-        metadata:
-          x-ms-client-name: Metadata
-          $ref: '#/components/schemas/SearchMetadata'
-          description: The metadata from search results.
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/SearchSchemaValue'
-          x-ms-identifiers:
-            - name
-          description: The array of result values.
-      description: The get schema operation response.
-    AvailableServiceTier:
-      description: Service Tier details.
-      properties:
-        serviceTier:
-          readOnly: true
-          type: string
-          description: The name of the Service Tier.
-          enum:
-            - Free
-            - Standard
-            - Premium
-            - PerNode
-            - PerGB2018
-            - Standalone
-            - CapacityReservation
-          x-ms-enum:
-            name: SkuNameEnum
-            modelAsString: true
-        enabled:
-          readOnly: true
-          type: boolean
-          description: True if the Service Tier is enabled for the workspace.
-        minimumRetention:
-          readOnly: true
-          type: integer
-          format: int64
-          description: The minimum retention for the Service Tier, in days.
-        maximumRetention:
-          readOnly: true
-          type: integer
-          format: int64
-          description: The maximum retention for the Service Tier, in days.
-        defaultRetention:
-          readOnly: true
-          type: integer
-          format: int64
-          description: The default retention for the Service Tier, in days.
-        capacityReservationLevel:
-          readOnly: true
-          type: integer
-          format: int64
-          description: The capacity reservation level in GB per day. Returned for the Capacity Reservation Service Tier.
-        lastSkuUpdate:
-          readOnly: true
-          type: string
-          description: Time when the sku was last updated for the workspace. Returned for the Capacity Reservation Service Tier.
+            $ref: '#/components/schemas/LinkedStorageAccountsResource'
+          description: A list of linked storage accounts instances.
+      description: The list linked storage accounts service operation response.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1087,6 +714,35 @@ components:
           description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
+    Identity:
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: Type of managed service identity.
+          enum:
+            - SystemAssigned
+            - UserAssigned
+            - None
+          x-ms-enum:
+            name: IdentityType
+            modelAsString: false
+        userAssignedIdentities:
+          description: 'The list of user identities associated with the resource. The user identity dictionary key references will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}''.'
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UserIdentityProperties'
+      required:
+        - type
+      type: object
+      description: Identity for the resource.
     Plan:
       type: object
       properties:
@@ -1187,6 +843,44 @@ components:
           type: object
           description: The additional info.
       description: The resource management error additional info.
+    Operation:
+      type: object
+      description: Supported operation of OperationalInsights resource provider.
+      properties:
+        name:
+          description: 'Operation name: {provider}/{resource}/{operation}'
+          type: string
+        display:
+          type: object
+          description: Display metadata associated with the operation.
+          properties:
+            provider:
+              description: 'Service provider: Microsoft OperationsManagement.'
+              type: string
+            resource:
+              description: Resource on which the operation is performed etc.
+              type: string
+            operation:
+              description: 'Type of operation: get, read, delete, etc.'
+              type: string
+            description:
+              description: Description of operation
+              type: string
+    OperationListResult:
+      type: object
+      description: Result of the request to list solution operations.
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of solution operations supported by the OperationsManagement resource provider.
+        nextLink:
+          type: string
+          readOnly: true
+          description: URL to get the next set of operation list results if there are any.
     OperationStatusResult:
       description: The current status of an async operation.
       type: object
@@ -1492,14 +1186,6 @@ components:
           items:
             type: string
           description: List of solutions the table is affiliated with
-        searchResults:
-          readOnly: true
-          $ref: '#/components/schemas/SearchResults'
-          description: Parameters of the search job that initiated this table.
-        restoredLogs:
-          readOnly: true
-          $ref: '#/components/schemas/RestoredLogs'
-          description: Parameters of the restore operation that initiated this table.
       description: Table's schema.
     SearchResults:
       type: object
@@ -1526,6 +1212,10 @@ components:
           readOnly: true
           type: string
           description: The table used in the search job.
+        azureAsyncOperationId:
+          readOnly: true
+          type: string
+          description: Search results table async operation id.
       description: Parameters of the search job that initiated this table.
     RestoredLogs:
       type: object
@@ -1541,6 +1231,10 @@ components:
         sourceTable:
           type: string
           description: The table to restore data from.
+        azureAsyncOperationId:
+          readOnly: true
+          type: string
+          description: Search results table async operation id.
       description: Restore parameters.
     ResultStatistics:
       type: object
@@ -1555,6 +1249,11 @@ components:
           type: integer
           format: int32
           description: The number of rows that were returned by the search job.
+        scannedGb:
+          readOnly: true
+          type: number
+          multipleOf: 0.01
+          description: 'Search job: Amount of scanned data.'
       description: Search job execution statistics.
     TableProperties:
       type: object
@@ -1569,8 +1268,8 @@ components:
           type: integer
           format: int32
           minimum: 4
-          maximum: 2555
-          description: The table total retention in days, between 4 and 2555. Setting this property to -1 will default to table retention.
+          maximum: 4383
+          description: The table total retention in days, between 4 and 4383. Setting this property to -1 will default to table retention.
         archiveRetentionInDays:
           readOnly: true
           type: integer
@@ -1583,6 +1282,7 @@ components:
           $ref: '#/components/schemas/RestoredLogs'
           description: Parameters of the restore operation that initiated this table.
         resultStatistics:
+          readOnly: true
           $ref: '#/components/schemas/ResultStatistics'
           description: Search job execution statistics.
         plan:
@@ -1614,6 +1314,7 @@ components:
             - Updating
             - InProgress
             - Succeeded
+            - Deleting
           x-ms-enum:
             name: ProvisioningStateEnum
             modelAsString: true
@@ -1624,6 +1325,16 @@ components:
                 description: Table schema is stable and without changes, table data is being updated.
               - value: Succeeded
                 description: Table state is stable and without changes, table is unlocked and open for new updates.
+              - value: Deleting
+                description: Table state is deleting.
+        retentionInDaysAsDefault:
+          readOnly: true
+          type: boolean
+          description: True - Value originates from workspace retention in days, False - Customer specific.
+        totalRetentionInDaysAsDefault:
+          readOnly: true
+          type: boolean
+          description: True - Value originates from retention in days, False - Customer specific.
       description: Table properties.
     Table:
       type: object
@@ -1647,233 +1358,6 @@ components:
             $ref: '#/components/schemas/Table'
           description: A list of data tables.
       description: The list tables operation response.
-    LinkedStorageAccountsProperties:
-      description: Linked storage accounts properties.
-      type: object
-      properties:
-        dataSourceType:
-          description: Linked storage accounts type.
-          type: string
-          readOnly: true
-          enum:
-            - CustomLogs
-            - AzureWatson
-            - Query
-            - Ingestion
-            - Alerts
-          x-ms-enum:
-            name: DataSourceType
-            modelAsString: false
-        storageAccountIds:
-          description: Linked storage accounts resources ids.
-          type: array
-          items:
-            type: string
-    LinkedStorageAccountsResource:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/LinkedStorageAccountsProperties'
-          description: Linked storage accounts properties.
-      required:
-        - properties
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Linked storage accounts top level resource container.
-    LinkedStorageAccountsListResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/LinkedStorageAccountsResource'
-          description: A list of linked storage accounts instances.
-      description: The list linked storage accounts service operation response.
-    ManagementGroupProperties:
-      properties:
-        serverCount:
-          type: integer
-          format: int32
-          description: The number of servers connected to the management group.
-        isGateway:
-          type: boolean
-          description: Gets or sets a value indicating whether the management group is a gateway.
-        name:
-          type: string
-          description: The name of the management group.
-        id:
-          type: string
-          description: The unique ID of the management group.
-        created:
-          type: string
-          format: date-time
-          description: The datetime that the management group was created.
-        dataReceived:
-          type: string
-          format: date-time
-          description: The last datetime that the management group received data.
-        version:
-          type: string
-          description: The version of System Center that is managing the management group.
-        sku:
-          type: string
-          description: The SKU of System Center that is managing the management group.
-      description: Management group properties.
-    ManagementGroup:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ManagementGroupProperties'
-          description: The properties of the management group.
-      description: A management group that is connected to a workspace
-    WorkspaceListManagementGroupsResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ManagementGroup'
-          x-ms-identifiers:
-            - /properties/id
-          description: Gets or sets a list of management groups attached to the workspace.
-      description: The list workspace management groups operation response.
-    DataExport:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DataExportProperties'
-          description: data export properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: The top level data export resource container.
-      x-ms-azure-resource: true
-    DataExportListResult:
-      description: Result of the request to list data exports.
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/DataExport'
-          description: List of data export instances within a workspace..
-    DataExportProperties:
-      properties:
-        dataExportId:
-          type: string
-          description: The data export rule ID.
-        tableNames:
-          type: array
-          items:
-            type: string
-          description: 'An array of tables to export, for example: [“Heartbeat, SecurityEvent”].'
-        destination:
-          $ref: '#/components/schemas/Destination'
-          description: destination properties.
-          x-ms-client-flatten: true
-        enable:
-          type: boolean
-          description: Active when enabled.
-        createdDate:
-          type: string
-          description: The latest data export rule modification time.
-        lastModifiedDate:
-          type: string
-          description: Date and time when the export was last modified.
-      required:
-        - tableNames
-      description: Data Export properties.
-    Destination:
-      properties:
-        resourceId:
-          type: string
-          description: The destination resource ID. This can be copied from the Properties entry of the destination resource in Azure.
-        type:
-          type: string
-          readOnly: true
-          description: The type of the destination resource
-          enum:
-            - StorageAccount
-            - EventHub
-          x-ms-enum:
-            name: type
-            modelAsString: true
-        metaData:
-          $ref: '#/components/schemas/DestinationMetaData'
-          description: destination meta data.
-          x-ms-client-flatten: true
-      required:
-        - resourceId
-      description: Destination properties.
-    DestinationMetaData:
-      properties:
-        eventHubName:
-          type: string
-          description: Optional. Allows to define an Event Hub name. Not applicable when destination is Storage Account.
-      description: Destination meta data.
-    Tag:
-      properties:
-        name:
-          type: string
-          description: The tag name.
-        value:
-          type: string
-          description: The tag value.
-      required:
-        - name
-        - value
-      description: A tag of a saved search.
-    SavedSearchProperties:
-      properties:
-        category:
-          type: string
-          description: 'The category of the saved search. This helps the user to find a saved search faster. '
-        displayName:
-          type: string
-          description: Saved search display name.
-        query:
-          type: string
-          description: The query expression for the saved search.
-        functionAlias:
-          type: string
-          description: The function alias if query serves as a function.
-        functionParameters:
-          type: string
-          description: 'The optional function parameters if query serves as a function. Value should be in the following format: ''param-name1:type1 = default_value1, param-name2:type2 = default_value2''. For more examples and proper syntax please refer to https://docs.microsoft.com/en-us/azure/kusto/query/functions/user-defined-functions.'
-        version:
-          type: integer
-          format: int64
-          description: The version number of the query language. The current version is 2 and is the default.
-        tags:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tag'
-          x-ms-identifiers:
-            - name
-          description: The tags attached to the saved search.
-      required:
-        - category
-        - displayName
-        - query
-      description: Value object for saved search results.
-    SavedSearch:
-      properties:
-        etag:
-          type: string
-          description: The ETag of the saved search. To override an existing saved search, use "*" or specify the current Etag
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/SavedSearchProperties'
-          description: The properties of the saved search.
-      required:
-        - properties
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Value object for saved search results.
-    SavedSearchesListResult:
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/SavedSearch'
-          description: The array of result values.
-      description: The saved search list operation response.
     QueryPacksResource:
       type: object
       properties:
@@ -1961,236 +1445,133 @@ components:
         nextLink:
           type: string
           description: The URI to get the next set of Log Analytics QueryPack definitions if too many QueryPacks where returned in the result set.
-    WorkspaceSku:
+    ManagementGroupProperties:
       properties:
+        serverCount:
+          type: integer
+          format: int32
+          description: The number of servers connected to the management group.
+        isGateway:
+          type: boolean
+          description: Gets or sets a value indicating whether the management group is a gateway.
         name:
           type: string
-          description: The name of the SKU.
-          enum:
-            - Free
-            - Standard
-            - Premium
-            - PerNode
-            - PerGB2018
-            - Standalone
-            - CapacityReservation
-            - LACluster
-          x-ms-enum:
-            name: WorkspaceSkuNameEnum
-            modelAsString: true
-        capacityReservationLevel:
-          type: integer
-          format: int32
-          description: The capacity reservation level in GB for this workspace, when CapacityReservation sku is selected.
-          enum:
-            - 100
-            - 200
-            - 300
-            - 400
-            - 500
-            - 1000
-            - 2000
-            - 5000
-          x-ms-enum:
-            name: CapacityReservationLevel
-        lastSkuUpdate:
+          description: The name of the management group.
+        id:
           type: string
-          description: The last time when the sku was updated.
-          readOnly: true
-      required:
-        - name
-      description: The SKU (tier) of a workspace.
-    WorkspaceCapping:
-      description: The daily volume cap for ingestion.
-      properties:
-        dailyQuotaGb:
-          type: number
-          format: double
-          description: The workspace daily quota for ingestion.
-        quotaNextResetTime:
+          description: The unique ID of the management group.
+        created:
           type: string
-          description: The time when the quota will be rest.
-          readOnly: true
-        dataIngestionStatus:
+          format: date-time
+          description: The datetime that the management group was created.
+        dataReceived:
           type: string
-          readOnly: true
-          description: The status of data ingestion for this workspace.
-          enum:
-            - RespectQuota
-            - ForceOn
-            - ForceOff
-            - OverQuota
-            - SubscriptionSuspended
-            - ApproachingQuota
-          x-ms-enum:
-            name: DataIngestionStatus
-            modelAsString: true
-            values:
-              - value: RespectQuota
-                description: Ingestion enabled following daily cap quota reset, or subscription enablement.
-              - value: ForceOn
-                description: Ingestion started following service setting change.
-              - value: ForceOff
-                description: Ingestion stopped following service setting change.
-              - value: OverQuota
-                description: Reached daily cap quota, ingestion stopped.
-              - value: SubscriptionSuspended
-                description: Ingestion stopped following suspended subscription.
-              - value: ApproachingQuota
-                description: 80% of daily cap quota reached.
-    WorkspaceProperties:
-      properties:
-        provisioningState:
+          format: date-time
+          description: The last datetime that the management group received data.
+        version:
           type: string
-          description: The provisioning state of the workspace.
-          readOnly: true
-          enum:
-            - Creating
-            - Succeeded
-            - Failed
-            - Canceled
-            - Deleting
-            - ProvisioningAccount
-            - Updating
-          x-ms-enum:
-            name: WorkspaceEntityStatus
-            modelAsString: true
-        customerId:
-          type: string
-          description: This is a read-only property. Represents the ID associated with the workspace.
-          readOnly: true
+          description: The version of System Center that is managing the management group.
         sku:
-          $ref: '#/components/schemas/WorkspaceSku'
-          description: The SKU of the workspace.
-        retentionInDays:
-          type: integer
-          format: int32
-          nullable: true
-          description: The workspace data retention in days. Allowed values are per pricing plan. See pricing tiers documentation for details.
-        workspaceCapping:
-          $ref: '#/components/schemas/WorkspaceCapping'
-          description: The daily volume cap for ingestion.
-        createdDate:
           type: string
-          description: Workspace creation date.
-          readOnly: true
-        modifiedDate:
-          type: string
-          description: Workspace modification date.
-          readOnly: true
-        publicNetworkAccessForIngestion:
-          description: The network access type for accessing Log Analytics ingestion.
-          $ref: '#/components/schemas/PublicNetworkAccessType'
-        publicNetworkAccessForQuery:
-          description: The network access type for accessing Log Analytics query.
-          $ref: '#/components/schemas/PublicNetworkAccessType'
-        forceCmkForQuery:
-          type: boolean
-          description: Indicates whether customer managed storage is mandatory for query management.
-        privateLinkScopedResources:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateLinkScopedResource'
-          x-ms-identifiers:
-            - resourceId
-          description: List of linked private link scope resources.
-        features:
-          $ref: '#/components/schemas/WorkspaceFeatures'
-          description: Workspace features.
-        defaultDataCollectionRuleResourceId:
-          type: string
-          description: The resource ID of the default Data Collection Rule to use for this workspace. Expected format is - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Insights/dataCollectionRules/{dcrName}.
-      description: Workspace properties.
-    WorkspaceFeatures:
-      properties:
-        enableDataExport:
-          type: boolean
-          nullable: true
-          description: Flag that indicate if data should be exported.
-        immediatePurgeDataOn30Days:
-          type: boolean
-          nullable: true
-          description: Flag that describes if we want to remove the data after 30 days.
-        enableLogAccessUsingOnlyResourcePermissions:
-          type: boolean
-          nullable: true
-          description: Flag that indicate which permission to use - resource or workspace or both.
-        clusterResourceId:
-          type: string
-          nullable: true
-          description: Dedicated LA cluster resourceId that is linked to the workspaces.
-        disableLocalAuth:
-          type: boolean
-          nullable: true
-          description: Disable Non-AAD based Auth.
-      additionalProperties: true
-      description: Workspace features.
-    PrivateLinkScopedResource:
-      properties:
-        resourceId:
-          type: string
-          description: The full resource Id of the private link scope resource.
-        scopeId:
-          type: string
-          description: The private link scope unique Identifier.
-      description: The private link scope resource reference.
-    Workspace:
+          description: The SKU of System Center that is managing the management group.
+      description: Management group properties.
+    ManagementGroup:
       properties:
         properties:
           x-ms-client-flatten: true
-          $ref: '#/components/schemas/WorkspaceProperties'
-          description: Workspace properties.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
-        eTag:
-          type: string
-          description: The ETag of the workspace.
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: The top level Workspace resource container.
-    WorkspacePatch:
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/WorkspaceProperties'
-          description: Workspace properties.
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags. Optional.
-      allOf:
-        - $ref: '#/components/schemas/AzureEntityResource'
-      description: The top level Workspace resource container.
-    WorkspaceListResult:
+          $ref: '#/components/schemas/ManagementGroupProperties'
+          description: The properties of the management group.
+      description: A management group that is connected to a workspace
+    WorkspaceListManagementGroupsResult:
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/Workspace'
-          description: A list of workspaces.
-      description: The list workspaces operation response.
-    PublicNetworkAccessType:
-      type: string
-      description: The network access type for operating on the Log Analytics Workspace. By default it is Enabled
-      default: Enabled
+            $ref: '#/components/schemas/ManagementGroup'
+          x-ms-identifiers:
+            - /properties/id
+          description: Gets or sets a list of management groups attached to the workspace.
+      description: The list workspace management groups operation response.
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+        nullable: true
+        x-nullable: true
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
       enum:
-        - Enabled
-        - Disabled
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
       x-ms-enum:
-        name: PublicNetworkAccessType
+        name: ManagedServiceIdentityType
         modelAsString: true
-        values:
-          - value: Enabled
-            description: Enables connectivity to Log Analytics through public DNS.
-          - value: Disabled
-            description: Disables public connectivity to Log Analytics through public DNS.
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
     DataSourceKind:
       type: string
       enum:
@@ -2276,42 +1657,768 @@ components:
       type: object
       properties: {}
       description: JSON object
-    OperationStatus:
-      description: The status of operation.
+    ClusterProperties:
       type: object
       properties:
-        id:
+        clusterId:
           type: string
-          description: The operation Id.
+          readOnly: true
+          description: The ID associated with the cluster.
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The provisioning state of the cluster.
+          enum:
+            - Creating
+            - Succeeded
+            - Failed
+            - Canceled
+            - Deleting
+            - ProvisioningAccount
+            - Updating
+          x-ms-enum:
+            name: ClusterEntityStatus
+            modelAsString: true
+        isDoubleEncryptionEnabled:
+          type: boolean
+          description: Configures whether cluster will use double encryption. This Property can not be modified after cluster creation. Default value is 'true'
+          x-ms-mutability:
+            - create
+            - read
+        isAvailabilityZonesEnabled:
+          type: boolean
+          description: Sets whether the cluster will support availability zones. This can be set as true only in regions where Azure Data Explorer support Availability Zones. This Property can not be modified after cluster creation. Default value is 'true' if region supports Availability Zones.
+        billingType:
+          $ref: '#/components/schemas/billingType'
+          description: The cluster's billing type.
+        keyVaultProperties:
+          $ref: '#/components/schemas/keyVaultProperties'
+          description: The associated key properties.
+        lastModifiedDate:
+          type: string
+          description: The last time the cluster was updated.
+          readOnly: true
+        createdDate:
+          type: string
+          description: The cluster creation time
+          readOnly: true
+        associatedWorkspaces:
+          description: The list of Log Analytics workspaces associated with the cluster
+          type: array
+          items:
+            $ref: '#/components/schemas/AssociatedWorkspace'
+          x-ms-identifiers:
+            - workspaceId
+        capacityReservationProperties:
+          $ref: '#/components/schemas/CapacityReservationProperties'
+          description: Additional properties for capacity reservation
+      description: Cluster properties.
+    ClusterPatchProperties:
+      type: object
+      properties:
+        keyVaultProperties:
+          $ref: '#/components/schemas/keyVaultProperties'
+          description: The associated key properties.
+        billingType:
+          $ref: '#/components/schemas/billingType'
+          description: The cluster's billing type.
+      description: Log Analytics cluster patch properties.
+    ClusterPatch:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ClusterPatchProperties'
+          description: Log Analytics cluster properties.
+        identity:
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+          description: Resource's identity.
+        sku:
+          $ref: '#/components/schemas/ClusterSku'
+          description: The sku properties.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+      description: The top level Log Analytics cluster resource container.
+      x-ms-azure-resource: true
+    Cluster:
+      type: object
+      properties:
+        identity:
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+          description: Resource's identity.
+        sku:
+          $ref: '#/components/schemas/ClusterSku'
+          description: The sku properties.
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ClusterProperties'
+          description: Log Analytics cluster properties.
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: The top level Log Analytics cluster resource container.
+    ClusterListResult:
+      type: object
+      properties:
+        nextLink:
+          description: The link used to get the next page of recommendations.
+          type: string
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cluster'
+          description: A list of Log Analytics clusters.
+      description: The list clusters operation response.
+    keyVaultProperties:
+      type: object
+      description: The key vault properties.
+      properties:
+        keyVaultUri:
+          description: The Key Vault uri which holds they key associated with the Log Analytics cluster.
+          type: string
+        keyName:
+          description: The name of the key associated with the Log Analytics cluster.
+          type: string
+        keyVersion:
+          description: The version of the key associated with the Log Analytics cluster.
+          type: string
+        keyRsaSize:
+          description: Selected key minimum required size.
+          type: integer
+          format: int32
+    billingType:
+      type: string
+      readOnly: false
+      description: Configures whether billing will be only on the cluster or each workspace will be billed by its proportional use. This does not change the overall billing, only how it will be distributed. Default value is 'Cluster'
+      enum:
+        - Cluster
+        - Workspaces
+      x-ms-enum:
+        name: BillingType
+        modelAsString: true
+    ClusterSku:
+      type: object
+      description: The cluster sku definition.
+      properties:
+        capacity:
+          description: The capacity reservation level in Gigabytes for this cluster.
+          type: integer
+          format: int64
+          enum:
+            - 100
+            - 200
+            - 300
+            - 400
+            - 500
+            - 1000
+            - 2000
+            - 5000
+            - 10000
+            - 25000
+            - 50000
+          x-ms-enum:
+            name: Capacity
         name:
           type: string
-          description: The operation name.
-        startTime:
+          description: The SKU (tier) of a cluster.
+          enum:
+            - CapacityReservation
+          x-ms-enum:
+            name: ClusterSkuNameEnum
+            modelAsString: true
+    AssociatedWorkspace:
+      type: object
+      description: The list of Log Analytics workspaces associated with the cluster.
+      properties:
+        workspaceId:
+          readOnly: true
+          description: Associated workspace immutable id.
           type: string
-          description: The start time of the operation.
-        endTime:
+        workspaceName:
+          readOnly: true
+          description: Associated workspace resource name.
           type: string
-          description: The end time of the operation.
+        resourceId:
+          readOnly: true
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.OperationalInsights/workspaces
+          description: 'Associated workspace arm resource id, in the form of: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}.'
+          type: string
+        associateDate:
+          readOnly: true
+          description: The time of workspace association.
+          type: string
+    CapacityReservationProperties:
+      type: object
+      description: The Capacity Reservation properties.
+      properties:
+        lastSkuUpdate:
+          readOnly: true
+          description: The last time Sku was updated.
+          type: string
+        minCapacity:
+          readOnly: true
+          description: Minimum CapacityReservation value in Gigabytes.
+          type: integer
+          format: int64
+    IntelligencePack:
+      properties:
+        name:
+          type: string
+          description: The name of the intelligence pack.
+        enabled:
+          type: boolean
+          description: The enabled boolean for the intelligence pack.
+        displayName:
+          type: string
+          description: The display name of the intelligence pack.
+      description: Intelligence Pack containing a string name and boolean indicating if it's enabled.
+    WorkspaceSku:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU.
+          enum:
+            - Free
+            - Standard
+            - Premium
+            - PerNode
+            - PerGB2018
+            - Standalone
+            - CapacityReservation
+            - LACluster
+          x-ms-enum:
+            name: WorkspaceSkuNameEnum
+            modelAsString: true
+        capacityReservationLevel:
+          type: integer
+          format: int32
+          description: The capacity reservation level in GB for this workspace, when CapacityReservation sku is selected.
+          enum:
+            - 100
+            - 200
+            - 300
+            - 400
+            - 500
+            - 1000
+            - 2000
+            - 5000
+            - 10000
+            - 25000
+            - 50000
+          x-ms-enum:
+            name: CapacityReservationLevel
+        lastSkuUpdate:
+          type: string
+          description: The last time when the sku was updated.
+          readOnly: true
+      required:
+        - name
+      description: The SKU (tier) of a workspace.
+    WorkspaceCapping:
+      type: object
+      description: The daily volume cap for ingestion.
+      properties:
+        dailyQuotaGb:
+          type: number
+          format: double
+          description: The workspace daily quota for ingestion.
+        quotaNextResetTime:
+          type: string
+          description: The time when the quota will be rest.
+          readOnly: true
+        dataIngestionStatus:
+          type: string
+          readOnly: true
+          description: The status of data ingestion for this workspace.
+          enum:
+            - RespectQuota
+            - ForceOn
+            - ForceOff
+            - OverQuota
+            - SubscriptionSuspended
+            - ApproachingQuota
+          x-ms-enum:
+            name: DataIngestionStatus
+            modelAsString: true
+            values:
+              - value: RespectQuota
+                description: Ingestion enabled following daily cap quota reset, or subscription enablement.
+              - value: ForceOn
+                description: Ingestion started following service setting change.
+              - value: ForceOff
+                description: Ingestion stopped following service setting change.
+              - value: OverQuota
+                description: Reached daily cap quota, ingestion stopped.
+              - value: SubscriptionSuspended
+                description: Ingestion stopped following suspended subscription.
+              - value: ApproachingQuota
+                description: 80% of daily cap quota reached.
+    WorkspaceProperties:
+      type: object
+      properties:
+        provisioningState:
+          type: string
+          description: The provisioning state of the workspace.
+          readOnly: true
+          enum:
+            - Creating
+            - Succeeded
+            - Failed
+            - Canceled
+            - Deleting
+            - ProvisioningAccount
+            - Updating
+          x-ms-enum:
+            name: WorkspaceEntityStatus
+            modelAsString: true
+        customerId:
+          type: string
+          description: This is a read-only property. Represents the ID associated with the workspace.
+          readOnly: true
+        sku:
+          $ref: '#/components/schemas/WorkspaceSku'
+          description: The SKU of the workspace.
+        retentionInDays:
+          type: integer
+          format: int32
+          nullable: true
+          description: The workspace data retention in days. Allowed values are per pricing plan. See pricing tiers documentation for details.
+        workspaceCapping:
+          $ref: '#/components/schemas/WorkspaceCapping'
+          description: The daily volume cap for ingestion.
+        createdDate:
+          type: string
+          description: Workspace creation date.
+          readOnly: true
+        modifiedDate:
+          type: string
+          description: Workspace modification date.
+          readOnly: true
+        publicNetworkAccessForIngestion:
+          description: The network access type for accessing Log Analytics ingestion.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        publicNetworkAccessForQuery:
+          description: The network access type for accessing Log Analytics query.
+          $ref: '#/components/schemas/PublicNetworkAccessType'
+        forceCmkForQuery:
+          type: boolean
+          description: Indicates whether customer managed storage is mandatory for query management.
+        privateLinkScopedResources:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateLinkScopedResource'
+          x-ms-identifiers:
+            - resourceId
+          description: List of linked private link scope resources.
+        features:
+          $ref: '#/components/schemas/WorkspaceFeatures'
+          description: Workspace features.
+        defaultDataCollectionRuleResourceId:
+          type: string
+          description: The resource ID of the default Data Collection Rule to use for this workspace. Expected format is - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Insights/dataCollectionRules/{dcrName}.
+      description: Workspace properties.
+    WorkspaceFeatures:
+      type: object
+      properties:
+        enableDataExport:
+          type: boolean
+          nullable: true
+          description: Flag that indicate if data should be exported.
+        immediatePurgeDataOn30Days:
+          type: boolean
+          nullable: true
+          description: Flag that describes if we want to remove the data after 30 days.
+        enableLogAccessUsingOnlyResourcePermissions:
+          type: boolean
+          nullable: true
+          description: Flag that indicate which permission to use - resource or workspace or both.
+        clusterResourceId:
+          type: string
+          nullable: true
+          description: Dedicated LA cluster resourceId that is linked to the workspaces.
+        disableLocalAuth:
+          type: boolean
+          nullable: true
+          description: Disable Non-AAD based Auth.
+        unifiedSentinelBillingOnly:
+          type: boolean
+          nullable: true
+          readOnly: true
+          description: An indication if the specify workspace is limited to sentinel's unified billing model only.
+      additionalProperties: true
+      description: Workspace features.
+    UserIdentityProperties:
+      type: object
+      description: User assigned identity properties.
+      properties:
+        principalId:
+          readOnly: true
+          description: The principal id of user assigned identity.
+          type: string
+        clientId:
+          readOnly: true
+          description: The client id of user assigned identity.
+          type: string
+    PrivateLinkScopedResource:
+      type: object
+      properties:
+        resourceId:
+          type: string
+          description: The full resource Id of the private link scope resource.
+        scopeId:
+          type: string
+          description: The private link scope unique Identifier.
+      description: The private link scope resource reference.
+    Workspace:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/WorkspaceProperties'
+          description: Workspace properties.
+        identity:
+          $ref: '#/components/schemas/Identity'
+          description: The identity of the resource.
+        systemData:
+          $ref: '#/components/schemas/systemData'
+          readOnly: true
+        etag:
+          type: string
+          description: The etag of the workspace.
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: The top level Workspace resource container.
+    WorkspacePatch:
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/WorkspaceProperties'
+          description: Workspace properties.
+        identity:
+          $ref: '#/components/schemas/Identity'
+          description: The identity of the resource.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags. Optional.
+      allOf:
+        - $ref: '#/components/schemas/AzureEntityResource'
+      description: The top level Workspace resource container.
+    WorkspaceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+          description: A list of workspaces.
+      description: The list workspaces operation response.
+    PublicNetworkAccessType:
+      type: string
+      description: The network access type for operating on the Log Analytics Workspace. By default it is Enabled
+      default: Enabled
+      enum:
+        - Enabled
+        - Disabled
+      x-ms-enum:
+        name: PublicNetworkAccessType
+        modelAsString: true
+        values:
+          - value: Enabled
+            description: Enables connectivity to Log Analytics through public DNS.
+          - value: Disabled
+            description: Disables public connectivity to Log Analytics through public DNS.
+    MetricName:
+      properties:
+        value:
+          type: string
+          description: The system name of the metric.
+        localizedValue:
+          type: string
+          description: The localized name of the metric.
+      description: The name of a metric.
+    UsageMetric:
+      properties:
+        name:
+          $ref: '#/components/schemas/MetricName'
+          description: The name of the metric.
+        unit:
+          type: string
+          description: The units used for the metric.
+        currentValue:
+          type: number
+          format: double
+          description: The current value of the metric.
+        limit:
+          type: number
+          format: double
+          description: The quota limit for the metric.
+        nextResetTime:
+          type: string
+          format: date-time
+          description: The time that the metric's value will reset.
+        quotaPeriod:
+          type: string
+          description: The quota period that determines the length of time between value resets.
+      description: A metric describing the usage of a resource.
+    WorkspaceListUsagesResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageMetric'
+          x-ms-identifiers:
+            - name
+          description: Gets or sets a list of usage metrics for a workspace.
+      description: The list workspace usages operation response.
+    SharedKeys:
+      properties:
+        primarySharedKey:
+          type: string
+          description: The primary shared key of a workspace.
+        secondarySharedKey:
+          type: string
+          description: The secondary shared key of a workspace.
+      description: The shared keys for a workspace.
+    CoreSummary:
+      properties:
         status:
           type: string
-          description: The status of the operation.
-        error:
-          type: object
-          description: The error detail of the operation if any.
-          $ref: '#/components/schemas/ErrorResponse'
+          description: The status of a core summary.
+        numberOfDocuments:
+          type: integer
+          format: int64
+          description: The number of documents of a core summary.
+      required:
+        - numberOfDocuments
+      description: The core summary of a search.
+    SearchSort:
+      properties:
+        name:
+          type: string
+          description: The name of the field the search query is sorted on.
+        order:
+          type: string
+          description: The sort order of the search.
+          enum:
+            - asc
+            - desc
+          x-ms-enum:
+            name: SearchSortEnum
+            modelAsString: true
+      description: The sort parameters for search.
+    SearchMetadataSchema:
+      properties:
+        name:
+          type: string
+          description: The name of the metadata schema.
+        version:
+          type: integer
+          format: int32
+          description: The version of the metadata schema.
+      description: Schema metadata for search.
+    SearchMetadata:
+      properties:
+        requestId:
+          x-ms-client-name: SearchId
+          type: string
+          description: The request id of the search.
+        resultType:
+          type: string
+          description: The search result type.
+        total:
+          type: integer
+          format: int64
+          description: The total number of search results.
+        top:
+          type: integer
+          format: int64
+          description: The number of top search results.
+        id:
+          type: string
+          description: The id of the search results request.
+        coreSummaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoreSummary'
+          x-ms-identifiers: []
+          description: The core summaries.
+        status:
+          type: string
+          description: The status of the search results.
+        startTime:
+          type: string
+          format: date-time
+          description: The start time for the search.
+        lastUpdated:
+          type: string
+          format: date-time
+          description: The time of last update.
+        eTag:
+          type: string
+          description: The ETag of the search results.
+        sort:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchSort'
+          x-ms-identifiers:
+            - name
+          description: How the results are sorted.
+        requestTime:
+          type: integer
+          format: int64
+          description: The request time.
+        aggregatedValueField:
+          type: string
+          description: The aggregated value field.
+        aggregatedGroupingFields:
+          type: string
+          description: The aggregated grouping fields.
+        sum:
+          type: integer
+          format: int64
+          description: The sum of all aggregates returned in the result set.
+        max:
+          type: integer
+          format: int64
+          description: The max of all aggregates returned in the result set.
+        schema:
+          $ref: '#/components/schemas/SearchMetadataSchema'
+          description: The schema.
+      description: Metadata for search results.
+    SearchSchemaValue:
+      properties:
+        name:
+          type: string
+          description: The name of the schema.
+        displayName:
+          type: string
+          description: The display name of the schema.
+        type:
+          type: string
+          description: The type.
+        indexed:
+          type: boolean
+          description: The boolean that indicates the field is searchable as free text.
+        stored:
+          type: boolean
+          description: The boolean that indicates whether or not the field is stored.
+        facet:
+          type: boolean
+          description: The boolean that indicates whether or not the field is a facet.
+        ownerType:
+          type: array
+          items:
+            type: string
+          description: The array of workflows containing the field.
+      required:
+        - facet
+        - stored
+        - indexed
+      description: Value object for schema results.
+    SearchGetSchemaResponse:
+      properties:
+        metadata:
+          x-ms-client-name: Metadata
+          $ref: '#/components/schemas/SearchMetadata'
+          description: The metadata from search results.
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchSchemaValue'
+          x-ms-identifiers:
+            - name
+          description: The array of result values.
+      description: The get schema operation response.
+    Tag:
+      properties:
+        name:
+          type: string
+          description: The tag name.
+        value:
+          type: string
+          description: The tag value.
+      required:
+        - name
+        - value
+      description: A tag of a saved search.
+    SavedSearchProperties:
+      properties:
+        category:
+          type: string
+          description: 'The category of the saved search. This helps the user to find a saved search faster. '
+        displayName:
+          type: string
+          description: Saved search display name.
+        query:
+          type: string
+          description: The query expression for the saved search.
+        functionAlias:
+          type: string
+          description: The function alias if query serves as a function.
+        functionParameters:
+          type: string
+          description: 'The optional function parameters if query serves as a function. Value should be in the following format: ''param-name1:type1 = default_value1, param-name2:type2 = default_value2''. For more examples and proper syntax please refer to https://docs.microsoft.com/en-us/azure/kusto/query/functions/user-defined-functions.'
+        version:
+          type: integer
+          format: int64
+          description: The version number of the query language. The current version is 2 and is the default.
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          x-ms-identifiers:
+            - name
+          description: The tags attached to the saved search.
+      required:
+        - category
+        - displayName
+        - query
+      description: Value object for saved search results.
+    SavedSearch:
+      properties:
+        etag:
+          type: string
+          description: The ETag of the saved search. To override an existing saved search, use "*" or specify the current Etag
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SavedSearchProperties'
+          description: The properties of the saved search.
+      required:
+        - properties
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Value object for saved search results.
+    SavedSearchesListResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedSearch'
+          description: The array of result values.
+      description: The saved search list operation response.
   parameters:
     WorkspacePurgeIdParameter:
       name: purgeId
       in: path
       description: In a purge status request, this is the Id of the operation the status of which is returned.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    GatewayIdParameter:
-      name: gatewayId
-      in: path
-      description: The Log Analytics gateway Id.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -2368,6 +2475,23 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    DataSourceTypeParameter:
+      name: dataSourceType
+      in: path
+      description: Linked storage accounts type.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - CustomLogs
+          - AzureWatson
+          - Query
+          - Ingestion
+          - Alerts
+        x-ms-enum:
+          name: DataSourceType
+          modelAsString: false
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -2412,6 +2536,14 @@ components:
       schema:
         minLength: 1
         type: string
+    GatewayIdParameter:
+      name: gatewayId
+      in: path
+      description: The Log Analytics gateway Id.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     TableNameParameter:
       name: tableName
       in: path
@@ -2419,23 +2551,6 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
-        type: string
-    DataSourceTypeParameter:
-      name: dataSourceType
-      in: path
-      description: Linked storage accounts type.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - CustomLogs
-          - AzureWatson
-          - Query
-          - Ingestion
-          - Alerts
-        x-ms-enum:
-          name: DataSourceType
-          modelAsString: false
         type: string
     ResourceNameParameter:
       name: queryPackName
@@ -2446,14 +2561,46 @@ components:
       schema:
         type: string
 paths:
-  /providers/Microsoft.OperationalInsights/operations:
-    x-api-version: 2021-12-01-preview
+  /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/locations/{location}/operationStatuses/{asyncOperationId}:
+    x-api-version: '2020-08-01'
     get:
       tags:
-        - Operations
-      operationId: Operations_List
-      description: Lists all of the available OperationalInsights Rest API operations.
+        - asyncOperations
+      operationId: OperationStatuses_Get
+      description: Get the status of a long running azure asynchronous operation.
       parameters:
+        - name: location
+          in: path
+          description: The region name of operation.
+          required: true
+          schema:
+            type: string
+        - name: asyncOperationId
+          in: path
+          description: The operation Id.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK. Operation status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataExports:
+    x-api-version: '2020-08-01'
+    get:
+      tags:
+        - DataExport
+      operationId: DataExports_ListByWorkspace
+      description: Lists the data export instances within a workspace.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -2461,7 +2608,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperationListResult'
+                $ref: '#/components/schemas/DataExportListResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -2469,7 +2616,111 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
-        nextLinkName: nextLink
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataExports/{dataExportName}:
+    x-api-version: '2020-08-01'
+    put:
+      tags:
+        - DataExport
+      operationId: DataExports_CreateOrUpdate
+      description: Create or update a data export.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataExportName
+          in: path
+          description: The data export rule name.
+          required: true
+          schema:
+            pattern: ^[A-Za-z][A-Za-z0-9-]+[A-Za-z0-9]$
+            minLength: 4
+            maxLength: 63
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The parameters required to create or update a data export.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataExport'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+        '201':
+          description: Created response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - DataExport
+      operationId: DataExports_Get
+      description: Gets a data export instance.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataExportName
+          in: path
+          description: The data export rule name.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - DataExport
+      operationId: DataExports_Delete
+      description: Deletes the specified data export in a given workspace..
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataExportName
+          in: path
+          description: The data export rule name.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK response definition.
+        '404':
+          description: Not found the specific data export.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/purge:
     x-api-version: '2020-08-01'
     post:
@@ -2527,208 +2778,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkspacePurgeStatusResponse'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/clusters:
-    x-api-version: '2021-06-01'
-    get:
-      tags:
-        - Clusters
-      operationId: Clusters_ListByResourceGroup
-      description: Gets Log Analytics clusters in a resource group.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClusterListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/clusters:
-    x-api-version: '2021-06-01'
-    get:
-      tags:
-        - Clusters
-      operationId: Clusters_List
-      description: Gets the Log Analytics clusters in a subscription.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClusterListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/clusters/{clusterName}:
-    x-api-version: '2021-06-01'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/storageInsightConfigs/{storageInsightName}:
+    x-api-version: '2020-08-01'
     put:
       tags:
-        - Clusters
-      operationId: Clusters_CreateOrUpdate
-      description: Create or update a Log Analytics cluster.
+        - StorageInsights
+      operationId: StorageInsightConfigs_CreateOrUpdate
+      description: Create or update a storage insight.
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: clusterName
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: storageInsightName
           in: path
-          description: The name of the Log Analytics cluster.
+          description: Name of the storageInsightsConfigs resource
           required: true
           schema:
-            pattern: ^[A-Za-z0-9][A-Za-z0-9-]+[A-Za-z0-9]$
-            minLength: 4
-            maxLength: 63
             type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       requestBody:
-        description: The parameters required to create or update a Log Analytics cluster.
+        description: The parameters required to create or update a storage insight.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Cluster'
+              $ref: '#/components/schemas/StorageInsight'
       responses:
         '200':
           description: OK response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Cluster'
+                $ref: '#/components/schemas/StorageInsight'
         '201':
           description: Created response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Cluster'
-        '202':
-          description: Accepted response definition.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    delete:
-      tags:
-        - Clusters
-      operationId: Clusters_Delete
-      description: Deletes a cluster instance.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: clusterName
-          in: path
-          description: Name of the Log Analytics Cluster.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-        '202':
-          description: Accepted response definition.
-        '204':
-          description: NoContent response definition.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
+                $ref: '#/components/schemas/StorageInsight'
     get:
       tags:
-        - Clusters
-      operationId: Clusters_Get
-      description: Gets a Log Analytics cluster instance.
+        - StorageInsights
+      operationId: StorageInsightConfigs_Get
+      description: Gets a storage insight instance.
       parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - name: clusterName
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: storageInsightName
           in: path
-          description: Name of the Log Analytics Cluster.
+          description: Name of the storageInsightsConfigs resource
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: OK response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Cluster'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
+                $ref: '#/components/schemas/StorageInsight'
+    delete:
       tags:
-        - Clusters
-      operationId: Clusters_Update
-      description: Updates a Log Analytics cluster.
+        - StorageInsights
+      operationId: StorageInsightConfigs_Delete
+      description: Deletes a storageInsightsConfigs resource
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - name: clusterName
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: storageInsightName
           in: path
-          description: Name of the Log Analytics Cluster.
+          description: Name of the storageInsightsConfigs resource
           required: true
           schema:
             type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: The parameters required to patch a Log Analytics cluster.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ClusterPatch'
       responses:
         '200':
-          description: The existing cluster was successfully updated. Check provisioningStatus to see detailed status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cluster'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/usages:
+          description: OK response definition.
+        '204':
+          description: NoContent response definition.
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/storageInsightConfigs:
     x-api-version: '2020-08-01'
     get:
       tags:
-        - Workspaces
-      operationId: Usages_List
-      description: Gets a list of usage metrics for a workspace.
+        - StorageInsights
+      operationId: StorageInsightConfigs_ListByWorkspace
+      description: Lists the storage insight instances within a workspace
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
@@ -2740,9 +2879,30 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkspaceListUsagesResult'
+                $ref: '#/components/schemas/StorageInsightListResult'
       x-ms-pageable:
-        nextLinkName: null
+        nextLinkName: '@odata.nextLink'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/availableServiceTiers:
+    x-api-version: '2020-08-01'
+    get:
+      tags:
+        - AvailableServiceTiers
+      operationId: AvailableServiceTiers_ListByWorkspace
+      description: Gets the available service tiers for the workspace.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableServiceTier'
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/linkedServices/{linkedServiceName}:
     x-api-version: '2020-08-01'
     put:
@@ -2857,60 +3017,6 @@ paths:
                 $ref: '#/components/schemas/LinkedServiceListResult'
       x-ms-pageable:
         nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/sharedKeys:
-    x-api-version: '2020-08-01'
-    post:
-      tags:
-        - Workspaces
-      operationId: SharedKeys_GetSharedKeys
-      description: Gets the shared keys for a workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SharedKeys'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/regenerateSharedKey:
-    x-api-version: '2020-08-01'
-    post:
-      tags:
-        - Workspaces
-      operationId: SharedKeys_Regenerate
-      description: Regenerates the shared keys for a Log Analytics Workspace. These keys are used to connect Microsoft Operational Insights agents to the workspace.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Returns the new shared keys associated with the Log Analytics Workspace.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SharedKeys'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/gateways/{gatewayId}:
-    x-api-version: '2020-08-01'
-    delete:
-      tags:
-        - Workspaces
-      operationId: Gateways_Delete
-      description: Delete a Log Analytics gateway.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/GatewayIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The specified gateway was deleted successfully.
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/queryPacks/{queryPackName}/queries:
     x-api-version: '2019-09-01'
     get:
@@ -3079,165 +3185,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks/{intelligencePackName}/Disable:
-    x-api-version: '2020-08-01'
-    post:
-      tags:
-        - Workspaces
-        - IntelligencePacks
-      operationId: IntelligencePacks_Disable
-      description: Disables an intelligence pack for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: intelligencePackName
-          in: path
-          description: The name of the intelligence pack to be disabled.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks/{intelligencePackName}/Enable:
-    x-api-version: '2020-08-01'
-    post:
-      tags:
-        - Workspaces
-        - IntelligencePacks
-      operationId: IntelligencePacks_Enable
-      description: Enables an intelligence pack for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: intelligencePackName
-          in: path
-          description: The name of the intelligence pack to be enabled.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - Workspaces
-        - IntelligencePacks
-      operationId: IntelligencePacks_List
-      description: Lists all the intelligence packs possible and whether they are enabled or disabled for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/IntelligencePack'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/storageInsightConfigs/{storageInsightName}:
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/linkedStorageAccounts/{dataSourceType}:
     x-api-version: '2020-08-01'
     put:
       tags:
-        - StorageInsights
-      operationId: StorageInsightConfigs_CreateOrUpdate
-      description: Create or update a storage insight.
+        - LinkedStorageAccounts
+      operationId: LinkedStorageAccounts_CreateOrUpdate
+      description: Create or Update a link relation between current workspace and a group of storage accounts of a specific data source type.
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: storageInsightName
-          in: path
-          description: Name of the storageInsightsConfigs resource
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/DataSourceTypeParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
-        description: The parameters required to create or update a storage insight.
+        description: The parameters required to create or update linked storage accounts.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StorageInsight'
+              $ref: '#/components/schemas/LinkedStorageAccountsResource'
       responses:
         '200':
           description: OK response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StorageInsight'
-        '201':
-          description: Created response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageInsight'
-    get:
-      tags:
-        - StorageInsights
-      operationId: StorageInsightConfigs_Get
-      description: Gets a storage insight instance.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: storageInsightName
-          in: path
-          description: Name of the storageInsightsConfigs resource
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageInsight'
+                $ref: '#/components/schemas/LinkedStorageAccountsResource'
     delete:
       tags:
-        - StorageInsights
-      operationId: StorageInsightConfigs_Delete
-      description: Deletes a storageInsightsConfigs resource
+        - LinkedStorageAccounts
+      operationId: LinkedStorageAccounts_Delete
+      description: Deletes all linked storage accounts of a specific data source type associated with the specified workspace.
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: storageInsightName
-          in: path
-          description: Name of the storageInsightsConfigs resource
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/DataSourceTypeParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: OK response definition.
-        '204':
-          description: NoContent response definition.
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/storageInsightConfigs:
-    x-api-version: '2020-08-01'
     get:
       tags:
-        - StorageInsights
-      operationId: StorageInsightConfigs_ListByWorkspace
-      description: Lists the storage insight instances within a workspace
+        - LinkedStorageAccounts
+      operationId: LinkedStorageAccounts_Get
+      description: Gets all linked storage account of a specific data source type associated with the specified workspace.
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/DataSourceTypeParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
@@ -3246,51 +3244,46 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StorageInsightListResult'
-      x-ms-pageable:
-        nextLinkName: '@odata.nextLink'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/schema:
+                $ref: '#/components/schemas/LinkedStorageAccountsResource'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/linkedStorageAccounts:
     x-api-version: '2020-08-01'
-    post:
+    get:
+      tags:
+        - LinkedStorageAccounts
+      description: Gets all linked storage accounts associated with the specified workspace, storage accounts will be sorted by their data source type.
+      operationId: LinkedStorageAccounts_ListByWorkspace
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedStorageAccountsListResult'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/gateways/{gatewayId}:
+    x-api-version: '2020-08-01'
+    delete:
       tags:
         - Workspaces
-      operationId: Schema_Get
-      description: Gets the schema for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SearchGetSchemaResponse'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/availableServiceTiers:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - AvailableServiceTiers
-      operationId: AvailableServiceTiers_ListByWorkspace
-      description: Gets the available service tiers for the workspace.
+      operationId: Gateways_Delete
+      description: Delete a Log Analytics gateway.
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/GatewayIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AvailableServiceTier'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables:
-    x-api-version: 2021-12-01-preview
+          description: The specified gateway was deleted successfully.
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables:
+    x-api-version: '2022-10-01'
     get:
       tags:
         - Tables
@@ -3316,8 +3309,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables/{tableName}:
-    x-api-version: 2021-12-01-preview
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables/{tableName}:
+    x-api-version: '2022-10-01'
     put:
       tags:
         - Tables
@@ -3443,8 +3436,8 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables/{tableName}/migrate:
-    x-api-version: 2021-12-01-preview
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables/{tableName}/migrate:
+    x-api-version: '2022-10-01'
     post:
       tags:
         - Tables
@@ -3465,333 +3458,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/linkedStorageAccounts/{dataSourceType}:
-    x-api-version: '2020-08-01'
-    put:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/tables/{tableName}/cancelSearch:
+    x-api-version: '2022-10-01'
+    post:
       tags:
-        - LinkedStorageAccounts
-      operationId: LinkedStorageAccounts_CreateOrUpdate
-      description: Create or Update a link relation between current workspace and a group of storage accounts of a specific data source type.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/DataSourceTypeParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The parameters required to create or update linked storage accounts.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LinkedStorageAccountsResource'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkedStorageAccountsResource'
-    delete:
-      tags:
-        - LinkedStorageAccounts
-      operationId: LinkedStorageAccounts_Delete
-      description: Deletes all linked storage accounts of a specific data source type associated with the specified workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/DataSourceTypeParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-    get:
-      tags:
-        - LinkedStorageAccounts
-      operationId: LinkedStorageAccounts_Get
-      description: Gets all linked storage account of a specific data source type associated with the specified workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/DataSourceTypeParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkedStorageAccountsResource'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/linkedStorageAccounts:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - LinkedStorageAccounts
-      description: Gets all linked storage accounts associated with the specified workspace, storage accounts will be sorted by their data source type.
-      operationId: LinkedStorageAccounts_ListByWorkspace
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkedStorageAccountsListResult'
-      x-ms-pageable:
-        nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/managementGroups:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - Workspaces
-      operationId: ManagementGroups_List
-      description: Gets a list of management groups connected to a workspace.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkspaceListManagementGroupsResult'
-      x-ms-pageable:
-        nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataExports:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - DataExport
-      operationId: DataExports_ListByWorkspace
-      description: Lists the data export instances within a workspace.
+        - Tables
+      operationId: Tables_CancelSearch
+      description: Cancel a log analytics workspace search results table query run.
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TableNameParameter'
       responses:
         '200':
           description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DataExportListResult'
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataExports/{dataExportName}:
-    x-api-version: '2020-08-01'
-    put:
-      tags:
-        - DataExport
-      operationId: DataExports_CreateOrUpdate
-      description: Create or update a data export.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataExportName
-          in: path
-          description: The data export rule name.
-          required: true
-          schema:
-            pattern: ^[A-Za-z][A-Za-z0-9-]+[A-Za-z0-9]$
-            minLength: 4
-            maxLength: 63
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The parameters required to create or update a data export.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DataExport'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DataExport'
-        '201':
-          description: Created response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DataExport'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - DataExport
-      operationId: DataExports_Get
-      description: Gets a data export instance.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataExportName
-          in: path
-          description: The data export rule name.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DataExport'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - DataExport
-      operationId: DataExports_Delete
-      description: Deletes the specified data export in a given workspace..
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataExportName
-          in: path
-          description: The data export rule name.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK response definition.
-        '404':
-          description: Not found the specific data export.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/savedSearches/{savedSearchId}:
-    x-api-version: '2020-08-01'
-    delete:
-      tags:
-        - SavedSearches
-      operationId: SavedSearches_Delete
-      description: Deletes the specified saved search in a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: savedSearchId
-          in: path
-          description: The id of the saved search.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK response definition.
-    put:
-      tags:
-        - SavedSearches
-      operationId: SavedSearches_CreateOrUpdate
-      description: Creates or updates a saved search for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: savedSearchId
-          in: path
-          description: The id of the saved search.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The parameters required to save a search.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SavedSearch'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SavedSearch'
-    get:
-      tags:
-        - SavedSearches
-      operationId: SavedSearches_Get
-      description: Gets the specified saved search for a given workspace.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: savedSearchId
-          in: path
-          description: The id of the saved search.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SavedSearch'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/savedSearches:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - SavedSearches
-      operationId: SavedSearches_ListByWorkspace
-      description: Gets the saved searches for a given Log Analytics Workspace
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Returns the list of saved searches for the given Log Analytics Workspace.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SavedSearchesListResult'
   /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/queryPacks:
     x-api-version: '2019-09-01'
     get:
@@ -3967,8 +3655,431 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/managementGroups:
+    x-api-version: '2020-08-01'
+    get:
+      tags:
+        - Workspaces
+      operationId: ManagementGroups_List
+      description: Gets a list of management groups connected to a workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListManagementGroupsResult'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataSources/{dataSourceName}:
+    x-api-version: '2020-08-01'
+    put:
+      tags:
+        - DataSources
+      operationId: DataSources_CreateOrUpdate
+      description: Create or update a data source.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataSourceName
+          in: path
+          description: The name of the datasource resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: The parameters required to create or update a datasource.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataSource'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataSource'
+        '201':
+          description: Created response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataSource'
+    delete:
+      tags:
+        - DataSources
+      operationId: DataSources_Delete
+      description: Deletes a data source instance.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataSourceName
+          in: path
+          description: Name of the datasource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+        '204':
+          description: NoContent response definition.
+    get:
+      tags:
+        - DataSources
+      operationId: DataSources_Get
+      description: Gets a datasource instance.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: dataSourceName
+          in: path
+          description: Name of the datasource
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataSource'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataSources:
+    x-api-version: '2020-08-01'
+    get:
+      tags:
+        - DataSources
+      operationId: DataSources_ListByWorkspace
+      description: Gets the first page of data source instances in a workspace with the link to the next page.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: $filter
+          in: query
+          description: The filter to apply on the operation.
+          required: true
+          schema:
+            type: string
+        - name: $skiptoken
+          in: query
+          description: Starting point of the collection of data source instances.
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataSourceListResult'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-ms-odata: '#/components/schemas/DataSourceFilter'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/clusters:
+    x-api-version: '2022-10-01'
+    get:
+      tags:
+        - Clusters
+      operationId: Clusters_ListByResourceGroup
+      description: Gets Log Analytics clusters in a resource group.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/clusters:
+    x-api-version: '2022-10-01'
+    get:
+      tags:
+        - Clusters
+      operationId: Clusters_List
+      description: Gets the Log Analytics clusters in a subscription.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/clusters/{clusterName}:
+    x-api-version: '2022-10-01'
+    put:
+      tags:
+        - Clusters
+      operationId: Clusters_CreateOrUpdate
+      description: Create or update a Log Analytics cluster.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: clusterName
+          in: path
+          description: The name of the Log Analytics cluster.
+          required: true
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]+[A-Za-z0-9]$
+            minLength: 4
+            maxLength: 63
+            type: string
+      requestBody:
+        description: The parameters required to create or update a Log Analytics cluster.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cluster'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        '201':
+          description: Created response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        '202':
+          description: Accepted response definition.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - Clusters
+      operationId: Clusters_Delete
+      description: Deletes a cluster instance.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: clusterName
+          in: path
+          description: Name of the Log Analytics Cluster.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+        '202':
+          description: Accepted response definition.
+        '204':
+          description: NoContent response definition.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    get:
+      tags:
+        - Clusters
+      operationId: Clusters_Get
+      description: Gets a Log Analytics cluster instance.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: clusterName
+          in: path
+          description: Name of the Log Analytics Cluster.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Clusters
+      operationId: Clusters_Update
+      description: Updates a Log Analytics cluster.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: clusterName
+          in: path
+          description: Name of the Log Analytics Cluster.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: The parameters required to patch a Log Analytics cluster.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterPatch'
+      responses:
+        '200':
+          description: The existing cluster was successfully updated. Check provisioningStatus to see detailed status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+  /providers/Microsoft.OperationalInsights/operations:
+    x-api-version: '2023-09-01'
+    get:
+      tags:
+        - Operations
+      operationId: Operations_List
+      description: Lists all of the available OperationalInsights Rest API operations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks/{intelligencePackName}/Disable:
+    x-api-version: '2020-08-01'
+    post:
+      tags:
+        - Workspaces
+        - IntelligencePacks
+      operationId: IntelligencePacks_Disable
+      description: Disables an intelligence pack for a given workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: intelligencePackName
+          in: path
+          description: The name of the intelligence pack to be disabled.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks/{intelligencePackName}/Enable:
+    x-api-version: '2020-08-01'
+    post:
+      tags:
+        - Workspaces
+        - IntelligencePacks
+      operationId: IntelligencePacks_Enable
+      description: Enables an intelligence pack for a given workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: intelligencePackName
+          in: path
+          description: The name of the intelligence pack to be enabled.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/intelligencePacks:
+    x-api-version: '2020-08-01'
+    get:
+      tags:
+        - Workspaces
+        - IntelligencePacks
+      operationId: IntelligencePacks_List
+      description: Lists all the intelligence packs possible and whether they are enabled or disabled for a given workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IntelligencePack'
   /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/workspaces:
-    x-api-version: 2021-12-01-preview
+    x-api-version: '2023-09-01'
     get:
       tags:
         - Workspaces
@@ -3993,7 +4104,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces:
-    x-api-version: 2021-12-01-preview
+    x-api-version: '2023-09-01'
     get:
       tags:
         - Workspaces
@@ -4019,7 +4130,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}:
-    x-api-version: 2021-12-01-preview
+    x-api-version: '2023-09-01'
     put:
       tags:
         - Workspaces
@@ -4145,7 +4256,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/deletedWorkspaces:
-    x-api-version: 2021-12-01-preview
+    x-api-version: '2023-09-01'
     get:
       tags:
         - DeletedWorkspaces
@@ -4170,7 +4281,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/deletedWorkspaces:
-    x-api-version: 2021-12-01-preview
+    x-api-version: '2023-09-01'
     get:
       tags:
         - DeletedWorkspaces
@@ -4195,149 +4306,175 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: null
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataSources/{dataSourceName}:
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/usages:
     x-api-version: '2020-08-01'
-    put:
+    get:
       tags:
-        - DataSources
-      operationId: DataSources_CreateOrUpdate
-      description: Create or update a data source.
+        - Workspaces
+      operationId: Usages_List
+      description: Gets a list of usage metrics for a workspace.
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataSourceName
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListUsagesResult'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/sharedKeys:
+    x-api-version: '2020-08-01'
+    post:
+      tags:
+        - Workspaces
+      operationId: SharedKeys_GetSharedKeys
+      description: Gets the shared keys for a workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedKeys'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/regenerateSharedKey:
+    x-api-version: '2020-08-01'
+    post:
+      tags:
+        - Workspaces
+      operationId: SharedKeys_Regenerate
+      description: Regenerates the shared keys for a Log Analytics Workspace. These keys are used to connect Microsoft Operational Insights agents to the workspace.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Returns the new shared keys associated with the Log Analytics Workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedKeys'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/schema:
+    x-api-version: '2020-08-01'
+    post:
+      tags:
+        - Workspaces
+      operationId: Schema_Get
+      description: Gets the schema for a given workspace.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK response definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchGetSchemaResponse'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/savedSearches/{savedSearchId}:
+    x-api-version: '2020-08-01'
+    delete:
+      tags:
+        - SavedSearches
+      operationId: SavedSearches_Delete
+      description: Deletes the specified saved search in a given workspace.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: savedSearchId
           in: path
-          description: The name of the datasource resource.
+          description: The id of the saved search.
           required: true
           schema:
             type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK response definition.
+    put:
+      tags:
+        - SavedSearches
+      operationId: SavedSearches_CreateOrUpdate
+      description: Creates or updates a saved search for a given workspace.
+      parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/WorkspaceNameParameter'
+        - name: savedSearchId
+          in: path
+          description: The id of the saved search.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
-        description: The parameters required to create or update a datasource.
+        description: The parameters required to save a search.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DataSource'
+              $ref: '#/components/schemas/SavedSearch'
       responses:
         '200':
           description: OK response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataSource'
-        '201':
-          description: Created response definition.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DataSource'
-    delete:
-      tags:
-        - DataSources
-      operationId: DataSources_Delete
-      description: Deletes a data source instance.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataSourceName
-          in: path
-          description: Name of the datasource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK response definition.
-        '204':
-          description: NoContent response definition.
+                $ref: '#/components/schemas/SavedSearch'
     get:
       tags:
-        - DataSources
-      operationId: DataSources_Get
-      description: Gets a datasource instance.
+        - SavedSearches
+      operationId: SavedSearches_Get
+      description: Gets the specified saved search for a given workspace.
       parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: dataSourceName
+        - name: savedSearchId
           in: path
-          description: Name of the datasource
+          description: The id of the saved search.
           required: true
           schema:
             type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: OK response definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataSource'
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/dataSources:
+                $ref: '#/components/schemas/SavedSearch'
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}/savedSearches:
     x-api-version: '2020-08-01'
     get:
       tags:
-        - DataSources
-      operationId: DataSources_ListByWorkspace
-      description: Gets the first page of data source instances in a workspace with the link to the next page.
+        - SavedSearches
+      operationId: SavedSearches_ListByWorkspace
+      description: Gets the saved searches for a given Log Analytics Workspace
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceNameParameter'
-        - name: $filter
-          in: query
-          description: The filter to apply on the operation.
-          required: true
-          schema:
-            type: string
-        - name: $skiptoken
-          in: query
-          description: Starting point of the collection of data source instances.
-          required: false
-          schema:
-            type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
-          description: OK response definition.
+          description: Returns the list of saved searches for the given Log Analytics Workspace.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataSourceListResult'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      x-ms-odata: '#/components/schemas/DataSourceFilter'
-  /subscriptions/{subscriptionId}/providers/Microsoft.OperationalInsights/locations/{location}/operationStatuses/{asyncOperationId}:
-    x-api-version: '2020-08-01'
-    get:
-      tags:
-        - asyncOperations
-      operationId: OperationStatuses_Get
-      description: Get the status of a long running azure asynchronous operation.
-      parameters:
-        - name: location
-          in: path
-          description: The region name of operation.
-          required: true
-          schema:
-            type: string
-        - name: asyncOperationId
-          in: path
-          description: The operation Id.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK. Operation status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationStatus'
+                $ref: '#/components/schemas/SavedSearchesListResult'

@@ -4,7 +4,7 @@ servers:
 info:
   title: RedisManagementClient
   description: REST API for Azure Redis Cache Service.
-  version: '2022-05-01'
+  version: '2023-08-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,105 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -27,16 +126,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -49,6 +139,320 @@ components:
           description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     RedisCommonProperties:
       properties:
         redisConfiguration:
@@ -59,7 +463,7 @@ components:
               description: Specifies whether the rdb backup is enabled
             rdb-backup-frequency:
               type: string
-              description: Specifies the frequency for creating rdb backup
+              description: 'Specifies the frequency for creating rdb backup in minutes. Valid values: (15, 30, 60, 360, 720, 1440)'
             rdb-backup-max-snapshot-count:
               type: string
               description: Specifies the maximum number of snapshots for rdb backup
@@ -105,6 +509,12 @@ components:
             authnotrequired:
               type: string
               description: Specifies whether the authentication is disabled. Setting this property is highly discouraged from security point of view.
+            storage-subscription-id:
+              type: string
+              description: SubscriptionId of the storage account for persistence (aof/rdb) using ManagedIdentity.
+            aad-enabled:
+              type: string
+              description: Specifies whether AAD based authentication has been enabled or disabled for the cache
           additionalProperties: {}
           description: 'All Redis Settings. Few possible keys: rdb-backup-enabled,rdb-storage-connection-string,rdb-backup-frequency,maxmemory-delta,maxmemory-policy,notify-keyspace-events,maxmemory-samples,slowlog-log-slower-than,slowlog-max-len,list-max-ziplist-entries,list-max-ziplist-value,hash-max-ziplist-entries,hash-max-ziplist-value,set-max-intset-entries,zset-max-ziplist-entries,zset-max-ziplist-value etc.'
         redisVersion:
@@ -150,6 +560,15 @@ components:
           type: string
           x-ms-enum:
             name: PublicNetworkAccess
+            modelAsString: true
+        updateChannel:
+          type: string
+          description: 'Optional: Specifies the update channel for the monthly Redis updates your Redis Cache will receive. Caches using ''Preview'' update channel get latest Redis updates at least 4 weeks ahead of ''Stable'' channel caches. Default value is ''Stable''.'
+          enum:
+            - Stable
+            - Preview
+          x-ms-enum:
+            name: UpdateChannel
             modelAsString: true
       description: Create/Update/Get common properties of the redis cache.
       x-ms-external: true
@@ -203,6 +622,7 @@ components:
             - Unlinking
             - Unprovisioning
             - Updating
+            - ConfiguringAAD
           x-ms-enum:
             name: ProvisioningState
             modelAsString: true
@@ -453,6 +873,9 @@ components:
         preferred-data-archive-auth-method:
           type: string
           description: Preferred auth method to communicate to storage account used for data archive, specify SAS or ManagedIdentity, default value is SAS
+        storage-subscription-id:
+          type: string
+          description: Subscription id of the storage container for data to be exported using ManagedIdentity.
       required:
         - container
         - prefix
@@ -470,6 +893,9 @@ components:
         preferred-data-archive-auth-method:
           type: string
           description: Preferred auth method to communicate to storage account used for data archive, specify SAS or ManagedIdentity, default value is SAS
+        storage-subscription-id:
+          type: string
+          description: Subscription id of the storage container containing files to import using Managed Identity.
       required:
         - files
       description: Parameters for Redis import operation.
@@ -607,6 +1033,14 @@ components:
           x-ms-enum:
             name: ReplicationRole
             modelAsString: false
+        geoReplicatedPrimaryHostName:
+          type: string
+          readOnly: true
+          description: The unchanging DNS name which will always point to current geo-primary cache among the linked redis caches for seamless Geo Failover experience.
+        primaryHostName:
+          type: string
+          readOnly: true
+          description: The changing DNS name that resolves to the current geo-primary cache among the linked redis caches before or after the Geo Failover.
       required:
         - linkedRedisCacheId
         - linkedRedisCacheLocation
@@ -620,75 +1054,117 @@ components:
       required:
         - properties
       description: Parameter required for creating a linked server to redis cache.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
+    RedisCacheAccessPolicyProperties:
       properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+        provisioningState:
           type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
+          description: Provisioning state of access policy
           readOnly: true
           enum:
-            - user
-            - system
-            - user,system
+            - Updating
+            - Succeeded
+            - Deleting
+            - Deleted
+            - Canceled
+            - Failed
           x-ms-enum:
-            name: Origin
+            name: AccessPolicyProvisioningState
             modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+        type:
           type: string
+          description: Built-In or Custom access policy
           readOnly: true
           enum:
-            - Internal
+            - Custom
+            - BuiltIn
           x-ms-enum:
-            name: ActionType
+            name: AccessPolicyType
             modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+        permissions:
+          type: string
+          description: Permissions for the access policy. Learn how to configure permissions at https://aka.ms/redis/AADPreRequisites
+      required:
+        - permissions
+      description: All properties of an access policy.
       type: object
+    RedisCacheAccessPolicy:
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisCacheAccessPolicyProperties'
+          description: Properties of an access policy.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Response to get/put access policy.
+      type: object
+    RedisCacheAccessPolicyList:
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
+            $ref: '#/components/schemas/RedisCacheAccessPolicy'
+          description: List of access policies (with properties) of a Redis cache.
         nextLink:
           type: string
-          description: URL to get the next set of operation list results (if there are any).
           readOnly: true
+          description: Link for next set.
+      description: List of access policies (with properties) of a Redis cache.
+      type: object
+    RedisCacheAccessPolicyAssignmentProperties:
+      description: Properties for an access policy assignment
+      properties:
+        provisioningState:
+          type: string
+          description: Provisioning state of an access policy assignment set
+          readOnly: true
+          enum:
+            - Updating
+            - Succeeded
+            - Deleting
+            - Deleted
+            - Canceled
+            - Failed
+          x-ms-enum:
+            name: AccessPolicyAssignmentProvisioningState
+            modelAsString: true
+        objectId:
+          type: string
+          description: Object Id to assign access policy to
+        objectIdAlias:
+          type: string
+          description: User friendly name for object id. Also represents username for token based authentication
+        accessPolicyName:
+          type: string
+          description: The name of the access policy that is being assigned
+          pattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z0-9])$
+      required:
+        - objectId
+        - objectIdAlias
+        - accessPolicyName
+      type: object
+    RedisCacheAccessPolicyAssignment:
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/RedisCacheAccessPolicyAssignmentProperties'
+          description: Properties of an access policy assignment
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Response to an operation on access policy assignment
+      type: object
+    RedisCacheAccessPolicyAssignmentList:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedisCacheAccessPolicyAssignment'
+          description: List of access policies assignments (with properties) of a Redis cache.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link for next set.
+      description: List of access policies assignments (with properties) of a Redis cache.
+      type: object
     CheckNameAvailabilityParameters:
       description: Parameters body to pass for resource name availability check.
       properties:
@@ -744,478 +1220,6 @@ components:
           additionalProperties: {}
       allOf:
         - $ref: '#/components/schemas/OperationStatusResult'
-      x-ms-external: true
-    UserAssignedIdentities:
-      title: User-Assigned Identities
-      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/UserAssignedIdentity'
-    UserAssignedIdentity:
-      type: object
-      description: User assigned identity properties
-      properties:
-        principalId:
-          description: The principal ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-        clientId:
-          description: The client ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-    ManagedServiceIdentityType:
-      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
-      enum:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned, UserAssigned
-      type: string
-      x-ms-enum:
-        name: ManagedServiceIdentityType
-        modelAsString: true
-    ManagedServiceIdentity:
-      description: Managed service identity (system assigned and/or user assigned identities)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/ManagedServiceIdentityType'
-        userAssignedIdentities:
-          $ref: '#/components/schemas/UserAssignedIdentities'
-      required:
-        - type
-    SystemAssignedServiceIdentityType:
-      description: Type of managed service identity (either system assigned, or none).
-      enum:
-        - None
-        - SystemAssigned
-      type: string
-      x-ms-enum:
-        name: SystemAssignedServiceIdentityType
-        modelAsString: true
-    SystemAssignedServiceIdentity:
-      description: Managed service identity (either system assigned, or none)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
-      required:
-        - type
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
     PrivateEndpoint:
       type: object
       properties:
@@ -1342,6 +1346,84 @@ components:
         name: SkuTier
         modelAsString: false
       description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned, UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1387,6 +1469,37 @@ components:
       schema:
         minLength: 1
         type: string
+    CacheNameParameter:
+      name: cacheName
+      in: path
+      description: The name of the Redis cache.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z0-9])$
+        type: string
+    AccessPolicyNameParameter:
+      name: accessPolicyName
+      in: path
+      description: The name of the access policy that is being added to the Redis cache.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z0-9])$
+        minLength: 3
+        maxLength: 63
+        type: string
+    AccessPolicyAssignmentNameParameter:
+      name: accessPolicyAssignmentName
+      in: path
+      description: The name of the access policy assignment.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z0-9])$
+        minLength: 3
+        maxLength: 63
+        type: string
     PrivateEndpointConnectionName:
       name: privateEndpointConnectionName
       in: path
@@ -1397,7 +1510,7 @@ components:
         type: string
 paths:
   /providers/Microsoft.Cache/operations:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Operations
@@ -1421,7 +1534,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/CheckNameAvailability:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
@@ -1448,19 +1561,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/listUpgradeNotifications:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
       operationId: Redis_ListUpgradeNotifications
       description: Gets any upgrade notifications for a Redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1492,7 +1600,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     put:
       tags:
         - Redis
@@ -1500,12 +1608,7 @@ paths:
       description: Create or replace (overwrite/recreate, with potential downtime) an existing Redis cache.
       x-ms-long-running-operation: true
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1548,12 +1651,7 @@ paths:
       description: Update an existing Redis cache.
       x-ms-long-running-operation: true
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1596,12 +1694,7 @@ paths:
       description: Deletes a Redis cache.
       x-ms-long-running-operation: true
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1629,12 +1722,7 @@ paths:
       operationId: Redis_Get
       description: Gets a Redis cache (resource description).
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1657,19 +1745,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
       operationId: Redis_ListByResourceGroup
       description: Lists all Redis caches in a resource group.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
@@ -1688,7 +1771,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/redis:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
@@ -1713,19 +1796,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/listKeys:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
       operationId: Redis_ListKeys
       description: Retrieve a Redis cache's access keys. This operation requires write permission to the cache resource.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1748,19 +1826,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/regenerateKey:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
       operationId: Redis_RegenerateKey
       description: Regenerate Redis cache's access keys. This operation requires write permission to the cache resource.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1791,19 +1864,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/forceReboot:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
       operationId: Redis_ForceReboot
       description: Reboot specified Redis node(s). This operation requires write permission to the cache resource. There can be potential data loss.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1834,7 +1902,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/import:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
@@ -1842,12 +1910,7 @@ paths:
       x-ms-long-running-operation: true
       description: Import data into Redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1878,7 +1941,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/export:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Redis
@@ -1886,12 +1949,7 @@ paths:
       x-ms-long-running-operation: true
       description: Export data from the redis cache to blobs in a container.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -1921,8 +1979,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/flush:
+    x-api-version: '2023-08-01'
+    post:
+      tags:
+        - Redis
+      operationId: Redis_FlushCache
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+        final-state-schema: file:///mnt/c/LocalGitRepos/stackql/stackql-azure-openapi/azure-rest-api-specs/specification/common-types/resource-management/v3/types.json#/components/schemas/OperationStatusResult
+      description: Deletes all of the keys in a cache.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Flush operation succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatusResult'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL to query for the status of the operation.
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for the status of the operation.
+        '202':
+          description: Flush operation successfully enqueued; follow the Location header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL to query for the status of the operation.
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for the status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/firewallRules:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
@@ -1932,18 +2039,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
       responses:
         '200':
           description: Successfully got the current rules
@@ -1960,7 +2057,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/firewallRules/{ruleName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     put:
       tags:
         - Redis
@@ -1968,18 +2065,8 @@ paths:
       operationId: FirewallRules_CreateOrUpdate
       description: Create or update a redis cache firewall rule
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - name: ruleName
           in: path
           description: The name of the firewall rule.
@@ -2022,18 +2109,8 @@ paths:
       operationId: FirewallRules_Get
       description: Gets a single firewall rule in a specified redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - name: ruleName
           in: path
           description: The name of the firewall rule.
@@ -2062,18 +2139,8 @@ paths:
       operationId: FirewallRules_Delete
       description: Deletes a single firewall rule in a specified redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - name: ruleName
           in: path
           description: The name of the firewall rule.
@@ -2094,7 +2161,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/patchSchedules:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
@@ -2104,18 +2171,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
       responses:
         '200':
           description: Successfully got the current patch schedules
@@ -2132,7 +2189,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/patchSchedules/{default}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     put:
       tags:
         - Redis
@@ -2140,12 +2197,7 @@ paths:
       operationId: PatchSchedules_CreateOrUpdate
       description: Create or replace the patching schedule for Redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -2199,12 +2251,7 @@ paths:
       operationId: PatchSchedules_Delete
       description: Deletes the patching schedule of a redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the redis cache.
@@ -2242,12 +2289,7 @@ paths:
       operationId: PatchSchedules_Get
       description: Gets the patching schedule of a redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the redis cache.
@@ -2281,7 +2323,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/linkedServers/{linkedServerName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     put:
       tags:
         - Redis
@@ -2289,12 +2331,7 @@ paths:
       x-ms-long-running-operation: true
       description: Adds a linked server to the Redis cache (requires Premium SKU).
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the Redis cache.
@@ -2319,13 +2356,13 @@ paths:
               $ref: '#/components/schemas/RedisLinkedServerCreateParameters'
       responses:
         '200':
-          description: The linked server was successfully added.
+          description: The linked server was successfully updated.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RedisLinkedServerWithProperties'
         '201':
-          description: The linked server was successfully added.
+          description: The linked server was successfully created.
           content:
             application/json:
               schema:
@@ -2343,12 +2380,7 @@ paths:
       description: Deletes the linked server from a redis cache (requires Premium SKU).
       x-ms-long-running-operation: true
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the redis cache.
@@ -2368,6 +2400,10 @@ paths:
           description: Linked server was successfully deleted.
         '202':
           description: The linked server 'delete' operation was successfully enqueued; follow the Location header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error response describing why the operation failed.
           content:
@@ -2380,12 +2416,7 @@ paths:
       operationId: LinkedServer_Get
       description: Gets the detailed information about a linked server of a redis cache (requires Premium SKU).
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the redis cache.
@@ -2414,19 +2445,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{name}/linkedServers:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Redis
       operationId: LinkedServer_List
       description: Gets the list of linked servers associated with this redis cache (requires Premium SKU).
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: name
           in: path
           description: The name of the redis cache.
@@ -2451,25 +2477,15 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/privateEndpointConnections:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - PrivateEndpointConnections
       operationId: PrivateEndpointConnections_List
       description: List all the private endpoint connections associated with the redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
@@ -2488,25 +2504,15 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - PrivateEndpointConnections
       operationId: PrivateEndpointConnections_Get
       description: Gets the specified private endpoint connection associated with the redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2530,18 +2536,8 @@ paths:
       description: Update the state of specified private endpoint connection associated with the redis cache.
       x-ms-long-running-operation: true
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
@@ -2578,18 +2574,8 @@ paths:
       operationId: PrivateEndpointConnections_Delete
       description: Deletes the specified private endpoint connection associated with the redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
@@ -2605,25 +2591,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/privateLinkResources:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - PrivateLinkResources
       operationId: PrivateLinkResources_ListByRedisCache
       description: Gets the private link resources that need to be created for a redis cache.
       parameters:
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: cacheName
-          in: path
-          description: The name of the Redis cache.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
@@ -2642,7 +2618,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/locations/{location}/asyncOperations/{operationId}:
-    x-api-version: '2022-05-01'
+    x-api-version: '2023-08-01'
     get:
       tags:
         - AsyncOperationStatus
@@ -2676,3 +2652,257 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/accessPolicies/{accessPolicyName}:
+    x-api-version: '2023-08-01'
+    put:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicy_CreateUpdate
+      x-ms-long-running-operation: true
+      description: Adds an access policy to the redis cache
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters supplied to the Create Update Access Policy operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedisCacheAccessPolicy'
+      responses:
+        '200':
+          description: The existing access policy was successfully updated. Check provisioningState to see detailed status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicy'
+        '201':
+          description: The new access policy was successfully created. Check provisioningState to see detailed status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicy'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicy_Delete
+      description: Deletes the access policy from a redis cache
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully deleted the access policy
+        '202':
+          description: The access policy 'delete' operation was successfully enqueued; follow the Location header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Successfully deleted the access policy
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicy_Get
+      description: Gets the detailed information about an access policy of a redis cache
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Response of get access policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicy'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/accessPolicies:
+    x-api-version: '2023-08-01'
+    get:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicy_List
+      description: Gets the list of access policies associated with this redis cache
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Response of list access policies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicyList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/accessPolicyAssignments/{accessPolicyAssignmentName}:
+    x-api-version: '2023-08-01'
+    put:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicyAssignment_CreateUpdate
+      x-ms-long-running-operation: true
+      description: Adds the access policy assignment to the specified users
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyAssignmentNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Parameters supplied to the Create Update Access Policy Assignment operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedisCacheAccessPolicyAssignment'
+      responses:
+        '200':
+          description: The existing access policy assignment was successfully updated. Check provisioningState to see detailed status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicyAssignment'
+        '201':
+          description: The new access policy assignment was successfully created. Check provisioningState to see detailed status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicyAssignment'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicyAssignment_Delete
+      description: Deletes the access policy assignment from a redis cache
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyAssignmentNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully deleted the access policy assignment
+        '202':
+          description: The access policy assignment 'delete' operation was successfully enqueued; follow the Location header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: Successfully deleted the access policy assignment
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicyAssignment_Get
+      description: Gets the list of assignments for an access policy of a redis cache
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/AccessPolicyAssignmentNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Response of get access policy assignments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicyAssignment'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redis/{cacheName}/accessPolicyAssignments:
+    x-api-version: '2023-08-01'
+    get:
+      tags:
+        - Redis
+        - AAD
+      operationId: AccessPolicyAssignment_List
+      description: Gets the list of access policy assignments associated with this redis cache
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Response of list access policy assignments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedisCacheAccessPolicyAssignmentList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink

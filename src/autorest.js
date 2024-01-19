@@ -30,8 +30,9 @@ export async function processSpecs(azureRestApiSpecsDir, generatedDir, dirName, 
     }
 
     const serviceRootDir = `${azureRestApiSpecsDir}/specification/${dirName}`;
-  
+
     if (fs.existsSync(`${serviceRootDir}/resource-manager/readme.md`)) {
+        logger.info(`reading config at ${serviceRootDir}/resource-manager/readme.md.`);
         await processSpec(
             dirName, 
             `${serviceRootDir}/resource-manager/readme.md`, 
@@ -39,22 +40,44 @@ export async function processSpecs(azureRestApiSpecsDir, generatedDir, dirName, 
             options.debug, 
             options.dryrun);
     } else {
-        // readme not found, recurse subdirectories
-        const subdirs = fs.readdirSync(`${azureRestApiSpecsDir}/specification/${dirName}/resource-manager`, { withFileTypes: true }).filter(dirent => dirent.isDirectory());
+        const subdirs = fs.readdirSync(`${serviceRootDir}/resource-manager`, { withFileTypes: true })
+                          .filter(dirent => dirent.isDirectory());
+        
         for (const subdir of subdirs) {
-            await processSpec(
-                `${dirName}_${subdir.name}`, 
-                `${serviceRootDir}/resource-manager/${subdir.name}/readme.md`, 
-                `${generatedDir}/${dirName}_${subdir.name}`, 
-                options.debug, 
-                options.dryrun);
+            if (fs.existsSync(`${serviceRootDir}/resource-manager/${subdir.name}/readme.md`)) {
+                logger.info(`reading config at ${serviceRootDir}/resource-manager/${subdir.name}/readme.md.`);
+                await processSpec(
+                    `${dirName}_${subdir.name}`, 
+                    `${serviceRootDir}/resource-manager/${subdir.name}/readme.md`, 
+                    `${generatedDir}/${dirName}_${subdir.name}`, 
+                    options.debug, 
+                    options.dryrun);
+            } else {
+                logger.info(`no config found in ${serviceRootDir}/resource-manager/${subdir.name}. going one level below...`);
+
+                // Going one level deeper
+                const deeperSubdirs = fs.readdirSync(`${serviceRootDir}/resource-manager/${subdir.name}`, { withFileTypes: true })
+                                        .filter(dirent => dirent.isDirectory());
+
+                for (const deeperSubdir of deeperSubdirs) {
+                    if (fs.existsSync(`${serviceRootDir}/resource-manager/${subdir.name}/${deeperSubdir.name}/readme.md`)) {
+                        logger.info(`reading config at ${serviceRootDir}/resource-manager/${subdir.name}/${deeperSubdir.name}/readme.md.`);
+                        await processSpec(
+                            `${dirName}_${subdir.name}_${deeperSubdir.name}`, 
+                            `${serviceRootDir}/resource-manager/${subdir.name}/${deeperSubdir.name}/readme.md`, 
+                            `${generatedDir}/${dirName}_${subdir.name}_${deeperSubdir.name}`, 
+                            options.debug, 
+                            options.dryrun);
+                    }
+                }
+            }
         }
     }
 }
 
 export async function processSpec(serviceName, configFile, outputFolder, debug, dryrun) {
     
-    console.log(`processing ${serviceName}...`);
+    logger.info(`processing ${serviceName}...`);
 
     const AppRoot = resolveAppRoot();
     const f = new RealFileSystem();
@@ -80,11 +103,14 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
         autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
     }
 
-    if (serviceName === 'policyinsights'){
-        console.log('skipping policyinsights...');
+    const servicesToSkip = ['policyinsights', 'resourcehealth'];
+    
+    // Skip processing for specified services
+    if (servicesToSkip.includes(serviceName)) {
+        logger.info(`Skipping ${serviceName}...`);
         return;
     }
-
+    
     const context = await autorest.view;
     const cfg = context.config;
     const artifactWriter = new ArtifactWriter(cfg);

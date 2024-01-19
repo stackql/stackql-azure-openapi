@@ -3,8 +3,8 @@ servers:
   - url: https://management.azure.com/
 info:
   title: SearchManagementClient
-  description: Client that can be used to manage Azure Cognitive Search services and API keys.
-  version: '2020-08-01'
+  description: Client that can be used to manage search services and API keys.
+  version: '2023-11-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -36,6 +36,10 @@ components:
           x-ms-enum:
             name: ResourceType
             modelAsString: false
+            values:
+              - value: searchServices
+                name: SearchServices
+                description: '''searchServices'' is the only resource type whose name can be validated.'
       description: Input of check name availability API.
     CheckNameAvailabilityOutput:
       type: object
@@ -55,6 +59,13 @@ components:
           x-ms-enum:
             name: UnavailableNameReason
             modelAsString: true
+            values:
+              - value: Invalid
+                name: Invalid
+                description: The search service name does not match naming requirements.
+              - value: AlreadyExists
+                name: AlreadyExists
+                description: The search service name is already assigned to a different search service.
         message:
           description: A message that explains why the name is invalid and provides resource naming requirements. Available only if 'Invalid' is returned in the 'reason' property.
           type: string
@@ -70,7 +81,7 @@ components:
           readOnly: true
           type: string
           description: The secondary admin API key of the search service.
-      description: Response containing the primary and secondary admin API keys for a given Azure Cognitive Search service.
+      description: Response containing the primary and secondary admin API keys for a given search service.
     QueryKey:
       properties:
         name:
@@ -81,7 +92,7 @@ components:
           readOnly: true
           type: string
           description: The value of the query API key.
-      description: Describes an API key for a given Azure Cognitive Search service that has permissions for query operations only.
+      description: Describes an API key for a given search service that has permissions for query operations only.
     ListQueryKeysResult:
       properties:
         value:
@@ -89,12 +100,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueryKey'
-          description: The query keys for the Azure Cognitive Search service.
+          description: The query keys for the search service.
         nextLink:
           readOnly: true
           type: string
           description: Request URL that can be used to query next page of query keys. Returned when the total number of requested query keys exceed maximum page size.
-      description: Response containing the query API keys for a given Azure Cognitive Search service.
+      description: Response containing the query API keys for a given search service.
       x-ms-external: true
     Sku:
       description: The resource model definition representing SKU
@@ -126,28 +137,100 @@ components:
           description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
+    DataPlaneAuthOptions:
+      type: object
+      properties:
+        apiKeyOnly:
+          type: object
+          properties: {}
+          description: Indicates that only the API key can be used for authentication.
+        aadOrApiKey:
+          $ref: '#/components/schemas/DataPlaneAadOrApiKeyAuthOption'
+          description: Indicates that either the API key or an access token from a Microsoft Entra ID tenant can be used for authentication.
+      description: Defines the options for how the search service authenticates a data plane request. This cannot be set if 'disableLocalAuth' is set to true.
+    DataPlaneAadOrApiKeyAuthOption:
+      type: object
+      properties:
+        aadAuthFailureMode:
+          type: string
+          description: Describes what response the data plane API of a search service would send for requests that failed authentication.
+          enum:
+            - http403
+            - http401WithBearerChallenge
+          x-ms-enum:
+            name: AadAuthFailureMode
+            modelAsString: false
+            values:
+              - value: http403
+                name: Http403
+                description: Indicates that requests that failed authentication should be presented with an HTTP status code of 403 (Forbidden).
+              - value: http401WithBearerChallenge
+                name: Http401WithBearerChallenge
+                description: Indicates that requests that failed authentication should be presented with an HTTP status code of 401 (Unauthorized) and present a Bearer Challenge.
+      description: Indicates that either the API key or an access token from a Microsoft Entra ID tenant can be used for authentication.
+    EncryptionWithCmk:
+      type: object
+      properties:
+        enforcement:
+          description: Describes how a search service should enforce having one or more non-customer-encrypted resources.
+          type: string
+          enum:
+            - Disabled
+            - Enabled
+            - Unspecified
+          x-ms-enum:
+            name: SearchEncryptionWithCmk
+            modelAsString: false
+            values:
+              - value: Disabled
+                name: Disabled
+                description: No enforcement will be made and the search service can have non-customer-encrypted resources.
+              - value: Enabled
+                name: Enabled
+                description: Search service will be marked as non-compliant if there are one or more non-customer-encrypted resources.
+              - value: Unspecified
+                name: Unspecified
+                description: Enforcement policy is not explicitly specified, with the behavior being the same as if it were set to 'Disabled'.
+        encryptionComplianceStatus:
+          readOnly: true
+          description: Describes whether the search service is compliant or not with respect to having non-customer-encrypted resources. If a service has more than one non-customer-encrypted resource and 'Enforcement' is 'enabled' then the service will be marked as 'nonCompliant'.
+          type: string
+          enum:
+            - Compliant
+            - NonCompliant
+          x-ms-enum:
+            name: SearchEncryptionComplianceStatus
+            modelAsString: false
+            values:
+              - value: Compliant
+                name: Compliant
+                description: Indicates that the search service is compliant, either because number of non-customer-encrypted resources is zero or enforcement is disabled.
+              - value: NonCompliant
+                name: NonCompliant
+                description: Indicates that the search service has more than one non-customer-encrypted resources.
+      description: Describes a policy that determines how resources within the search service are to be encrypted with customer=managed keys.
     PrivateEndpointConnection:
       properties:
         properties:
           $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Describes the properties of an existing Private Endpoint connection to the Azure Cognitive Search service.
+          description: Describes the properties of an existing private endpoint connection to the search service.
       allOf:
         - $ref: '#/components/schemas/Resource'
-      description: Describes an existing Private Endpoint connection to the Azure Cognitive Search service.
+      description: Describes an existing private endpoint connection to the search service.
     NetworkRuleSet:
       properties:
         ipRules:
           type: array
-          description: A list of IP restriction rules that defines the inbound network(s) with allowing access to the search service endpoint. At the meantime, all other public IP networks are blocked by the firewall. These restriction rules are applied only when the 'publicNetworkAccess' of the search service is 'enabled'; otherwise, traffic over public interface is not allowed even with any public IP rules, and private endpoint connections would be the exclusive access method.
+          description: A list of IP restriction rules used for an IP firewall. Any IPs that do not match the rules are blocked by the firewall. These rules are only applied when the 'publicNetworkAccess' of the search service is 'enabled'.
           items:
             $ref: '#/components/schemas/IpRule'
-      description: Network specific rules that determine how the Azure Cognitive Search service may be reached.
+      description: Network-specific rules that determine how the search service can be reached.
     IpRule:
       properties:
         value:
           type: string
-          description: Value corresponding to a single IPv4 address (eg., 123.1.2.3) or an IP range in CIDR format (eg., 123.1.2.3/24) to be allowed.
-      description: The IP restriction rule of the Azure Cognitive Search service.
+          description: Value corresponding to a single IPv4 address (for example, 123.1.2.3) or an IP range in CIDR format (for example, 123.1.2.3/24) to be allowed.
+      description: The IP restriction rule of the search service.
     PrivateEndpointConnectionProperties:
       properties:
         privateEndpoint:
@@ -161,7 +244,7 @@ components:
           properties:
             status:
               type: string
-              description: Status of the the private link service connection. Can be Pending, Approved, Rejected, or Disconnected.
+              description: Status of the the private link service connection. Valid values are Pending, Approved, Rejected, or Disconnected.
               enum:
                 - Pending
                 - Approved
@@ -170,6 +253,19 @@ components:
               x-ms-enum:
                 name: PrivateLinkServiceConnectionStatus
                 modelAsString: false
+                values:
+                  - value: Pending
+                    name: Pending
+                    description: The private endpoint connection has been created and is pending approval.
+                  - value: Approved
+                    name: Approved
+                    description: The private endpoint connection is approved and is ready for use.
+                  - value: Rejected
+                    name: Rejected
+                    description: The private endpoint connection has been rejected and cannot be used.
+                  - value: Disconnected
+                    name: Disconnected
+                    description: The private endpoint connection has been removed from the service.
             description:
               type: string
               description: The description for the private link service connection state.
@@ -178,7 +274,42 @@ components:
               description: A description of any extra actions that may be required.
               default: None
           description: Describes the current state of an existing Private Link Service connection to the Azure Private Endpoint.
-      description: Describes the properties of an existing Private Endpoint connection to the Azure Cognitive Search service.
+        groupId:
+          type: string
+          description: The group id from the provider of resource the private link service connection is for.
+        provisioningState:
+          type: string
+          description: The provisioning state of the private link service connection. Valid values are Updating, Deleting, Failed, Succeeded, or Incomplete
+          enum:
+            - Updating
+            - Deleting
+            - Failed
+            - Succeeded
+            - Incomplete
+            - Canceled
+          x-ms-enum:
+            name: PrivateLinkServiceConnectionProvisioningState
+            modelAsString: true
+            values:
+              - value: Updating
+                name: Updating
+                description: The private link service connection is in the process of being created along with other resources for it to be fully functional.
+              - value: Deleting
+                name: Deleting
+                description: The private link service connection is in the process of being deleted.
+              - value: Failed
+                name: Failed
+                description: The private link service connection has failed to be provisioned or deleted.
+              - value: Succeeded
+                name: Succeeded
+                description: The private link service connection has finished provisioning and is ready for approval.
+              - value: Incomplete
+                name: Incomplete
+                description: Provisioning request for the private link service connection resource has been accepted but the process of creation has not commenced yet.
+              - value: Canceled
+                name: Canceled
+                description: Provisioning request for the private link service connection resource has been canceled
+      description: Describes the properties of an existing Private Endpoint connection to the search service.
     PrivateEndpointConnectionListResult:
       properties:
         value:
@@ -193,14 +324,34 @@ components:
           description: Request URL that can be used to query next page of private endpoint connections. Returned when the total number of requested private endpoint connections exceed maximum page size.
       description: Response containing a list of Private Endpoint connections.
       x-ms-external: true
+    SemanticSearch:
+      type: string
+      enum:
+        - disabled
+        - free
+        - standard
+      x-ms-enum:
+        name: SearchSemanticSearch
+        modelAsString: true
+        values:
+          - value: disabled
+            name: disabled
+            description: Indicates that semantic ranking is disabled for the search service.
+          - value: free
+            name: free
+            description: Enables semantic ranking on a search service and indicates that it is to be used within the limits of the free tier. This would cap the volume of semantic ranking requests and is offered at no extra charge. This is the default for newly provisioned search services.
+          - value: standard
+            name: standard
+            description: Enables semantic ranking on a search service as a billable feature, with higher throughput and volume of semantic ranking requests.
+      description: Sets options that control the availability of semantic ranking. This configuration is only possible for certain search SKUs in certain locations.
     SharedPrivateLinkResource:
       properties:
         properties:
           $ref: '#/components/schemas/SharedPrivateLinkResourceProperties'
-          description: Describes the properties of a Shared Private Link Resource managed by the Azure Cognitive Search service.
+          description: Describes the properties of a Shared Private Link Resource managed by the search service.
       allOf:
         - $ref: '#/components/schemas/Resource'
-      description: Describes a Shared Private Link Resource managed by the Azure Cognitive Search service.
+      description: Describes a Shared Private Link Resource managed by the search service.
     SharedPrivateLinkResourceProperties:
       properties:
         privateLinkResourceId:
@@ -220,7 +371,7 @@ components:
             url: https://docs.microsoft.com/azure/private-link/private-endpoint-dns
         status:
           type: string
-          description: Status of the shared private link resource. Can be Pending, Approved, Rejected or Disconnected.
+          description: Status of the shared private link resource. Valid values are Pending, Approved, Rejected or Disconnected.
           enum:
             - Pending
             - Approved
@@ -231,7 +382,7 @@ components:
             modelAsString: false
         provisioningState:
           type: string
-          description: The provisioning state of the shared private link resource. Can be Updating, Deleting, Failed, Succeeded or Incomplete.
+          description: The provisioning state of the shared private link resource. Valid values are Updating, Deleting, Failed, Succeeded or Incomplete.
           enum:
             - Updating
             - Deleting
@@ -241,7 +392,7 @@ components:
           x-ms-enum:
             name: SharedPrivateLinkResourceProvisioningState
             modelAsString: false
-      description: Describes the properties of an existing Shared Private Link Resource managed by the Azure Cognitive Search service.
+      description: Describes the properties of an existing Shared Private Link Resource managed by the search service.
     SharedPrivateLinkResourceListResult:
       properties:
         value:
@@ -270,10 +421,10 @@ components:
         properties:
           $ref: '#/components/schemas/PrivateLinkResourceProperties'
           readOnly: true
-          description: Describes the properties of a supported private link resource for the Azure Cognitive Search service.
+          description: Describes the properties of a supported private link resource for the search service.
       allOf:
         - $ref: '#/components/schemas/Resource'
-      description: Describes a supported private link resource for the Azure Cognitive Search service.
+      description: Describes a supported private link resource for the search service.
     PrivateLinkResourceProperties:
       properties:
         groupId:
@@ -297,34 +448,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ShareablePrivateLinkResourceType'
-          description: The list of resources that are onboarded to private link service, that are supported by Azure Cognitive Search.
-      description: Describes the properties of a supported private link resource for the Azure Cognitive Search service. For a given API version, this represents the 'supported' groupIds when creating a shared private link resource.
+          description: The list of resources that are onboarded to private link service and that are supported by search.
+      description: Describes the properties of a supported private link resource for the search service. For a given API version, this represents the 'supported' groupIds when creating a shared private link resource.
     ShareablePrivateLinkResourceType:
       properties:
         name:
           readOnly: true
           type: string
-          description: The name of the resource type that has been onboarded to private link service, supported by Azure Cognitive Search.
+          description: The name of the resource type that has been onboarded to private link service and that's supported by search.
         properties:
           $ref: '#/components/schemas/ShareablePrivateLinkResourceProperties'
           readOnly: true
-          description: Describes the properties of a resource type that has been onboarded to private link service, supported by Azure Cognitive Search.
-      description: Describes an resource type that has been onboarded to private link service, supported by Azure Cognitive Search.
+          description: Describes the properties of a resource type that has been onboarded to private link service and that's supported by search.
+      description: Describes a resource type that has been onboarded to private link service and that's supported by search.
     ShareablePrivateLinkResourceProperties:
       properties:
         type:
           readOnly: true
           type: string
-          description: The resource provider type for the resource that has been onboarded to private link service, supported by Azure Cognitive Search.
+          description: The resource provider type for the resource that has been onboarded to private link service and that's supported by search.
         groupId:
           readOnly: true
           type: string
-          description: The resource provider group id for the resource that has been onboarded to private link service, supported by Azure Cognitive Search.
+          description: The resource provider group id for the resource that has been onboarded to private link service and that's supported by search.
         description:
           readOnly: true
           type: string
-          description: The description of the resource type that has been onboarded to private link service, supported by Azure Cognitive Search.
-      description: Describes the properties of a resource type that has been onboarded to private link service, supported by Azure Cognitive Search.
+          description: The description of the resource type that has been onboarded to private link service and that's supported by search.
+      description: Describes the properties of a resource type that has been onboarded to private link service and that's supported by search.
     SearchService:
       properties:
         properties:
@@ -333,7 +484,7 @@ components:
           description: Properties of the search service.
         sku:
           $ref: '#/components/schemas/Sku'
-          description: The SKU of the Search Service, which determines price tier and capacity limits. This property is required when creating a new Search Service.
+          description: The SKU of the search service, which determines billing rate and capacity limits. This property is required when creating a new search service.
           externalDocs:
             url: https://azure.microsoft.com/documentation/articles/search-sku-tier/
         identity:
@@ -341,7 +492,7 @@ components:
           description: The identity of the resource.
       allOf:
         - $ref: '#/components/schemas/TrackedResource'
-      description: Describes an Azure Cognitive Search service and its current state.
+      description: Describes a search service and its current state.
     SearchServiceUpdate:
       properties:
         properties:
@@ -350,12 +501,12 @@ components:
           description: Properties of the search service.
         sku:
           $ref: '#/components/schemas/Sku'
-          description: The SKU of the Search Service, which determines price tier and capacity limits. This property is required when creating a new Search Service.
+          description: The SKU of the search service, which determines the billing rate and capacity limits. This property is required when creating a new search service.
           externalDocs:
             url: https://azure.microsoft.com/documentation/articles/search-sku-tier/
         location:
           type: string
-          description: The geographic location of the resource. This must be one of the supported and registered Azure Geo Regions (for example, West US, East US, Southeast Asia, and so forth). This property is required when creating a new resource.
+          description: The geographic location of the resource. This must be one of the supported and registered Azure geo regions (for example, West US, East US, Southeast Asia, and so forth). This property is required when creating a new resource.
           externalDocs:
             url: https://aka.ms/search-rp-info
           x-ms-mutability:
@@ -371,7 +522,7 @@ components:
           description: The identity of the resource.
       allOf:
         - $ref: '#/components/schemas/Resource'
-      description: The parameters used to update an Azure Cognitive Search service.
+      description: The parameters used to update a search service.
     SearchServiceProperties:
       properties:
         replicaCount:
@@ -398,6 +549,13 @@ components:
           x-ms-enum:
             name: HostingMode
             modelAsString: false
+            values:
+              - value: default
+                name: Default
+                description: The limit on number of indexes is determined by the default limits for the SKU.
+              - value: highDensity
+                name: HighDensity
+                description: Only application for standard3 SKU, where the search service can have up to 1000 indexes.
         publicNetworkAccess:
           type: string
           default: enabled
@@ -411,7 +569,7 @@ components:
         status:
           readOnly: true
           type: string
-          description: 'The status of the search service. Possible values include: ''running'': The search service is running and no provisioning operations are underway. ''provisioning'': The search service is being provisioned or scaled up or down. ''deleting'': The search service is being deleted. ''degraded'': The search service is degraded. This can occur when the underlying search units are not healthy. The search service is most likely operational, but performance might be slow and some requests might be dropped. ''disabled'': The search service is disabled. In this state, the service will reject all API requests. ''error'': The search service is in an error state. If your service is in the degraded, disabled, or error states, it means the Azure Cognitive Search team is actively investigating the underlying issue. Dedicated services in these states are still chargeable based on the number of search units provisioned.'
+          description: 'The status of the search service. Possible values include: ''running'': The search service is running and no provisioning operations are underway. ''provisioning'': The search service is being provisioned or scaled up or down. ''deleting'': The search service is being deleted. ''degraded'': The search service is degraded. This can occur when the underlying search units are not healthy. The search service is most likely operational, but performance might be slow and some requests might be dropped. ''disabled'': The search service is disabled. In this state, the service will reject all API requests. ''error'': The search service is in an error state. If your service is in the degraded, disabled, or error states, Microsoft is actively investigating the underlying issue. Dedicated services in these states are still chargeable based on the number of search units provisioned.'
           enum:
             - running
             - provisioning
@@ -422,6 +580,25 @@ components:
           x-ms-enum:
             name: SearchServiceStatus
             modelAsString: false
+            values:
+              - value: running
+                name: Running
+                description: The search service is running and no provisioning operations are underway.
+              - value: provisioning
+                name: Provisioning
+                description: The search service is being provisioned or scaled up or down.
+              - value: deleting
+                name: Deleting
+                description: The search service is being deleted.
+              - value: degraded
+                name: Degraded
+                description: The search service is degraded because underlying search units are not healthy.
+              - value: disabled
+                name: Disabled
+                description: The search service is disabled and all API requests will be rejected.
+              - value: error
+                name: Error
+                description: The search service is in error state, indicating either a failure to provision or to be deleted.
         statusDetails:
           readOnly: true
           type: string
@@ -437,21 +614,46 @@ components:
           x-ms-enum:
             name: ProvisioningState
             modelAsString: false
+            values:
+              - value: succeeded
+                name: Succeeded
+                description: The last provisioning operation has completed successfully.
+              - value: provisioning
+                name: Provisioning
+                description: The search service is being provisioned or scaled up or down.
+              - value: failed
+                name: Failed
+                description: The last provisioning operation has failed.
         networkRuleSet:
           $ref: '#/components/schemas/NetworkRuleSet'
-          description: Network specific rules that determine how the Azure Cognitive Search service may be reached.
+          description: Network-specific rules that determine how the search service may be reached.
+        encryptionWithCmk:
+          $ref: '#/components/schemas/EncryptionWithCmk'
+          description: Specifies any policy regarding encryption of resources (such as indexes) using customer manager keys within a search service.
+        disableLocalAuth:
+          type: boolean
+          nullable: true
+          description: When set to true, calls to the search service will not be permitted to utilize API keys for authentication. This cannot be set to true if 'dataPlaneAuthOptions' are defined.
+        authOptions:
+          $ref: '#/components/schemas/DataPlaneAuthOptions'
+          description: Defines the options for how the data plane API of a search service authenticates requests. This cannot be set if 'disableLocalAuth' is set to true.
         privateEndpointConnections:
           readOnly: true
           type: array
           items:
             $ref: '#/components/schemas/PrivateEndpointConnection'
-          description: The list of private endpoint connections to the Azure Cognitive Search service.
+          description: The list of private endpoint connections to the search service.
+        semanticSearch:
+          $ref: '#/components/schemas/SemanticSearch'
+          nullable: true
+          x-nullable: true
+          description: Sets options that control the availability of semantic search. This configuration is only possible for certain search SKUs in certain locations.
         sharedPrivateLinkResources:
           readOnly: true
           type: array
           items:
             $ref: '#/components/schemas/SharedPrivateLinkResource'
-          description: The list of shared private link resources managed by the Azure Cognitive Search service.
+          description: The list of shared private link resources managed by the search service.
       description: Properties of the search service.
     SearchServiceListResult:
       properties:
@@ -465,7 +667,7 @@ components:
           readOnly: true
           type: string
           description: Request URL that can be used to query next page of search services. Returned when the total number of requested search services exceed maximum page size.
-      description: Response containing a list of Azure Cognitive Search services.
+      description: Response containing a list of search services.
       x-ms-external: true
     AsyncOperationResult:
       type: object
@@ -597,6 +799,50 @@ components:
           x-ms-enum:
             name: ResourceIdentityType
             modelAsString: false
+    QuotaUsagesListResult:
+      type: object
+      properties:
+        value:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/QuotaUsageResult'
+          description: The quota usages for the SKUs supported by Azure AI Search.
+        nextLink:
+          readOnly: true
+          type: string
+          description: Request URL that can be used to query next page of quota usages. Returned when the total number of requested quota usages exceed maximum page size.
+      description: Response containing the quota usage information for all the supported SKUs of Azure AI Search.
+      x-ms-external: true
+    QuotaUsageResult:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The resource ID of the quota usage SKU endpoint for Microsoft.Search provider.
+        unit:
+          type: string
+          description: The unit of measurement for the search SKU.
+        currentValue:
+          type: integer
+          format: int32
+          description: The currently used up value for the particular search SKU.
+        limit:
+          type: integer
+          format: int32
+          description: The quota limit for the particular search SKU.
+        name:
+          readOnly: true
+          type: object
+          properties:
+            value:
+              type: string
+              description: The SKU name supported by Azure AI Search.
+            localizedValue:
+              type: string
+              description: The localized string value for the SKU name.
+          description: The name of the SKU supported by Azure AI Search.
+      description: Describes the quota usage for a particular SKU.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -959,7 +1205,7 @@ components:
     SearchServiceNameParameter:
       name: searchServiceName
       in: path
-      description: The name of the Azure Cognitive Search service associated with the specified resource group.
+      description: The name of the search service associated with the specified resource group.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -967,7 +1213,7 @@ components:
     PrivateEndpointConnectionNameParameter:
       name: privateEndpointConnectionName
       in: path
-      description: The name of the private endpoint connection to the Azure Cognitive Search service with the specified resource group.
+      description: The name of the private endpoint connection to the search service with the specified resource group.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -975,7 +1221,7 @@ components:
     SharedPrivateLinkResourceNameParameter:
       name: sharedPrivateLinkResourceName
       in: path
-      description: The name of the shared private link resource managed by the Azure Cognitive Search service within the specified resource group.
+      description: The name of the shared private link resource managed by the search service within the specified resource group.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -1017,15 +1263,6 @@ components:
       schema:
         minLength: 1
         type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
     LocationParameter:
       name: location
       in: path
@@ -1035,9 +1272,26 @@ components:
       schema:
         minLength: 1
         type: string
+    SkuNameParameter:
+      name: skuName
+      in: path
+      description: The unique SKU name that identifies a billable tier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
 paths:
   /providers/Microsoft.Search/operations:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Operations
@@ -1061,12 +1315,12 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/listAdminKeys:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - AdminKeys
       operationId: AdminKeys_Get
-      description: Gets the primary and secondary admin API keys for the specified Azure Cognitive Search service.
+      description: Gets the primary and secondary admin API keys for the specified search service.
       externalDocs:
         url: https://aka.ms/search-manage
       parameters:
@@ -1077,7 +1331,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
-          description: The admin keys were successfully retrieved and are in the response. You can use either the primary or secondary key as the value of the 'api-key' parameter in the Azure Cognitive Search Service REST API or SDK to perform any operations on your search service, including privileged operations. Privileged operations include managing resources like indexes and data sources as well as uploading, modifying, or deleting data in your indexes.
+          description: The admin keys were successfully retrieved and are in the response. You can use either the primary or secondary key as the value of the 'api-key' parameter in the data plane REST API or an Azure SDK to perform any operations on your search service, including privileged operations. Privileged operations include managing resources like indexes and data sources as well as uploading, modifying, or deleting data in your indexes.
           content:
             application/json:
               schema:
@@ -1089,7 +1343,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/regenerateAdminKey/{keyKind}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - AdminKeys
@@ -1111,6 +1365,13 @@ paths:
             x-ms-enum:
               name: AdminKeyKind
               modelAsString: false
+              values:
+                - value: primary
+                  name: Primary
+                  description: The primary API key for the search service.
+                - value: secondary
+                  name: Secondary
+                  description: The secondary API key for the search service.
             type: string
         - $ref: '#/components/parameters/ClientRequestIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -1129,7 +1390,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/createQueryKey/{name}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - QueryKeys
@@ -1151,7 +1412,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
-          description: The query key was successfully created and is in the response. You can use the query key as the value of the 'api-key' parameter in the Azure Cognitive Search Service REST API or SDK to perform read-only operations on your Search indexes such as querying and looking up documents by ID.
+          description: The query key was successfully created and is in the response. You can use the query key as the value of the 'api-key' parameter in the data plane REST API or an Azure SDK to perform read-only operations on your Search indexes such as querying and looking up documents by ID.
           content:
             application/json:
               schema:
@@ -1163,14 +1424,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/listQueryKeys:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - QueryKeys
       x-ms-pageable:
         nextLinkName: nextLink
       operationId: QueryKeys_ListBySearchService
-      description: Returns the list of query API keys for the given Azure Cognitive Search service.
+      description: Returns the list of query API keys for the given search service.
       externalDocs:
         url: https://aka.ms/search-manage
       parameters:
@@ -1181,7 +1442,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
-          description: All query keys for the given search service were successfully retrieved and are in the response. You can use any of the query keys as the value of the 'api-key' parameter in the Azure Cognitive Search Service REST API or SDK to perform read-only operations on your Search indexes such as querying and looking up documents by ID.
+          description: All query keys for the given search service were successfully retrieved and are in the response. You can use any of the query keys as the value of the 'api-key' parameter in the data plane REST API or an Azure SDK to perform read-only operations on the documents collection of your search indexes such as querying and looking up documents by ID.
           content:
             application/json:
               schema:
@@ -1193,7 +1454,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/deleteQueryKey/{key}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     delete:
       tags:
         - QueryKeys
@@ -1227,7 +1488,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     put:
       tags:
         - Services
@@ -1239,7 +1500,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: searchServiceName
           in: path
-          description: The name of the Azure Cognitive Search service to create or update. Search service names must only contain lowercase letters, digits or dashes, cannot use dash as the first two or last one characters, cannot contain consecutive dashes, and must be between 2 and 60 characters in length. Search service names must be globally unique since they are part of the service URI (https://<name>.search.windows.net). You cannot change the service name after the service is created.
+          description: The name of the search service to create or update. Search service names must only contain lowercase letters, digits or dashes, cannot use dash as the first two or last one characters, cannot contain consecutive dashes, and must be between 2 and 60 characters in length. Search service names must be globally unique since they are part of the service URI (https://<name>.search.windows.net). You cannot change the service name after the service is created.
           required: true
           schema:
             type: string
@@ -1285,7 +1546,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: searchServiceName
           in: path
-          description: The name of the Azure Cognitive Search service to update.
+          description: The name of the search service to update.
           required: true
           schema:
             type: string
@@ -1366,14 +1627,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Services
       x-ms-pageable:
         nextLinkName: nextLink
       operationId: Services_ListByResourceGroup
-      description: Gets a list of all search services in the given resource group.
+      description: Gets a list of all Search services in the given resource group.
       externalDocs:
         url: https://aka.ms/search-manage
       parameters:
@@ -1395,7 +1656,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/privateLinkResources:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateLinkResources
@@ -1425,7 +1686,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     put:
       tags:
         - PrivateEndpointConnections
@@ -1518,7 +1779,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/privateEndpointConnections:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateEndpointConnections
@@ -1548,7 +1809,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/sharedPrivateLinkResources/{sharedPrivateLinkResourceName}:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     put:
       tags:
         - SharedPrivateLinkResources
@@ -1576,7 +1837,7 @@ paths:
               $ref: '#/components/schemas/SharedPrivateLinkResource'
       responses:
         '200':
-          description: The details of the shared private link resource that was created.
+          description: The details of the shared private link resource that was created or updated.
           content:
             application/json:
               schema:
@@ -1647,7 +1908,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}/sharedPrivateLinkResources:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - SharedPrivateLinkResources
@@ -1677,14 +1938,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.Search/searchServices:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Services
       x-ms-pageable:
         nextLinkName: nextLink
       operationId: Services_ListBySubscription
-      description: Gets a list of all search services in the given subscription.
+      description: Gets a list of all Search services in the given subscription.
       externalDocs:
         url: https://aka.ms/search-manage
       parameters:
@@ -1705,7 +1966,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.Search/checkNameAvailability:
-    x-api-version: '2020-08-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - Services
@@ -1735,6 +1996,63 @@ paths:
                 $ref: '#/components/schemas/CheckNameAvailabilityOutput'
         default:
           description: 'HTTP 400 (Bad Request): The given resource type is not ''searchServices''.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Search/locations/{location}/usages:
+    x-api-version: '2023-11-01'
+    get:
+      tags:
+        - Usages
+      x-ms-pageable:
+        nextLinkName: nextLink
+      operationId: Usages_ListBySubscription
+      description: Gets a list of all Search quota usages in the given subscription.
+      externalDocs:
+        url: https://aka.ms/search-manage
+      parameters:
+        - $ref: '#/components/parameters/ClientRequestIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: The operation succeeded. The response contains the list of all Search quota usages for the given subscription.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaUsagesListResult'
+        default:
+          description: An unexpected error occurred during the operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Search/locations/{location}/usages/{skuName}:
+    x-api-version: '2023-11-01'
+    get:
+      tags:
+        - Usages
+      operationId: UsageBySubscriptionSku
+      description: Gets the quota usage for a search SKU in the given subscription.
+      externalDocs:
+        url: https://aka.ms/search-manage
+      parameters:
+        - $ref: '#/components/parameters/ClientRequestIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/SkuNameParameter'
+      responses:
+        '200':
+          description: The operation succeeded. The response contains the quota usage of a search service SKU for the given subscription.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaUsageResult'
+        default:
+          description: An unexpected error occurred during the operation.
           content:
             application/json:
               schema:

@@ -39,7 +39,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     
     // get metadata for service
     if (!serviceInfo[specificationDir]){
-        logger.info(`skipping ${specificationDir}...`);
+        logger.warn(`skipping ${specificationDir}, no metadata...`);
         return;
     }
 

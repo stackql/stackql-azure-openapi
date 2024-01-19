@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2021-06-10'
+  version: '2023-05-01'
   title: Azure Health Bot
   description: Azure Health Bot is a cloud platform that empowers developers in Healthcare organizations to build and deploy their compliant, AI-powered virtual health assistants and health bots, that help them improve processes and reduce costs.
   x-ms-code-generation-settings:
@@ -68,6 +68,29 @@ components:
           description: The client ID of user assigned identity.
       type: object
       description: The details of the user assigned managed identity used by the Video Analyzer resource.
+    KeyVaultProperties:
+      type: object
+      description: Properties of the key vault.
+      required:
+        - keyName
+        - keyVaultUri
+      properties:
+        keyName:
+          type: string
+          description: The name of the key vault key.
+          x-ms-client-name: KeyName
+        keyVersion:
+          type: string
+          description: The version of the key vault key.
+          x-ms-client-name: KeyVersion
+        keyVaultUri:
+          type: string
+          description: The Uri of the key vault.
+          x-ms-client-name: KeyVaultUri
+        userIdentity:
+          type: string
+          description: The user assigned identity (ARM resource id) that has access to the key.
+          x-ms-client-name: UserIdentity
     Sku:
       type: object
       description: The resource model definition representing SKU
@@ -79,6 +102,7 @@ components:
             - F0
             - S1
             - C0
+            - PES
           x-ms-enum:
             name: SkuName
             modelAsString: false
@@ -158,10 +182,16 @@ components:
           type: string
           description: The link.
           readOnly: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: KeyVault properties for the resource encryption.
     HealthBotUpdateParameters:
       type: object
       description: Parameters for updating a Azure Health Bot.
       properties:
+        properties:
+          $ref: '#/components/schemas/HealthBotProperties'
+          description: Properties of Azure Health Bot.
         tags:
           type: object
           description: Tags for a Azure Health Bot.
@@ -182,6 +212,29 @@ components:
           x-ms-mutability:
             - create
             - read
+    HealthBotKey:
+      type: object
+      description: An entry of HealthBotKeysResponse
+      properties:
+        keyName:
+          type: string
+          description: The name of the key.
+        value:
+          type: string
+          x-ms-secret: true
+          description: The value of the key.
+    HealthBotKeysResponse:
+      type: object
+      description: Health Bot Keys Response.
+      properties:
+        secrets:
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/HealthBotKey'
+          description: Array of Azure Health Bot Secrets.
+          minLength: 3
+          maxLength: 3
     SystemData:
       description: Read only system data
       type: object
@@ -282,8 +335,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OperationDetail'
-          x-ms-identifiers:
-            - name
+          x-ms-identifiers: []
         nextLink:
           description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
           type: string
@@ -375,7 +427,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthBot/healthBots/{botName}:
-    x-api-version: '2021-06-10'
+    x-api-version: '2023-05-01'
     put:
       operationId: Bots_Create
       description: Create a new Azure Health Bot.
@@ -470,6 +522,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      x-ms-long-running-operation: true
     delete:
       operationId: Bots_Delete
       description: Delete a HealthBot.
@@ -492,8 +545,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthBot/healthBots/{botName}/listSecrets:
+    x-api-version: '2023-05-01'
+    post:
+      operationId: Bots_ListSecrets
+      description: List all secrets of a HealthBot.
+      parameters:
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupNameParameter'
+        - $ref: '#/components/parameters/resourceNameParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: If secrets are retrieved successfully, the service should return 200 (OK).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthBotKeysResponse'
+        default:
+          description: Error response describing why the operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthBot/healthBots/{botName}/regenerateApiJwtSecret:
+    x-api-version: '2023-05-01'
+    post:
+      operationId: Bots_RegenerateApiJwtSecret
+      description: Regenerate the API JWT Secret of a HealthBot.
+      parameters:
+        - $ref: '#/components/parameters/subscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupNameParameter'
+        - $ref: '#/components/parameters/resourceNameParameter'
+        - $ref: '#/components/parameters/apiVersionParameter'
+      responses:
+        '200':
+          description: If secret was regenerated successfully, the service should return 200 (OK).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthBotKey'
+        default:
+          description: Error response describing why the operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthBot/healthBots:
-    x-api-version: '2021-06-10'
+    x-api-version: '2023-05-01'
     get:
       description: Returns all the resources of a particular type belonging to a resource group
       operationId: Bots_ListByResourceGroup
@@ -526,7 +625,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthBot/healthBots:
-    x-api-version: '2021-06-10'
+    x-api-version: '2023-05-01'
     get:
       description: Returns all the resources of a particular type belonging to a subscription.
       operationId: Bots_List
@@ -552,7 +651,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.HealthBot/operations:
-    x-api-version: '2021-06-10'
+    x-api-version: '2023-05-01'
     get:
       tags:
         - Operations

@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: Dynatrace.Observability
-  version: '2021-09-01'
+  version: '2023-04-27'
 security:
   - azure_auth:
       - user_impersonation
@@ -485,22 +485,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    AccountInfoSecure:
-      type: object
-      properties:
-        accountId:
-          type: string
-          description: Account Id of the account this environment is linked to
-          readOnly: true
-        apiKey:
-          $ref: '#/components/schemas/SecureString'
-          description: API Key of the user account
-          readOnly: true
-        regionId:
-          type: string
-          description: Region in which the account is created
-          readOnly: true
-      description: Dynatrace account API Key
     MonitoredResourceListResponse:
       type: object
       properties:
@@ -514,6 +498,19 @@ components:
           type: string
           description: The link to the next page of items
       description: List of all the resources being monitored by Dynatrace monitor resource
+    MarketplaceSaaSResourceDetailsResponse:
+      type: object
+      properties:
+        marketplaceSaaSResourceId:
+          type: string
+          description: Id of the Marketplace SaaS Resource
+        planId:
+          type: string
+          description: Id of the plan
+        marketplaceSubscriptionStatus:
+          $ref: '#/components/schemas/MarketplaceSubscriptionStatus'
+          description: Marketplace subscription status
+      description: Marketplace SaaS resource details linked to the given tenant Id
     VMExtensionPayload:
       type: object
       properties:
@@ -568,6 +565,16 @@ components:
           type: string
           description: The name of the host
       description: Details of App Services having Dynatrace OneAgent installed
+    MetricsStatusResponse:
+      type: object
+      properties:
+        azureResourceIds:
+          type: array
+          items:
+            type: string
+          x-cadl-name: string[]
+          description: Azure resource IDs
+      description: Response of get metrics status operation
     AppServiceListResponse:
       type: object
       properties:
@@ -587,9 +594,6 @@ components:
         properties:
           $ref: '#/components/schemas/MonitorProperties'
           description: The resource-specific properties for this resource.
-          x-ms-mutability:
-            - read
-            - create
           x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
@@ -615,21 +619,6 @@ components:
             - read
             - update
             - create
-        monitoringStatus:
-          $ref: '#/components/schemas/MonitoringStatus'
-          description: Status of the monitor.
-        marketplaceSubscriptionStatus:
-          $ref: '#/components/schemas/MarketplaceSubscriptionStatus'
-          description: Marketplace subscription status.
-        dynatraceEnvironmentProperties:
-          $ref: '#/components/schemas/DynatraceEnvironmentProperties'
-          description: Properties of the Dynatrace environment.
-        userInfo:
-          $ref: '#/components/schemas/UserInfo'
-          description: User info.
-        planData:
-          $ref: '#/components/schemas/PlanData'
-          description: Billing plan information.
       description: The updatable properties of the MonitorResource.
     MonitorResourceListResult:
       type: object
@@ -652,9 +641,6 @@ components:
         properties:
           $ref: '#/components/schemas/MonitoringTagRulesProperties'
           description: The resource-specific properties for this resource.
-          x-ms-mutability:
-            - read
-            - create
           x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
@@ -665,16 +651,6 @@ components:
         - properties
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
-    TagRuleUpdate:
-      type: object
-      properties:
-        logRules:
-          $ref: '#/components/schemas/LogRules'
-          description: Set of rules for sending logs for the Monitor resource.
-        metricRules:
-          $ref: '#/components/schemas/MetricRules'
-          description: Set of rules for sending metrics for the Monitor resource.
-      description: The updatable properties of the TagRule.
     TagRuleListResult:
       type: object
       properties:
@@ -696,9 +672,6 @@ components:
         properties:
           $ref: '#/components/schemas/DynatraceSingleSignOnProperties'
           description: The resource-specific properties for this resource.
-          x-ms-mutability:
-            - read
-            - create
           x-ms-client-flatten: true
         systemData:
           $ref: '#/components/schemas/systemData'
@@ -724,11 +697,6 @@ components:
       description: The response of a DynatraceSingleSignOnResource list operation.
       required:
         - value
-    SecureString:
-      type: string
-      format: password
-      x-ms-secret: true
-      description: Credential string.
     MonitoredResource:
       type: object
       properties:
@@ -1002,6 +970,9 @@ components:
       description: Set of rules for sending metrics for the Monitor resource.
       type: object
       properties:
+        sendingMetrics:
+          $ref: '#/components/schemas/SendingMetricsStatus'
+          description: Flag specifying if metrics from Azure resources should be sent for the Monitor resource.
         filteringTags:
           description: List of filtering tags to be used for capturing metrics. If empty, all resources will be captured. If only Exclude action is specified, the rules will apply to the list of all available resources. If Include actions are specified, the rules will only include resources with the associated tags.
           type: array
@@ -1136,6 +1107,10 @@ components:
         region:
           type: string
           description: Azure region in which we want to link the environment
+      required:
+        - tenantId
+        - userPrincipal
+        - region
     LinkableEnvironmentResponse:
       description: Response for getting all the linkable environments
       type: object
@@ -1162,6 +1137,15 @@ components:
         nextLink:
           description: Link to the next set of results, if any.
           type: string
+    MarketplaceSaaSResourceDetailsRequest:
+      description: Request for getting Marketplace SaaS resource details for a tenant Id
+      type: object
+      properties:
+        tenantId:
+          type: string
+          description: Tenant Id
+      required:
+        - tenantId
     SSODetailsRequest:
       description: Request for getting sso details for a user
       type: object
@@ -1169,6 +1153,8 @@ components:
         userPrincipal:
           type: string
           description: user principal id of the user
+      required:
+        - userPrincipal
     SSODetailsResponse:
       type: object
       properties:
@@ -1335,33 +1321,8 @@ components:
       schema:
         type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/getAccountCredentials:
-    x-api-version: '2021-09-01'
-    post:
-      operationId: Monitors_GetAccountCredentials
-      summary: Gets the user account credentials for a Monitor
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/MonitorNameParameter'
-      responses:
-        '200':
-          description: Dynatrace account API Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountInfoSecure'
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      tags:
-        - Monitors
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/listMonitoredResources:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_ListMonitoredResources
       summary: List the resources currently being monitored by the Dynatrace monitor resource.
@@ -1388,7 +1349,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/getVMHostPayload:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_GetVMHostPayload
       summary: Returns the payload that needs to be passed in the request body for installing Dynatrace agent on a VM.
@@ -1413,7 +1374,7 @@ paths:
       tags:
         - Monitors
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: Monitors_Get
       summary: Get a MonitorResource
@@ -1535,7 +1496,7 @@ paths:
       tags:
         - Monitors
   /providers/Dynatrace.Observability/operations:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: Operations_List
       summary: List the operations for Dynatrace.Observability
@@ -1559,7 +1520,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Dynatrace.Observability/monitors:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: Monitors_ListBySubscriptionId
       summary: List all MonitorResource by subscriptionId
@@ -1584,7 +1545,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: Monitors_ListByResourceGroup
       summary: List MonitorResource resources by resource group
@@ -1610,7 +1571,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/tagRules/{ruleSetName}:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: TagRules_Get
       summary: Get a TagRule
@@ -1676,38 +1637,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       tags:
         - TagRules
-    patch:
-      operationId: TagRules_Update
-      summary: Update a TagRule
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/MonitorNameParameter'
-        - $ref: '#/components/parameters/RuleSetNameParameter'
-      requestBody:
-        description: The resource properties to be updated.
-        required: true
-        x-ms-requestBody-name: resource
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TagRuleUpdate'
-      responses:
-        '200':
-          description: ARM operation completed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TagRule'
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      tags:
-        - TagRules
     delete:
       operationId: TagRules_Delete
       x-ms-long-running-operation: true
@@ -1736,7 +1665,7 @@ paths:
       tags:
         - TagRules
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/tagRules:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: TagRules_List
       summary: List all TagRule by monitorName
@@ -1762,8 +1691,43 @@ paths:
         - TagRules
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Dynatrace.Observability/getMarketplaceSaaSResourceDetails:
+    x-api-version: '2023-04-27'
+    post:
+      tags:
+        - Monitors
+      operationId: Monitors_GetMarketplaceSaaSResourceDetails
+      description: Get Marketplace SaaS resource details of a tenant under a specific subscription
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Tenant Id
+        required: true
+        x-ms-requestBody-name: request
+        x-ms-parameter-location: method
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketplaceSaaSResourceDetailsRequest'
+      responses:
+        '200':
+          description: ARM operation completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketplaceSaaSResourceDetailsResponse'
+        '404':
+          description: No Marketplace SaaS resource found for the given tenant Id
+          x-ms-error-response: true
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/singleSignOnConfigurations/{configurationName}:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     put:
       operationId: SingleSignOn_CreateOrUpdate
       x-ms-long-running-operation: true
@@ -1830,7 +1794,7 @@ paths:
       tags:
         - SingleSignOn
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/singleSignOnConfigurations:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     get:
       operationId: SingleSignOn_List
       summary: List all DynatraceSingleSignOnResource by monitorName
@@ -1857,10 +1821,10 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/listHosts:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_ListHosts
-      summary: List the compute resources currently being monitored by the Dynatrace resource.
+      summary: List the VM/VMSS resources currently being monitored by the Dynatrace resource.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1883,8 +1847,38 @@ paths:
         - Monitors
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/getMetricStatus:
+    x-api-version: '2023-04-27'
+    post:
+      tags:
+        - Monitors
+      operationId: Monitors_GetMetricStatus
+      description: Get metric status
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - name: monitorName
+          in: path
+          description: Name of the Monitor resource
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ARM operation completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsStatusResponse'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/listAppServices:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_ListAppServices
       summary: Gets list of App Services with Dynatrace PaaS OneAgent enabled
@@ -1911,7 +1905,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/getSSODetails:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_GetSSODetails
       summary: Gets the SSO configuration details from the partner.
@@ -1947,7 +1941,7 @@ paths:
       tags:
         - Monitors
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Dynatrace.Observability/monitors/{monitorName}/listLinkableEnvironments:
-    x-api-version: '2021-09-01'
+    x-api-version: '2023-04-27'
     post:
       operationId: Monitors_ListLinkableEnvironments
       summary: Gets all the Dynatrace environments that a user can link a azure resource to

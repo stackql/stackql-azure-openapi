@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2022-06-01'
+  version: '2023-11-01'
   title: HealthcareApisClient
   description: Use this API to manage Microsoft HealthcareApis services in your Azure subscription.
 security:
@@ -142,6 +142,17 @@ components:
           allOf:
             - $ref: '#/components/schemas/Plan'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -215,6 +226,38 @@ components:
         - name
         - publisher
         - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
     ErrorResponse:
       title: Error Response
       description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
@@ -329,6 +372,42 @@ components:
           type: string
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
     locationData:
       description: Metadata pertaining to the geographic location of the resource.
       type: object
@@ -414,6 +493,35 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     ServicesProperties:
       description: The properties of a service instance.
       type: object
@@ -461,6 +569,8 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/ServiceAccessPolicyEntry'
+      x-ms-identifiers:
+        - objectId
     ServiceAccessPolicyEntry:
       description: An access policy entry.
       properties:
@@ -479,10 +589,14 @@ components:
           description: The provisioned throughput for the backing database.
           readOnly: false
           minimum: 400
-          maximum: 10000
         keyVaultKeyUri:
           type: string
           description: The URI of the customer-managed key for the backing database.
+          readOnly: false
+        crossTenantCmkApplicationId:
+          type: string
+          pattern: ^(([0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}){1})+$
+          description: The multi-tenant application id used to enable CMK access for services in a data sovereign region.
           readOnly: false
     ServiceAuthenticationConfigurationInfo:
       description: Authentication configuration information
@@ -811,6 +925,8 @@ components:
           readOnly: true
           items:
             $ref: '#/components/schemas/OperationDetail'
+          x-ms-identifiers:
+            - name
         nextLink:
           description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
           type: string
@@ -1153,7 +1269,6 @@ components:
           x-ms-client-flatten: false
           type: object
           description: Workspaces resource specific properties.
-          x-ms-azure-resource: true
           properties:
             provisioningState:
               description: The provisioning state.
@@ -1245,6 +1360,12 @@ components:
         publicNetworkAccess:
           description: Control permission for data plane traffic coming from public networks while private endpoint is enabled.
           $ref: '#/components/schemas/ResourcePublicNetworkAccess'
+        eventState:
+          description: DICOM Service event support status.
+          $ref: '#/components/schemas/ResourceEventState'
+        encryption:
+          description: The encryption settings of the DICOM service
+          $ref: '#/components/schemas/Encryption'
     DicomServiceAuthenticationConfiguration:
       description: Authentication configuration information
       type: object
@@ -1473,9 +1594,6 @@ components:
         provisioningState:
           description: The provisioning state.
           $ref: '#/components/schemas/ProvisioningState'
-        accessPolicies:
-          description: Fhir Service access policies.
-          $ref: '#/components/schemas/FhirServiceAccessPolicies'
         acrConfiguration:
           description: Fhir Service Azure container registry configuration.
           $ref: '#/components/schemas/FhirServiceAcrConfiguration'
@@ -1506,6 +1624,12 @@ components:
         importConfiguration:
           description: Fhir Service import configuration.
           $ref: '#/components/schemas/FhirServiceImportConfiguration'
+        implementationGuidesConfiguration:
+          description: Implementation Guides configuration.
+          $ref: '#/components/schemas/ImplementationGuidesConfiguration'
+        encryption:
+          description: The encryption settings of the FHIR service
+          $ref: '#/components/schemas/Encryption'
     ResourceVersionPolicyConfiguration:
       description: The settings for history tracking for FHIR resources.
       type: object
@@ -1518,6 +1642,14 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/FhirResourceVersionPolicy'
+    ImplementationGuidesConfiguration:
+      description: The settings for Implementation Guides - defining capabilities for national standards, vendor consortiums, clinical societies, etc.
+      type: object
+      properties:
+        usCoreMissingData:
+          type: boolean
+          description: If US Core Missing Data requirement is enabled.
+          readOnly: false
     FhirResourceVersionPolicy:
       type: string
       description: Controls how resources are versioned on the FHIR service
@@ -1528,21 +1660,6 @@ components:
       x-ms-enum:
         name: FhirResourceVersionPolicy
         modelAsString: true
-    FhirServiceAccessPolicies:
-      description: The access policies of the service instance.
-      type: array
-      items:
-        $ref: '#/components/schemas/FhirServiceAccessPolicyEntry'
-    FhirServiceAccessPolicyEntry:
-      type: object
-      description: An access policy entry.
-      properties:
-        objectId:
-          description: An Azure AD object ID (User or Apps) that is allowed access to the FHIR service.
-          type: string
-          pattern: ^(([0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}){1})+$
-      required:
-        - objectId
     FhirServiceAcrConfiguration:
       description: Azure container registry configuration information
       type: object
@@ -1666,6 +1783,19 @@ components:
         name: PublicNetworkAccess
         modelAsString: true
       readOnly: true
+    Encryption:
+      description: Settings to encrypt a service
+      type: object
+      properties:
+        customerManagedKeyEncryption:
+          type: object
+          description: The encryption settings for the customer-managed key
+          readOnly: false
+          properties:
+            keyEncryptionKeyUrl:
+              type: string
+              description: The URL of the key to use for encryption
+              readOnly: false
     PrivateEndpointConnectionListResult:
       type: object
       properties:
@@ -1804,9 +1934,10 @@ components:
     ApiVersionParameter:
       name: api-version
       in: query
-      description: Client Api Version.
+      description: The API version to use for this operation.
       required: true
       schema:
+        minLength: 1
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName
@@ -1818,19 +1949,23 @@ components:
         minLength: 1
         maxLength: 90
         type: string
-    subscriptionId:
-      name: subscriptionId
+    OperationIdParameter:
+      name: operationId
       in: path
-      description: The subscription identifier.
+      description: The ID of an ongoing async operation.
       required: true
+      x-ms-parameter-location: method
       schema:
+        minLength: 1
         type: string
-    apiVersion:
-      name: api-version
-      in: query
-      description: Client Api Version.
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
       required: true
+      x-ms-parameter-location: method
       schema:
+        minLength: 1
         type: string
     resourceGroupName:
       name: resourceGroupName
@@ -1929,7 +2064,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Resource
@@ -1937,7 +2072,7 @@ paths:
       operationId: Services_Get
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
       responses:
@@ -1961,7 +2096,7 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
       requestBody:
@@ -1999,7 +2134,7 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
       requestBody:
@@ -2031,7 +2166,7 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
       responses:
@@ -2046,7 +2181,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/services:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Collection
@@ -2056,7 +2191,7 @@ paths:
         nextLinkName: nextLink
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: This is a synchronous operation. The body contains a JSON-serialized array of the metadata from all the service instances in the subscription.
@@ -2071,7 +2206,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Collection
@@ -2081,7 +2216,7 @@ paths:
         nextLinkName: nextLink
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
       responses:
         '200':
@@ -2097,7 +2232,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/checkNameAvailability:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     post:
       tags:
         - Proxy
@@ -2105,7 +2240,7 @@ paths:
       operationId: Services_CheckNameAvailability
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       requestBody:
         description: Set the name parameter in the CheckNameAvailabilityParameters structure to the name of the service instance to check.
         required: true
@@ -2128,14 +2263,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateEndpointConnections:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateEndpointConnections
       operationId: PrivateEndpointConnections_ListByService
       description: Lists all private endpoint connections for a service.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2155,14 +2290,14 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateEndpointConnections
       operationId: PrivateEndpointConnections_Get
       description: Gets the specified private endpoint connection associated with the service.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2186,7 +2321,7 @@ paths:
       operationId: PrivateEndpointConnections_CreateOrUpdate
       description: Update the state of the specified private endpoint connection associated with the service.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2219,7 +2354,7 @@ paths:
       description: Deletes a private endpoint connection.
       operationId: PrivateEndpointConnections_Delete
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2239,14 +2374,14 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateLinkResources:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateLinkResources
       operationId: PrivateLinkResources_ListByService
       description: Gets the private link resources that need to be created for a service.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2264,14 +2399,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateLinkResources/{groupName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - PrivateLinkResources
       operationId: PrivateLinkResources_Get
       description: Gets a private link resource that need to be created for a service.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/resourceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2295,15 +2430,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/workspaces:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Workspaces
       description: Lists all the available workspaces under the specified subscription.
       operationId: Workspaces_ListBySubscription
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
         '200':
           description: This is a synchronous operation. The body contains a JSON-serialized array of the metadata from all the workspaces in the subscription.
@@ -2320,15 +2455,15 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Workspaces
       description: Lists all the available workspaces under the specified resource group.
       operationId: Workspaces_ListByResourceGroup
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
       responses:
         '200':
@@ -2346,7 +2481,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Workspaces
@@ -2354,8 +2489,8 @@ paths:
       operationId: Workspaces_Get
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       responses:
         '200':
@@ -2378,8 +2513,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       requestBody:
         description: The parameters for creating or updating a healthcare workspace.
@@ -2422,8 +2557,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       requestBody:
         description: The parameters for updating a specified workspace.
@@ -2459,8 +2594,8 @@ paths:
       operationId: Workspaces_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
       responses:
@@ -2477,7 +2612,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/dicomservices:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - DicomServices
@@ -2485,8 +2620,8 @@ paths:
       operationId: DicomServices_ListByWorkspace
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       responses:
         '200':
@@ -2504,7 +2639,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/dicomservices/{dicomServiceName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - DicomServices
@@ -2512,8 +2647,8 @@ paths:
       operationId: DicomServices_Get
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/dicomServiceName'
       responses:
@@ -2537,8 +2672,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/dicomServiceName'
       requestBody:
@@ -2582,8 +2717,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/dicomServiceName'
         - $ref: '#/components/parameters/workspaceName'
       requestBody:
@@ -2620,8 +2755,8 @@ paths:
       operationId: DicomServices_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/dicomServiceName'
         - $ref: '#/components/parameters/workspaceName'
@@ -2639,7 +2774,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - IotConnectors
@@ -2647,8 +2782,8 @@ paths:
       operationId: IotConnectors_ListByWorkspace
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       responses:
         '200':
@@ -2666,7 +2801,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - IotConnectors
@@ -2674,8 +2809,8 @@ paths:
       operationId: IotConnectors_Get
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
       responses:
@@ -2699,8 +2834,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
       requestBody:
@@ -2744,8 +2879,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/iotConnectorName'
         - $ref: '#/components/parameters/workspaceName'
       requestBody:
@@ -2782,8 +2917,8 @@ paths:
       operationId: IotConnectors_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/iotConnectorName'
         - $ref: '#/components/parameters/workspaceName'
@@ -2801,7 +2936,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/fhirdestinations:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - IotConnectors
@@ -2809,8 +2944,8 @@ paths:
       operationId: FhirDestinations_ListByIotConnector
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
       responses:
@@ -2829,7 +2964,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/fhirdestinations/{fhirDestinationName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - IotConnectors
@@ -2837,8 +2972,8 @@ paths:
       operationId: IotConnectorFhirDestination_Get
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
         - $ref: '#/components/parameters/fhirDestinationName'
@@ -2863,8 +2998,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
         - $ref: '#/components/parameters/fhirDestinationName'
@@ -2908,8 +3043,8 @@ paths:
       operationId: IotConnectorFhirDestination_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/iotConnectorName'
@@ -2928,7 +3063,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/fhirservices:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - FhirServices
@@ -2936,8 +3071,8 @@ paths:
       operationId: FhirServices_ListByWorkspace
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
       responses:
         '200':
@@ -2955,7 +3090,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/fhirservices/{fhirServiceName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - FhirServices
@@ -2963,8 +3098,8 @@ paths:
       operationId: FhirServices_Get
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/fhirServiceName'
       responses:
@@ -2988,8 +3123,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/fhirServiceName'
       requestBody:
@@ -3033,8 +3168,8 @@ paths:
       x-ms-long-running-operation: true
       parameters:
         - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/fhirServiceName'
         - $ref: '#/components/parameters/workspaceName'
       requestBody:
@@ -3071,8 +3206,8 @@ paths:
       operationId: FhirServices_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/fhirServiceName'
         - $ref: '#/components/parameters/workspaceName'
@@ -3090,15 +3225,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateEndpointConnections:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - WorkspacePrivateEndpointConnections
       operationId: WorkspacePrivateEndpointConnections_ListByWorkspace
       description: Lists all private endpoint connections for a workspace.
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
       responses:
@@ -3117,15 +3252,15 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - WorkspacePrivateEndpointConnections
       operationId: WorkspacePrivateEndpointConnections_Get
       description: Gets the specified private endpoint connection associated with the workspace.
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
@@ -3148,8 +3283,8 @@ paths:
       operationId: WorkspacePrivateEndpointConnections_CreateOrUpdate
       description: Update the state of the specified private endpoint connection associated with the workspace.
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
@@ -3181,8 +3316,8 @@ paths:
       description: Deletes a private endpoint connection.
       operationId: WorkspacePrivateEndpointConnections_Delete
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
         - $ref: '#/components/parameters/PrivateEndpointConnectionName'
@@ -3201,15 +3336,15 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateLinkResources:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - WorkspacePrivateLinkResources
       operationId: WorkspacePrivateLinkResources_ListByWorkspace
       description: Gets the private link resources that need to be created for a workspace.
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
       responses:
@@ -3228,15 +3363,15 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateLinkResources/{groupName}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - WorkspacePrivateLinkResources
       operationId: WorkspacePrivateLinkResources_Get
       description: Gets a private link resource that need to be created for a workspace.
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/resourceGroupName'
         - $ref: '#/components/parameters/workspaceName'
         - name: groupName
@@ -3259,7 +3394,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /providers/Microsoft.HealthcareApis/operations:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Proxy
@@ -3268,7 +3403,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
           description: OK. The request has succeeded.
@@ -3283,15 +3418,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/locations/{locationName}/operationresults/{operationResultId}:
-    x-api-version: '2022-06-01'
+    x-api-version: '2023-11-01'
     get:
       tags:
         - Proxy
       description: Get the operation result for a long running operation.
       operationId: OperationResults_Get
       parameters:
-        - $ref: '#/components/parameters/apiVersion'
-        - $ref: '#/components/parameters/subscriptionId'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/locationName'
         - $ref: '#/components/parameters/operationResultId'
       responses:

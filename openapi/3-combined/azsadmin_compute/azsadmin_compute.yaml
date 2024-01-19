@@ -18,64 +18,240 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    VMExtension:
-      description: Virtual Machine Extension Image.
+    PlatformImage:
+      description: Platform image represents a virtual machine.
       type: object
       properties:
         properties:
-          description: Inner properties of a Virtual Machine Extension Image.
+          description: Platform image properties.
           x-ms-client-flatten: true
-          $ref: '#/components/schemas/VMExtensionProperties'
+          $ref: '#/components/schemas/PlatformImageProperties'
       allOf:
         - $ref: '#/components/schemas/CrpResource'
-    VMExtensionProperties:
-      description: Properties of a Virtual Machine Extension Image.
+    PlatformImageProperties:
+      description: Properties of platform image.
       type: object
       properties:
-        vmOsType:
-          description: Target virtual machine operating system type necessary for deploying the extension handler.
-          $ref: '#/components/schemas/OsType'
-        publisher:
-          description: The publisher of the VM Extension
-          type: string
-        computeRole:
-          description: Compute role
-          type: string
-        vmScaleSetEnabled:
-          description: Value indicating whether the extension is enabled for virtual machine scale set support.
-          type: boolean
-        supportMultipleExtensions:
-          description: True if supports multiple extensions.
-          type: boolean
-        isSystemExtension:
-          description: Indicates if the extension is for the system.
-          type: boolean
-        sourceBlob:
-          description: URI to Azure or AzureStack blob.
-          $ref: '#/components/schemas/AzureBlob'
+        osDisk:
+          description: Operating system used for this platform image.
+          $ref: '#/components/schemas/OsDisk'
+        dataDisks:
+          description: Data disks used by the platform image.
+          type: array
+          items:
+            $ref: '#/components/schemas/DataDisk'
+          x-ms-identifiers:
+            - lun
+        details:
+          description: Information about the image.
+          $ref: '#/components/schemas/ImageDetails'
         provisioningState:
-          description: Provisioning state of extension.
+          description: Provisioning status of the platform image.
           $ref: '#/components/schemas/ProvisioningState'
-    AzureBlob:
-      description: Azure or AzureStack blob information.
+    OsDisk:
+      description: Operating system disk.
       type: object
       properties:
+        osType:
+          description: Operating system type.
+          $ref: '#/components/schemas/OsType'
         uri:
-          description: URI to Azure or AzureStack blob.
+          description: Location of the disk.
           type: string
-    VMExtensionList:
-      description: List of virtual machine extensions.
+    DataDisk:
+      description: Information about datadisk.
+      type: object
+      properties:
+        lun:
+          description: Logical unit number.
+          format: int32
+          type: integer
+        uri:
+          description: Location of the disk template.
+          type: string
+    ImageDetails:
+      description: Information about the disk image.
+      type: object
+      properties:
+        billingPartNumber:
+          description: The part number is used to bill for software costs.
+          type: string
+    OsType:
+      description: Operating system type.
+      enum:
+        - Unknown
+        - Windows
+        - Linux
+      type: string
+      x-ms-enum:
+        name: OsType
+    PlatformImageList:
+      description: List of platform images.
       type: array
       items:
-        $ref: '#/components/schemas/VMExtension'
-    VMExtensionParameters:
-      description: Parameters used to create a new Virtual Machine Extension Image.
+        $ref: '#/components/schemas/PlatformImage'
+    PlatformImageParameters:
+      description: Parameters used to create a new platform image.
       type: object
       properties:
         properties:
-          description: Properties of a Virtual Machine Extension Image.
+          description: Platform image properties.
           x-ms-client-flatten: true
-          $ref: '#/components/schemas/VMExtensionProperties'
+          $ref: '#/components/schemas/PlatformImageProperties'
+    ErrorResponse:
+      description: Error response.
+      properties:
+        error:
+          description: Error definition.
+          $ref: '#/components/schemas/ErrorDefinition'
+    ErrorDefinition:
+      description: Error definition.
+      readOnly: true
+      required:
+        - message
+        - code
+      properties:
+        code:
+          description: Service specific error code which serves as the substatus for the HTTP error code.
+          type: string
+          minimum: 100
+          maximum: 600
+        message:
+          description: Description of the error.
+          type: string
+    DiskProperties:
+      description: Managed disk properties.
+      type: object
+      properties:
+        diskId:
+          description: The disk id.
+          type: string
+        status:
+          description: The disk status.
+          $ref: '#/components/schemas/DiskState'
+        sharePath:
+          description: The disk share path.
+          type: string
+        actualSizeGB:
+          description: The actual size of disk in GB.
+          type: integer
+          format: int64
+          readOnly: true
+        provisionSizeGB:
+          description: The provision size of disk in GB.
+          type: integer
+          format: int64
+          readOnly: true
+        managedBy:
+          description: Compute resource Uri which owns this disk.
+          type: string
+          readOnly: true
+        userResourceId:
+          description: The disk resource Uri from user view.
+          type: string
+          readOnly: true
+        diskType:
+          description: The type of the disk resource.
+          $ref: '#/components/schemas/DiskResourceType'
+          readOnly: true
+        diskSku:
+          description: the disk sku.
+          $ref: '#/components/schemas/AccountType'
+          readOnly: true
+        creationSourceUri:
+          description: The disk creation source uri.
+          type: string
+          readOnly: true
+        creationOption:
+          description: The disk creation option.
+          $ref: '#/components/schemas/DiskCreationOption'
+          readOnly: true
+        exclusiveAllocatedSize:
+          description: The exclusive allocated size for the disk.
+          type: integer
+          format: int64
+          readOnly: true
+    Disk:
+      description: Managed Disk.
+      type: object
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/DiskProperties'
+          description: Disk properties.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    DiskList:
+      type: object
+      description: List of disks.
+      properties:
+        value:
+          description: List of disks.
+          type: array
+          items:
+            $ref: '#/components/schemas/Disk'
+        nextLink:
+          description: URI to the next page.
+          type: string
+    DiskState:
+      description: Disk State.
+      type: string
+      enum:
+        - Undefined
+        - Unattached
+        - Attached
+        - Reserved
+        - ActiveSAS
+        - Unknown
+        - All
+        - Recommended
+        - OfflineMigration
+        - OnlineMigration
+      x-ms-enum:
+        name: DiskState
+        modelAsString: true
+    DiskResourceType:
+      description: Disk resource type.
+      type: string
+      enum:
+        - Undefined
+        - Disk
+        - Snapshot
+        - RestorePoint
+        - ManagedBlob
+      x-ms-enum:
+        name: DiskResourceType
+        modelAsString: true
+    AccountType:
+      description: Disk Sku.
+      type: string
+      enum:
+        - Standard_LRS
+        - Standard_ZRS
+        - Standard_GRS
+        - Standard_RAGRS
+        - Premium_LRS
+        - StandardSSD_LRS
+        - UltraSSD_LRS
+      x-ms-enum:
+        name: AccountType
+        modelAsString: true
+    DiskCreationOption:
+      description: Disk creation option.
+      type: string
+      enum:
+        - Empty
+        - FromImage
+        - Import
+        - Copy
+        - Restore
+        - FromPreprovisioned
+        - Undelete
+        - Upload
+        - RecoverFromBlob
+      x-ms-enum:
+        name: DiskCreationOption
+        modelAsString: true
     Quota:
       description: Holds Compute quota information used to control resource allocation.
       type: object
@@ -143,6 +319,24 @@ components:
           items:
             $ref: '#/components/schemas/Quota'
     Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      x-ms-azure-resource: true
+    CrpResource:
       description: Base resource object.
       type: object
       properties:
@@ -162,6 +356,307 @@ components:
           description: Location of the resource.
           type: string
       x-ms-azure-resource: true
+    ProvisioningState:
+      description: The provisioning state of the resource.
+      enum:
+        - Creating
+        - Failed
+        - Succeeded
+        - Canceled
+      type: string
+      x-ms-enum:
+        name: ProvisioningState
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    Display:
+      description: Contains the localized display information for this particular operation or action.
+      type: object
+      properties:
+        provider:
+          description: The localized, friendly version of the resource provider name. The provider name is expected to include the name of the publisher or company responsible. The provider name format should use title case and begin with "Microsoft" for first-party services. For example, the provider name may be"Microsoft Monitoring Insights" or "Microsoft Compute."
+          type: string
+        resource:
+          description: The localized, friendly version of the resource type related to this action or operation; the resource type should match the public documentation for the resource provider.
+          type: string
+        operation:
+          description: The localized, friendly name for the operation. Use the name as it will displayed to the user.
+          type: string
+        description:
+          description: The localized, friendly description for the operation. The description will be displayed to the user. It should be thorough and concise for used in both tooltips and detailed views.
+          type: string
+    OperationList:
+      description: List of Operations
+      type: object
+      properties:
+        value:
+          description: Array of operations
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+        nextLink:
+          description: URI to the next page of operations.
+          type: string
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    CrpErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    VMExtension:
+      description: Virtual Machine Extension Image.
+      type: object
+      properties:
+        properties:
+          description: Inner properties of a Virtual Machine Extension Image.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/VMExtensionProperties'
+      allOf:
+        - $ref: '#/components/schemas/CrpResource'
+    VMExtensionProperties:
+      description: Properties of a Virtual Machine Extension Image.
+      type: object
+      properties:
+        vmOsType:
+          description: Target virtual machine operating system type necessary for deploying the extension handler.
+          $ref: '#/components/schemas/OsType'
+        publisher:
+          description: The publisher of the VM Extension
+          type: string
+        computeRole:
+          description: Compute role
+          type: string
+        vmScaleSetEnabled:
+          description: Value indicating whether the extension is enabled for virtual machine scale set support.
+          type: boolean
+        supportMultipleExtensions:
+          description: True if supports multiple extensions.
+          type: boolean
+        isSystemExtension:
+          description: Indicates if the extension is for the system.
+          type: boolean
+        sourceBlob:
+          description: URI to Azure or AzureStack blob.
+          $ref: '#/components/schemas/AzureBlob'
+        provisioningState:
+          description: Provisioning state of extension.
+          $ref: '#/components/schemas/ProvisioningState'
+    AzureBlob:
+      description: Azure or AzureStack blob information.
+      type: object
+      properties:
+        uri:
+          description: URI to Azure or AzureStack blob.
+          type: string
+    VMExtensionList:
+      description: List of virtual machine extensions.
+      type: array
+      items:
+        $ref: '#/components/schemas/VMExtension'
+    VMExtensionParameters:
+      description: Parameters used to create a new Virtual Machine Extension Image.
+      type: object
+      properties:
+        properties:
+          description: Properties of a Virtual Machine Extension Image.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/VMExtensionProperties'
+    ScaleUnit:
+      description: The scale unit operator view.
+      type: object
+      properties:
+        properties:
+          description: The scale unit operator view properties.
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ScaleUnitProperties'
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ScaleUnitProperties:
+      description: Properties for a scale unit
+      type: object
+      properties:
+        scaleUnitName:
+          description: The name of the scale unit.
+          type: string
+        lastUpdatedTime:
+          description: The scale unit last update time (UTC).
+          type: string
+        nodes:
+          description: The nodes of the scale unit.
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeView'
+          x-ms-identifiers:
+            - nodeName
+    NodeView:
+      description: Properties for a node
+      type: object
+      properties:
+        nodeName:
+          description: The name of the node.
+          type: string
+        lastUpdatedTime:
+          description: The node last update time (UTC).
+          type: string
+        nodeHealthState:
+          description: The node health state.
+          enum:
+            - Unknown
+            - Up
+            - Down
+            - MaintenanceMode
+          type: string
+          x-ms-enum:
+            name: NodeHealthState
+        virtualMachines:
+          description: The virtual machines on the node.
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualMachineView'
+          x-ms-identifiers:
+            - vmId
+    VirtualMachineView:
+      description: Properties for a virtual machine
+      type: object
+      properties:
+        vmName:
+          description: The name of the virtual machine.
+          type: string
+        vmId:
+          description: The identifier of the virtual machine.
+          type: string
+        subscriptionId:
+          description: The identifier of the subscription.
+          type: string
+        resourceGroupName:
+          description: The resource group name.
+          type: string
+        vmSize:
+          description: The virtual machine size.
+          type: string
+        vmScaleSetName:
+          description: The virtual machine scale set name.
+          type: string
+        lastProvisioningErrorMessage:
+          description: The virtual machine last provisioning error message.
+          type: string
+        timeOfLastConfigurationChange:
+          description: The time of last configuration change (UTC).
+          type: string
+        powerState:
+          description: The fabric VM power state.
+          enum:
+            - Unknown
+            - Stopped
+            - Running
+            - Paused
+            - SavedState
+            - Stopping
+            - Starting
+            - Pausing
+            - Resuming
+            - Saving
+          type: string
+          x-ms-enum:
+            name: VmPowerState
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
       title: Entity Resource
@@ -340,54 +835,6 @@ components:
         - name
         - publisher
         - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-    ErrorResponse:
-      description: Error response.
-      properties:
-        error:
-          description: Error definition.
-          $ref: '#/components/schemas/ErrorDefinition'
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      description: Describes the supported REST operation.
-      type: object
-      properties:
-        name:
-          description: The name of the operation being performed on this particular object. This name should match the name that appears in RBAC or the event service.
-          type: string
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Contains the localized display information for this particular operation or action.
-          $ref: '#/components/schemas/Display'
     OperationListResult:
       description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
@@ -554,320 +1001,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    CrpResource:
-      description: Base resource object.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          description: ID of the resource.
-          type: string
-        name:
-          readOnly: true
-          description: Name of the resource.
-          type: string
-        type:
-          readOnly: true
-          description: Type of Resource.
-          type: string
-        location:
-          description: Location of the resource.
-          type: string
-      x-ms-azure-resource: true
-    ProvisioningState:
-      description: The provisioning state of the resource.
-      enum:
-        - Creating
-        - Failed
-        - Succeeded
-        - Canceled
-      type: string
-      x-ms-enum:
-        name: ProvisioningState
-    Display:
-      description: Contains the localized display information for this particular operation or action.
-      type: object
-      properties:
-        provider:
-          description: The localized, friendly version of the resource provider name. The provider name is expected to include the name of the publisher or company responsible. The provider name format should use title case and begin with "Microsoft" for first-party services. For example, the provider name may be"Microsoft Monitoring Insights" or "Microsoft Compute."
-          type: string
-        resource:
-          description: The localized, friendly version of the resource type related to this action or operation; the resource type should match the public documentation for the resource provider.
-          type: string
-        operation:
-          description: The localized, friendly name for the operation. Use the name as it will displayed to the user.
-          type: string
-        description:
-          description: The localized, friendly description for the operation. The description will be displayed to the user. It should be thorough and concise for used in both tooltips and detailed views.
-          type: string
-    OperationList:
-      description: List of Operations
-      type: object
-      properties:
-        value:
-          description: Array of operations
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-        nextLink:
-          description: URI to the next page of operations.
-          type: string
-    CrpErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    ScaleUnit:
-      description: The scale unit operator view.
-      type: object
-      properties:
-        properties:
-          description: The scale unit operator view properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ScaleUnitProperties'
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ScaleUnitProperties:
-      description: Properties for a scale unit
-      type: object
-      properties:
-        scaleUnitName:
-          description: The name of the scale unit.
-          type: string
-        lastUpdatedTime:
-          description: The scale unit last update time (UTC).
-          type: string
-        nodes:
-          description: The nodes of the scale unit.
-          type: array
-          items:
-            $ref: '#/components/schemas/NodeView'
-          x-ms-identifiers:
-            - nodeName
-    NodeView:
-      description: Properties for a node
-      type: object
-      properties:
-        nodeName:
-          description: The name of the node.
-          type: string
-        lastUpdatedTime:
-          description: The node last update time (UTC).
-          type: string
-        nodeHealthState:
-          description: The node health state.
-          enum:
-            - Unknown
-            - Up
-            - Down
-            - MaintenanceMode
-          type: string
-          x-ms-enum:
-            name: NodeHealthState
-        virtualMachines:
-          description: The virtual machines on the node.
-          type: array
-          items:
-            $ref: '#/components/schemas/VirtualMachineView'
-          x-ms-identifiers:
-            - vmId
-    VirtualMachineView:
-      description: Properties for a virtual machine
-      type: object
-      properties:
-        vmName:
-          description: The name of the virtual machine.
-          type: string
-        vmId:
-          description: The identifier of the virtual machine.
-          type: string
-        subscriptionId:
-          description: The identifier of the subscription.
-          type: string
-        resourceGroupName:
-          description: The resource group name.
-          type: string
-        vmSize:
-          description: The virtual machine size.
-          type: string
-        vmScaleSetName:
-          description: The virtual machine scale set name.
-          type: string
-        lastProvisioningErrorMessage:
-          description: The virtual machine last provisioning error message.
-          type: string
-        timeOfLastConfigurationChange:
-          description: The time of last configuration change (UTC).
-          type: string
-        powerState:
-          description: The fabric VM power state.
-          enum:
-            - Unknown
-            - Stopped
-            - Running
-            - Paused
-            - SavedState
-            - Stopping
-            - Starting
-            - Pausing
-            - Resuming
-            - Saving
-          type: string
-          x-ms-enum:
-            name: VmPowerState
-    ErrorDefinition:
-      description: Error definition.
-      readOnly: true
-      required:
-        - message
-        - code
-      properties:
-        code:
-          description: Service specific error code which serves as the substatus for the HTTP error code.
-          type: string
-          minimum: 100
-          maximum: 600
-        message:
-          description: Description of the error.
-          type: string
-    DiskProperties:
-      description: Managed disk properties.
-      type: object
-      properties:
-        diskId:
-          description: The disk id.
-          type: string
-        status:
-          description: The disk status.
-          $ref: '#/components/schemas/DiskState'
-        sharePath:
-          description: The disk share path.
-          type: string
-        actualSizeGB:
-          description: The actual size of disk in GB.
-          type: integer
-          format: int64
-          readOnly: true
-        provisionSizeGB:
-          description: The provision size of disk in GB.
-          type: integer
-          format: int64
-          readOnly: true
-        managedBy:
-          description: Compute resource Uri which owns this disk.
-          type: string
-          readOnly: true
-        userResourceId:
-          description: The disk resource Uri from user view.
-          type: string
-          readOnly: true
-        diskType:
-          description: The type of the disk resource.
-          $ref: '#/components/schemas/DiskResourceType'
-          readOnly: true
-        diskSku:
-          description: the disk sku.
-          $ref: '#/components/schemas/AccountType'
-          readOnly: true
-        creationSourceUri:
-          description: The disk creation source uri.
-          type: string
-          readOnly: true
-        creationOption:
-          description: The disk creation option.
-          $ref: '#/components/schemas/DiskCreationOption'
-          readOnly: true
-        exclusiveAllocatedSize:
-          description: The exclusive allocated size for the disk.
-          type: integer
-          format: int64
-          readOnly: true
-    Disk:
-      description: Managed Disk.
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/DiskProperties'
-          description: Disk properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    DiskList:
-      type: object
-      description: List of disks.
-      properties:
-        value:
-          description: List of disks.
-          type: array
-          items:
-            $ref: '#/components/schemas/Disk'
-        nextLink:
-          description: URI to the next page.
-          type: string
-    DiskState:
-      description: Disk State.
-      type: string
-      enum:
-        - Undefined
-        - Unattached
-        - Attached
-        - Reserved
-        - ActiveSAS
-        - Unknown
-        - All
-        - Recommended
-        - OfflineMigration
-        - OnlineMigration
-      x-ms-enum:
-        name: DiskState
-        modelAsString: true
-    DiskResourceType:
-      description: Disk resource type.
-      type: string
-      enum:
-        - Undefined
-        - Disk
-        - Snapshot
-        - RestorePoint
-        - ManagedBlob
-      x-ms-enum:
-        name: DiskResourceType
-        modelAsString: true
-    AccountType:
-      description: Disk Sku.
-      type: string
-      enum:
-        - Standard_LRS
-        - Standard_ZRS
-        - Standard_GRS
-        - Standard_RAGRS
-        - Premium_LRS
-        - StandardSSD_LRS
-        - UltraSSD_LRS
-      x-ms-enum:
-        name: AccountType
-        modelAsString: true
-    DiskCreationOption:
-      description: Disk creation option.
-      type: string
-      enum:
-        - Empty
-        - FromImage
-        - Import
-        - Copy
-        - Restore
-        - FromPreprovisioned
-        - Undelete
-        - Upload
-        - RecoverFromBlob
-      x-ms-enum:
-        name: DiskCreationOption
-        modelAsString: true
     Feature:
       description: Subscription features that can be toggled.
       type: object
@@ -1077,165 +1210,19 @@ components:
       description: List of disks.
       items:
         $ref: '#/components/schemas/Disk'
-    PlatformImage:
-      description: Platform image represents a virtual machine.
-      type: object
-      properties:
-        properties:
-          description: Platform image properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PlatformImageProperties'
-      allOf:
-        - $ref: '#/components/schemas/CrpResource'
-    PlatformImageProperties:
-      description: Properties of platform image.
-      type: object
-      properties:
-        osDisk:
-          description: Operating system used for this platform image.
-          $ref: '#/components/schemas/OsDisk'
-        dataDisks:
-          description: Data disks used by the platform image.
-          type: array
-          items:
-            $ref: '#/components/schemas/DataDisk'
-          x-ms-identifiers:
-            - lun
-        details:
-          description: Information about the image.
-          $ref: '#/components/schemas/ImageDetails'
-        provisioningState:
-          description: Provisioning status of the platform image.
-          $ref: '#/components/schemas/ProvisioningState'
-    OsDisk:
-      description: Operating system disk.
-      type: object
-      properties:
-        osType:
-          description: Operating system type.
-          $ref: '#/components/schemas/OsType'
-        uri:
-          description: Location of the disk.
-          type: string
-    DataDisk:
-      description: Information about datadisk.
-      type: object
-      properties:
-        lun:
-          description: Logical unit number.
-          format: int32
-          type: integer
-        uri:
-          description: Location of the disk template.
-          type: string
-    ImageDetails:
-      description: Information about the disk image.
-      type: object
-      properties:
-        billingPartNumber:
-          description: The part number is used to bill for software costs.
-          type: string
-    OsType:
-      description: Operating system type.
-      enum:
-        - Unknown
-        - Windows
-        - Linux
-      type: string
-      x-ms-enum:
-        name: OsType
-    PlatformImageList:
-      description: List of platform images.
-      type: array
-      items:
-        $ref: '#/components/schemas/PlatformImage'
-    PlatformImageParameters:
-      description: Parameters used to create a new platform image.
-      type: object
-      properties:
-        properties:
-          description: Platform image properties.
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PlatformImageProperties'
   parameters:
-    TypeParameter:
-      name: type
+    OfferParameter:
+      name: offer
       in: path
-      description: Type of extension.
+      description: Name of the offer.
       required: true
       x-ms-parameter-location: method
       schema:
         type: string
-    QuotaParameter:
-      name: quotaName
+    SkuParameter:
+      name: sku
       in: path
-      description: Name of the quota.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: Subscription credentials that uniquely identify Microsoft Azure subscription. The subscription ID forms part of the URI for every service call.
-      required: true
-      schema:
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: Location of the resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PublisherParameter:
-      name: publisher
-      in: path
-      description: Name of the publisher.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    VersionParameter:
-      name: version
-      in: path
-      description: The version of the resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ScaleUnitParameter:
-      name: scaleUnitName
-      in: path
-      description: Name of the scale unit.
+      description: Name of the SKU.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -1315,6 +1302,90 @@ components:
       schema:
         default: false
         type: boolean
+    QuotaParameter:
+      name: quotaName
+      in: path
+      description: Name of the quota.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    PublisherParameter:
+      name: publisher
+      in: path
+      description: Name of the publisher.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    VersionParameter:
+      name: version
+      in: path
+      description: The version of the resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    TypeParameter:
+      name: type
+      in: path
+      description: Type of extension.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ScaleUnitParameter:
+      name: scaleUnitName
+      in: path
+      description: Name of the scale unit.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
     FeatureParameter:
       name: featureName
       in: path
@@ -1363,36 +1434,46 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    OfferParameter:
-      name: offer
-      in: path
-      description: Name of the offer.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SkuParameter:
-      name: sku
-      in: path
-      description: Name of the SKU.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/VMExtension/publishers/{publisher}/types/{type}/versions/{version}:
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/platformImage:
     x-api-version: 2015-12-01-preview
     get:
       tags:
-        - VMExtensions
-      summary: Returns requested Virtual Machine Extension Image.
-      description: Returns requested Virtual Machine Extension Image matching publisher, type, version.
-      operationId: VMExtensions_Get
+        - PlatformImages
+      summary: Returns all platform images.
+      description: Returns a list of all platform images.
+      operationId: PlatformImages_List
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformImageList'
+        default:
+          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrpErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/platformImage/publishers/{publisher}/offers/{offer}/skus/{sku}/versions/{version}:
+    x-api-version: 2015-12-01-preview
+    get:
+      tags:
+        - PlatformImages
+      summary: Returns the requested platform image.
+      description: Returns the specific platform image matching publisher, offer, skus and version.
+      operationId: PlatformImages_Get
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/OfferParameter'
+        - $ref: '#/components/parameters/SkuParameter'
         - $ref: '#/components/parameters/VersionParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -1401,7 +1482,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMExtension'
+                $ref: '#/components/schemas/PlatformImage'
         default:
           description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
           content:
@@ -1410,56 +1491,65 @@ paths:
                 $ref: '#/components/schemas/CrpErrorResponse'
     put:
       tags:
-        - VMExtensions
-      summary: Create a Virtual Machine Extension Image.
-      description: Create a Virtual Machine Extension Image with publisher, version.
-      operationId: VMExtensions_Create
+        - PlatformImages
+      description: Creates a new platform image with given publisher, offer, skus and version.
+      summary: Creates a platform image.
+      operationId: PlatformImages_Create
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/OfferParameter'
+        - $ref: '#/components/parameters/SkuParameter'
         - $ref: '#/components/parameters/VersionParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
-        description: Virtual Machine Extension Image creation properties.
+        description: New platform image.
         required: true
-        x-ms-requestBody-name: extension
+        x-ms-requestBody-name: newImage
         x-ms-parameter-location: method
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VMExtensionParameters'
+              $ref: '#/components/schemas/PlatformImageParameters'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMExtension'
+                $ref: '#/components/schemas/PlatformImage'
         '201':
-          description: OK
+          description: CREATED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMExtension'
+                $ref: '#/components/schemas/PlatformImage'
+        '202':
+          description: ACCEPTED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformImage'
         default:
           description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CrpErrorResponse'
+      x-ms-long-running-operation: true
     delete:
       tags:
-        - VMExtensions
-      summary: Deletes a Virtual Machine Extension Image.
-      description: Deletes specified Virtual Machine Extension Image.
-      operationId: VMExtensions_Delete
+        - PlatformImages
+      summary: Deletes a platform image matching publisher, offer, skus and version
+      description: Delete a platform image
+      operationId: PlatformImages_Delete
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/LocationParameter'
         - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/OfferParameter'
+        - $ref: '#/components/parameters/SkuParameter'
         - $ref: '#/components/parameters/VersionParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -1471,31 +1561,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CrpErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/VMExtension:
-    x-api-version: 2015-12-01-preview
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/disks:
+    x-api-version: '2021-09-01'
     get:
       tags:
-        - VMExtensions
-      summary: Returns a list of all Virtual Machine Extension Images.
-      description: List of all Virtual Machine Extension Images for the current location are returned.
-      operationId: VMExtensions_List
+        - Disks
+      operationId: Disks_List
+      description: Returns a list of disks.
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/UserSubscriptionIdParameter'
+        - $ref: '#/components/parameters/DiskStateParameter'
+        - $ref: '#/components/parameters/SourceSharePathParameter'
+        - $ref: '#/components/parameters/SourceScaleUnitParameter'
+        - $ref: '#/components/parameters/SourceVolumeLabelParameter'
+        - $ref: '#/components/parameters/DiskCountParameter'
+        - $ref: '#/components/parameters/DiskStartParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: OK
+          description: OK -- The list of disks has been returned.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VMExtensionList'
+                $ref: '#/components/schemas/DiskList'
         default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CrpErrorResponse'
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/disks/{diskId}:
+    x-api-version: '2021-09-01'
+    get:
+      tags:
+        - Disks
+      operationId: Disks_Get
+      description: Returns the disk.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/DiskIdParameter'
+        - $ref: '#/components/parameters/DiskSizeDetailParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK -- The disk has been returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disk'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/quotas/{quotaName}:
     x-api-version: '2021-01-01'
     get:
@@ -1626,6 +1750,122 @@ paths:
                 $ref: '#/components/schemas/CrpErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/VMExtension/publishers/{publisher}/types/{type}/versions/{version}:
+    x-api-version: 2015-12-01-preview
+    get:
+      tags:
+        - VMExtensions
+      summary: Returns requested Virtual Machine Extension Image.
+      description: Returns requested Virtual Machine Extension Image matching publisher, type, version.
+      operationId: VMExtensions_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/PublisherParameter'
+        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VMExtension'
+        default:
+          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrpErrorResponse'
+    put:
+      tags:
+        - VMExtensions
+      summary: Create a Virtual Machine Extension Image.
+      description: Create a Virtual Machine Extension Image with publisher, version.
+      operationId: VMExtensions_Create
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/PublisherParameter'
+        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Virtual Machine Extension Image creation properties.
+        required: true
+        x-ms-requestBody-name: extension
+        x-ms-parameter-location: method
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VMExtensionParameters'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VMExtension'
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VMExtension'
+        default:
+          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrpErrorResponse'
+    delete:
+      tags:
+        - VMExtensions
+      summary: Deletes a Virtual Machine Extension Image.
+      description: Deletes specified Virtual Machine Extension Image.
+      operationId: VMExtensions_Delete
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/PublisherParameter'
+        - $ref: '#/components/parameters/TypeParameter'
+        - $ref: '#/components/parameters/VersionParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+        default:
+          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrpErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/VMExtension:
+    x-api-version: 2015-12-01-preview
+    get:
+      tags:
+        - VMExtensions
+      summary: Returns a list of all Virtual Machine Extension Images.
+      description: List of all Virtual Machine Extension Images for the current location are returned.
+      operationId: VMExtensions_List
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VMExtensionList'
+        default:
+          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrpErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/computeScaleUnits/{scaleUnitName}:
     x-api-version: '2021-03-30'
     get:
@@ -1652,65 +1892,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CrpErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/disks:
-    x-api-version: '2021-09-01'
-    get:
-      tags:
-        - Disks
-      operationId: Disks_List
-      description: Returns a list of disks.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/UserSubscriptionIdParameter'
-        - $ref: '#/components/parameters/DiskStateParameter'
-        - $ref: '#/components/parameters/SourceSharePathParameter'
-        - $ref: '#/components/parameters/SourceScaleUnitParameter'
-        - $ref: '#/components/parameters/SourceVolumeLabelParameter'
-        - $ref: '#/components/parameters/DiskCountParameter'
-        - $ref: '#/components/parameters/DiskStartParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK -- The list of disks has been returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiskList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: null
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/disks/{diskId}:
-    x-api-version: '2021-09-01'
-    get:
-      tags:
-        - Disks
-      operationId: Disks_Get
-      description: Returns the disk.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/DiskIdParameter'
-        - $ref: '#/components/parameters/DiskSizeDetailParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK -- The disk has been returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Disk'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/features/{featureName}:
     x-api-version: '2020-11-01'
     get:
@@ -1969,129 +2150,3 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/platformImage:
-    x-api-version: 2015-12-01-preview
-    get:
-      tags:
-        - PlatformImages
-      summary: Returns all platform images.
-      description: Returns a list of all platform images.
-      operationId: PlatformImages_List
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformImageList'
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CrpErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.Compute.Admin/locations/{location}/artifactTypes/platformImage/publishers/{publisher}/offers/{offer}/skus/{sku}/versions/{version}:
-    x-api-version: 2015-12-01-preview
-    get:
-      tags:
-        - PlatformImages
-      summary: Returns the requested platform image.
-      description: Returns the specific platform image matching publisher, offer, skus and version.
-      operationId: PlatformImages_Get
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/OfferParameter'
-        - $ref: '#/components/parameters/SkuParameter'
-        - $ref: '#/components/parameters/VersionParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformImage'
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CrpErrorResponse'
-    put:
-      tags:
-        - PlatformImages
-      description: Creates a new platform image with given publisher, offer, skus and version.
-      summary: Creates a platform image.
-      operationId: PlatformImages_Create
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/OfferParameter'
-        - $ref: '#/components/parameters/SkuParameter'
-        - $ref: '#/components/parameters/VersionParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: New platform image.
-        required: true
-        x-ms-requestBody-name: newImage
-        x-ms-parameter-location: method
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlatformImageParameters'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformImage'
-        '201':
-          description: CREATED
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformImage'
-        '202':
-          description: ACCEPTED
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformImage'
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CrpErrorResponse'
-      x-ms-long-running-operation: true
-    delete:
-      tags:
-        - PlatformImages
-      summary: Deletes a platform image matching publisher, offer, skus and version
-      description: Delete a platform image
-      operationId: PlatformImages_Delete
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/PublisherParameter'
-        - $ref: '#/components/parameters/OfferParameter'
-        - $ref: '#/components/parameters/SkuParameter'
-        - $ref: '#/components/parameters/VersionParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-        default:
-          description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CrpErrorResponse'

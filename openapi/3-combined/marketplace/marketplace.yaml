@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2022-03-01'
+  version: '2023-01-01'
   title: Marketplace RP Service
   description: REST APIs for Private Marketplace
 security:
@@ -179,6 +179,56 @@ components:
           type: integer
           format: int64
           readOnly: true
+        appliedRules:
+          description: Gets list of collection rules
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/Rule'
+          x-ms-identifiers:
+            - type
+    RuleListResponse:
+      type: object
+      properties:
+        value:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/Rule'
+          x-ms-identifiers:
+            - type
+        nextLink:
+          description: URL to get the next set of rules list results if there are any.
+          type: string
+    SetRulesRequest:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+          x-ms-identifiers:
+            - type
+        nextLink:
+          description: URL to get the next set of rules list results if there are any.
+          type: string
+    Rule:
+      type: object
+      properties:
+        type:
+          description: Rule type
+          type: string
+          enum:
+            - PrivateProducts
+            - TermsAndCondition
+          x-ms-enum:
+            name: ruleType
+            modelAsString: true
+        value:
+          type: array
+          items:
+            description: Gets or sets rule's value, not required for boolean rules
+            type: string
     OfferListResponse:
       type: object
       properties:
@@ -189,6 +239,56 @@ components:
         nextLink:
           description: URL to get the next set of offer list results if there are any.
           type: string
+    CollectionOffersByAllContextsPayload:
+      description: Suggested subscription list
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/CollectionOffersByAllContextsProperties'
+          description: Subscriptions ids list
+          x-ms-client-flatten: true
+    CollectionOffersByAllContextsProperties:
+      description: Suggested subscription list
+      type: object
+      properties:
+        subscriptionIds:
+          description: Subscription ids list
+          type: array
+          items:
+            type: string
+    CollectionOffersByContextList:
+      description: List of objects which describes offers per context. An empty GUID is a public context.
+      type: object
+      properties:
+        value:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/CollectionOffersByContext'
+          x-ms-identifiers:
+            - context
+        nextLink:
+          description: URL to get the next set of offer list per context results if there are any.
+          type: string
+    CollectionOffersByContext:
+      description: List of offers and plans that restricted to the context
+      type: object
+      properties:
+        context:
+          description: Offer's context, e.g. subscription ID, tenant ID.
+          type: string
+          readOnly: true
+        offers:
+          description: List of offers
+          type: object
+          x-ms-client-flatten: true
+          properties:
+            value:
+              type: array
+              items:
+                $ref: '#/components/schemas/OfferProperties'
+              x-ms-identifiers:
+                - uniqueOfferId
     QueryOffers:
       description: List of offers
       type: object
@@ -607,6 +707,23 @@ components:
       type: object
       properties:
         subscriptionsIds:
+          type: array
+          items:
+            type: string
+    QueryUserRulesProperties:
+      description: Query user's rules properties
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/QueryUserRulesDetails'
+          description: Query user's rules details
+          x-ms-client-flatten: true
+    QueryUserRulesDetails:
+      description: List of subscriptions IDs to query the user's rules
+      type: object
+      properties:
+        subscriptionIds:
+          description: List of subscription IDs
           type: array
           items:
             type: string
@@ -1294,7 +1411,7 @@ components:
         type: string
 paths:
   /providers/Microsoft.Marketplace/privateStores:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
       - $ref: '#/components/parameters/UseCacheParameter'
@@ -1319,7 +1436,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1383,7 +1500,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/anyExistingOffersInTheCollections:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1407,7 +1524,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/queryOffers:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1431,7 +1548,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/queryUserOffers:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1460,8 +1577,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/queryUserRules:
+    x-api-version: '2023-01-01'
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+    post:
+      tags:
+        - PrivateStores
+      operationId: QueryUserRules
+      description: All rules approved in the private store that are relevant for user subscriptions
+      parameters:
+        - $ref: '#/components/parameters/PrivateStoreIdParameter'
+      requestBody:
+        x-ms-requestBody-name: payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryUserRulesProperties'
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleListResponse'
+        default:
+          description: Microsoft.Marketplace error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/billingAccounts:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1485,7 +1632,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collectionsToSubscriptionsMapping:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1515,7 +1662,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1539,7 +1686,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1633,7 +1780,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/transferOffers:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1664,7 +1811,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/queryApprovedPlans:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1694,7 +1841,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/bulkCollectionsAction:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1724,7 +1871,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/approveAllItems:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1749,7 +1896,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/disableApproveAllItems:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1774,7 +1921,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/offers:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1800,8 +1947,93 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/mapOffersToContexts:
+    x-api-version: '2023-01-01'
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+    post:
+      tags:
+        - PrivateStores
+      operationId: PrivateStoreCollectionOffer_ListByContexts
+      description: Get a list of all offers in the given collection according to the required contexts.
+      requestBody:
+        x-ms-requestBody-name: payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionOffersByAllContextsPayload'
+      parameters:
+        - $ref: '#/components/parameters/PrivateStoreIdParameter'
+        - $ref: '#/components/parameters/CollectionIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionOffersByContextList'
+        default:
+          description: Microsoft.Marketplace error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/setRules:
+    x-api-version: '2023-01-01'
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+    post:
+      tags:
+        - PrivateStores
+      operationId: SetCollectionRules
+      description: Set rule for specific private store and collection
+      parameters:
+        - $ref: '#/components/parameters/PrivateStoreIdParameter'
+        - $ref: '#/components/parameters/CollectionIdParameter'
+      requestBody:
+        x-ms-requestBody-name: payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRulesRequest'
+      responses:
+        '200':
+          description: OK
+        default:
+          description: Microsoft.Marketplace error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/queryRules:
+    x-api-version: '2023-01-01'
+    parameters:
+      - $ref: '#/components/parameters/ApiVersionParameter'
+    post:
+      tags:
+        - PrivateStores
+      operationId: QueryRules
+      description: Get a list of all private store rules in the given private store and collection
+      parameters:
+        - $ref: '#/components/parameters/PrivateStoreIdParameter'
+        - $ref: '#/components/parameters/CollectionIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleListResponse'
+        default:
+          description: Microsoft.Marketplace error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/offers/{offerId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1899,7 +2131,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/collections/{collectionId}/offers/{offerId}/upsertOfferWithMultiContext:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -1931,7 +2163,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/requestApprovals:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -1955,7 +2187,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/requestApprovals/{requestApprovalId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -2007,7 +2239,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/requestApprovals/{requestApprovalId}/query:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2038,7 +2270,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/adminRequestApprovals:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -2062,7 +2294,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/adminRequestApprovals/{adminRequestApprovalId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     get:
@@ -2115,7 +2347,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/queryNotificationsState:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2139,7 +2371,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/offers/{offerId}/acknowledgeNotification:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2166,7 +2398,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/requestApprovals/{requestApprovalId}/withdrawPlan:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2193,7 +2425,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/fetchAllSubscriptionsInTenant:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2218,7 +2450,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/listNewPlansNotifications:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2242,7 +2474,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/listStopSellOffersPlansNotifications:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2272,7 +2504,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/privateStores/{privateStoreId}/listSubscriptionsContext:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     parameters:
       - $ref: '#/components/parameters/ApiVersionParameter'
     post:
@@ -2296,7 +2528,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Marketplace/operations:
-    x-api-version: '2022-03-01'
+    x-api-version: '2023-01-01'
     get:
       tags:
         - Operations

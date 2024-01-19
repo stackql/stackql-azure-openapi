@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure Arc VMware Management Service API
   description: Self service experience for VMware.
-  version: 2022-01-10-preview
+  version: '2023-10-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -36,6 +36,11 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -83,28 +88,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -123,15 +106,6 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -141,7 +115,20 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
@@ -150,16 +137,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -215,6 +193,38 @@ components:
         - name
         - publisher
         - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
     ErrorResponse:
       title: Error response
       description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
@@ -304,6 +314,42 @@ components:
           type: string
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
     locationData:
       description: Metadata pertaining to the geographic location of the resource.
       type: object
@@ -389,6 +435,35 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     ResourcePatch:
       type: object
       properties:
@@ -399,7 +474,7 @@ components:
           description: Resource tags.
       description: Object containing updates for patch operations.
     ResourcePoolProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Resource Pool.
       type: object
       properties:
         uuid:
@@ -447,9 +522,41 @@ components:
           description: "Gets or sets MemLimitMB specifies a memory usage limit in megabytes.\r\nUtilization will not exceed the specified limit even if there are available resources."
           type: integer
           readOnly: true
+        memOverallUsageGB:
+          format: int64
+          description: Gets the used physical memory on the pool in GB.
+          type: integer
+          readOnly: true
+        memCapacityGB:
+          format: int64
+          description: Gets the total amount of physical memory on the pool in GB.
+          type: integer
+          readOnly: true
+        cpuOverallUsageMHz:
+          format: int64
+          description: Gets the used CPU usage across all cores on the pool in MHz.
+          type: integer
+          readOnly: true
+        cpuCapacityMHz:
+          format: int64
+          description: Gets the max CPU usage across all cores on the pool in MHz.
+          type: integer
+          readOnly: true
         customResourceName:
           description: Gets the name of the corresponding resource in Kubernetes.
           type: string
+          readOnly: true
+        datastoreIds:
+          description: Gets the datastore ARM ids.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        networkIds:
+          description: Gets the network ARM ids.
+          type: array
+          items:
+            type: string
           readOnly: true
         statuses:
           description: The resource status information.
@@ -457,9 +564,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     ResourcePool:
       description: Define the resourcePool.
@@ -563,7 +672,7 @@ components:
           format: date-time
           readOnly: true
     VCenterProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a VCenter.
       required:
         - fqdn
       type: object
@@ -606,9 +715,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     VirtualDiskUpdate:
       description: Defines the virtual disk update.
@@ -770,18 +881,8 @@ components:
       x-ms-enum:
         modelAsString: true
         name: OsType
-    PatchSettings:
-      type: object
-      properties:
-        assessmentMode:
-          type: string
-          description: Specifies the assessment mode.
-        patchMode:
-          type: string
-          description: Specifies the patch mode.
-      description: Specifies the patch settings.
-    OsProfile:
-      description: Defines the resource properties.
+    OsProfileForVMInstance:
+      description: Specifies the operating system settings for the virtual machine.
       type: object
       properties:
         computerName:
@@ -791,7 +892,7 @@ components:
           description: Gets or sets administrator username.
           type: string
         adminPassword:
-          description: Gets or sets administrator password.
+          description: Sets administrator password.
           type: string
           x-ms-mutability:
             - create
@@ -800,15 +901,11 @@ components:
         guestId:
           description: Gets or sets the guestId.
           type: string
-        allowExtensionOperations:
-          description: Gets or sets a value indicating whether the VM is ready for extension operations.
-          type: boolean
-          readOnly: true
         osType:
           description: Gets or sets the type of the os.
           $ref: '#/components/schemas/OsType'
-        osName:
-          description: Gets or sets os name.
+        osSku:
+          description: Gets or sets os sku.
           type: string
           readOnly: true
         toolsRunningStatus:
@@ -823,40 +920,8 @@ components:
           description: Gets or sets the current version of VMware Tools.
           type: string
           readOnly: true
-        windowsConfiguration:
-          type: object
-          properties:
-            patchSettings:
-              x-ms-client-flatten: true
-              $ref: '#/components/schemas/PatchSettings'
-          description: Specifies the windows configuration for update management.
-        linuxConfiguration:
-          type: object
-          properties:
-            patchSettings:
-              x-ms-client-flatten: true
-              $ref: '#/components/schemas/PatchSettings'
-          description: Specifies the linux configuration for update management.
-    OsProfileUpdate:
-      description: Defines the os update properties.
-      type: object
-      properties:
-        windowsConfiguration:
-          type: object
-          properties:
-            patchSettings:
-              x-ms-client-flatten: true
-              $ref: '#/components/schemas/PatchSettings'
-          description: Specifies the windows configuration for update management.
-        linuxConfiguration:
-          type: object
-          properties:
-            patchSettings:
-              x-ms-client-flatten: true
-              $ref: '#/components/schemas/PatchSettings'
-          description: Specifies the linux configuration for update management.
     HardwareProfile:
-      description: Defines the resource properties.
+      description: Specifies the hardware settings for the virtual machine.
       type: object
       properties:
         memorySizeMB:
@@ -884,7 +949,7 @@ components:
           type: boolean
           readOnly: true
     NetworkProfileUpdate:
-      description: Defines the update resource properties.
+      description: Specifies the network interfaces of the virtual machine.
       type: object
       properties:
         networkInterfaces:
@@ -893,7 +958,7 @@ components:
           items:
             $ref: '#/components/schemas/NetworkInterfaceUpdate'
     NetworkProfile:
-      description: Defines the resource properties.
+      description: Specifies the network interfaces of the virtual machine.
       type: object
       properties:
         networkInterfaces:
@@ -945,7 +1010,7 @@ components:
           description: Gets or sets the sharing mode.
           $ref: '#/components/schemas/VirtualSCSISharing'
     StorageProfile:
-      description: Defines the resource properties.
+      description: Specifies the storage settings for the virtual machine disks.
       type: object
       properties:
         disks:
@@ -960,7 +1025,7 @@ components:
             $ref: '#/components/schemas/VirtualSCSIController'
           readOnly: true
     StorageProfileUpdate:
-      description: Defines the resource update properties.
+      description: Specifies the storage settings for the virtual machine disks.
       type: object
       properties:
         disks:
@@ -968,42 +1033,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VirtualDiskUpdate'
-    GuestAgentProfile:
-      description: Defines the resource properties.
-      type: object
-      properties:
-        vmUuid:
-          readOnly: true
-          type: string
-          description: Specifies the VM's unique SMBIOS ID.
-        status:
-          readOnly: true
-          type: string
-          description: The status of the hybrid machine agent.
-          enum:
-            - Connected
-            - Disconnected
-            - Error
-          x-ms-enum:
-            name: StatusTypes
-            modelAsString: true
-        lastStatusChange:
-          readOnly: true
-          type: string
-          format: date-time
-          description: The time of the last status change.
-        agentVersion:
-          readOnly: true
-          type: string
-          description: The hybrid machine agent full version.
-        errorDetails:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          description: Details about the error state.
     PlacementProfile:
-      description: Defines the resource properties.
+      description: Specifies the compute and storage placement settings for the virtual machine.
       type: object
       properties:
         resourcePoolId:
@@ -1032,53 +1063,19 @@ components:
           $ref: '#/components/schemas/UefiSettings'
           description: Specifies the security settings like secure boot used while creating the virtual machine.
       description: Specifies the Security profile settings for the virtual machine.
-    ExtendedLocation:
-      type: object
-      description: The extended location.
-      properties:
-        type:
-          type: string
-          description: The extended location type.
-        name:
-          type: string
-          description: The extended location name.
-    VirtualMachineProperties:
-      description: Defines the resource properties.
+    InfrastructureProfile:
       type: object
       properties:
-        resourcePoolId:
-          description: "Gets or sets the ARM Id of the resourcePool resource on which this virtual machine will\r\ndeploy."
-          type: string
         templateId:
           description: Gets or sets the ARM Id of the template resource to deploy the virtual machine.
           type: string
         vCenterId:
           description: Gets or sets the ARM Id of the vCenter resource in which this resource pool resides.
           type: string
-        placementProfile:
-          description: Placement properties.
-          $ref: '#/components/schemas/PlacementProfile'
-        osProfile:
-          description: OS properties.
-          $ref: '#/components/schemas/OsProfile'
-        hardwareProfile:
-          description: Hardware properties.
-          $ref: '#/components/schemas/HardwareProfile'
-        networkProfile:
-          description: Network properties.
-          $ref: '#/components/schemas/NetworkProfile'
-        storageProfile:
-          description: Storage properties.
-          $ref: '#/components/schemas/StorageProfile'
-        guestAgentProfile:
-          description: Guest agent status properties.
-          $ref: '#/components/schemas/GuestAgentProfile'
-        securityProfile:
-          $ref: '#/components/schemas/SecurityProfile'
-          description: Gets the security profile.
         moRefId:
           description: Gets or sets the vCenter MoRef (Managed Object Reference) ID for the virtual machine.
           type: string
+          readOnly: true
         inventoryItemId:
           description: Gets or sets the inventory Item ID for the virtual machine.
           type: string
@@ -1100,16 +1097,48 @@ components:
         firmwareType:
           description: Firmware type
           $ref: '#/components/schemas/FirmwareType'
-        powerState:
-          description: Gets the power state of the virtual machine.
-          type: string
-          readOnly: true
         customResourceName:
           description: Gets the name of the corresponding resource in Kubernetes.
           type: string
           readOnly: true
-        uuid:
-          description: Gets or sets a unique identifier for this resource.
+      description: Specifies the vCenter infrastructure specific settings for the virtual machine.
+    ExtendedLocation:
+      type: object
+      description: The extended location.
+      properties:
+        type:
+          type: string
+          description: The extended location type.
+        name:
+          type: string
+          description: The extended location name.
+    VirtualMachineInstanceProperties:
+      description: Describes the properties of a Virtual Machine Instance.
+      type: object
+      properties:
+        placementProfile:
+          description: Placement properties.
+          $ref: '#/components/schemas/PlacementProfile'
+        osProfile:
+          description: OS properties.
+          $ref: '#/components/schemas/OsProfileForVMInstance'
+        hardwareProfile:
+          description: Hardware properties.
+          $ref: '#/components/schemas/HardwareProfile'
+        networkProfile:
+          description: Network properties.
+          $ref: '#/components/schemas/NetworkProfile'
+        storageProfile:
+          description: Storage properties.
+          $ref: '#/components/schemas/StorageProfile'
+        securityProfile:
+          $ref: '#/components/schemas/SecurityProfile'
+          description: Gets the security profile.
+        infrastructureProfile:
+          $ref: '#/components/schemas/InfrastructureProfile'
+          description: Gets the infrastructure profile.
+        powerState:
+          description: Gets the power state of the virtual machine.
           type: string
           readOnly: true
         statuses:
@@ -1118,92 +1147,53 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
-        vmId:
+        resourceUid:
           description: Gets or sets a unique identifier for the vm resource.
           type: string
           readOnly: true
-    VirtualMachine:
-      description: Define the virtualMachine.
+    VirtualMachineInstance:
+      description: Define the virtualMachineInstance.
       required:
-        - location
         - properties
       type: object
       x-ms-azure-resource: true
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+          description: The resource model definition for an Azure Resource Manager proxy resource. It will have everything other than location and tags.
       properties:
         properties:
           x-ms-client-flatten: true
           description: Resource properties.
-          $ref: '#/components/schemas/VirtualMachineProperties'
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
+          $ref: '#/components/schemas/VirtualMachineInstanceProperties'
         extendedLocation:
           $ref: '#/components/schemas/ExtendedLocation'
           description: Gets or sets the extended location.
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        tags:
-          description: Gets or sets the Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        name:
-          description: Gets or sets the name.
-          type: string
-          readOnly: true
-        id:
-          description: Gets or sets the Id.
-          type: string
-          readOnly: true
-        type:
-          description: Gets or sets the type of the resource.
-          type: string
-          readOnly: true
-        kind:
-          type: string
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-        identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-    VirtualMachineUpdateProperties:
-      description: Defines the resource properties.
+    VirtualMachineInstanceUpdateProperties:
+      description: Describes the properties of a Virtual Machine.
       type: object
       properties:
         hardwareProfile:
           $ref: '#/components/schemas/HardwareProfile'
-        osProfile:
-          description: OS properties.
-          $ref: '#/components/schemas/OsProfileUpdate'
         storageProfile:
           $ref: '#/components/schemas/StorageProfileUpdate'
         networkProfile:
           $ref: '#/components/schemas/NetworkProfileUpdate'
-    VirtualMachineUpdate:
-      description: Defines the virtualMachineUpdate.
+    VirtualMachineInstanceUpdate:
+      description: Defines the virtualMachineInstanceUpdate.
       type: object
       properties:
         properties:
           x-ms-client-flatten: true
           description: Resource properties.
-          $ref: '#/components/schemas/VirtualMachineUpdateProperties'
-        tags:
-          description: Gets or sets the Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-    VirtualMachinesList:
-      description: List of VirtualMachines.
+          $ref: '#/components/schemas/VirtualMachineInstanceUpdateProperties'
+    VirtualMachineInstancesList:
+      description: List of VirtualMachineInstances.
       type: object
       properties:
         nextLink:
@@ -1213,7 +1203,7 @@ components:
           description: Array of VirtualMachines
           type: array
           items:
-            $ref: '#/components/schemas/VirtualMachine'
+            $ref: '#/components/schemas/VirtualMachineInstance'
       required:
         - value
     StopVirtualMachineOptions:
@@ -1225,7 +1215,7 @@ components:
           type: boolean
           default: false
     VirtualMachineTemplateProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Virtual Machine Template.
       type: object
       properties:
         uuid:
@@ -1306,12 +1296,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     ClusterProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Cluster.
       type: object
       properties:
         uuid:
@@ -1337,25 +1329,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         customResourceName:
           description: Gets the name of the corresponding resource in Kubernetes.
           type: string
           readOnly: true
+        usedMemoryGB:
+          format: int64
+          description: Gets the used physical memory on the cluster in GB.
+          type: integer
+          readOnly: true
+        totalMemoryGB:
+          format: int64
+          description: Gets the total amount of physical memory on the cluster in GB.
+          type: integer
+          readOnly: true
+        usedCpuMHz:
+          format: int64
+          description: Gets the used CPU usage across all cores on the cluster in MHz.
+          type: integer
+          readOnly: true
+        totalCpuMHz:
+          format: int64
+          description: Gets the max CPU usage across all cores on the cluster in MHz.
+          type: integer
+          readOnly: true
         datastoreIds:
-          description: Gets or sets the datastore ARM ids.
+          description: Gets the datastore ARM ids.
           type: array
           items:
             type: string
           readOnly: true
         networkIds:
-          description: Gets or sets the network ARM ids.
+          description: Gets the network ARM ids.
           type: array
           items:
             type: string
           readOnly: true
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     Cluster:
       description: Define the cluster.
@@ -1416,7 +1430,7 @@ components:
       required:
         - value
     HostProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Host.
       type: object
       properties:
         uuid:
@@ -1442,13 +1456,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         customResourceName:
           description: Gets the name of the corresponding resource in Kubernetes.
           type: string
           readOnly: true
+        overallMemoryUsageGB:
+          format: int64
+          description: Gets the used physical memory on the host in GB.
+          type: integer
+          readOnly: true
+        memorySizeGB:
+          format: int64
+          description: Gets the total amount of physical memory on the host in GB.
+          type: integer
+          readOnly: true
+        overallCpuUsageMHz:
+          format: int64
+          description: Gets the used CPU usage across all cores in MHz.
+          type: integer
+          readOnly: true
+        cpuMhz:
+          format: int64
+          description: Gets the max CPU usage across all cores in MHz.
+          type: integer
+          readOnly: true
+        datastoreIds:
+          description: Gets the datastore ARM ids.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        networkIds:
+          description: Gets the network ARM ids.
+          type: array
+          items:
+            type: string
+          readOnly: true
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     Host:
       description: Define the host.
@@ -1509,7 +1557,7 @@ components:
       required:
         - value
     DatastoreProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Datastore.
       type: object
       properties:
         uuid:
@@ -1535,9 +1583,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         customResourceName:
           description: Gets the name of the corresponding resource in Kubernetes.
           type: string
+          readOnly: true
+        capacityGB:
+          description: Gets or sets Maximum capacity of this datastore in GBs.
+          format: int64
+          type: integer
+          readOnly: true
+        freeSpaceGB:
+          description: Gets or sets Available space of this datastore in GBs.
+          format: int64
+          type: integer
           readOnly: true
         provisioningState:
           $ref: '#/components/schemas/ResourceProvisioningState'
@@ -1675,7 +1735,7 @@ components:
       required:
         - value
     VirtualNetworkProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Virtual Network.
       type: object
       properties:
         uuid:
@@ -1705,9 +1765,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     VirtualNetwork:
       description: Define the virtualNetwork.
@@ -1953,38 +2015,6 @@ components:
           items:
             $ref: '#/components/schemas/NicIPAddressSettings'
           readOnly: true
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
     operation:
       description: Operation provided by provider
       type: object
@@ -2026,24 +2056,6 @@ components:
             $ref: '#/components/schemas/operation'
       required:
         - value
-    ErrorDefinition:
-      description: Error definition.
-      type: object
-      properties:
-        code:
-          description: Service specific error code which serves as the substatus for the HTTP error code.
-          type: string
-          readOnly: true
-        message:
-          description: Description of the error.
-          type: string
-          readOnly: true
-        details:
-          description: Internal error details.
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDefinition'
-          readOnly: true
     InventoryItemsList:
       description: List of InventoryItems.
       type: object
@@ -2071,15 +2083,12 @@ components:
           x-ms-client-flatten: true
           description: Resource properties.
           $ref: '#/components/schemas/InventoryItemProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
         kind:
           type: string
           description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
       x-ms-azure-resource: true
     InventoryItemProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of an Inventory Item.
       required:
         - inventoryType
       discriminator:
@@ -2099,8 +2108,8 @@ components:
           description: Gets or sets the vCenter Managed Object name for the inventory item.
           type: string
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
     ResourcePoolInventoryItem:
       description: The resource pool inventory item.
@@ -2137,6 +2146,9 @@ components:
           $ref: '#/components/schemas/InventoryItemDetails'
         resourcePool:
           description: ResourcePool inventory resource details.
+          $ref: '#/components/schemas/InventoryItemDetails'
+        cluster:
+          description: Cluster inventory resource details.
           $ref: '#/components/schemas/InventoryItemDetails'
         instanceUuid:
           description: Gets or sets the instance uuid of the vm.
@@ -2185,6 +2197,14 @@ components:
         osName:
           description: Gets or sets os name.
           type: string
+        toolsVersionStatus:
+          description: Gets or sets the current version status of VMware Tools installed in the guest operating system.
+          type: string
+          readOnly: true
+        toolsVersion:
+          description: Gets or sets the current version of VMware Tools.
+          type: string
+          readOnly: true
         folderPath:
           description: Gets or sets the folder path of the template.
           type: string
@@ -2241,7 +2261,7 @@ components:
         name: InventoryType
         modelAsString: true
     InventoryItemDetails:
-      description: Defines the resource properties.
+      description: Describes the properties of an Inventory Item reference.
       type: object
       properties:
         inventoryItemId:
@@ -2250,7 +2270,10 @@ components:
         moName:
           description: Gets or sets the vCenter Managed Object name for the resource.
           type: string
-    HybridIdentityMetadataList:
+        inventoryType:
+          description: The inventory type.
+          $ref: '#/components/schemas/InventoryType'
+    VmInstanceHybridIdentityMetadataList:
       description: List of HybridIdentityMetadata.
       type: object
       properties:
@@ -2261,10 +2284,10 @@ components:
           description: Array of HybridIdentityMetadata
           type: array
           items:
-            $ref: '#/components/schemas/HybridIdentityMetadata'
+            $ref: '#/components/schemas/VmInstanceHybridIdentityMetadata'
       required:
         - value
-    HybridIdentityMetadata:
+    VmInstanceHybridIdentityMetadata:
       description: Defines the HybridIdentityMetadata.
       required:
         - properties
@@ -2276,200 +2299,22 @@ components:
         properties:
           x-ms-client-flatten: true
           description: Resource properties.
-          $ref: '#/components/schemas/HybridIdentityMetadataProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
+          $ref: '#/components/schemas/VmInstanceHybridIdentityMetadataProperties'
       x-ms-azure-resource: true
-    HybridIdentityMetadataProperties:
-      description: Defines the resource properties.
+    VmInstanceHybridIdentityMetadataProperties:
+      description: Describes the properties of Hybrid Identity Metadata for a Virtual Machine.
       type: object
       properties:
-        vmId:
-          description: Gets or sets the Vm Id.
+        resourceUid:
+          description: The unique identifier for the resource.
           type: string
         publicKey:
           description: Gets or sets the Public Key.
           type: string
-        identity:
-          $ref: '#/components/schemas/Identity'
-          description: The identity of the resource.
-          readOnly: true
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
-    MachineExtension:
-      x-ms-azure-resource: true
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/MachineExtensionProperties'
-          description: Describes Machine Extension Properties.
-        location:
-          description: Gets or sets the location.
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
-        tags:
-          description: Gets or sets the Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        name:
-          description: Gets or sets the name.
-          type: string
-          readOnly: true
-        id:
-          description: Gets or sets the Id.
-          type: string
-          readOnly: true
-        type:
-          description: Gets or sets the type of the resource.
-          type: string
-          readOnly: true
-      description: Describes a Machine Extension.
-    MachineExtensionUpdate:
-      type: object
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/MachineExtensionUpdateProperties'
-          description: Describes Machine Extension Update Properties.
-      allOf:
-        - $ref: '#/components/schemas/ResourcePatch'
-      description: Describes a Machine Extension Update.
-    MachineExtensionProperties:
-      type: object
-      properties:
-        forceUpdateTag:
-          type: string
-          description: How the extension handler should be forced to update even if the extension configuration has not changed.
-        publisher:
-          type: string
-          description: The name of the extension handler publisher.
-        type:
-          type: string
-          description: Specifies the type of the extension; an example is "CustomScriptExtension".
-        typeHandlerVersion:
-          type: string
-          description: Specifies the version of the script handler.
-        enableAutomaticUpgrade:
-          type: boolean
-          description: Indicates whether the extension should be automatically upgraded by the platform if there is a newer version available.
-        autoUpgradeMinorVersion:
-          type: boolean
-          description: Indicates whether the extension should use a newer minor version if one is available at deployment time. Once deployed, however, the extension will not upgrade minor versions unless redeployed, even with this property set to true.
-        settings:
-          type: object
-          description: Json formatted public settings for the extension.
-        protectedSettings:
-          type: object
-          description: The extension can contain either protectedSettings or protectedSettingsFromKeyVault or no protected settings at all.
-          x-ms-secret: true
-        provisioningState:
-          readOnly: true
-          type: string
-          description: The provisioning state, which only appears in the response.
-        instanceView:
-          allOf:
-            - $ref: '#/components/schemas/MachineExtensionInstanceView'
-          description: The machine extension instance view.
-      description: Describes the properties of a Machine Extension.
-    MachineExtensionUpdateProperties:
-      type: object
-      properties:
-        forceUpdateTag:
-          type: string
-          description: How the extension handler should be forced to update even if the extension configuration has not changed.
-        publisher:
-          type: string
-          description: The name of the extension handler publisher.
-        type:
-          type: string
-          description: Specifies the type of the extension; an example is "CustomScriptExtension".
-        typeHandlerVersion:
-          type: string
-          description: Specifies the version of the script handler.
-        enableAutomaticUpgrade:
-          type: boolean
-          description: Indicates whether the extension should be automatically upgraded by the platform if there is a newer version available.
-        autoUpgradeMinorVersion:
-          type: boolean
-          description: Indicates whether the extension should use a newer minor version if one is available at deployment time. Once deployed, however, the extension will not upgrade minor versions unless redeployed, even with this property set to true.
-        settings:
-          type: object
-          description: Json formatted public settings for the extension.
-        protectedSettings:
-          type: object
-          description: The extension can contain either protectedSettings or protectedSettingsFromKeyVault or no protected settings at all.
-          x-ms-secret: true
-      description: Describes the properties of a Machine Extension.
-    MachineExtensionInstanceView:
-      type: object
-      properties:
-        name:
-          type: string
-          readOnly: true
-          description: The machine extension name.
-        type:
-          type: string
-          readOnly: true
-          description: Specifies the type of the extension; an example is "CustomScriptExtension".
-        typeHandlerVersion:
-          type: string
-          readOnly: true
-          description: Specifies the version of the script handler.
-        status:
-          type: object
-          properties:
-            code:
-              type: string
-              readOnly: true
-              description: The status code.
-            level:
-              type: string
-              readOnly: true
-              description: The level code.
-              enum:
-                - Info
-                - Warning
-                - Error
-              x-ms-enum:
-                name: StatusLevelTypes
-                modelAsString: true
-            displayStatus:
-              type: string
-              readOnly: true
-              description: The short localizable label for the status.
-            message:
-              type: string
-              readOnly: true
-              description: The detailed status message, including for alerts and error messages.
-            time:
-              type: string
-              readOnly: true
-              format: date-time
-              description: The time of the status.
-          description: Instance view status.
-      description: Describes the Machine Extension Instance View.
-    MachineExtensionsListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/MachineExtension'
-          description: The list of extensions
-        nextLink:
-          type: string
-          description: The uri to fetch the next page of machine extensions. Call ListNext() with this to fetch the next page of extensions.
-      description: Describes the Machine Extensions List Result.
     ProvisioningAction:
       description: Defines the different types of operations for guest agent.
       enum:
@@ -2528,12 +2373,9 @@ components:
           x-ms-client-flatten: true
           description: Resource properties.
           $ref: '#/components/schemas/GuestAgentProperties'
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: The system data.
       x-ms-azure-resource: true
     GuestAgentProperties:
-      description: Defines the resource properties.
+      description: Describes the properties of a Virtual Machine Guest Agent.
       type: object
       properties:
         uuid:
@@ -2543,6 +2385,10 @@ components:
         credentials:
           description: Username / Password Credentials to provision guest agent.
           $ref: '#/components/schemas/GuestCredential'
+        privateLinkScopeResourceId:
+          type: string
+          format: arm-id
+          description: The resource id of the private link scope this machine is assigned to, if any.
         httpProxyConfig:
           description: HTTP Proxy configuration for the VM.
           $ref: '#/components/schemas/HttpProxyConfiguration'
@@ -2564,402 +2410,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceStatus'
+          x-ms-identifiers:
+            - type
         provisioningState:
-          description: Gets or sets the provisioning state.
-          type: string
+          $ref: '#/components/schemas/ResourceProvisioningState'
+          description: Gets the provisioning state.
           readOnly: true
-    VirtualMachineAssessPatchesResult:
-      type: object
-      properties:
-        status:
-          type: string
-          readOnly: true
-          description: The overall success or failure status of the operation. It remains "InProgress" until the operation completes. At that point it will become "Unknown", "Failed", "Succeeded", or "CompletedWithWarnings."
-          enum:
-            - Unknown
-            - InProgress
-            - Failed
-            - Succeeded
-            - CompletedWithWarnings
-          x-ms-enum:
-            name: PatchOperationStatus
-            modelAsString: true
-        assessmentActivityId:
-          type: string
-          readOnly: true
-          description: The activity ID of the operation that produced this result.
-        rebootPending:
-          type: boolean
-          readOnly: true
-          description: The overall reboot status of the VM. It will be true when partially installed patches require a reboot to complete installation but the reboot has not yet occurred.
-        availablePatchCountByClassification:
-          $ref: '#/components/schemas/AvailablePatchCountByClassification'
-          description: Summarization of patches available for installation on the machine by classification.
-        startDateTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: The UTC timestamp when the operation began.
-        lastModifiedDateTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: The UTC timestamp when the operation finished.
-        startedBy:
-          type: string
-          readOnly: true
-          enum:
-            - User
-            - Platform
-          x-ms-enum:
-            name: PatchOperationStartedBy
-            modelAsString: true
-          description: Indicates if operation was triggered by user or by platform.
-        patchServiceUsed:
-          type: string
-          readOnly: true
-          enum:
-            - Unknown
-            - WU
-            - WU_WSUS
-            - YUM
-            - APT
-            - Zypper
-          x-ms-enum:
-            name: PatchServiceUsed
-            modelAsString: true
-          description: Specifies the patch service used for the operation.
-        osType:
-          type: string
-          readOnly: true
-          enum:
-            - Windows
-            - Linux
-          x-ms-enum:
-            name: OsTypeUM
-            modelAsString: true
-          description: The operating system type of the machine.
-        errorDetails:
-          $ref: '#/components/schemas/ErrorDetail'
-          readOnly: true
-          description: The errors that were encountered during execution of the operation. The details array contains the list of them.
-      description: Describes the properties of an AssessPatches result.
-    AvailablePatchCountByClassification:
-      type: object
-      properties:
-        security:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of security patches available for installation.
-        critical:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of critical patches available for installation.
-        definition:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of definition patches available for installation.
-        updateRollup:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of update Rollup patches available for installation.
-        featurePack:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of feature pack patches available for installation.
-        servicePack:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of service pack patches available for installation.
-        tools:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of tools patches available for installation.
-        updates:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of updates category patches available for installation.
-        other:
-          readOnly: true
-          type: integer
-          format: int32
-          description: Number of other patches available for installation.
-      description: Summarization of patches available for installation on the machine by classification.
-    VirtualMachineInstallPatchesParameters:
-      type: object
-      properties:
-        maximumDuration:
-          type: string
-          description: Specifies the maximum amount of time that the operation will run. It must be an ISO 8601-compliant duration string such as PT4H (4 hours)
-        rebootSetting:
-          type: string
-          description: Defines when it is acceptable to reboot a VM during a software update operation.
-          enum:
-            - IfRequired
-            - Never
-            - Always
-          x-ms-enum:
-            name: VMGuestPatchRebootSetting
-            modelAsString: true
-        windowsParameters:
-          $ref: '#/components/schemas/WindowsParameters'
-          description: Input for InstallPatches on a Windows VM, as directly received by the API
-        linuxParameters:
-          $ref: '#/components/schemas/LinuxParameters'
-          description: Input for InstallPatches on a Linux VM, as directly received by the API
-      required:
-        - maximumDuration
-        - rebootSetting
-      description: Input for InstallPatches as directly received by the API
-    WindowsParameters:
-      type: object
-      properties:
-        classificationsToInclude:
-          type: array
-          description: The update classifications to select when installing patches for Windows.
-          items:
-            type: string
-            enum:
-              - Critical
-              - Security
-              - UpdateRollUp
-              - FeaturePack
-              - ServicePack
-              - Definition
-              - Tools
-              - Updates
-            x-ms-enum:
-              name: VMGuestPatchClassification_Windows
-              modelAsString: true
-        kbNumbersToInclude:
-          type: array
-          description: Kbs to include in the patch operation
-          items:
-            type: string
-        kbNumbersToExclude:
-          type: array
-          description: Kbs to exclude in the patch operation
-          items:
-            type: string
-        excludeKbsRequiringReboot:
-          type: boolean
-          description: Filters out Kbs that don't have an InstallationRebootBehavior of 'NeverReboots' when this is set to true.
-        maxPatchPublishDate:
-          type: string
-          format: date-time
-          description: This is used to install patches that were published on or before this given max published date.
-      description: Input for InstallPatches on a Windows VM, as directly received by the API
-    LinuxParameters:
-      type: object
-      properties:
-        classificationsToInclude:
-          type: array
-          description: The update classifications to select when installing patches for Linux.
-          items:
-            type: string
-            enum:
-              - Critical
-              - Security
-              - Other
-            x-ms-enum:
-              name: VMGuestPatchClassification_Linux
-              modelAsString: true
-        packageNameMasksToInclude:
-          type: array
-          description: 'packages to include in the patch operation. Format: packageName_packageVersion'
-          items:
-            type: string
-        packageNameMasksToExclude:
-          type: array
-          description: 'packages to exclude in the patch operation. Format: packageName_packageVersion'
-          items:
-            type: string
-      description: Input for InstallPatches on a Linux VM, as directly received by the API
-    VirtualMachineInstallPatchesResult:
-      type: object
-      properties:
-        status:
-          type: string
-          readOnly: true
-          description: The overall success or failure status of the operation. It remains "InProgress" until the operation completes. At that point it will become "Failed", "Succeeded", "Unknown" or "CompletedWithWarnings."
-          enum:
-            - Unknown
-            - InProgress
-            - Failed
-            - Succeeded
-            - CompletedWithWarnings
-          x-ms-enum:
-            name: PatchOperationStatus
-            modelAsString: true
-        installationActivityId:
-          type: string
-          readOnly: true
-          description: The activity ID of the operation that produced this result.
-        rebootStatus:
-          type: string
-          readOnly: true
-          description: The reboot state of the VM following completion of the operation.
-          enum:
-            - Unknown
-            - NotNeeded
-            - Required
-            - Started
-            - Failed
-            - Completed
-          x-ms-enum:
-            name: VMGuestPatchRebootStatus
-            modelAsString: true
-        maintenanceWindowExceeded:
-          type: boolean
-          readOnly: true
-          description: Whether the operation ran out of time before it completed all its intended actions.
-        excludedPatchCount:
-          type: integer
-          readOnly: true
-          format: int32
-          description: The number of patches that were not installed due to the user blocking their installation.
-        notSelectedPatchCount:
-          type: integer
-          readOnly: true
-          format: int32
-          description: The number of patches that were detected as available for install, but did not meet the operation's criteria.
-        pendingPatchCount:
-          type: integer
-          readOnly: true
-          format: int32
-          description: The number of patches that were identified as meeting the installation criteria, but were not able to be installed. Typically this happens when maintenanceWindowExceeded == true.
-        installedPatchCount:
-          type: integer
-          readOnly: true
-          format: int32
-          description: The number of patches successfully installed.
-        failedPatchCount:
-          type: integer
-          readOnly: true
-          format: int32
-          description: The number of patches that could not be installed due to some issue. See errors for details.
-        startDateTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: The UTC timestamp when the operation began.
-        lastModifiedDateTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: The UTC timestamp when the operation finished.
-        startedBy:
-          type: string
-          readOnly: true
-          enum:
-            - User
-            - Platform
-          x-ms-enum:
-            name: PatchOperationStartedBy
-            modelAsString: true
-          description: Indicates if operation was triggered by user or by platform.
-        patchServiceUsed:
-          type: string
-          readOnly: true
-          enum:
-            - Unknown
-            - WU
-            - WU_WSUS
-            - YUM
-            - APT
-            - Zypper
-          x-ms-enum:
-            name: PatchServiceUsed
-            modelAsString: true
-          description: Specifies the patch service used for the operation.
-        osType:
-          type: string
-          readOnly: true
-          enum:
-            - Windows
-            - Linux
-          x-ms-enum:
-            name: OsTypeUM
-            modelAsString: true
-          description: The operating system type of the machine.
-        errorDetails:
-          $ref: '#/components/schemas/ErrorDetail'
-          readOnly: true
-          description: The errors that were encountered during execution of the operation. The details array contains the list of them.
-      description: The result summary of an installation operation.
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -2987,6 +2443,70 @@ components:
         minLength: 1
         maxLength: 90
         type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     subscriptionId:
       name: subscriptionId
       in: path
@@ -3009,27 +2529,18 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    OperationIdParameter:
-      name: operationId
+    resourceUriParameter:
+      name: resourceUri
       in: path
-      description: The ID of an ongoing async operation.
+      description: The fully qualified Azure Resource manager identifier of the Hybrid Compute machine resource to be extended.
       required: true
+      x-ms-skip-url-encoding: true
       x-ms-parameter-location: method
       schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
         type: string
 paths:
   /providers/Microsoft.ConnectedVMwarevSphere/operations:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       description: Returns list of all operations.
       operationId: Operations_List
@@ -3053,96 +2564,8 @@ paths:
       deprecated: false
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{name}/assessPatches:
-    x-api-version: 2022-01-10-preview
-    post:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_AssessPatches
-      description: The operation to assess patches on a vSphere VMware machine identity in Azure.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: The name of the vSphere VMware machine.
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachineAssessPatchesResult'
-        '202':
-          description: HTTP 202 (Accepted) if the operation was successfully started and will complete asynchronously.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{name}/installPatches:
-    x-api-version: 2022-01-10-preview
-    post:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_InstallPatches
-      description: The operation to install patches on a vSphere VMware machine identity in Azure.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/subscriptionId'
-        - name: resourceGroupName
-          in: path
-          description: The name of the resource group.
-          required: true
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: The name of the vSphere VMware machine.
-          required: true
-          schema:
-            type: string
-      requestBody:
-        description: Input for InstallPatches as directly received by the API
-        required: true
-        x-ms-requestBody-name: installPatchesInput
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VirtualMachineInstallPatchesParameters'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachineInstallPatchesResult'
-        '202':
-          description: HTTP 202 (Accepted) if the operation was successfully started and will complete asynchronously.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/resourcePools/{resourcePoolName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - ResourcePools
@@ -3168,7 +2591,7 @@ paths:
               $ref: '#/components/schemas/ResourcePool'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3242,7 +2665,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3280,6 +2703,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -3290,7 +2717,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/resourcePools:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - ResourcePools
@@ -3316,7 +2743,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/resourcePools:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - ResourcePools
@@ -3343,7 +2770,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/clusters/{clusterName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - Clusters
@@ -3369,7 +2796,7 @@ paths:
               $ref: '#/components/schemas/Cluster'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3443,7 +2870,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3481,6 +2908,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -3491,7 +2922,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/clusters:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Clusters
@@ -3517,7 +2948,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/clusters:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Clusters
@@ -3544,7 +2975,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/hosts/{hostName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - Hosts
@@ -3570,7 +3001,7 @@ paths:
               $ref: '#/components/schemas/Host'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3644,7 +3075,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3682,6 +3113,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -3692,7 +3127,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/hosts:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Hosts
@@ -3718,7 +3153,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/hosts:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Hosts
@@ -3745,7 +3180,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/datastores/{datastoreName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - Datastores
@@ -3771,7 +3206,7 @@ paths:
               $ref: '#/components/schemas/Datastore'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3845,7 +3280,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -3883,6 +3318,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -3893,7 +3332,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/datastores:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Datastores
@@ -3919,7 +3358,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/datastores:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - Datastores
@@ -3946,7 +3385,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/vcenters/{vcenterName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - VCenters
@@ -3972,7 +3411,7 @@ paths:
               $ref: '#/components/schemas/VCenter'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4046,7 +3485,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4084,6 +3523,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -4094,7 +3537,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/vcenters:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VCenters
@@ -4120,7 +3563,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/vcenters:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VCenters
@@ -4146,321 +3589,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}:
-    x-api-version: 2022-01-10-preview
-    put:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Create
-      description: Create Or Update virtual machine.
-      summary: Implements virtual machine PUT method.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      requestBody:
-        description: Request payload.
-        x-ms-requestBody-name: body
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VirtualMachine'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachine'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachine'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-    get:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Get
-      summary: Gets a virtual machine.
-      description: Implements virtual machine GET method.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachine'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Update
-      summary: Updates a virtual machine.
-      description: API to update certain properties of the virtual machine resource.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      requestBody:
-        description: Resource properties to update.
-        x-ms-requestBody-name: body
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VirtualMachineUpdate'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachine'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachine'
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    delete:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Delete
-      summary: Deletes an virtual machine.
-      description: Implements virtual machine DELETE method.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-        - name: force
-          in: query
-          description: Whether force delete was specified.
-          required: false
-          schema:
-            type: boolean
-        - name: retain
-          in: query
-          description: Whether to just disable the VM from azure and retain the VM in the VMM.
-          required: false
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Success
-        '202':
-          description: Accepted
-        '204':
-          description: No Content
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/stop:
-    x-api-version: 2022-01-10-preview
-    post:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Stop
-      description: Stop virtual machine.
-      summary: Implements the operation to stop a virtual machine.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      requestBody:
-        description: Virtualmachine stop action payload.
-        x-ms-requestBody-name: body
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StopVirtualMachineOptions'
-      responses:
-        '200':
-          description: Success
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/start:
-    x-api-version: 2022-01-10-preview
-    post:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Start
-      description: Start virtual machine.
-      summary: Implements the operation to start a virtual machine.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/restart:
-    x-api-version: 2022-01-10-preview
-    post:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_Restart
-      description: Restart virtual machine.
-      summary: Implements the operation to restart a virtual machine.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the virtual machine resource.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines:
-    x-api-version: 2022-01-10-preview
-    get:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_List
-      summary: Implements GET virtualMachines in a subscription.
-      description: List of virtualMachines in a subscription.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachinesList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines:
-    x-api-version: 2022-01-10-preview
-    get:
-      tags:
-        - VirtualMachines
-      operationId: VirtualMachines_ListByResourceGroup
-      summary: Implements GET virtualMachines in a resource group.
-      description: List of virtualMachines in a resource group.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VirtualMachinesList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineTemplates/{virtualMachineTemplateName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - VirtualMachineTemplates
@@ -4486,7 +3616,7 @@ paths:
               $ref: '#/components/schemas/VirtualMachineTemplate'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4560,7 +3690,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4598,6 +3728,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -4608,7 +3742,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineTemplates:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VirtualMachineTemplates
@@ -4634,7 +3768,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineTemplates:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VirtualMachineTemplates
@@ -4661,7 +3795,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualNetworks/{virtualNetworkName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - VirtualNetworks
@@ -4687,7 +3821,7 @@ paths:
               $ref: '#/components/schemas/VirtualNetwork'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4761,7 +3895,7 @@ paths:
               $ref: '#/components/schemas/ResourcePatch'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4799,6 +3933,10 @@ paths:
           description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -4809,7 +3947,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.ConnectedVMwarevSphere/virtualNetworks:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VirtualNetworks
@@ -4835,7 +3973,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualNetworks:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - VirtualNetworks
@@ -4862,7 +4000,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/vcenters/{vcenterName}/inventoryItems/{inventoryItemName}:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     put:
       tags:
         - InventoryItems
@@ -4894,7 +4032,7 @@ paths:
               $ref: '#/components/schemas/InventoryItem'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -4974,7 +4112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/vcenters/{vcenterName}/inventoryItems:
-    x-api-version: 2022-01-10-preview
+    x-api-version: '2023-10-01'
     get:
       tags:
         - InventoryItems
@@ -5006,29 +4144,16 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/hybridIdentityMetadata/{metadataName}:
-    x-api-version: 2022-01-10-preview
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default:
+    x-api-version: '2023-10-01'
     put:
       tags:
-        - HybridIdentityMetadata
-      operationId: HybridIdentityMetadata_Create
-      description: Create Or Update HybridIdentityMetadata.
-      summary: Implements HybridIdentityMetadata PUT method.
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_CreateOrUpdate
+      description: The operation to create or update a virtual machine instance. Please note some properties can be set only during virtual machine instance creation.
+      summary: Implements virtual machine PUT method.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: metadataName
-          in: path
-          description: Name of the hybridIdentityMetadata.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
       requestBody:
         description: Request payload.
@@ -5036,165 +4161,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/HybridIdentityMetadata'
+              $ref: '#/components/schemas/VirtualMachineInstance'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HybridIdentityMetadata'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - HybridIdentityMetadata
-      operationId: HybridIdentityMetadata_Get
-      summary: Gets HybridIdentityMetadata.
-      description: Implements HybridIdentityMetadata GET method.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: metadataName
-          in: path
-          description: Name of the HybridIdentityMetadata.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HybridIdentityMetadata'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - HybridIdentityMetadata
-      operationId: HybridIdentityMetadata_Delete
-      summary: Deletes an HybridIdentityMetadata.
-      description: Implements HybridIdentityMetadata DELETE method.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: metadataName
-          in: path
-          description: Name of the HybridIdentityMetadata.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-        '204':
-          description: No Content
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/hybridIdentityMetadata:
-    x-api-version: 2022-01-10-preview
-    get:
-      tags:
-        - HybridIdentityMetadata
-      operationId: HybridIdentityMetadata_ListByVm
-      summary: Implements GET HybridIdentityMetadata in a vm.
-      description: Returns the list of HybridIdentityMetadata of the given vm.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/api-version'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HybridIdentityMetadataList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{name}/extensions/{extensionName}:
-    x-api-version: 2022-01-10-preview
-    put:
-      tags:
-        - MachineExtensions
-      operationId: MachineExtensions_CreateOrUpdate
-      description: The operation to create or update the extension.
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/api-version'
-        - name: name
-          in: path
-          description: The name of the machine where the extension should be created or updated.
-          required: true
-          schema:
-            type: string
-        - name: extensionName
-          in: path
-          description: The name of the machine extension.
-          required: true
-          schema:
-            type: string
-      requestBody:
-        description: Parameters supplied to the Create Machine Extension operation.
-        required: true
-        x-ms-requestBody-name: extensionParameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MachineExtension'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MachineExtension'
+                $ref: '#/components/schemas/VirtualMachineInstance'
         '201':
-          description: HTTP 201 (Created) if the operation was successfully started and will complete asynchronously.
+          description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MachineExtension'
+                $ref: '#/components/schemas/VirtualMachineInstance'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -5204,48 +4184,57 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
+    get:
+      tags:
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Get
+      summary: Gets a virtual machine.
+      description: Retrieves information about a virtual machine instance.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualMachineInstance'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       tags:
-        - MachineExtensions
-      operationId: MachineExtensions_Update
-      description: The operation to update the extension.
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Update
+      summary: Updates a virtual machine.
+      description: The operation to update a virtual machine instance.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
-        - name: name
-          in: path
-          description: The name of the machine where the extension should be created or updated.
-          required: true
-          schema:
-            type: string
-        - name: extensionName
-          in: path
-          description: The name of the machine extension.
-          required: true
-          schema:
-            type: string
       requestBody:
-        description: Parameters supplied to the Create Machine Extension operation.
-        required: true
-        x-ms-requestBody-name: extensionParameters
+        description: Resource properties to update.
+        x-ms-requestBody-name: body
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MachineExtensionUpdate'
+              $ref: '#/components/schemas/VirtualMachineInstanceUpdate'
       responses:
         '200':
-          description: OK
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MachineExtension'
-        '201':
-          description: Created
-          content:
-            application/json:
+                $ref: '#/components/schemas/VirtualMachineInstance'
+        '202':
+          description: Accepted
+          headers:
+            Location:
               schema:
-                $ref: '#/components/schemas/MachineExtension'
+                type: string
         default:
           description: Error response describing why the operation failed.
           content:
@@ -5253,32 +4242,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
     delete:
       tags:
-        - MachineExtensions
-      operationId: MachineExtensions_Delete
-      description: The operation to delete the extension.
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Delete
+      summary: Deletes an virtual machine.
+      description: The operation to delete a virtual machine instance.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
-        - name: name
-          in: path
-          description: The name of the machine where the extension should be deleted.
-          required: true
+        - name: deleteFromHost
+          in: query
+          description: Whether to delete the VM from the vCenter.
+          required: false
           schema:
-            type: string
-        - name: extensionName
-          in: path
-          description: The name of the machine extension.
-          required: true
+            type: boolean
+        - name: force
+          in: query
+          description: Whether force delete was specified.
+          required: false
           schema:
-            type: string
+            type: boolean
       responses:
-        '200':
-          description: OK
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -5288,70 +4281,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances:
+    x-api-version: '2023-10-01'
     get:
       tags:
-        - MachineExtensions
-      operationId: MachineExtensions_Get
-      description: The operation to get the extension.
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_List
+      summary: Implements List virtual machine instances.
+      description: Lists all of the virtual machine instances within the specified parent resource.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
-        - name: name
-          in: path
-          description: The name of the machine containing the extension.
-          required: true
-          schema:
-            type: string
-        - name: extensionName
-          in: path
-          description: The name of the machine extension.
-          required: true
-          schema:
-            type: string
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MachineExtension'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{name}/extensions:
-    x-api-version: 2022-01-10-preview
-    get:
-      tags:
-        - MachineExtensions
-      operationId: MachineExtensions_List
-      description: The operation to get all extensions of a non-Azure machine
-      parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/api-version'
-        - name: name
-          in: path
-          description: The name of the machine containing the extension.
-          required: true
-          schema:
-            type: string
-        - name: $expand
-          in: query
-          description: The expand expression to apply on the operation.
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MachineExtensionsListResult'
+                $ref: '#/components/schemas/VirtualMachineInstancesList'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -5360,29 +4309,154 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/guestAgents/{name}:
-    x-api-version: 2022-01-10-preview
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/stop:
+    x-api-version: '2023-10-01'
+    post:
+      tags:
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Stop
+      description: The operation to power off (stop) a virtual machine instance.
+      summary: Implements the operation to stop a virtual machine.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      requestBody:
+        description: Virtualmachine stop action payload.
+        x-ms-requestBody-name: body
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopVirtualMachineOptions'
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/start:
+    x-api-version: '2023-10-01'
+    post:
+      tags:
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Start
+      description: The operation to start a virtual machine instance.
+      summary: Implements the operation to start a virtual machine.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/restart:
+    x-api-version: '2023-10-01'
+    post:
+      tags:
+        - VirtualMachineInstances
+      operationId: VirtualMachineInstances_Restart
+      description: The operation to restart a virtual machine instance.
+      summary: Implements the operation to restart a virtual machine.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/hybridIdentityMetadata/default:
+    x-api-version: '2023-10-01'
+    get:
+      tags:
+        - VmInstanceHybridIdentityMetadata
+      operationId: VmInstanceHybridIdentityMetadata_Get
+      summary: Gets HybridIdentityMetadata.
+      description: Implements HybridIdentityMetadata GET method.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VmInstanceHybridIdentityMetadata'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/hybridIdentityMetadata:
+    x-api-version: '2023-10-01'
+    get:
+      tags:
+        - VmInstanceHybridIdentityMetadata
+      operationId: VmInstanceHybridIdentityMetadata_List
+      summary: Implements GET HybridIdentityMetadata in a vm.
+      description: Returns the list of HybridIdentityMetadata of the given vm.
+      parameters:
+        - $ref: '#/components/parameters/resourceUriParameter'
+        - $ref: '#/components/parameters/api-version'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VmInstanceHybridIdentityMetadataList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/guestAgents/default:
+    x-api-version: '2023-10-01'
     put:
       tags:
-        - GuestAgents
-      operationId: GuestAgents_Create
+        - VMInstanceGuestAgents
+      operationId: VMInstanceGuestAgents_Create
       description: Create Or Update GuestAgent.
       summary: Implements GuestAgent PUT method.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the guestAgents.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
       requestBody:
         description: Request payload.
@@ -5393,7 +4467,7 @@ paths:
               $ref: '#/components/schemas/GuestAgent'
       responses:
         '200':
-          description: Success
+          description: Arm resource update successful.
           content:
             application/json:
               schema:
@@ -5415,25 +4489,12 @@ paths:
         final-state-via: azure-async-operation
     get:
       tags:
-        - GuestAgents
-      operationId: GuestAgents_Get
+        - VMInstanceGuestAgents
+      operationId: VMInstanceGuestAgents_Get
       summary: Gets GuestAgent.
       description: Implements GuestAgent GET method.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the GuestAgent.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
       responses:
         '200':
@@ -5450,31 +4511,20 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags:
-        - GuestAgents
-      operationId: GuestAgents_Delete
+        - VMInstanceGuestAgents
+      operationId: VMInstanceGuestAgents_Delete
       summary: Deletes an GuestAgent.
       description: Implements GuestAgent DELETE method.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the GuestAgent.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
       responses:
-        '200':
-          description: Success
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: No Content
         default:
@@ -5484,23 +4534,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachines/{virtualMachineName}/guestAgents:
-    x-api-version: 2022-01-10-preview
+  /{resourceUri}/providers/Microsoft.ConnectedVMwarevSphere/virtualMachineInstances/default/guestAgents:
+    x-api-version: '2023-10-01'
     get:
       tags:
-        - GuestAgents
-      operationId: GuestAgents_ListByVm
+        - VMInstanceGuestAgents
+      operationId: VMInstanceGuestAgents_List
       summary: Implements GET GuestAgent in a vm.
       description: Returns the list of GuestAgent of the given vm.
       parameters:
-        - $ref: '#/components/parameters/subscriptionId'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - name: virtualMachineName
-          in: path
-          description: Name of the vm.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/resourceUriParameter'
         - $ref: '#/components/parameters/api-version'
       responses:
         '200':

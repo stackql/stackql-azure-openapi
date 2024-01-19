@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure Reservation API
   description: This API describe Azure Reservation
-  version: '2022-03-01'
+  version: '2022-11-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -19,8 +19,457 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
+        tenantId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      description: Error response indicates that the service is not able to process the incoming request. The reason is provided in the error message.
+      type: object
+      properties:
+        error:
+          description: The details of the error.
+          $ref: '#/components/schemas/ErrorDetails'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     ErrorResponseCode:
       type: string
+      description: Error code describing the reason that service is not able to process the incoming request
       enum:
         - NotSpecified
         - InternalServerError
@@ -183,6 +632,7 @@ components:
             type: string
     CalculateRefundRequest:
       type: object
+      description: Request containing information needed for calculating refund.
       properties:
         id:
           type: string
@@ -191,11 +641,13 @@ components:
           $ref: '#/components/schemas/CalculateRefundRequestProperties'
     RefundRequest:
       type: object
+      description: Request containing information needed for returning reservation.
       properties:
         properties:
           $ref: '#/components/schemas/RefundRequestProperties'
     CalculateRefundRequestProperties:
       type: object
+      description: Properties needed for calculate refund including the scope and the reservation to be returned.
       properties:
         scope:
           type: string
@@ -204,6 +656,7 @@ components:
           $ref: '#/components/schemas/ReservationToReturn'
     RefundRequestProperties:
       type: object
+      description: Properties needed for refund request including the session id from calculate refund, the scope, the reservation to be returned and the return reason.
       properties:
         sessionId:
           type: string
@@ -237,11 +690,20 @@ components:
           description: List of reservations that are being purchased in this exchange.
           items:
             $ref: '#/components/schemas/PurchaseRequest'
+          x-ms-identifiers: []
+        savingsPlansToPurchase:
+          type: array
+          description: List of savings plans that are being purchased in this exchange.
+          items:
+            $ref: '#/components/schemas/SavingsPlanPurchaseRequest'
+          x-ms-identifiers: []
         reservationsToExchange:
           type: array
           description: List of reservations that are being returned in this exchange.
           items:
             $ref: '#/components/schemas/ReservationToReturn'
+          x-ms-identifiers:
+            - reservationId
     ExchangeRequestProperties:
       type: object
       description: Exchange request properties
@@ -255,7 +717,7 @@ components:
       properties:
         reservationId:
           type: string
-          description: Fully qualified identifier of the Reservation being returned
+          description: Fully qualified identifier of the reservation being returned
         quantity:
           type: integer
           format: int32
@@ -266,7 +728,7 @@ components:
       properties:
         reservationId:
           type: string
-          description: Fully qualified id of the Reservation being returned.
+          description: Fully qualified id of the reservation being returned.
         quantity:
           type: integer
           format: int32
@@ -307,20 +769,40 @@ components:
           $ref: '#/components/schemas/Price'
         billingCurrencyRemainingCommitmentAmount:
           $ref: '#/components/schemas/Price'
+    CatalogsResult:
+      type: object
+      description: The list of catalogs and pagination information.
+      properties:
+        value:
+          description: The list of catalogs.
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/Catalog'
+          x-ms-identifiers: []
+        nextLink:
+          description: The link (url) to the next page of results.
+          type: string
+          readOnly: true
+        totalItems:
+          description: The total amount of catalog items.
+          type: integer
+          format: int64
     Catalog:
       type: object
+      description: Product details of a type of resource.
       properties:
         resourceType:
           type: string
-          description: The type of resource the SKU applies to.
+          description: The type of resource the sku applies to.
           readOnly: true
         name:
           type: string
-          description: The name of SKU
+          description: The name of sku
           readOnly: true
         billingPlans:
           type: object
-          description: The billing plan options available for this SKU.
+          description: The billing plan options available for this sku.
           additionalProperties:
             type: array
             items:
@@ -336,18 +818,28 @@ components:
           readOnly: true
           items:
             type: string
-            description: The set of locations that the SKU is available. If not specified, the SKU is available in all locations.
+            description: The set of locations that the sku is available. If not specified, the sku is available in all locations.
         skuProperties:
           type: array
           readOnly: true
           items:
             $ref: '#/components/schemas/SkuProperty'
+          x-ms-identifiers:
+            - name
         msrp:
           type: object
           readOnly: true
-          description: Pricing information about the SKU
+          description: Pricing information about the sku
           properties:
             p1Y:
+              type: object
+              $ref: '#/components/schemas/Price'
+              description: Amount in pricing currency. Tax not included.
+            p3Y:
+              type: object
+              $ref: '#/components/schemas/Price'
+              description: Amount in pricing currency. Tax not included.
+            p5Y:
               type: object
               $ref: '#/components/schemas/Price'
               description: Amount in pricing currency. Tax not included.
@@ -356,21 +848,25 @@ components:
           readOnly: true
           items:
             $ref: '#/components/schemas/SkuRestriction'
+          x-ms-identifiers: []
         tier:
           type: string
-          description: The tier of this SKU
+          description: The tier of this sku
           readOnly: true
         size:
           type: string
-          description: The size of this SKU
+          description: The size of this sku
           readOnly: true
         capabilities:
           type: array
           readOnly: true
           items:
             $ref: '#/components/schemas/SkuCapability'
+          x-ms-identifiers:
+            - name
     SkuCapability:
       type: object
+      description: Capability of a sku.
       properties:
         name:
           type: string
@@ -380,6 +876,7 @@ components:
           description: An invariant if the feature is measured by quantity.
     SkuProperty:
       type: object
+      description: Property of a sku.
       properties:
         name:
           type: string
@@ -389,6 +886,7 @@ components:
           description: An invariant if the feature is measured by quantity.
     SkuRestriction:
       type: object
+      description: Restriction of a sku.
       properties:
         type:
           type: string
@@ -397,12 +895,13 @@ components:
           type: array
           items:
             type: string
-          description: The value of restrictions. If the restriction type is set to location. This would be different locations where the SKU is restricted.
+          description: The value of restrictions. If the restriction type is set to location. This would be different locations where the sku is restricted.
         reasonCode:
           type: string
           description: The reason for restriction.
     ReservationOrderResponse:
       type: object
+      description: Details of a reservation order being returned.
       x-ms-azure-resource: true
       properties:
         etag:
@@ -481,8 +980,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PaymentDetail'
+          x-ms-identifiers: []
     ReservationOrderProperties:
       type: object
+      description: Properties of a reservation order.
       properties:
         displayName:
           type: string
@@ -498,7 +999,11 @@ components:
         expiryDate:
           type: string
           format: date
-          description: This is the date when the Reservation will expire.
+          description: This is the date when the reservation will expire.
+        expiryDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the reservation will expire.
         benefitStartTime:
           type: string
           format: date-time
@@ -506,7 +1011,7 @@ components:
         originalQuantity:
           type: integer
           format: int32
-          description: Total Quantity of the SKUs purchased in the Reservation.
+          description: Total Quantity of the skus purchased in the reservation.
         term:
           $ref: '#/components/schemas/ReservationTerm'
         provisioningState:
@@ -520,9 +1025,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReservationResponse'
+        reviewDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the Azure Hybrid Benefit needs to be reviewed.
     DisplayProvisioningState:
       type: string
-      description: Represent the current display state of the Reservation.
+      description: Represent the current display state of the reservation.
       enum:
         - Succeeded
         - Expiring
@@ -531,6 +1040,8 @@ components:
         - Processing
         - Cancelled
         - Failed
+        - Warning
+        - NoBenefit
       x-ms-enum:
         name: DisplayProvisioningState
         modelAsString: true
@@ -560,7 +1071,7 @@ components:
         modelAsString: true
     ReservationTerm:
       type: string
-      description: Represent the term of Reservation.
+      description: Represent the term of reservation.
       enum:
         - P1Y
         - P3Y
@@ -590,31 +1101,24 @@ components:
       description: The definition of the reservation.
       type: object
       x-ms-azure-resource: true
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
       properties:
         location:
           type: string
-          description: The Azure Region where the reserved resource lives.
+          description: The Azure region where the reserved resource lives.
+          x-ms-mutability:
+            - create
+            - read
         etag:
           type: integer
           format: int32
-        id:
-          type: string
-          readOnly: true
-          description: Identifier of the reservation
-        name:
-          type: string
-          readOnly: true
-          description: Name of the reservation
         sku:
           description: 'The sku information associated to this reservation '
           $ref: '#/components/schemas/SkuName'
         properties:
           description: 'The properties associated to this reservation '
           $ref: '#/components/schemas/ReservationsProperties'
-        type:
-          type: string
-          readOnly: true
-          description: Type of resource. "Microsoft.Capacity/reservationOrders/reservations"
         kind:
           type: string
           description: Resource Provider type to be reserved.
@@ -623,27 +1127,28 @@ components:
           x-ms-enum:
             name: Kind
             modelAsString: false
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          readOnly: true
     ReservationQuantity:
       type: integer
       format: int32
-      description: Quantity of the SKUs that are part of the Reservation. Must be greater than zero.
+      description: Quantity of the skus that are part of the reservation. Must be greater than zero.
     AvailableScopeProperties:
       type: object
+      description: The response of available scope api containing scopes and their eligibilities.
       properties:
         properties:
           $ref: '#/components/schemas/SubscriptionScopeProperties'
     SubscriptionScopeProperties:
       type: object
+      description: The scopes checked by the available scope api.
       properties:
         scopes:
           type: array
           items:
             $ref: '#/components/schemas/ScopeProperties'
+          x-ms-identifiers: []
     ScopeProperties:
       type: object
+      description: The scope and whether it is valid.
       properties:
         scope:
           type: string
@@ -697,6 +1202,7 @@ components:
       description: Setting this to true will automatically purchase a new reservation on the expiration date time.
     RenewPropertiesResponse:
       type: object
+      description: The renew properties for a reservation.
       properties:
         purchaseProperties:
           $ref: '#/components/schemas/PurchaseRequest'
@@ -720,11 +1226,13 @@ components:
               type: number
     SkuName:
       type: object
+      description: The name of sku
       properties:
         name:
           type: string
     CalculateRefundResponse:
       type: object
+      description: The response of calculate refund containing refund information of reservation
       properties:
         id:
           type: string
@@ -733,6 +1241,7 @@ components:
           $ref: '#/components/schemas/RefundResponseProperties'
     RefundResponse:
       type: object
+      description: The response of refund request containing refund information of reservation
       properties:
         id:
           type: string
@@ -741,6 +1250,7 @@ components:
           $ref: '#/components/schemas/RefundResponseProperties'
     RefundResponseProperties:
       type: object
+      description: The refund properties of reservation
       properties:
         sessionId:
           type: string
@@ -836,11 +1346,20 @@ components:
           description: Details of the reservations being purchased
           items:
             $ref: '#/components/schemas/ReservationToPurchaseCalculateExchange'
+          x-ms-identifiers: []
+        savingsPlansToPurchase:
+          type: array
+          description: Details of the savings plans being purchased
+          items:
+            $ref: '#/components/schemas/SavingsPlanToPurchaseCalculateExchange'
+          x-ms-identifiers: []
         reservationsToExchange:
           type: array
           description: Details of the reservations being returned
           items:
             $ref: '#/components/schemas/ReservationToExchange'
+          x-ms-identifiers:
+            - reservationId
         policyResult:
           $ref: '#/components/schemas/ExchangePolicyErrors'
     ExchangeResponseProperties:
@@ -861,11 +1380,22 @@ components:
           description: Details of the reservations being purchased
           items:
             $ref: '#/components/schemas/ReservationToPurchaseExchange'
+          x-ms-identifiers:
+            - reservationId
+        savingsPlansToPurchase:
+          type: array
+          description: Details of the savings plans being purchased
+          items:
+            $ref: '#/components/schemas/SavingsPlanToPurchaseExchange'
+          x-ms-identifiers:
+            - savingsPlanId
         reservationsToExchange:
           type: array
           description: Details of the reservations being returned
           items:
             $ref: '#/components/schemas/ReservationToReturnForExchange'
+          x-ms-identifiers:
+            - reservationId
         policyResult:
           $ref: '#/components/schemas/ExchangePolicyErrors'
     RefundPolicyResult:
@@ -905,6 +1435,7 @@ components:
           description: Exchange Policy errors
           items:
             $ref: '#/components/schemas/ExchangePolicyError'
+          x-ms-identifiers: []
     ExchangePolicyError:
       type: object
       description: error details
@@ -919,7 +1450,7 @@ components:
       properties:
         reservationId:
           type: string
-          description: Fully qualified id of the Reservation being returned.
+          description: Fully qualified id of the reservation being returned.
         quantity:
           type: integer
           format: int32
@@ -936,22 +1467,63 @@ components:
           $ref: '#/components/schemas/PurchaseRequest'
         billingCurrencyTotal:
           $ref: '#/components/schemas/Price'
+    SavingsPlanToPurchaseCalculateExchange:
+      type: object
+      description: Savings plan purchase details
+      properties:
+        properties:
+          $ref: '#/components/schemas/SavingsPlanPurchaseRequest'
+        billingCurrencyTotal:
+          $ref: '#/components/schemas/Price'
     ReservationToPurchaseExchange:
       type: object
       description: Reservation purchase details
       properties:
         reservationOrderId:
           type: string
-          description: Fully qualified id of the ReservationOrder being purchased
+          description: Fully qualified id of the reservationOrder being purchased
         reservationId:
           type: string
-          description: Fully qualified id of the Reservation being purchased. This value is only guaranteed to be non-null if the purchase is successful.
+          description: Fully qualified id of the reservation being purchased. This value is only guaranteed to be non-null if the purchase is successful.
         properties:
           $ref: '#/components/schemas/PurchaseRequest'
         billingCurrencyTotal:
           $ref: '#/components/schemas/Price'
         status:
           $ref: '#/components/schemas/OperationStatus'
+    SavingsPlanToPurchaseExchange:
+      type: object
+      description: Savings plan purchase details
+      properties:
+        savingsPlanOrderId:
+          type: string
+          description: Fully qualified id of the savings plan order being purchased
+        savingsPlanId:
+          type: string
+          description: Fully qualified id of the savings plan being purchased. This value is only guaranteed to be non-null if the purchase is successful.
+        properties:
+          $ref: '#/components/schemas/SavingsPlanPurchaseRequest'
+        billingCurrencyTotal:
+          $ref: '#/components/schemas/Price'
+        status:
+          $ref: '#/components/schemas/OperationStatus'
+    BenefitTerm:
+      type: string
+      description: Represent savings plan term in ISO 8601 format.
+      enum:
+        - P1Y
+        - P3Y
+      x-ms-enum:
+        name: SavingsPlanTerm
+        modelAsString: true
+    BillingPlan:
+      type: string
+      description: Represents the billing plan in ISO 8601 format. Required only for monthly billing plans.
+      enum:
+        - P1M
+      x-ms-enum:
+        name: BillingPlan
+        modelAsString: true
     ReservationsProperties:
       type: object
       description: The properties of the reservations
@@ -960,7 +1532,7 @@ components:
           description: The type of the resource that is being reserved.
           $ref: '#/components/schemas/ReservedResourceType'
         instanceFlexibility:
-          description: Allows reservation discount to be applied across skus within the same Autofit group. Not all skus support instance size flexibility.
+          description: Allows reservation discount to be applied across skus within the same auto fit group. Not all skus support instance size flexibility.
           $ref: '#/components/schemas/InstanceFlexibility'
         displayName:
           type: string
@@ -978,7 +1550,7 @@ components:
           description: Capabilities of the reservation
           type: string
         quantity:
-          description: Quantity of the SKUs that are part of the Reservation.
+          description: Quantity of the skus that are part of the reservation.
           $ref: '#/components/schemas/ReservationQuantity'
         provisioningState:
           description: Current state of the reservation.
@@ -986,7 +1558,7 @@ components:
         effectiveDateTime:
           type: string
           format: date-time
-          description: DateTime of the Reservation starting when this version is effective from.
+          description: DateTime of the reservation starting when this version is effective from.
         benefitStartTime:
           type: string
           format: date-time
@@ -994,37 +1566,53 @@ components:
         lastUpdatedDateTime:
           type: string
           format: date-time
-          description: DateTime of the last time the Reservation was updated.
+          description: DateTime of the last time the reservation was updated.
           readOnly: true
         expiryDate:
           type: string
           format: date
-          description: This is the date when the Reservation will expire.
+          description: This is the date when the reservation will expire.
+        expiryDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the reservation will expire.
+        reviewDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the Azure Hybrid Benefit needs to be reviewed.
         skuDescription:
           type: string
-          description: Description of the SKU in english.
+          description: Description of the sku in english.
         extendedStatusInfo:
           description: The message giving detailed information about the status code.
           $ref: '#/components/schemas/ExtendedStatusInfo'
         billingPlan:
-          description: The billing plan options available for this SKU.
+          description: The billing plan options available for this sku.
           $ref: '#/components/schemas/ReservationBillingPlan'
         displayProvisioningState:
           description: The provisioning state of the reservation for display, e.g. Succeeded
           type: string
           readOnly: true
         provisioningSubState:
-          description: The provisioning state of the reservation, e.g. Succeeded
+          description: The provisioning sub-state of the reservation, e.g. Succeeded
           type: string
           readOnly: true
         purchaseDate:
           type: string
           format: date
-          description: This is the date when the Reservation was purchased.
+          description: This is the date when the reservation was purchased.
+        purchaseDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the reservation was purchased.
         splitProperties:
           $ref: '#/components/schemas/ReservationSplitProperties'
         mergeProperties:
           $ref: '#/components/schemas/ReservationMergeProperties'
+        swapProperties:
+          $ref: '#/components/schemas/ReservationSwapProperties'
+        appliedScopeProperties:
+          $ref: '#/components/schemas/AppliedScopeProperties'
         billingScopeId:
           $ref: '#/components/schemas/BillingScopeId'
         renew:
@@ -1039,7 +1627,7 @@ components:
         renewProperties:
           $ref: '#/components/schemas/RenewPropertiesResponse'
         term:
-          description: Represent the term of Reservation.
+          description: Represent the term of reservation.
           $ref: '#/components/schemas/ReservationTerm'
         userFriendlyAppliedScopeType:
           description: The applied scope type of the reservation for display, e.g. Shared
@@ -1055,7 +1643,7 @@ components:
           description: Reservation utilization
           properties:
             trend:
-              description: The number of days trend for a reservation
+              description: last 7 day utilization trend for a reservation
               readOnly: true
               type: string
             aggregates:
@@ -1063,30 +1651,44 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ReservationUtilizationAggregates'
+              x-ms-identifiers: []
     ReservationSplitProperties:
       type: object
+      description: Properties of reservation split
       properties:
         splitDestinations:
           type: array
           items:
             type: string
-          description: List of destination Resource Id that are created due to split. Format of the resource Id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+          description: List of destination resource id that are created due to split. Format of the resource id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
         splitSource:
           type: string
-          description: Resource Id of the Reservation from which this is split. Format of the resource Id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+          description: Resource id of the reservation from which this is split. Format of the resource id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
     ReservationMergeProperties:
       type: object
+      description: Properties of reservation merge
       properties:
         mergeDestination:
           type: string
-          description: Reservation Resource Id Created due to the merge. Format of the resource Id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+          description: Reservation resource id Created due to the merge. Format of the resource id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
         mergeSources:
           type: array
           items:
             type: string
-          description: Resource Ids of the Source Reservation's merged to form this Reservation. Format of the resource Id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+          description: Resource ids of the source reservation's merged to form this reservation. Format of the resource id is /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+    ReservationSwapProperties:
+      type: object
+      description: Properties of reservation swap
+      properties:
+        swapSource:
+          type: string
+          description: Resource id of the source reservation that gets swapped. Format of the resource id is /providers/microsoft.capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
+        swapDestination:
+          type: string
+          description: Reservation resource id that the original resource gets swapped to. Format of the resource id is /providers/microsoft.capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
     PurchaseRequestProperties:
       type: object
+      description: Properties of reservation purchase request
       properties:
         reservedResourceType:
           $ref: '#/components/schemas/ReservedResourceType'
@@ -1097,15 +1699,17 @@ components:
         billingPlan:
           $ref: '#/components/schemas/ReservationBillingPlan'
         quantity:
-          description: Quantity of the SKUs that are part of the Reservation.
+          description: Quantity of the skus that are part of the reservation.
           $ref: '#/components/schemas/ReservationQuantity'
         displayName:
           type: string
-          description: Friendly name of the Reservation
+          description: Friendly name of the reservation
         appliedScopeType:
           $ref: '#/components/schemas/AppliedScopeType'
         appliedScopes:
           $ref: '#/components/schemas/AppliedScopes'
+        appliedScopeProperties:
+          $ref: '#/components/schemas/AppliedScopeProperties'
         renew:
           $ref: '#/components/schemas/Renew'
         reservedResourceProperties:
@@ -1114,6 +1718,29 @@ components:
           properties:
             instanceFlexibility:
               $ref: '#/components/schemas/InstanceFlexibility'
+        reviewDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the Azure hybrid benefit needs to be reviewed.
+    SavingsPlanPurchaseRequestProperties:
+      type: object
+      description: Properties of a savings plan purchase
+      properties:
+        displayName:
+          type: string
+          description: Friendly name of the savings plan
+        billingScopeId:
+          $ref: '#/components/schemas/BillingScopeId'
+        term:
+          $ref: '#/components/schemas/BenefitTerm'
+        billingPlan:
+          $ref: '#/components/schemas/BillingPlan'
+        appliedScopeType:
+          $ref: '#/components/schemas/AppliedScopeType'
+        appliedScopeProperties:
+          $ref: '#/components/schemas/AppliedScopeProperties'
+        commitment:
+          $ref: '#/components/schemas/Commitment'
     ReservationUtilizationAggregates:
       description: The aggregate values of reservation utilization
       type: object
@@ -1166,18 +1793,29 @@ components:
           description: The number of reservation in Processing state
           readOnly: true
           type: number
+        warningCount:
+          description: The number of reservation in Warning state
+          readOnly: true
+          type: number
+        noBenefitCount:
+          description: The number of reservation in NoBenefit state
+          readOnly: true
+          type: number
     PatchProperties:
       type: object
+      description: Properties for reservation patch
       properties:
         appliedScopeType:
           $ref: '#/components/schemas/AppliedScopeType'
         appliedScopes:
           $ref: '#/components/schemas/AppliedScopes'
+        appliedScopeProperties:
+          $ref: '#/components/schemas/AppliedScopeProperties'
         instanceFlexibility:
           $ref: '#/components/schemas/InstanceFlexibility'
         name:
           type: string
-          description: Name of the Reservation
+          description: Display name of the reservation
         renew:
           $ref: '#/components/schemas/Renew'
         renewProperties:
@@ -1185,8 +1823,13 @@ components:
           properties:
             purchaseProperties:
               $ref: '#/components/schemas/PurchaseRequest'
+        reviewDateTime:
+          type: string
+          format: date-time
+          description: This is the date-time when the Azure hybrid benefit needs to be reviewed.
     SplitProperties:
       type: object
+      description: Properties for reservation split
       properties:
         quantities:
           type: array
@@ -1201,6 +1844,7 @@ components:
           description: Resource id of the reservation to be split. Format of the resource id should be /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}
     MergeProperties:
       type: object
+      description: Properties for reservation merge
       properties:
         sources:
           type: array
@@ -1209,73 +1853,59 @@ components:
             type: string
     MergeRequest:
       type: object
+      description: The request for reservation merge
       properties:
         properties:
           x-ms-client-flatten: true
           $ref: '#/components/schemas/MergeProperties'
     PurchaseRequest:
       type: object
+      description: The request for reservation purchase
       properties:
         sku:
           $ref: '#/components/schemas/SkuName'
         location:
           type: string
-          description: The Azure Region where the reserved resource lives.
+          description: The Azure region where the reserved resource lives.
+          x-ms-mutability:
+            - create
+            - read
+            - update
         properties:
           x-ms-client-flatten: true
           $ref: '#/components/schemas/PurchaseRequestProperties'
+    SavingsPlanPurchaseRequest:
+      type: object
+      description: Request body for savings plan purchase
+      properties:
+        sku:
+          $ref: '#/components/schemas/SkuName'
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SavingsPlanPurchaseRequestProperties'
     Patch:
       type: object
+      description: The request for reservation patch
       properties:
         properties:
           x-ms-client-flatten: true
           $ref: '#/components/schemas/PatchProperties'
     SplitRequest:
       type: object
+      description: The request for reservation split
       properties:
         properties:
           x-ms-client-flatten: true
           $ref: '#/components/schemas/SplitProperties'
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
     Error:
       type: object
+      description: Error information
       properties:
         error:
           $ref: '#/components/schemas/ExtendedErrorInfo'
     ExtendedErrorInfo:
       type: object
+      description: Extended error information including error code and error message
       properties:
         code:
           $ref: '#/components/schemas/ErrorResponseCode'
@@ -1299,6 +1929,7 @@ components:
           readOnly: true
     AppliedReservations:
       type: object
+      description: The response for applied reservations api
       properties:
         id:
           type: string
@@ -1317,32 +1948,39 @@ components:
           $ref: '#/components/schemas/AppliedReservationsProperties'
     AppliedReservationsProperties:
       type: object
+      description: Properties for applied reservations returned
       properties:
         reservationOrderIds:
           $ref: '#/components/schemas/AppliedReservationList'
     AppliedReservationList:
       type: object
+      description: Paginated list of applied reservations
       properties:
         value:
           type: array
           items:
             type: string
-            description: Reservation resource Id. "/providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}"
+            description: Reservation resource id. "/providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}"
+          x-ms-identifiers: []
         nextLink:
           type: string
           description: Url to get the next page of reservations
     OperationList:
       type: object
+      description: Paginated list of operations
       properties:
         value:
           type: array
           items:
             $ref: '#/components/schemas/OperationResponse'
+          x-ms-identifiers:
+            - name
         nextLink:
           type: string
           description: Url to get the next page of items.
     OperationResponse:
       type: object
+      description: The response containing operation information
       properties:
         name:
           description: Name of the operation
@@ -1361,6 +1999,7 @@ components:
           description: Properties of the operation
     OperationDisplay:
       type: object
+      description: Information about an operation
       properties:
         provider:
           type: string
@@ -1376,6 +2015,7 @@ components:
       x-ms-client-flatten: true
     ReservationList:
       type: object
+      description: List of `Reservation`s
       properties:
         value:
           type: array
@@ -1386,6 +2026,7 @@ components:
           description: Url to get the next page of reservations.
     ReservationOrderList:
       type: object
+      description: List of `ReservationOrder`s
       properties:
         value:
           type: array
@@ -1400,21 +2041,65 @@ components:
       enum:
         - Single
         - Shared
+        - ManagementGroup
       x-ms-enum:
         name: AppliedScopeType
         modelAsString: true
     AppliedScopes:
       type: array
-      description: List of the subscriptions that the benefit will be applied. Do not specify if AppliedScopeType is Shared.
+      description: List of the subscriptions that the benefit will be applied. Do not specify if AppliedScopeType is Shared. This property will be deprecated and replaced by appliedScopeProperties instead for Single AppliedScopeType.
       items:
         type: string
         minItems: 1
         maxItems: 1
+      x-ms-identifiers: []
+    AppliedScopeProperties:
+      type: object
+      description: Properties specific to applied scope type. Not required if not applicable. Required and need to provide tenantId and managementGroupId if AppliedScopeType is ManagementGroup
+      properties:
+        tenantId:
+          $ref: '#/components/schemas/TenantId'
+        managementGroupId:
+          $ref: '#/components/schemas/ManagementGroupId'
+        subscriptionId:
+          $ref: '#/components/schemas/SubscriptionId'
+        resourceGroupId:
+          $ref: '#/components/schemas/ResourceGroupId'
+        displayName:
+          type: string
+          description: Display name
+    TenantId:
+      type: string
+      description: Tenant ID where the savings plan should apply benefit.
+    ManagementGroupId:
+      type: string
+      description: Fully-qualified identifier of the management group where the benefit must be applied.
+    SubscriptionId:
+      type: string
+      description: Fully-qualified identifier of the subscription.
+    ResourceGroupId:
+      type: string
+      description: Fully-qualified identifier of the resource group.
+    Commitment:
+      type: object
+      description: Commitment towards the benefit.
+      allOf:
+        - $ref: '#/components/schemas/Price'
+      properties:
+        grain:
+          type: string
+          description: Commitment grain.
+          enum:
+            - Hourly
+          x-ms-enum:
+            name: CommitmentGrain
+            modelAsString: true
     BillingScopeId:
       type: string
-      description: Subscription that will be charged for purchasing Reservation
+      description: Subscription that will be charged for purchasing reservation or savings plan
     Price:
       type: object
+      description: Pricing information containing the amount and the currency code
       properties:
         currencyCode:
           type: string
@@ -1435,11 +2120,13 @@ components:
         modelAsString: true
     CalculatePriceResponse:
       type: object
+      description: The response of calculate price for reservation.
       properties:
         properties:
           $ref: '#/components/schemas/CalculatePriceResponseProperties'
     CalculatePriceResponseProperties:
       type: object
+      description: Properties for calculate price response
       properties:
         billingCurrencyTotal:
           type: object
@@ -1474,10 +2161,10 @@ components:
           description: GUID that represents reservation order that can be placed after calculating price.
           type: string
         skuTitle:
-          description: Title of SKU that is being purchased.
+          description: Title of sku that is being purchased.
           type: string
         skuDescription:
-          description: Description of SKU that is being purchased.
+          description: Description of sku that is being purchased.
           type: string
         pricingCurrencyTotal:
           type: object
@@ -1492,8 +2179,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PaymentDetail'
+          x-ms-identifiers: []
     ChangeDirectoryRequest:
       type: object
+      description: Request body for change directory of a reservation.
       properties:
         destinationTenantId:
           description: Tenant id GUID that reservation order is to be transferred to
@@ -1868,373 +2557,11 @@ components:
           type: string
           readOnly: true
           description: The error message.
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
   parameters:
-    ReservationIdParameter:
-      name: reservationId
+    SubscriptionIdParameter:
+      name: subscriptionId
       in: path
-      description: Id of the Reservation Item
+      description: Id of the subscription
       required: true
       x-ms-parameter-location: method
       schema:
@@ -2242,26 +2569,99 @@ components:
     ApiVersionParameter:
       name: api-version
       in: query
-      description: The API version to use for this operation.
+      description: API version.
       required: true
+      schema:
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
       schema:
         minLength: 1
         type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ReservationIdParameter:
+      name: reservationId
+      in: path
+      description: Id of the reservation item
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     ExpandRenewPropertiesParameter:
-      name: expand
+      name: $expand
       in: query
       description: Supported value of this query is renewProperties
       required: false
       x-ms-parameter-location: method
       schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
         type: string
     ReservedResourceTypeIdParameter:
       name: reservedResourceType
@@ -2274,7 +2674,7 @@ components:
     LocationIdParameter:
       name: location
       in: query
-      description: Filters the skus based on the location specified in this parameter. This can be an azure region or global
+      description: Filters the skus based on the location specified in this parameter. This can be an Azure region or global
       required: false
       x-ms-parameter-location: method
       schema:
@@ -2345,23 +2745,13 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
 paths:
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}/availableScopes:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Get Available Scopes for `Reservation`.
       description: |
-        Get Available Scopes for `Reservation`.
+        Check whether the scopes from request is valid for `Reservation`.
       operationId: Reservation_AvailableScopes
       x-ms-long-running-operation: true
       parameters:
@@ -2369,6 +2759,7 @@ paths:
         - $ref: '#/components/parameters/ReservationIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
+        description: Scopes to be checked for eligibility.
         required: true
         x-ms-requestBody-name: body
         x-ms-parameter-location: method
@@ -2392,10 +2783,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/providers/Microsoft.Capacity/catalogs:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get the regions and skus that are available for RI purchase for the specified Azure subscription.
       operationId: GetCatalog
+      x-ms-pageable:
+        nextLinkName: nextLink
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -2419,17 +2812,33 @@ paths:
           required: false
           schema:
             type: string
+        - name: $filter
+          in: query
+          description: May be used to filter by Catalog properties. The filter supports 'eq', 'or', and 'and'.
+          required: false
+          schema:
+            type: string
+        - name: $skip
+          in: query
+          description: The number of reservations to skip from the list before returning results
+          required: false
+          schema:
+            type: number
+        - name: $take
+          in: query
+          description: To number of reservations to return
+          required: false
+          schema:
+            type: number
       tags:
         - Catalog
       responses:
         '200':
-          description: List of available resources
+          description: OK. The request has succeeded.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Catalog'
+                $ref: '#/components/schemas/CatalogsResult'
         default:
           description: Unexpected error
           content:
@@ -2437,7 +2846,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/providers/Microsoft.Capacity/appliedReservations:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get list of applicable `Reservation`s.
       description: Get applicable `Reservation`s that are applied to this subscription or a resource group under this subscription.
@@ -2461,7 +2870,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/calculatePrice:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Calculate price for a `ReservationOrder`.
       description: Calculate price for placing a `ReservationOrder`.
@@ -2493,7 +2902,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get all `ReservationOrder`s.
       description: List of all the `ReservationOrder`s that the user has access to in the current tenant.
@@ -2518,7 +2927,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     put:
       summary: Purchase `ReservationOrder`
       description: Purchase `ReservationOrder` and create resource under the specified URI.
@@ -2553,6 +2962,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationOrderResponse'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL for determining when an operation has completed. Only use this value only when Azure-AsyncOperation isn't returned.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Clients should wait for the Retry-After interval before polling again
         default:
           description: Unexpected error
           content:
@@ -2588,7 +3007,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/split:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Split the `Reservation`.
       description: Split a `Reservation` into two `Reservation`s with specified quantity distribution.
@@ -2621,6 +3040,16 @@ paths:
                   $ref: '#/components/schemas/ReservationResponse'
         '202':
           description: The request is accepted and is being processed
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL for determining when an operation has completed. Only use this value only when Azure-AsyncOperation isn't returned.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Clients should wait for the Retry-After interval before polling again
         default:
           description: Unexpected error
           content:
@@ -2628,7 +3057,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/merge:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Merges two `Reservation`s.
       description: Merge the specified `Reservation`s into a new `Reservation`. The two `Reservation`s being merged must have same properties.
@@ -2661,6 +3090,16 @@ paths:
                   $ref: '#/components/schemas/ReservationResponse'
         '202':
           description: The request is accepted and is being processed
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL for determining when an operation has completed. Only use this value only when Azure-AsyncOperation isn't returned.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Clients should wait for the Retry-After interval before polling again
         default:
           description: Unexpected error
           content:
@@ -2668,7 +3107,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get `Reservation`s in a given reservation Order
       description: List `Reservation`s within a single `ReservationOrder`.
@@ -2694,14 +3133,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get `Reservation` details.
       description: Get specific `Reservation` details.
       operationId: Reservation_Get
       parameters:
-        - $ref: '#/components/parameters/ReservationIdParameter'
         - $ref: '#/components/parameters/ReservationOrderIdParameter'
+        - $ref: '#/components/parameters/ReservationIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/ExpandRenewPropertiesParameter'
       tags:
@@ -2724,6 +3163,8 @@ paths:
       description: Updates the applied scopes of the `Reservation`.
       operationId: Reservation_Update
       x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
       parameters:
         - $ref: '#/components/parameters/ReservationOrderIdParameter'
         - $ref: '#/components/parameters/ReservationIdParameter'
@@ -2749,6 +3190,20 @@ paths:
                 $ref: '#/components/schemas/ReservationResponse'
         '202':
           description: The request is accepted and is being processed
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL for checking the ongoing status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL for determining when an operation has completed. Only use this value only when Azure-AsyncOperation isn't returned.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Clients should wait for the Retry-After interval before polling again
         default:
           description: Unexpected error
           content:
@@ -2756,7 +3211,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}/archive:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Archive a `Reservation`.
       description: Archiving a `Reservation` moves it to `Archived` state.
@@ -2777,11 +3232,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}/unarchive:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Unarchive a `Reservation`.
       description: |
-        Unarchiving a `Reservation` moves it to the state it was before archiving.
+        Restores a `Reservation` to the state it was before archiving.
       operationId: Reservation_Unarchive
       parameters:
         - $ref: '#/components/parameters/ReservationOrderIdParameter'
@@ -2799,7 +3254,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/reservations/{reservationId}/revisions:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get `Reservation` revisions.
       description: List of all the revisions for the `Reservation`.
@@ -2807,8 +3262,8 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       parameters:
-        - $ref: '#/components/parameters/ReservationIdParameter'
         - $ref: '#/components/parameters/ReservationOrderIdParameter'
+        - $ref: '#/components/parameters/ReservationIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       tags:
         - Reservation
@@ -2826,7 +3281,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/operations:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       summary: Get operations.
       description: List all the operations.
@@ -2851,7 +3306,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/calculateRefund:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Calculate the refund amount of a reservation order.
       description: |
@@ -2885,11 +3340,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/return:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Return a reservation.
-      description: Return a reservation.
+      description: Return a reservation and get refund information.
       operationId: Return_Post
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
       parameters:
         - $ref: '#/components/parameters/ReservationOrderIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2905,6 +3363,12 @@ paths:
       tags:
         - Return
       responses:
+        '200':
+          description: The resource has been returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationOrderResponse'
         '202':
           description: Detailed refund info of a reservation
           content:
@@ -2922,7 +3386,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/calculateExchange:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Calculates the refund amounts and price of the new purchases.
       description: |
@@ -2974,7 +3438,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/exchange:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Exchange Reservation(s)
       description: |
@@ -3026,7 +3490,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /providers/Microsoft.Capacity/reservations:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     get:
       description: List the reservations and the roll up counts of reservations group by provisioning states that the user has access to in the current tenant.
       operationId: Reservation_ListAll
@@ -3034,7 +3498,7 @@ paths:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - name: $filter
           in: query
-          description: May be used to filter by reservation properties. The filter supports 'eq', 'or', and 'and'. It does not currently support 'ne', 'gt', 'le', 'ge', or 'not'. Reservation properties include sku/name, properties/{appliedScopeType, archived, displayName, displayProvisioningState, effectiveDateTime, expiryDate, provisioningState, quantity, renew, reservedResourceType, term, userFriendlyAppliedScopeType, userFriendlyRenewState}
+          description: May be used to filter by reservation properties. The filter supports 'eq', 'or', and 'and'. It does not currently support 'ne', 'gt', 'le', 'ge', or 'not'. Reservation properties include sku/name, properties/{appliedScopeType, archived, displayName, displayProvisioningState, effectiveDateTime, expiryDate, expiryDateTime, provisioningState, quantity, renew, reservedResourceType, term, userFriendlyAppliedScopeType, userFriendlyRenewState}
           required: false
           schema:
             type: string
@@ -3084,7 +3548,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Capacity/reservationOrders/{reservationOrderId}/changeDirectory:
-    x-api-version: '2022-03-01'
+    x-api-version: '2022-11-01'
     post:
       summary: Change directory of `ReservationOrder`.
       description: Change directory (tenant) of `ReservationOrder` and all `Reservation` under it to specified tenant id

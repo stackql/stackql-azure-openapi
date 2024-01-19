@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2022-06-01-preview
+  version: '2023-08-01'
   title: RecoveryServicesBackupClient
   x-ms-code-generation-settings:
     internalConstructors: false
@@ -518,6 +518,19 @@ components:
         privateEndpoint:
           $ref: '#/components/schemas/PrivateEndpoint'
           description: Gets or sets private endpoint associated with the private endpoint connection
+        groupIds:
+          description: Group Ids for the Private Endpoint
+          type: array
+          items:
+            description: GroupId for the PrivateEndpointConnection - AzureBackup, AzureBackup_secondary or AzureSiteRecovery
+            enum:
+              - AzureBackup
+              - AzureBackup_secondary
+              - AzureSiteRecovery
+            type: string
+            x-ms-enum:
+              name: VaultSubResourceType
+              modelAsString: true
         privateLinkServiceConnectionState:
           $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
           description: Gets or sets private link service connection state
@@ -547,7 +560,7 @@ components:
         description:
           description: Gets or sets description
           type: string
-        actionRequired:
+        actionsRequired:
           description: Gets or sets actions required
           type: string
     CloudError:
@@ -644,6 +657,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectionState
@@ -708,6 +722,9 @@ components:
           format: int32
           description: Contains recovery point size
           type: integer
+        recoveryPointProperties:
+          description: Properties of Recovery Point
+          $ref: '#/components/schemas/RecoveryPointProperties'
       x-ms-discriminator-value: AzureFileShareRecoveryPoint
     AzureFileShareRestoreRequest:
       description: AzureFileShare Restore Request
@@ -839,6 +856,9 @@ components:
         retentionPolicy:
           $ref: '#/components/schemas/RetentionPolicy'
           description: Retention policy with the details on backup copy retention ranges.
+        vaultRetentionPolicy:
+          $ref: '#/components/schemas/VaultRetentionPolicy'
+          description: Retention policy with the details on hardened backup copy retention ranges.
         timeZone:
           description: 'TimeZone optional input as string. For example: TimeZone = "Pacific Standard Time".'
           type: string
@@ -1076,6 +1096,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectionState
@@ -1184,6 +1205,13 @@ components:
           x-ms-enum:
             name: IAASVMPolicyType
             modelAsString: true
+        snapshotConsistencyType:
+          enum:
+            - OnlyCrashConsistent
+          type: string
+          x-ms-enum:
+            name: IaasVMSnapshotConsistencyType
+            modelAsString: true
       x-ms-discriminator-value: AzureIaasVM
     AzureSqlProtectedItem:
       description: Azure SQL workload-specific backup item.
@@ -1203,6 +1231,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectedItemState
@@ -1355,6 +1384,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectionState
@@ -1400,6 +1430,12 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/KPIResourceHealthDetails'
+        nodesList:
+          description: List of the nodes in case of distributed container.
+          type: array
+          items:
+            $ref: '#/components/schemas/DistributedNodesInfo'
+          x-ms-identifiers: []
       x-ms-discriminator-value: AzureVmWorkloadProtectedItem
     AzureVmWorkloadProtectedItemExtendedInfo:
       description: Additional information on Azure Workload for SQL specific backup item.
@@ -1601,6 +1637,9 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RecoveryPointMoveReadinessInfo'
+        recoveryPointProperties:
+          description: Properties of Recovery Point
+          $ref: '#/components/schemas/RecoveryPointProperties'
       x-ms-discriminator-value: AzureWorkloadRecoveryPoint
     AzureWorkloadRestoreRequest:
       description: AzureWorkload-specific restore.
@@ -1637,10 +1676,22 @@ components:
             - Invalid
             - FileRecovery
             - WorkloadRecovery
+            - SnapshotAttach
+            - RecoveryUsingSnapshot
+            - SnapshotAttachAndRecover
           type: string
           x-ms-enum:
             name: RecoveryMode
             modelAsString: true
+        targetResourceGroupName:
+          description: Defines the Resource group of the Target VM
+          type: string
+        userAssignedManagedIdentityDetails:
+          $ref: '#/components/schemas/UserAssignedManagedIdentityDetails'
+          description: "User Assigned managed identity details\r\nCurrently used for snapshot."
+        snapshotRestoreParameters:
+          $ref: '#/components/schemas/SnapshotRestoreParameters'
+          description: "Additional details for snapshot recovery\r\nCurrently used for snapshot for SAP Hana."
         targetVirtualMachineId:
           description: "This is the complete ARM Id of the target VM\r\nFor e.g. /subscriptions/{subId}/resourcegroups/{rg}/provider/Microsoft.Compute/virtualmachines/{vm}"
           type: string
@@ -1787,6 +1838,9 @@ components:
           type: boolean
         moveReadyRPOnly:
           description: Whether the RP can be moved to another tier
+          type: boolean
+        includeSoftDeletedRP:
+          description: Flag to indicate whether Soft Deleted RPs should be included/excluded from result.
           type: boolean
     DiskExclusionProperties:
       type: object
@@ -2105,6 +2159,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectedItemState
@@ -2348,6 +2403,7 @@ components:
             - ProtectionError
             - ProtectionStopped
             - ProtectionPaused
+            - BackupsSuspended
           type: string
           x-ms-enum:
             name: ProtectionState
@@ -2384,6 +2440,9 @@ components:
         recoveryPointAdditionalInfo:
           description: Additional information associated with this backup copy.
           type: string
+        recoveryPointProperties:
+          description: Properties of Recovery Point
+          $ref: '#/components/schemas/RecoveryPointProperties'
       x-ms-discriminator-value: GenericRecoveryPoint
     GetProtectedItemQueryObject:
       description: Filters to list backup items.
@@ -2451,7 +2510,52 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RecoveryPointMoveReadinessInfo'
+        securityType:
+          description: Security Type of the Disk
+          type: string
+        recoveryPointProperties:
+          description: Properties of Recovery Point
+          $ref: '#/components/schemas/RecoveryPointProperties'
+        isPrivateAccessEnabledOnAnyDisk:
+          description: This flag denotes if any of the disks in the VM are using Private access network setting
+          type: boolean
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: "Extended location of the VM recovery point,\r\nshould be null if VM is in public cloud"
       x-ms-discriminator-value: IaasVMRecoveryPoint
+    ExtendedLocation:
+      description: The extended location of Recovery point where VM was present.
+      type: object
+      properties:
+        name:
+          description: Name of the extended location.
+          type: string
+        type:
+          description: 'Type of the extended location. Possible values include: ''EdgeZone'''
+          type: string
+    SecuredVMDetails:
+      description: Restore request parameters for Secured VMs
+      type: object
+      properties:
+        securedVMOsDiskEncryptionSetId:
+          description: Gets or Sets Disk Encryption Set Id for Secured VM OS Disk
+          type: string
+    TargetDiskNetworkAccessSettings:
+      description: Specifies target network access settings for disks of VM to be restored.
+      type: object
+      properties:
+        targetDiskNetworkAccessOption:
+          description: Network access settings to be used for restored disks
+          enum:
+            - SameAsOnSourceDisks
+            - EnablePrivateAccessForAllDisks
+            - EnablePublicAccessForAllDisks
+          type: string
+          x-ms-enum:
+            name: TargetDiskNetworkAccessOption
+        targetDiskAccessId:
+          description: Gets or sets the ARM resource ID of the target disk access to be used when TargetDiskNetworkAccessOption is set to TargetDiskNetworkAccessOption.UseNew
+          type: string
     IaasVMRestoreRequest:
       description: IaaS VM workload-specific restore.
       type: object
@@ -2532,6 +2636,15 @@ components:
         identityBasedRestoreDetails:
           $ref: '#/components/schemas/IdentityBasedRestoreDetails'
           description: IaaS VM workload specific restore details for restores using managed identity.
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: "Target extended location where the VM should be restored,\r\nshould be null if restore is to be done in public cloud"
+        securedVMDetails:
+          $ref: '#/components/schemas/SecuredVMDetails'
+          description: Stores Secured VM Details
+        targetDiskNetworkAccessSettings:
+          $ref: '#/components/schemas/TargetDiskNetworkAccessSettings'
+          description: Specifies target network access settings for disks of VM to be restored,
       x-ms-discriminator-value: IaasVMRestoreRequest
     Job:
       description: Defines workload agnostic properties for a job.
@@ -3276,6 +3389,14 @@ components:
         policyName:
           description: Name of the policy used for protection
           type: string
+        softDeleteRetentionPeriodInDays:
+          format: int32
+          description: Soft delete retention period in days
+          type: integer
+        vaultId:
+          description: ID of the vault which protects this item
+          type: string
+          readOnly: true
       discriminator:
         propertyName: protectedItemType
     ProtectedItemQueryObject:
@@ -3777,6 +3898,27 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/TieringPolicy'
+        snapshotBackupAdditionalDetails:
+          $ref: '#/components/schemas/SnapshotBackupAdditionalDetails'
+    SnapshotBackupAdditionalDetails:
+      description: Snapshot Backup related fields for WorkloadType SaPHanaSystem
+      type: object
+      properties:
+        instantRpRetentionRangeInDays:
+          format: int32
+          type: integer
+        instantRPDetails:
+          type: string
+        userAssignedManagedIdentityDetails:
+          $ref: '#/components/schemas/UserAssignedManagedIdentityDetails'
+    SnapshotRestoreParameters:
+      description: Encapsulates information regarding snapshot recovery for SAP Hana
+      type: object
+      properties:
+        skipAttachAndMount:
+          type: boolean
+        logPointInTimeForDBRecovery:
+          type: string
     SQLDataDirectory:
       description: SQLDataDirectory info
       type: object
@@ -3853,6 +3995,28 @@ components:
         targetDirectoryForFileRestore:
           description: Target directory location for restore as files.
           type: string
+    UserAssignedIdentityProperties:
+      type: object
+      description: User assigned managed identity properties
+      properties:
+        clientId:
+          description: The client ID of the assigned identity.
+          type: string
+        principalId:
+          description: The principal ID of the assigned identity.
+          type: string
+    UserAssignedManagedIdentityDetails:
+      type: object
+      description: User assigned managed identity details
+      properties:
+        identityArmId:
+          type: string
+          description: The ARM id of the assigned identity.
+        identityName:
+          type: string
+          description: The name of the assigned identity.
+        userAssignedIdentityProperties:
+          $ref: '#/components/schemas/UserAssignedIdentityProperties'
     ValidateIaasVMRestoreOperationRequest:
       description: AzureRestoreValidation request.
       type: object
@@ -3870,6 +4034,19 @@ components:
           type: string
       discriminator:
         propertyName: objectType
+    ValidateOperationRequestResource:
+      description: Base class for validate operation request.
+      required:
+        - id
+        - properties
+      type: object
+      properties:
+        id:
+          description: Recovery point ID.
+          type: string
+        properties:
+          $ref: '#/components/schemas/ValidateOperationRequest'
+          description: ValidateOperationRequestResource properties
     ValidateOperationResponse:
       description: Base class for validate operation response.
       type: object
@@ -3896,6 +4073,18 @@ components:
           $ref: '#/components/schemas/RestoreRequest'
           description: Sets restore request to be validated
       x-ms-discriminator-value: ValidateRestoreOperationRequest
+    VaultRetentionPolicy:
+      description: Vault retention policy for AzureFileShare
+      required:
+        - vaultRetention
+        - snapshotRetentionInDays
+      type: object
+      properties:
+        vaultRetention:
+          $ref: '#/components/schemas/RetentionPolicy'
+        snapshotRetentionInDays:
+          format: int32
+          type: integer
     WeeklyRetentionFormat:
       description: Weekly retention format.
       type: object
@@ -4022,17 +4211,22 @@ components:
             - Invalid
             - Enabled
             - Disabled
+            - AlwaysON
           type: string
           x-ms-enum:
             name: SoftDeleteFeatureState
             modelAsString: true
+        softDeleteRetentionPeriodInDays:
+          format: int32
+          description: Soft delete retention period in days
+          type: integer
         resourceGuardOperationRequests:
           description: ResourceGuard Operation Requests
           type: array
           items:
             type: string
         isSoftDeleteFeatureStateEditable:
-          description: Is soft delete feature state editable
+          description: This flag is no longer in use. Please use 'softDeleteFeatureState' to set the soft delete state for the vault
           type: boolean
     YearlyRetentionSchedule:
       description: Yearly retention schedule.
@@ -4341,6 +4535,9 @@ components:
         prebackupvalidation:
           $ref: '#/components/schemas/PreBackupValidation'
           description: Pre-backup validation for protectable objects
+        isProtectable:
+          description: Indicates if item is protectable
+          type: boolean
       x-ms-discriminator-value: AzureVmWorkloadProtectableItem
     AzureVmWorkloadSAPAseDatabaseWorkloadItem:
       description: Azure VM workload-specific workload item representing SAP ASE Database.
@@ -4384,12 +4581,12 @@ components:
       allOf:
         - $ref: '#/components/schemas/AzureVmWorkloadProtectableItem'
       x-ms-discriminator-value: SAPHanaDBInstance
-    AzureVmWorkloadSAPHanaHSR:
-      description: Azure VM workload-specific protectable item representing SAP HANA Dbinstance.
+    AzureVmWorkloadSAPHanaHSRProtectableItem:
+      description: Azure VM workload-specific protectable item representing HANA HSR.
       type: object
       allOf:
         - $ref: '#/components/schemas/AzureVmWorkloadProtectableItem'
-      x-ms-discriminator-value: SAPHanaHSR
+      x-ms-discriminator-value: HanaHSRContainer
     AzureVmWorkloadSAPHanaSystemWorkloadItem:
       description: Azure VM workload-specific workload item representing SAP HANA System.
       type: object
@@ -4401,6 +4598,13 @@ components:
       type: object
       allOf:
         - $ref: '#/components/schemas/AzureVmWorkloadProtectableItem'
+      properties:
+        nodesList:
+          description: List of the nodes in case of distributed container.
+          type: array
+          items:
+            $ref: '#/components/schemas/DistributedNodesInfo'
+          x-ms-identifiers: []
       x-ms-discriminator-value: SQLAvailabilityGroupContainer
     AzureVmWorkloadSQLDatabaseProtectableItem:
       description: Azure VM workload-specific protectable item representing SQL Database.
@@ -4671,6 +4875,19 @@ components:
         registrationStatus:
           description: Container registration status
           type: string
+        protectedItemsCount:
+          format: int32
+          description: Number of protected items
+          type: integer
+        acquireStorageAccountLock:
+          description: Specifies whether the storage account lock has been acquired or not
+          enum:
+            - Acquire
+            - NotAcquire
+          type: string
+          x-ms-enum:
+            name: AcquireStorageAccountLock
+            modelAsString: true
     BMSBackupSummariesQueryObject:
       description: Query parameters to fetch backup summaries.
       type: object
@@ -5413,6 +5630,9 @@ components:
         errorDetail:
           $ref: '#/components/schemas/ErrorDetail'
           description: Error Details if the Status is non-success.
+        sourceResourceId:
+          description: ARM resource id of the node
+          type: string
     DpmBackupEngine:
       description: Data Protection Manager (DPM) specific backup engine.
       type: object
@@ -5599,6 +5819,10 @@ components:
         additionalDetail:
           description: Error Additional Detail in case the status is non-success.
           type: string
+          readOnly: true
+        protectableItemCount:
+          description: Dictionary to store the count of ProtectableItems with key POType.
+          type: object
           readOnly: true
     InstantItemRecoveryTarget:
       description: Target details for file / folder restore.
@@ -6227,6 +6451,19 @@ components:
           x-ms-enum:
             name: RehydrationPriority
             modelAsString: true
+    RecoveryPointProperties:
+      description: Properties of Recovery Point
+      type: object
+      properties:
+        expiryTime:
+          description: Expiry time of Recovery Point in UTC.
+          type: string
+        ruleName:
+          description: Rule name tagged on Recovery Point that governs life cycle
+          type: string
+        isSoftDeleted:
+          description: Bool to indicate whether RP is in soft delete state or not
+          type: boolean
     ListRecoveryPointsRecommendedForMoveRequest:
       description: ListRecoveryPointsRecommendedForMoveRequest Request
       type: object
@@ -6265,6 +6502,8 @@ components:
           type: string
     ResourceGuardProxyBase:
       type: object
+      required:
+        - resourceGuardResourceId
       properties:
         resourceGuardResourceId:
           type: string
@@ -6327,6 +6566,177 @@ components:
           x-ms-enum:
             name: RetentionDurationType
             modelAsString: true
+    TieringCostInfo:
+      description: Base class for tiering cost response
+      required:
+        - objectType
+      type: object
+      properties:
+        objectType:
+          description: This property will be used as the discriminator for deciding the specific types in the polymorphic chain of types.
+          type: string
+      discriminator:
+        propertyName: objectType
+    FetchTieringCostInfoForRehydrationRequest:
+      description: Request parameters for fetching cost info of rehydration
+      required:
+        - objectType
+        - containerName
+        - protectedItemName
+        - recoveryPointId
+        - rehydrationPriority
+        - sourceTierType
+        - targetTierType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/FetchTieringCostInfoRequest'
+      properties:
+        containerName:
+          description: Name of the protected item container
+          type: string
+        protectedItemName:
+          description: Name of the protectedItemName
+          type: string
+        recoveryPointId:
+          description: ID of the backup copy for rehydration cost info needs to be fetched.
+          type: string
+        rehydrationPriority:
+          description: Rehydration Priority
+          enum:
+            - Standard
+            - High
+          type: string
+          x-ms-enum:
+            name: RehydrationPriority
+            modelAsString: true
+      x-ms-discriminator-value: FetchTieringCostInfoForRehydrationRequest
+    FetchTieringCostInfoRequest:
+      description: "Base class for tiering cost request.\r\nSpecific cost request types are derived from this class."
+      required:
+        - sourceTierType
+        - targetTierType
+        - objectType
+      type: object
+      properties:
+        sourceTierType:
+          description: Source tier for the request
+          enum:
+            - Invalid
+            - InstantRP
+            - HardenedRP
+            - ArchivedRP
+          type: string
+          x-ms-enum:
+            name: RecoveryPointTierType
+            modelAsString: false
+        targetTierType:
+          description: target tier for the request
+          enum:
+            - Invalid
+            - InstantRP
+            - HardenedRP
+            - ArchivedRP
+          type: string
+          x-ms-enum:
+            name: RecoveryPointTierType
+            modelAsString: false
+        objectType:
+          description: This property will be used as the discriminator for deciding the specific types in the polymorphic chain of types.
+          type: string
+      discriminator:
+        propertyName: objectType
+    TieringCostRehydrationInfo:
+      description: Response parameters for tiering cost info for rehydration
+      required:
+        - objectType
+        - rehydrationSizeInBytes
+        - retailRehydrationCostPerGBPerMonth
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TieringCostInfo'
+      properties:
+        rehydrationSizeInBytes:
+          format: int64
+          description: Rehydration size in bytes
+          type: integer
+        retailRehydrationCostPerGBPerMonth:
+          format: double
+          description: Source tier to target tier rehydration cost per GB per month
+          type: number
+      x-ms-discriminator-value: TieringCostRehydrationInfo
+    TieringCostSavingInfo:
+      description: Response parameters for tiering cost info for savings
+      required:
+        - objectType
+        - sourceTierSizeReductionInBytes
+        - targetTierSizeIncreaseInBytes
+        - retailSourceTierCostPerGBPerMonth
+        - retailTargetTierCostPerGBPerMonth
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TieringCostInfo'
+      properties:
+        sourceTierSizeReductionInBytes:
+          format: int64
+          description: Source tier size reduction in bytes after moving all the recommended backup points to target tier
+          type: integer
+        targetTierSizeIncreaseInBytes:
+          format: int64
+          description: Target tier size increase in bytes after moving all the recommended backup points to target tier
+          type: integer
+        retailSourceTierCostPerGBPerMonth:
+          format: double
+          description: Source tier retail cost per GB per month
+          type: number
+        retailTargetTierCostPerGBPerMonth:
+          format: double
+          description: Target tier retail cost per GB per month
+          type: number
+      x-ms-discriminator-value: TieringCostSavingInfo
+    FetchTieringCostSavingsInfoForPolicyRequest:
+      description: Request parameters for tiering cost info for policy
+      required:
+        - objectType
+        - policyName
+        - sourceTierType
+        - targetTierType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/FetchTieringCostInfoRequest'
+      properties:
+        policyName:
+          description: Name of the backup policy for which the cost savings information is requested
+          type: string
+      x-ms-discriminator-value: FetchTieringCostSavingsInfoForPolicyRequest
+    FetchTieringCostSavingsInfoForProtectedItemRequest:
+      description: Request parameters for tiering cost info for protected item
+      required:
+        - objectType
+        - containerName
+        - protectedItemName
+        - sourceTierType
+        - targetTierType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/FetchTieringCostInfoRequest'
+      properties:
+        containerName:
+          description: Name of the protected item container
+          type: string
+        protectedItemName:
+          description: Name of the protectedItemName
+          type: string
+      x-ms-discriminator-value: FetchTieringCostSavingsInfoForProtectedItemRequest
+    FetchTieringCostSavingsInfoForVaultRequest:
+      description: Request parameters for tiering cost info for vault
+      required:
+        - objectType
+        - sourceTierType
+        - targetTierType
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/FetchTieringCostInfoRequest'
+      x-ms-discriminator-value: FetchTieringCostSavingsInfoForVaultRequest
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -6385,6 +6795,17 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    RestrictedVaultName:
+      name: vaultName
+      in: path
+      description: The name of the recovery services vault.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z][-A-Za-z0-9]*[A-Za-z0-9]$
+        minLength: 2
+        maxLength: 50
+        type: string
     ApiVersion:
       name: api-version
       in: query
@@ -6394,7 +6815,7 @@ components:
         type: string
 paths:
   /Subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupResourceStorageConfigsNonCRR
@@ -6477,7 +6898,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /Subscriptions/{subscriptionId}/providers/Microsoft.RecoveryServices/locations/{azureRegion}/backupPreValidateProtection:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ProtectionIntent
@@ -6503,7 +6924,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PreValidateEnableBackupResponse'
   /Subscriptions/{subscriptionId}/providers/Microsoft.RecoveryServices/locations/{azureRegion}/backupStatus:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - BackupStatus
@@ -6529,7 +6950,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BackupStatusResponse'
   /Subscriptions/{subscriptionId}/providers/Microsoft.RecoveryServices/locations/{azureRegion}/backupValidateFeatures:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - FeatureSupport
@@ -6555,7 +6976,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AzureVMResourceFeatureSupportResponse'
   /Subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/backupProtectionIntent/{intentObjectName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionIntent
@@ -6648,7 +7069,7 @@ paths:
         '204':
           description: NoContent
   /Subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupProtectionIntents:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupProtectionIntent
@@ -6682,7 +7103,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /Subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupUsageSummaries:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupUsageSummaries
@@ -6716,7 +7137,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /providers/Microsoft.RecoveryServices/operations:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - Operations
@@ -6735,7 +7156,7 @@ paths:
         nextLinkName: nextLink
         itemName: value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupconfig/vaultconfig:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupResourceVaultConfigs
@@ -6822,7 +7243,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupEncryptionConfigs/backupResourceEncryptionConfig:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupResourceEncryptionConfigs
@@ -6874,7 +7295,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - PrivateEndpointConnection
@@ -6979,7 +7400,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/privateEndpointConnections/{privateEndpointConnectionName}/operationsStatus/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - PrivateEndpoint
@@ -7016,7 +7437,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig/operationStatus/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - DataMove
@@ -7046,7 +7467,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig/prepareDataMove:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - DataMove
@@ -7078,7 +7499,7 @@ paths:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BMSPrepareDataMoveOperationResult
@@ -7110,7 +7531,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NewErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupstorageconfig/vaultstorageconfig/triggerDataMove:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - DataMove
@@ -7142,7 +7563,7 @@ paths:
                 $ref: '#/components/schemas/NewErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectedItems
@@ -7284,7 +7705,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectedItemOperationResults
@@ -7337,7 +7758,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - RecoveryPoints
@@ -7389,7 +7810,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - RecoveryPoints
@@ -7438,7 +7859,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/restore:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Restores
@@ -7492,7 +7913,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupPolicies:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupPolicies
@@ -7526,7 +7947,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupPolicies/{policyName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionPolicies
@@ -7624,7 +8045,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupPolicies/{policyName}/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionPolicyOperationResults
@@ -7661,7 +8082,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupJobs
@@ -7701,7 +8122,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/{jobName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - JobDetails
@@ -7732,7 +8153,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/{jobName}/cancel:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - JobCancellations
@@ -7759,7 +8180,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/{jobName}/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - JobOperationResults
@@ -7796,7 +8217,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobs/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ExportJobsOperationResults
@@ -7833,7 +8254,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupJobsExport:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Jobs
@@ -7861,7 +8282,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/JobQueryObject'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupProtectedItems:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupProtectedItems
@@ -7901,7 +8322,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupValidateOperation:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Operation
@@ -7919,7 +8340,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ValidateOperationRequest'
+              $ref: '#/components/schemas/ValidateOperationRequestResource'
       responses:
         '200':
           description: OK
@@ -7934,7 +8355,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupTriggerValidateOperation:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ValidateOperation
@@ -7952,7 +8373,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ValidateOperationRequest'
+              $ref: '#/components/schemas/ValidateOperationRequestResource'
       responses:
         '202':
           description: Accepted
@@ -7964,7 +8385,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupValidateOperationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ValidateOperationResults
@@ -7997,7 +8418,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupValidateOperationsStatuses/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ValidateOperationStatuses
@@ -8028,7 +8449,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupEngines:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupEngines
@@ -8068,7 +8489,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupEngines/{backupEngineName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupEngines
@@ -8112,7 +8533,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/BMSBackupEngineQueryObject'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionContainerRefreshOperationResults
@@ -8147,7 +8568,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectableContainers:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectableContainers
@@ -8186,7 +8607,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionContainers
@@ -8267,6 +8688,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
     delete:
       tags:
         - ProtectionContainers
@@ -8303,7 +8725,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/inquire:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ProtectionContainers
@@ -8344,7 +8766,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/BMSContainersInquiryQueryObject'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/items:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupWorkloadItems
@@ -8396,7 +8818,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/operationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionContainerOperationResults
@@ -8443,7 +8865,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/backup:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - Backups
@@ -8490,7 +8912,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/operationsStatus/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectedItemOperationStatuses
@@ -8539,7 +8961,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/provisionInstantItemRecovery:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ItemLevelRecoveryConnections
@@ -8592,7 +9014,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/revokeInstantItemRecovery:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ItemLevelRecoveryConnections
@@ -8637,7 +9059,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/refreshContainers:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ProtectionContainers
@@ -8671,7 +9093,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-odata: '#/components/schemas/BMSRefreshContainersQueryObject'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupOperationResults/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupOperationResults
@@ -8702,7 +9124,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupOperations/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupOperationStatuses
@@ -8733,7 +9155,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupPolicies/{policyName}/operations/{operationId}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ProtectionPolicyOperationStatuses
@@ -8770,7 +9192,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupProtectableItems:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupProtectableItems
@@ -8810,7 +9232,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupProtectionContainers:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - BackupProtectionContainers
@@ -8843,8 +9265,42 @@ paths:
       x-ms-odata: '#/components/schemas/BMSContainerQueryObject'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupDeletedProtectionContainers:
+    x-api-version: '2023-08-01'
+    get:
+      tags:
+        - SoftDeletedContainers
+      description: Lists the soft deleted containers registered to Recovery Services Vault.
+      operationId: DeletedProtectionContainers_List
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/VaultName'
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: $filter
+          in: query
+          description: OData filter options.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectionContainerResourceList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-odata: '#/components/schemas/BMSContainerQueryObject'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupSecurityPIN:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - SecurityPINs
@@ -8877,7 +9333,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPoints/{recoveryPointId}/move:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - RecoveryPoint
@@ -8927,7 +9383,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupFabrics/{fabricName}/protectionContainers/{containerName}/protectedItems/{protectedItemName}/recoveryPointsRecommendedForMove:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - RecoveryPointsRecommendedForMove
@@ -8977,7 +9433,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupResourceGuardProxies:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ResourceGuardProxies
@@ -9004,7 +9460,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupResourceGuardProxies/{resourceGuardProxyName}:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     get:
       tags:
         - ResourceGuardProxy
@@ -9096,7 +9552,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupResourceGuardProxies/{resourceGuardProxyName}/unlockDelete:
-    x-api-version: 2022-06-01-preview
+    x-api-version: '2023-08-01'
     post:
       tags:
         - ResourceGuardProxy
@@ -9127,6 +9583,106 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnlockDeleteResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupTieringCost/default/fetchTieringCost:
+    x-api-version: '2023-08-01'
+    post:
+      tags:
+        - FetchTieringCost
+      operationId: FetchTieringCost_Post
+      description: "Provides the details of the tiering related sizes and cost.\r\nStatus of the operation can be fetched using GetTieringCostOperationStatus API and result using GetTieringCostOperationResult API."
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/RestrictedVaultName'
+        - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        description: Fetch Tiering Cost Request
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FetchTieringCostInfoRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TieringCostInfo'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupTieringCost/default/operationResults/{operationId}:
+    x-api-version: '2023-08-01'
+    get:
+      tags:
+        - GetTieringCostOperationResult
+      description: Gets the result of async operation for tiering cost
+      operationId: GetTieringCostOperationResult_Get
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/RestrictedVaultName'
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TieringCostInfo'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{vaultName}/backupTieringCost/default/operationsStatus/{operationId}:
+    x-api-version: '2023-08-01'
+    get:
+      tags:
+        - TieringCostOperationStatus
+      operationId: TieringCostOperationStatus_Get
+      description: Gets the status of async operations of tiering cost
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/RestrictedVaultName'
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
         default:
           description: Error response describing why the operation failed.
           content:
