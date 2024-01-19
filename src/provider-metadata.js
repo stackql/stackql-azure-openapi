@@ -1412,12 +1412,12 @@ export const serviceInfo = {
         title: 'Customer Lockbox for Microsoft Azure',
         description: 'Most operations, support, and troubleshooting performed by Microsoft personnel and sub-processors do not require access to customer data. In those rare circumstances where such access is required, Customer Lockbox for Microsoft Azure provides an interface for customers to review and approve or reject customer data access requests. It is used in cases where a Microsoft engineer needs to access customer data, whether in response to a customer-initiated support ticket or a problem identified by Microsoft.'
     },
-    // devspaces: {
-    //     provider: 'azure_extras',
-    //     service: 'dev_spaces',
-    //     title: 'Dev Spaces Management',
-    //     description: 'Dev Spaces REST API'
-    // },
+    devspaces: {
+        provider: 'azure_extras',
+        service: 'dev_spaces',
+        title: 'Dev Spaces Management',
+        description: 'Dev Spaces REST API'
+    },
     digitaltwins: {
         provider: 'azure',
         service: 'digital_twins',

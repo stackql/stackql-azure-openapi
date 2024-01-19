@@ -81,6 +81,11 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
         inputDoc = await $RefParser.parse(fileName);
 
+        // Check if 'paths' is not present or is an empty object
+        if (!inputDoc.paths || Object.keys(inputDoc.paths).length === 0) {
+            throw new Error(`The specification '${fileName}' contains no paths.`);
+        }
+
         outputDoc.openapi = inputDoc.openapi;
         outputDoc.servers = inputDoc.servers;
         outputDoc.info = {};
