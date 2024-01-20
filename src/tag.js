@@ -9,6 +9,7 @@ import {
     camelToSnake,
     fixCamelCase,
     getObjectKey, 
+    getResourceNameFromOpId,
 } from './stackql-azure-descriptors';
 
 const logger = new ConsoleLogger();
@@ -30,6 +31,39 @@ function cleanUpDescriptions(obj) {
     }
     return obj;
 }  
+
+function processOperationId(operationId) {
+    let initResName = operationId.split('_')[0];
+    let initMethod = operationId.split('_')[1];
+
+    const compositeVerbs = ['CreateOrUpdate'];
+    const standardVerbs = ['Get', 'List', 'Create', 'Update', 'Delete'];
+
+    // Check for composite verbs first
+    const compositeVerb = compositeVerbs.find(v => initMethod.startsWith(v));
+    if (compositeVerb) {
+        initMethod = compositeVerb;
+    } else {
+        // Check if initMethod starts with <Verb>By<Something> or <Verb>In<Something>
+        const verbByInPattern = new RegExp(`^(${standardVerbs.join('|')})(By|In)`);
+        const match = verbByInPattern.exec(initMethod);
+        if (match) {
+            initMethod = match[0] + initMethod.substring(match[0].length);
+        } else {
+            // Extract the verb if initMethod starts with a standard verb
+            const verb = standardVerbs.find(v => initMethod.startsWith(v));
+            if (verb) {
+                const remainder = initMethod.substring(verb.length);
+                if (!initResName.includes(remainder)) {
+                    initResName += remainder;
+                }
+                initMethod = verb;
+            }
+        }
+    }
+
+    return { initResName, initMethod };
+}
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
@@ -207,7 +241,9 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                 if (operations.includes(verbKey)){
                     try {
-                        logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
+                        const operationId = inputDoc.paths[pathKey][verbKey]['operationId'];
+
+                        logger.info(`Processing operationId ${operationId}`);
 
                         // remove api version from operation level parameters
                         if (inputDoc.paths[pathKey][verbKey]['parameters']){
@@ -225,13 +261,13 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             outputDoc.paths[versionedPath][verbKey]['parameters'] = newOpParams;
                         }
 
-                        let stackqlResName = 'operations';
+                        let stackqlResName;
                         let stackqlSqlVerb = 'exec';
                         let stackqlObjectKey = 'none';
 
                         let finalMethod;
                         
-                        if (!inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1]){
+                        if (!operationId.split('_')[1]){
                             // replace outlier operationIds with no method
                             if (inputDoc.paths[pathKey][verbKey]['tags']){
                                 let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
@@ -241,9 +277,11 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         } else {
                             // we have a method, lets check it
                             // clean up camel case before we convert to snake case in openapi-doc-util
-                            let initResName = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[0];
-                            let initMethod = inputDoc.paths[pathKey][verbKey]['operationId'].split('_')[1];
-                            
+                            // let initResName = operationId.split('_')[0];
+                            // let initMethod = operationId.split('_')[1];
+
+                            let { initResName, initMethod } = processOperationId(operationId);
+
                             uniqueInitMethods.add(initMethod);
 
                             let finalResName = initResName;
@@ -253,10 +291,13 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             if (['list', 'update'].includes(initResName.toLowerCase())){
                                 finalResName = initMethod;
                                 finalMethod = initResName;
+                                logger.info(`initResName is ${initResName}, initMethod is ${initMethod}`);
+                                logger.info(`changing finalResName to ${initMethod}`);
+                                logger.info(`changing finalMethod to ${initResName}`);
                             }
-                            
+
                             // get stackql resourcename
-                            stackqlResName = camelToSnake(fixCamelCase(finalResName));
+                            getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCase(finalResName));
 
                             // remove service from stackqlResName
                             if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
@@ -281,7 +322,33 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         // add special keys to the operation
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
-                        finalMethod ? outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] =  camelToSnake(fixCamelCase(finalMethod)): null;                        
+
+                        // if(finalMethod){
+                        //     let finalStackQLMethodName = camelToSnake(fixCamelCase(finalMethod))
+
+                        //     if(stackqlSqlVerb == 'exec' && finalStackQLMethodName.includes('get','list')){
+                        //         finalStackQLMethodName = `exec_${finalStackQLMethodName}`;
+                        //     }
+    
+                        //     outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = finalStackQLMethodName;                        
+                        // }
+
+                        if(finalMethod){
+                            let finalStackQLMethodName = camelToSnake(fixCamelCase(finalMethod))
+                        
+                            // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
+                            if(stackqlSqlVerb == 'exec' && finalMethod.toLowerCase() === 'list'){
+                                finalStackQLMethodName = `exec_list`;
+                            }
+
+                            // Check if finalMethod is 'Get' and stackqlSqlVerb is 'exec'
+                            if(stackqlSqlVerb == 'exec' && finalMethod.toLowerCase() === 'get'){
+                                finalStackQLMethodName = `exec_get`;
+                            }                            
+                        
+                            outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = finalStackQLMethodName;                        
+                        }
+
                         stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;
 
                     } catch (e) {

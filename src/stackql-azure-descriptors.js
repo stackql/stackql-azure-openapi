@@ -4,7 +4,85 @@
 /* needed to avoid unreachable routes in stackQL */
 /* --------------------------------------------- */
 
+function getSqlVerbFromOpId(service, opId){
+    switch (service) {
+        case 'vmware':
+            switch (opId) {
+                case 'WorkloadNetworks_Get':
+                    return 'exec';
+                case 'WorkloadNetworks_List':
+                    return 'exec';
+                default:
+                    return false;
+            }
+        // case 'dummyservice':
+        //     switch (opId) {
+        //         case 'AnOpId':
+        //             return 'a_verb';
+        //         default:
+        //             return false;
+        //     }                          
+        default:
+            return false;
+    }
+}
+
+export function getResourceNameFromOpId(service, opId){
+    switch (service) {
+        case 'connected_vsphere':
+            switch (opId) {
+                case 'VirtualMachineInstances_Get':
+                    return 'virtual_machine_instance';
+                case 'VmInstanceHybridIdentityMetadata_List':
+                    return 'vm_instance_hybrid_identity_metadata_list';
+                case 'VMInstanceGuestAgents_Get':
+                    return 'vm_instance_guest_agent';
+                default:
+                    return false;
+            }
+        case 'datadog':
+            switch (opId) {
+                case 'CreationSupported_List':
+                    return 'subscription_statuses';
+                case 'CreationSupported_Get':
+                    return 'subscription_statuses_default';
+                default:
+                    return false;
+            }
+        case 'paloaltonetworks':
+            switch (opId) {
+                case 'FirewallStatus_ListByFirewalls':
+                    return 'firewall_statuses';
+                default:
+                    return false;
+            }
+        case 'sap_workloads':
+            switch (opId) {
+                case 'SapLandscapeMonitor_List':
+                    return 'sap_landscape_monitors';
+                case 'SapLandscapeMonitor_Create':
+                    return 'sap_landscape_monitors';                    
+                default:
+                    return false;
+            }                          
+        // case 'dummyservice':
+        //     switch (opId) {
+        //         case 'AnOpId':
+        //             return 'a_resource_name';
+        //         default:
+        //             return false;
+        //     }                          
+        default:
+            return false;
+    }
+}
+
 function getSQLVerbFromMethod(s, r, m, o){
+
+    if(getSqlVerbFromOpId(s, o)){
+        return getSqlVerbFromOpId(s, o);
+    }
+
     let v = 'exec';
     if (m.startsWith('ListBy')){
         v = selectOrExec('ListBy', s, r, m, o);

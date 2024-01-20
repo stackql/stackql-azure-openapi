@@ -12,4 +12,11 @@ bin/stackql-azure-openapi dereference
 bin/stackql-azure-openapi combine
 
 # tag the combined specs with stackql tags
+
+# prep tag dirs
+rm -rf openapi/4-tagged/azure/v00.00.00000/services/*
+rm -rf openapi/4-tagged/azure_extras/v00.00.00000/services/*
+rm -rf openapi/4-tagged/azure_isv/v00.00.00000/services/*
+rm -rf openapi/4-tagged/azure_stack/v00.00.00000/services/*
+
 bin/stackql-azure-openapi tag
