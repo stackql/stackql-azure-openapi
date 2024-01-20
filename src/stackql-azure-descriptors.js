@@ -65,6 +65,15 @@ export function getResourceNameFromOpId(service, opId){
                 default:
                     return false;
             }                          
+        case 'vmware':
+            switch (opId) {
+                case 'WorkloadNetworks_Get':
+                    return 'skip_this_resource';
+                case 'WorkloadNetworks_List':
+                    return 'skip_this_resource';
+                default:
+                    return false;
+            }
         // case 'dummyservice':
         //     switch (opId) {
         //         case 'AnOpId':
