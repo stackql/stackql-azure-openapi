@@ -80,7 +80,7 @@ function processOperationId(operationId) {
     let initMethod = operationId.split('_')[1];
 
     // Simple cases
-    const simpleMethods = ['CreateOrUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
+    const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
     if (simpleMethods.includes(initMethod)) {
         return { initResName, initMethod };
     }

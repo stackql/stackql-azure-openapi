@@ -29,6 +29,17 @@ function getSqlVerbFromOpId(service, opId){
 
 export function getResourceNameFromOpId(service, opId){
     switch (service) {
+        case 'confluent':
+            switch (opId) {
+                case 'Validations_ValidateOrganization':
+                    return 'organization';
+                case 'Validations_ValidateOrganizationV2':
+                    return 'organization';
+                case 'Access_InviteUser':
+                    return 'access_users';                    
+                default:
+                    return false;
+            }
         case 'connected_vsphere':
             switch (opId) {
                 case 'VirtualMachineInstances_Get':
