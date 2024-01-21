@@ -32,38 +32,95 @@ function cleanUpDescriptions(obj) {
     return obj;
 }  
 
+// function processOperationId(operationId) {
+//     let initResName = operationId.split('_')[0];
+//     let initMethod = operationId.split('_')[1];
+
+//     // simiple cases
+//     const simpleMethods = ['CreateOrUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
+//     if (simpleMethods.includes(initMethod)) {
+//         return { initResName, initMethod };
+//     }
+
+//     // by or in cases
+//     const byOrInMethods = [
+//         'CreateOrUpdateBy', 
+//         'GetBy', 
+//         'GetIn', 
+//         'ListBy', 
+//         'ListIn', 
+//         'CreateBy', 
+//         'CreateIn', 
+//         'UpdateBy', 
+//         'UpdateIn', 
+//         'DeleteBy',
+//         'DeleteIn',
+//     ];    
+//     if (byOrInMethods.some(methodPrefix => initMethod.startsWith(methodPrefix))) {
+//         return { initResName, initMethod };
+//     }
+
+//     // if we are here then it is not a simple verb or a by/in case
+//     if (simpleMethods.some(methodPrefix => initMethod.startsWith(methodPrefix))) {
+//         // Not a simple verb or a By/In case
+//         let extractedVerb = simpleMethods.find(methodPrefix => initMethod.startsWith(methodPrefix));
+//         if (extractedVerb) {
+//             const restOfMethod = initMethod.substring(extractedVerb.length);
+//             initResName += restOfMethod; // Append the rest of the method to the resource name
+//             initMethod = extractedVerb; // The method is the simple verb itself
+//             return { initResName, initMethod };
+//         }
+//     } 
+
+//     return { initResName, initMethod };
+// }
+
 function processOperationId(operationId) {
     let initResName = operationId.split('_')[0];
     let initMethod = operationId.split('_')[1];
 
-    const compositeVerbs = ['CreateOrUpdate'];
-    const standardVerbs = ['Get', 'List', 'Create', 'Update', 'Delete'];
+    // Simple cases
+    const simpleMethods = ['CreateOrUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
+    if (simpleMethods.includes(initMethod)) {
+        return { initResName, initMethod };
+    }
 
-    // Check for composite verbs first
-    const compositeVerb = compositeVerbs.find(v => initMethod.startsWith(v));
-    if (compositeVerb) {
-        initMethod = compositeVerb;
-    } else {
-        // Check if initMethod starts with <Verb>By<Something> or <Verb>In<Something>
-        const verbByInPattern = new RegExp(`^(${standardVerbs.join('|')})(By|In)`);
-        const match = verbByInPattern.exec(initMethod);
-        if (match) {
-            initMethod = match[0] + initMethod.substring(match[0].length);
-        } else {
-            // Extract the verb if initMethod starts with a standard verb
-            const verb = standardVerbs.find(v => initMethod.startsWith(v));
-            if (verb) {
-                const remainder = initMethod.substring(verb.length);
-                if (!initResName.includes(remainder)) {
-                    initResName += remainder;
-                }
-                initMethod = verb;
+    // By or In cases
+    const byOrInMethods = [
+        'CreateOrUpdateBy', 
+        'GetBy', 
+        'GetIn', 
+        'ListBy', 
+        'ListIn', 
+        'CreateBy', 
+        'CreateIn', 
+        'UpdateBy', 
+        'UpdateIn', 
+        'DeleteBy',
+        'DeleteIn',
+    ];    
+    for (const methodPrefix of byOrInMethods) {
+        if (initMethod.startsWith(methodPrefix)) {
+            const remainder = initMethod.substring(methodPrefix.length);
+            if (remainder.length > 0 && remainder[0] === remainder[0].toUpperCase()) {
+                return { initResName, initMethod };
             }
+            break; // Exit the loop if prefix matches but doesn't follow the capitalization rule
         }
+    }
+
+    // Not a simple verb or a By/In case
+    let extractedVerb = simpleMethods.find(methodPrefix => initMethod.startsWith(methodPrefix));
+    if (extractedVerb) {
+        const restOfMethod = initMethod.substring(extractedVerb.length);
+        initResName += restOfMethod; // Append the rest of the method to the resource name
+        initMethod = extractedVerb; // The method is the simple verb itself
+        return { initResName, initMethod };
     }
 
     return { initResName, initMethod };
 }
+
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
