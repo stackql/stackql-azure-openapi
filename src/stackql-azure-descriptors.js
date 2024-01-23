@@ -429,7 +429,77 @@ export function getResourceNameFromOpId(service, opId){
                     return 'hybrid_identity_metadata_list';                    
                 default:
                     return false;
-            }                                                                                                                                                                   
+            }
+        case 'hybrid_network':
+            switch (opId) {
+                case 'ProxyArtifact_List':
+                    return 'proxy_artifact_list';
+                default:
+                    return false;
+            }
+        case 'media_services':
+            switch (opId) {
+                case 'OperationStatuses_Get':
+                    return 'asset_track_operation_statuses';
+                case 'OperationResults_Get':
+                    return 'asset_track_operation_results';                    
+                default:
+                    return false;
+            }
+        case 'monitor':
+            switch (opId) {
+                case 'MonitorOperations_List':
+                    return 'operations_list';
+                default:
+                    return false;
+            }
+        case 'network_analytics':
+            switch (opId) {
+                case 'DataProductsCatalogs_Get':
+                    return 'data_products_catalog';
+                default:
+                    return false;
+            }
+        case 'security':
+            switch (opId) {
+                case 'Pricings_Get':
+                    return 'skip_this_resource';
+                case 'Pricings_List':
+                    return 'skip_this_resource';
+                case 'Pricings_Delete':
+                    return 'skip_this_resource';
+                case 'DevOpsConfigurations_List':
+                    return 'dev_ops_configurations_list';                                                            
+                default:
+                    return false;
+            }
+        case 'system_center_vm_manager':
+            switch (opId) {
+                case 'VMInstanceGuestAgents_List':
+                    return 'vm_instance_guest_agents_list';
+                case 'VirtualMachineInstanceHybridIdentityMetadata_List':
+                    return 'virtual_machine_instance_hybrid_identity_metadata_list';
+                case 'VirtualMachineInstances_List':
+                    return 'virtual_machine_instances_list';                
+                default:
+                    return false;
+            }
+        case 'video_analyzer':
+            switch (opId) {
+                case 'OperationStatuses_Get':
+                    return 'private_endpoint_connection_operation_statuses';
+                case 'OperationResults_Get':
+                    return 'private_endpoint_connection_operation_results';        
+                default:
+                    return false;
+            }
+        // case 'hybrid_network':
+        //     switch (opId) {
+        //         case 'ProxyArtifact_List':
+        //             return 'proxy_artifact_list';
+        //         default:
+        //             return false;
+        //     }                                        
         default:
             return false;
     }
