@@ -400,12 +400,40 @@ export function getResourceNameFromOpId(service, opId){
                     return 'network_connections_health_details_list';
                 default:
                     return false;
-            }                                                                                                                               
+            }
+        case 'dns':
+            switch (opId) {
+                case 'DnssecConfigs_ListByDnsZone':
+                    return 'dnssec_configs_list';
+                case 'DnssecConfigs_Get':
+                    return 'dnssec_configs';
+                case 'DnssecConfigs_CreateOrUpdate':
+                    return 'dnssec_configs';
+                case 'DnssecConfigs_Delete':
+                    return 'dnssec_configs';                                                                        
+                default:
+                    return false;
+            }
+        case 'event_hubs':
+            switch (opId) {
+                case 'Namespaces_ListNetworkRuleSet':
+                    return 'namespaces_network_rule_set_list';
+                default:
+                    return false;
+            }
+        case 'hybrid_aks':
+            switch (opId) {
+                case 'provisionedClusterInstances_List':
+                    return 'provisioned_cluster_instances_list';
+                case 'HybridIdentityMetadata_ListByCluster':
+                    return 'hybrid_identity_metadata_list';                    
+                default:
+                    return false;
+            }                                                                                                                                                                   
         default:
             return false;
     }
 }
-
 
 export function getSQLVerbFromMethod(s, r, m, o){
 
