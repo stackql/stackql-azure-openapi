@@ -15,6 +15,28 @@ export function checkForMethodNameOverrides(serviceName, opId, initMethod){
                 default:
                     return initMethod;
             }
+        case 'deployment_admin':
+            switch (opId) {
+                case 'BootstrapAction_Product':
+                    return 'product_bootstrap_action';
+                case 'DeployAction_Product':
+                    return 'product_deploy_action';
+                case 'ExecuteRunnerAction_Product':
+                    return 'product_execute_runner_action';
+                case 'RemoveAction_Product':
+                    return 'product_remove_action';
+                case 'RotateSecretsAction_Product':
+                    return 'product_rotate_secrets_action';                                            
+                default:
+                    return initMethod;
+            }            
+        case 'azure_stack':
+            switch (opId) {
+                case 'Products_ListProducts':
+                    return 'list_products';
+                default:
+                    return initMethod;
+            }            
         default:
             return initMethod;
     }
@@ -63,7 +85,16 @@ function getSqlVerbFromOpId(service, opId){
                     return 'select';                        
                 default:
                     return false;
-            }                                          
+            }               
+        case 'azure_stack':
+            switch (opId) {
+                case 'Products_GetProducts':
+                    return 'exec';
+                case 'Products_GetProduct':
+                    return 'exec';        
+                default:
+                    return false;
+            }                                       
         default:
             return false;
     }
@@ -124,6 +155,8 @@ export function getResourceNameFromOpId(service, opId){
                     return 'skip_this_resource';
                 case 'WorkloadNetworks_List':
                     return 'skip_this_resource';
+                case 'WorkloadNetworks_ListPublicIPs':
+                    return 'workload_networks_public_ip';                    
                 default:
                     return false;
             }
@@ -143,7 +176,9 @@ export function getResourceNameFromOpId(service, opId){
                 case 'NetAppResource_QueryRegionInfo':
                     return 'resource_region_info';
                 case 'Volumes_DeleteReplication':
-                    return 'volumes_replications';                
+                    return 'volumes_replications';
+                case 'Volumes_ListGetGroupIdListForLdapUser':
+                    return 'group_id_for_ldap_user';                                    
                 default:
                     return false;
             }        
@@ -178,7 +213,63 @@ export function getResourceNameFromOpId(service, opId){
                     return 'versions';                                                                        
                 default:
                     return false;
-            }                                          
+            }
+        case 'azure_stack_hci':
+            switch (opId) {
+                case 'UpdateSummaries_List':
+                    return 'update_summaries_list';
+                default:
+                    return false;
+            }
+        case 'azure_stack':
+            switch (opId) {
+                case 'Products_ListProducts':
+                    return 'products';
+                case 'Products_GetProducts':
+                    return 'products';
+                case 'Products_GetProduct':
+                    return 'product';
+                case 'Products_Get':
+                    return 'product';                                        
+                default:
+                    return false;
+            }
+        case 'fabric_admin':
+            switch (opId) {
+                case 'ScaleUnits_CreateFromJson':
+                    return 'scale_units';
+                default:
+                    return false;
+            }                                                                                  
+        case 'container_registry_admin':
+            switch (opId) {
+                case 'Quota_CreateOrUpdate':
+                    return 'quotas';
+                default:
+                    return false;
+            }                                                                                  
+        case 'deployment_admin':
+            switch (opId) {
+                case 'BootstrapAction_Product':
+                    return 'actions';
+                case 'DeployAction_Product':
+                    return 'actions';
+                case 'ExecuteRunnerAction_Product':
+                    return 'actions';
+                case 'RemoveAction_Product':
+                    return 'actions';
+                case 'RotateSecretsAction_Product':
+                    return 'actions';
+                default:
+                    return false;
+            }                                                                                  
+        case 'backup_admin':
+            switch (opId) {
+                case 'BackupLocations_CreateBackup':
+                    return 'backups';
+                default:
+                    return false;
+            }                                                                                  
         default:
             return false;
     }
@@ -369,6 +460,10 @@ function selectOrExec(t, s, r, m, o){
 /* ----------------------------------------------------------------- */
 
 const nonDefaultReturnObjects = {
+    storage_admin: [
+        'storage_services_rg',
+        'storage_services_sub'
+    ],
     ad_hybrid_health_service: [
         'ip_address_aggregate_settings'
     ],
@@ -516,6 +611,7 @@ export function getObjectKey(service, resource, verbKey, method){
                 'service_fabric_managed_clusters',
                 'sql',
                 'synapse',
+                'storage_admin',
             ].includes(service)){
                 if(nonDefaultReturnObjects[service].includes(resource)){
                     objectKey = 'none';
