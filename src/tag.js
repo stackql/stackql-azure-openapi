@@ -41,7 +41,7 @@ function processOperationId(operationId, debug) {
     debug ? logger.debug(`initial method : ${initMethod}`) : null;
 
     // Simple cases
-    const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
+    const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'CreateUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
     if (simpleMethods.includes(initMethod)) {
         debug ? logger.debug(`returning resource name : ${initResName}`) : null;
         debug ? logger.debug(`returning method : ${initMethod}`) : null;
@@ -316,11 +316,13 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCase(stackqlResName));
                         // remove service from stackqlResName
                         if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
+
                             debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
                             if (serviceName == 'security' && stackqlResName == 'security_connectors'){
                                 debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
                             } else {
-                                stackqlResName = stackqlResName.substring(serviceName.length+1);
+                                stackqlResName.substring(serviceName.length+1).length < 3 ? null : stackqlResName = stackqlResName.substring(serviceName.length+1);
+                                debug ? logger.debug(`new resource name is ${stackqlResName}`): null;
                             }
                         }
 

@@ -269,11 +269,143 @@ export function getResourceNameFromOpId(service, opId){
                     return 'backups';
                 default:
                     return false;
-            }                                                                                  
+            }
+        case 'marketplace':
+            switch (opId) {
+                case 'PrivateStoreCollectionOffer_ListByContexts':
+                    return 'collection_offers_by_context';
+                default:
+                    return false;
+            }
+        case 'alerts_management':
+            switch (opId) {
+                case 'Alerts_ListEnrichments':
+                    return 'alerts_enrichments_list';
+                default:
+                    return false;
+            }
+        case 'cosmos_db':
+            switch (opId) {
+                case 'DatabaseAccounts_ListReadOnlyKeys': return 'database_accounts_read_only_keys_list';
+                case 'MongoClusters_ListFirewallRules': return 'mongo_clusters_firewall_rule';
+                case 'MongoDBResources_GetMongoRoleDefinition': return 'mongo_role_definition';
+                case 'MongoDBResources_DeleteMongoRoleDefinition': return 'mongo_role_definition';
+                case 'MongoDBResources_CreateUpdateMongoRoleDefinition': return 'mongo_role_definition';
+                case 'MongoDBResources_ListMongoRoleDefinitions': return 'mongo_role_definition';
+                case 'MongoDBResources_GetMongoUserDefinition': return 'mongo_user_definition';
+                case 'MongoDBResources_DeleteMongoUserDefinition': return 'mongo_user_definition';
+                case 'MongoDBResources_CreateUpdateMongoUserDefinition': return 'mongo_user_definition';
+                case 'MongoDBResources_ListMongoUserDefinitions': return 'mongo_user_definition';
+                case 'SqlResources_GetSqlRoleDefinition': return 'sql_role_definition';
+                case 'SqlResources_DeleteSqlRoleDefinition': return 'sql_role_definition';
+                case 'SqlResources_CreateUpdateSqlRoleDefinition': return 'sql_role_definition';
+                case 'SqlResources_ListSqlRoleDefinitions': return 'sql_role_definition';
+                case 'SqlResources_GetSqlRoleAssignment': return 'sql_role_assignment';
+                case 'SqlResources_DeleteSqlRoleAssignment': return 'sql_role_assignment';
+                case 'SqlResources_CreateUpdateSqlRoleAssignment': return 'sql_role_assignment';
+                case 'SqlResources_ListSqlRoleAssignments': return 'sql_role_assignment';
+                case 'GraphResources_ListGraphs': return 'graphs';
+                case 'GraphResources_GetGraph': return 'graphs';
+                case 'GraphResources_CreateUpdateGraph': return 'graphs';
+                case 'GraphResources_DeleteGraphResource': return 'graphs';
+                case 'SqlResources_ListSqlDatabases': return 'sql_databases';
+                case 'SqlResources_GetSqlDatabase': return 'sql_databases';
+                case 'SqlResources_DeleteSqlDatabase': return 'sql_databases';
+                case 'SqlResources_CreateUpdateSqlDatabase': return 'sql_databases';
+                case 'SqlResources_ListClientEncryptionKeys': return 'client_encryption_keys';
+                case 'SqlResources_GetClientEncryptionKey': return 'client_encryption_keys';
+                case 'SqlResources_CreateUpdateClientEncryptionKey': return 'client_encryption_keys';
+                case 'SqlResources_ListSqlContainers': return 'sql_containers';
+                case 'SqlResources_GetSqlContainer': return 'sql_containers';
+                case 'SqlResources_DeleteSqlContainer': return 'sql_containers';
+                case 'SqlResources_CreateUpdateSqlContainer': return 'sql_containers';
+                case 'SqlResources_ListSqlStoredProcedures': return 'sql_stored_procedures';
+                case 'SqlResources_GetSqlStoredProcedure': return 'sql_stored_procedures';
+                case 'SqlResources_DeleteSqlStoredProcedure': return 'sql_stored_procedures';
+                case 'SqlResources_CreateUpdateSqlStoredProcedure': return 'sql_stored_procedures';
+                case 'SqlResources_ListSqlUserDefinedFunctions': return 'sql_user_defined_functions';
+                case 'SqlResources_GetSqlUserDefinedFunction': return 'sql_user_defined_functions';
+                case 'SqlResources_DeleteSqlUserDefinedFunction': return 'sql_user_defined_functions';
+                case 'SqlResources_CreateUpdateSqlUserDefinedFunction': return 'sql_user_defined_functions';
+                case 'SqlResources_ListSqlTriggers': return 'sql_triggers';
+                case 'SqlResources_GetSqlTrigger': return 'sql_triggers';
+                case 'SqlResources_DeleteSqlTrigger': return 'sql_triggers';
+                case 'SqlResources_CreateUpdateSqlTrigger': return 'sql_triggers';
+                case 'MongoDBResources_ListMongoDBDatabases': return 'mongodb_databases';
+                case 'MongoDBResources_GetMongoDBDatabase': return 'mongodb_databases';
+                case 'MongoDBResources_DeleteMongoDBDatabase': return 'mongodb_databases';
+                case 'MongoDBResources_CreateUpdateMongoDBDatabase': return 'mongodb_databases';
+                case 'MongoDBResources_ListMongoDBCollections': return 'mongodb_collections';
+                case 'MongoDBResources_GetMongoDBCollection': return 'mongodb_collections';
+                case 'MongoDBResources_DeleteMongoDBCollection': return 'mongodb_collections';
+                case 'MongoDBResources_CreateUpdateMongoDBCollection': return 'mongodb_collections';
+                case 'TableResources_ListTables': return 'tables';
+                case 'TableResources_GetTable': return 'tables';
+                case 'TableResources_DeleteTable': return 'tables';
+                case 'TableResources_CreateUpdateTable': return 'tables';
+                case 'CassandraResources_ListCassandraKeyspaces': return 'cassandra_keyspaces';
+                case 'CassandraResources_GetCassandraKeyspace': return 'cassandra_keyspaces';
+                case 'CassandraResources_DeleteCassandraKeyspace': return 'cassandra_keyspaces';
+                case 'CassandraResources_CreateUpdateCassandraKeyspace': return 'cassandra_keyspaces';
+                case 'CassandraResources_ListCassandraTables': return 'cassandra_tables';
+                case 'CassandraResources_GetCassandraTable': return 'cassandra_tables';
+                case 'CassandraResources_DeleteCassandraTable': return 'cassandra_tables';
+                case 'CassandraResources_CreateUpdateCassandraTable': return 'cassandra_tables';
+                case 'GremlinResources_ListGremlinDatabases': return 'gremlin_databases';
+                case 'GremlinResources_GetGremlinDatabase': return 'gremlin_databases';
+                case 'GremlinResources_DeleteGremlinDatabase': return 'gremlin_databases';
+                case 'GremlinResources_CreateUpdateGremlinDatabase': return 'gremlin_databases';
+                case 'GremlinResources_ListGremlinGraphs': return 'gremlin_graphs';
+                case 'GremlinResources_GetGremlinGraph': return 'gremlin_graphs';
+                case 'GremlinResources_DeleteGremlinGraph': return 'gremlin_graphs';
+                case 'GremlinResources_CreateUpdateGremlinGraph': return 'gremlin_graphs';
+                case 'CassandraResources_ListCassandraViews': return 'cassandra_views';
+                case 'CassandraResources_GetCassandraView': return 'cassandra_views';
+                case 'CassandraResources_DeleteCassandraView': return 'cassandra_views';
+                case 'CassandraResources_CreateUpdateCassandraView': return 'cassandra_views';
+                case 'ThroughputPoolAccounts_List': return 'throughput_pool_accounts';
+                case 'ThroughputPoolAccount_Get': return 'throughput_pool_accounts';
+                case 'ThroughputPoolAccount_Create': return 'throughput_pool_accounts';
+                case 'ThroughputPoolAccount_Delete': return 'throughput_pool_accounts'; 
+                case 'CassandraClusters_GetBackup': return 'cassandra_clusters_backups'; 
+                case 'SqlResources_GetSqlDatabaseThroughput': return 'sql_database_throughput'; 
+                case 'SqlResources_ListSqlContainerPartitionMerge': return 'sql_container_partition_merge'; 
+                case 'SqlResources_GetSqlContainerThroughput': return 'sql_container_throughput'; 
+                case 'MongoDBResources_GetMongoDBDatabaseThroughput': return 'mongodb_database_throughput'; 
+                case 'MongoDBResources_ListMongoDBCollectionPartitionMerge': return 'mongodb_collection_partition_merge'; 
+                case 'MongoDBResources_GetMongoDBCollectionThroughput': return 'mongodb_collection_throughput'; 
+                case 'TableResources_GetTableThroughput': return 'table_throughput'; 
+                case 'CassandraResources_GetCassandraKeyspaceThroughput': return 'cassandra_keyspace_throughput'; 
+                case 'CassandraResources_GetCassandraTableThroughput': return 'cassandra_table_throughput'; 
+                case 'GremlinResources_GetGremlinDatabaseThroughput': return 'gremlin_database_throughput'; 
+                case 'GremlinResources_GetGremlinGraphThroughput': return 'gremlin_graph_throughput'; 
+                case 'CassandraResources_GetCassandraViewThroughput': return 'cassandra_view_throughput'; 
+                default:
+                    return false;
+            }   
+        case 'desktop_virtualization':
+            switch (opId) {
+                case 'SessionHostManagements_ListByHostPool':
+                    return 'session_host_management_list';
+                case 'SessionHostConfigurations_ListByHostPool':
+                    return 'session_host_configurations_list';
+                case 'ActiveSessionHostConfigurations_ListByHostPool':
+                    return 'active_session_host_configurations_list';
+                default:
+                    return false;
+            }
+        case 'dev_center':
+            switch (opId) {
+                case 'NetworkConnections_ListHealthDetails':
+                    return 'network_connections_health_details_list';
+                default:
+                    return false;
+            }                                                                                                                               
         default:
             return false;
     }
 }
+
 
 export function getSQLVerbFromMethod(s, r, m, o){
 
