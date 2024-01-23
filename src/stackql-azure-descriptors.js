@@ -4,6 +4,22 @@
 /* needed to avoid unreachable routes in stackQL */
 /* --------------------------------------------- */
 
+export function checkForMethodNameOverrides(serviceName, opId, initMethod){
+    switch (serviceName) {
+        case 'elastic':
+            switch (opId) {
+                case 'createAndAssociatePLFilter_Create':
+                    return 'create_and_associate_pl_filter';
+                case 'createAndAssociateIPFilter_Create':
+                    return 'create_and_associate_ip_filter';                    
+                default:
+                    return initMethod;
+            }
+        default:
+            return initMethod;
+    }
+}
+
 function getSqlVerbFromOpId(service, opId){
     switch (service) {
         case 'vmware':
@@ -15,13 +31,39 @@ function getSqlVerbFromOpId(service, opId){
                 default:
                     return false;
             }
-        // case 'dummyservice':
-        //     switch (opId) {
-        //         case 'AnOpId':
-        //             return 'a_verb';
-        //         default:
-        //             return false;
-        //     }                          
+        case 'elastic':
+            switch (opId) {
+                case 'createAndAssociateIPFilter_Create':
+                    return 'exec';
+                case 'createAndAssociatePLFilter_Create':
+                    return 'exec';                    
+                case 'DetachAndDeleteTrafficFilter_Delete':
+                    return 'exec';                    
+                default:
+                    return false;
+            }
+        case 'netapp':
+            switch (opId) {
+                case 'NetAppResource_QueryNetworkSiblingSet':
+                    return 'select';
+                case 'NetAppResource_QueryRegionInfo':
+                    return 'select';        
+                default:
+                    return false;
+            }
+        case 'sap_workloads':
+            switch (opId) {
+                case 'SAPAvailabilityZoneDetails':
+                    return 'select';
+                case 'SAPDiskConfigurations':
+                    return 'select';
+                case 'SAPSizingRecommendations':
+                    return 'select';
+                case 'SAPSupportedSku':
+                    return 'select';                        
+                default:
+                    return false;
+            }                                          
         default:
             return false;
     }
@@ -85,19 +127,64 @@ export function getResourceNameFromOpId(service, opId){
                 default:
                     return false;
             }
-        // case 'dummyservice':
-        //     switch (opId) {
-        //         case 'AnOpId':
-        //             return 'a_resource_name';
-        //         default:
-        //             return false;
-        //     }                          
+        case 'redis':
+            switch (opId) {
+                case 'AccessPolicy_CreateUpdate':
+                    return 'access_policy';
+                case 'AccessPolicyAssignment_CreateUpdate':
+                    return 'access_policy_assignment';        
+                default:
+                    return false;
+            }
+        case 'netapp':
+            switch (opId) {
+                case 'NetAppResource_QueryNetworkSiblingSet':
+                    return 'resource_network_sibling_set';
+                case 'NetAppResource_QueryRegionInfo':
+                    return 'resource_region_info';
+                case 'Volumes_DeleteReplication':
+                    return 'volumes_replications';                
+                default:
+                    return false;
+            }        
+        case 'logz':
+            switch (opId) {
+                case 'Monitor_VMHostPayload':
+                    return 'monitors';
+                default:
+                    return false;
+            }
+        case 'elastic':
+            switch (opId) {
+                case 'DetachTrafficFilter_Update':
+                    return 'traffic_filters';
+                case 'AllTrafficFilters_list':
+                    return 'traffic_filters';
+                case 'AssociateTrafficFilter_Associate':
+                    return 'traffic_filters';
+                case 'createAndAssociateIPFilter_Create':
+                    return 'traffic_filters';
+                case 'createAndAssociatePLFilter_Create':
+                    return 'traffic_filters';
+                case 'TrafficFilters_Delete':
+                    return 'traffic_filters'; 
+                case 'DetachAndDeleteTrafficFilter_Delete':
+                    return 'traffic_filters';
+                case 'listAssociatedTrafficFilters_list':
+                    return 'associated_traffic_filters';
+                case 'Monitor_Upgrade':
+                    return 'monitors';
+                case 'UpgradableVersions_Details':
+                    return 'versions';                                                                        
+                default:
+                    return false;
+            }                                          
         default:
             return false;
     }
 }
 
-function getSQLVerbFromMethod(s, r, m, o){
+export function getSQLVerbFromMethod(s, r, m, o){
 
     if(getSqlVerbFromOpId(s, o)){
         return getSqlVerbFromOpId(s, o);
@@ -391,7 +478,7 @@ const nonDefaultReturnObjects = {
     ],
 };
 
-function getObjectKey(service, resource, verbKey, method){
+export function getObjectKey(service, resource, verbKey, method){
     let objectKey = 'none';
 
     if (verbKey === 'get'){
@@ -450,14 +537,14 @@ function getObjectKey(service, resource, verbKey, method){
 /* END needed to find the appropriate return object in an Azure response */
 /* --------------------------------------------------------------------- */
 
-function camelToSnake(inStr){
+export function camelToSnake(inStr){
     let str = inStr.replace(/-/g, '_').replace(/ /g, '_');
     return str.replace(/\.?([A-Z])/g, function (x,y){
         return "_" + y.toLowerCase()
     }).replace(/^_/, "");
 }
 
-function fixCamelCase(inStr){
+export function fixCamelCase(inStr){
 	
     const getReplaceArgs = (s) => {
         let retstr = s.charAt(0) + s.slice(1, s.length-1).toLowerCase() + s.charAt(s.length-1);
@@ -505,12 +592,5 @@ function fixCamelCase(inStr){
     // final clean up and return
     return outStr.slice(0,-1) + outStr.charAt(outStr.length-1).toLowerCase();
 
-}
-
-export {
-    getSQLVerbFromMethod,
-    camelToSnake,
-    fixCamelCase,
-    getObjectKey,
 }
   

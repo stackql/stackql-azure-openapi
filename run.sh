@@ -19,4 +19,4 @@ rm -rf openapi/4-tagged/azure_extras/v00.00.00000/services/*
 rm -rf openapi/4-tagged/azure_isv/v00.00.00000/services/*
 rm -rf openapi/4-tagged/azure_stack/v00.00.00000/services/*
 
-bin/stackql-azure-openapi tag
+bin/stackql-azure-openapi tag --debug

@@ -10,6 +10,7 @@ import {
     fixCamelCase,
     getObjectKey, 
     getResourceNameFromOpId,
+    checkForMethodNameOverrides,
 } from './stackql-azure-descriptors';
 
 const logger = new ConsoleLogger();
@@ -32,56 +33,18 @@ function cleanUpDescriptions(obj) {
     return obj;
 }  
 
-// function processOperationId(operationId) {
-//     let initResName = operationId.split('_')[0];
-//     let initMethod = operationId.split('_')[1];
-
-//     // simiple cases
-//     const simpleMethods = ['CreateOrUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
-//     if (simpleMethods.includes(initMethod)) {
-//         return { initResName, initMethod };
-//     }
-
-//     // by or in cases
-//     const byOrInMethods = [
-//         'CreateOrUpdateBy', 
-//         'GetBy', 
-//         'GetIn', 
-//         'ListBy', 
-//         'ListIn', 
-//         'CreateBy', 
-//         'CreateIn', 
-//         'UpdateBy', 
-//         'UpdateIn', 
-//         'DeleteBy',
-//         'DeleteIn',
-//     ];    
-//     if (byOrInMethods.some(methodPrefix => initMethod.startsWith(methodPrefix))) {
-//         return { initResName, initMethod };
-//     }
-
-//     // if we are here then it is not a simple verb or a by/in case
-//     if (simpleMethods.some(methodPrefix => initMethod.startsWith(methodPrefix))) {
-//         // Not a simple verb or a By/In case
-//         let extractedVerb = simpleMethods.find(methodPrefix => initMethod.startsWith(methodPrefix));
-//         if (extractedVerb) {
-//             const restOfMethod = initMethod.substring(extractedVerb.length);
-//             initResName += restOfMethod; // Append the rest of the method to the resource name
-//             initMethod = extractedVerb; // The method is the simple verb itself
-//             return { initResName, initMethod };
-//         }
-//     } 
-
-//     return { initResName, initMethod };
-// }
-
-function processOperationId(operationId) {
+function processOperationId(operationId, debug) {
     let initResName = operationId.split('_')[0];
     let initMethod = operationId.split('_')[1];
+
+    debug ? logger.debug(`initial resource name : ${initResName}`) : null;
+    debug ? logger.debug(`initial method : ${initMethod}`) : null;
 
     // Simple cases
     const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
     if (simpleMethods.includes(initMethod)) {
+        debug ? logger.debug(`returning resource name : ${initResName}`) : null;
+        debug ? logger.debug(`returning method : ${initMethod}`) : null;
         return { initResName, initMethod };
     }
 
@@ -321,92 +284,85 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         let stackqlResName;
                         let stackqlSqlVerb = 'exec';
                         let stackqlObjectKey = 'none';
-
-                        let finalMethod;
+                        let stackqlMethodName;
                         
                         if (!operationId.split('_')[1]){
+                            debug ? logger.debug(`operationId ${operationId} not splittable, checking for tags`): null;
                             // replace outlier operationIds with no method
                             if (inputDoc.paths[pathKey][verbKey]['tags']){
                                 let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
+                                debug ? logger.debug(`using ${tag} for initial resource name and method`): null;
                                 // use the tag
-                                stackqlResName = camelToSnake(fixCamelCase(tag));
+                                stackqlResName = tag;
+                                stackqlMethodName = tag;
+                            } else {
+                                stackqlResName = operationId;
+                                stackqlMethodName = operationId;
                             }
                         } else {
-                            // we have a method, lets check it
-                            // clean up camel case before we convert to snake case in openapi-doc-util
-                            // let initResName = operationId.split('_')[0];
-                            // let initMethod = operationId.split('_')[1];
+                            debug ? logger.debug(`operationId ${operationId} is splittable, getting initial resource and method`): null;
+                            const returnValue = processOperationId(operationId, debug);
+                            const resolvedResName = returnValue.initResName;
+                            const resolvedMethod = returnValue.initMethod;
 
-                            let { initResName, initMethod } = processOperationId(operationId);
+                            stackqlResName = resolvedResName;
+                            stackqlMethodName = resolvedMethod;
 
-                            uniqueInitMethods.add(initMethod);
-
-                            let finalResName = initResName;
-                            finalMethod = initMethod;
-                            
-                            // fix up anomolies in operationid naming
-                            if (['list', 'update'].includes(initResName.toLowerCase())){
-                                finalResName = initMethod;
-                                finalMethod = initResName;
-                                logger.info(`initResName is ${initResName}, initMethod is ${initMethod}`);
-                                logger.info(`changing finalResName to ${initMethod}`);
-                                logger.info(`changing finalMethod to ${initResName}`);
-                            }
-
-                            // get stackql resourcename
-                            getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCase(finalResName));
-
-                            // remove service from stackqlResName
-                            if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
-                                debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
-                                if (serviceName == 'security' && stackqlResName == 'security_connectors'){
-                                    debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
-                                } else {
-                                    stackqlResName = stackqlResName.substring(serviceName.length+1);
-                                }
-                            }
-
-                            // get stackql verb
-                            stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, finalMethod, inputDoc.paths[pathKey][verbKey]['operationId']);
-
-                            // get stackql objectkey
-                            stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, finalMethod);
+                            debug ? logger.debug(`initial resource name set to ${stackqlResName}, initial method set to ${stackqlMethodName}`) : null;
+                            uniqueInitMethods.add(stackqlMethodName);
                         }
                         
+                        // get final resource name
+                        getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCase(stackqlResName));
+                        // remove service from stackqlResName
+                        if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
+                            debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
+                            if (serviceName == 'security' && stackqlResName == 'security_connectors'){
+                                debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
+                            } else {
+                                stackqlResName = stackqlResName.substring(serviceName.length+1);
+                            }
+                        }
+
+                        // fix up anomolies in operationid naming
+                        if (['list', 'update'].includes(stackqlResName.toLowerCase())){
+                            stackqlResName = stackqlMethodName;
+                            stackqlMethodName = stackqlResName;
+                            logger.info(`changing init resource name to ${stackqlMethodName}`);
+                            logger.info(`changing init method to ${stackqlResName}`);
+                        }
+
+                        // get sql verb
+                        stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, stackqlMethodName, operationId);
+                        debug ? logger.debug(`stackqlSqlVerb is ${stackqlSqlVerb}`) : null;
+
+                        // get final method name
+                        stackqlMethodName = camelToSnake(fixCamelCase(stackqlMethodName))
+                        stackqlMethodName = checkForMethodNameOverrides(serviceName, operationId, stackqlMethodName);
+
+                        // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
+                        if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'list'){
+                            stackqlMethodName = `exec_list`;
+                        }
+
+                        // Check if finalMethod is 'Get' and stackqlSqlVerb is 'exec'
+                        if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'get'){
+                            stackqlMethodName = `exec_get`;
+                        }                            
+
+                        // get object key
+                        stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, stackqlMethodName);
+
                         debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
+                        debug ? logger.debug(`stackql method : ${stackqlMethodName}`): null;
                         debug ? logger.debug(`stackql verb : ${stackqlSqlVerb}`): null;
+                        debug ? logger.debug(`stackql object key : ${stackqlObjectKey}`): null;
 
                         // add special keys to the operation
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
+                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = stackqlMethodName;
                         outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
-
-                        // if(finalMethod){
-                        //     let finalStackQLMethodName = camelToSnake(fixCamelCase(finalMethod))
-
-                        //     if(stackqlSqlVerb == 'exec' && finalStackQLMethodName.includes('get','list')){
-                        //         finalStackQLMethodName = `exec_${finalStackQLMethodName}`;
-                        //     }
-    
-                        //     outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = finalStackQLMethodName;                        
-                        // }
-
-                        if(finalMethod){
-                            let finalStackQLMethodName = camelToSnake(fixCamelCase(finalMethod))
-                        
-                            // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
-                            if(stackqlSqlVerb == 'exec' && finalMethod.toLowerCase() === 'list'){
-                                finalStackQLMethodName = `exec_list`;
-                            }
-
-                            // Check if finalMethod is 'Get' and stackqlSqlVerb is 'exec'
-                            if(stackqlSqlVerb == 'exec' && finalMethod.toLowerCase() === 'get'){
-                                finalStackQLMethodName = `exec_get`;
-                            }                            
-                        
-                            outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = finalStackQLMethodName;                        
-                        }
-
-                        stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;
+                        stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;                        
 
                     } catch (e) {
                         console.log(e);
