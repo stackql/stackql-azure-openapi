@@ -8,9 +8,10 @@ import {
     getSQLVerbFromMethod,
     camelToSnake,
     fixCamelCase,
-    getObjectKey, 
+    // getObjectKey, 
+    determineObjectKey,
     getResourceNameFromOpId,
-    checkForMethodNameOverrides,
+    checkForOpIdUpdates,
 } from './stackql-azure-descriptors';
 
 const logger = new ConsoleLogger();
@@ -40,8 +41,16 @@ function processOperationId(operationId, debug) {
     debug ? logger.debug(`initial resource name : ${initResName}`) : null;
     debug ? logger.debug(`initial method : ${initMethod}`) : null;
 
+    // transpose if necessary
+    if(initResName.toLowerCase() === 'list' || initResName.toLowerCase() === 'get' || initResName.toLowerCase() === 'create' || initResName.toLowerCase() === 'update' || initResName.toLowerCase() === 'delete'){
+        initResName = operationId.split('_')[1];
+        initMethod = operationId.split('_')[0];
+        debug ? logger.debug(`transposed method : ${initMethod}`) : null;
+        debug ? logger.debug(`transposed resource name : ${initResName}`) : null;
+    }
+
     // Simple cases
-    const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'CreateUpdate', 'Get', 'List', 'Create', 'Update', 'Delete'];    
+    const simpleMethods = ['CreateOrUpdate', 'CreateorUpdate', 'CreateUpdate', 'CreateAndUpdate', 'CreateOrReplace', 'CreateIfNotExist', 'CreateOrGetStartPendingUpload', 'Get', 'List', 'Create', 'Update', 'Delete', 'get', 'list', 'create', 'update', 'delete'];    
     if (simpleMethods.includes(initMethod)) {
         debug ? logger.debug(`returning resource name : ${initResName}`) : null;
         debug ? logger.debug(`returning method : ${initMethod}`) : null;
@@ -261,9 +270,10 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                 if (operations.includes(verbKey)){
                     try {
-                        const operationId = inputDoc.paths[pathKey][verbKey]['operationId'];
-
-                        logger.info(`Processing operationId ${operationId}`);
+                        logger.info(`Processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
+                        let operationId = checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) ? checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) : inputDoc.paths[pathKey][verbKey]['operationId'];
+                        operationId != inputDoc.paths[pathKey][verbKey]['operationId'] ? logger.info(`operationId updated to ${operationId}`): null;
+                        const operationObj = inputDoc.paths[pathKey][verbKey];
 
                         // remove api version from operation level parameters
                         if (inputDoc.paths[pathKey][verbKey]['parameters']){
@@ -326,21 +336,12 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             }
                         }
 
-                        // fix up anomolies in operationid naming
-                        if (['list', 'update'].includes(stackqlResName.toLowerCase())){
-                            stackqlResName = stackqlMethodName;
-                            stackqlMethodName = stackqlResName;
-                            logger.info(`changing init resource name to ${stackqlMethodName}`);
-                            logger.info(`changing init method to ${stackqlResName}`);
-                        }
-
                         // get sql verb
                         stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, stackqlMethodName, operationId);
                         debug ? logger.debug(`stackqlSqlVerb is ${stackqlSqlVerb}`) : null;
 
                         // get final method name
                         stackqlMethodName = camelToSnake(fixCamelCase(stackqlMethodName))
-                        stackqlMethodName = checkForMethodNameOverrides(serviceName, operationId, stackqlMethodName);
 
                         // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
                         if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'list'){
@@ -353,7 +354,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }                            
 
                         // get object key
-                        stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, stackqlMethodName);
+                        stackqlObjectKey = determineObjectKey(serviceName, operationId, operationObj, inputDoc);
+                        // stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, stackqlMethodName);
 
                         debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
                         debug ? logger.debug(`stackql method : ${stackqlMethodName}`): null;

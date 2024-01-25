@@ -1,44 +1,124 @@
-
-
 /* --------------------------------------------- */
 /* needed to avoid unreachable routes in stackQL */
 /* --------------------------------------------- */
 
-export function checkForMethodNameOverrides(serviceName, opId, initMethod){
+export function checkForOpIdUpdates(serviceName, opId){
     switch (serviceName) {
+        case 'cloud_shell':
+            switch (opId) {
+                case 'DeleteConsole':
+                    return 'Console_Delete';
+                case 'DeleteConsoleWithLocation':
+                    return 'Console_DeleteByLocation';
+                case 'DeleteUserSettings':
+                    return 'UserSettings_Delete';
+                case 'DeleteUserSettingsWithLocation':
+                    return 'UserSettings_DeleteByLocation';
+                case 'GetUserSettings':
+                    return 'UserSettings_Get';
+                case 'GetUserSettingsWithLocation':
+                    return 'UserSettings_GetByLocation';
+                case 'GetConsole':
+                    return 'Console_Get';
+                case 'GetConsoleWithLocation':
+                    return 'Console_GetByLocation';
+                case 'KeepAlive':
+                    return 'Console_KeepAlive';
+                case 'KeepAliveWithLocation':
+                    return 'Console_KeepAliveByLocation';
+                case 'PatchUserSettings':
+                    return 'UserSettings_Patch';
+                case 'PatchUserSettingsWithLocation':
+                    return 'UserSettings_PatchByLocation';
+                case 'PutConsole':
+                    return 'Console_Put';
+                case 'PutConsoleWithLocation':
+                    return 'Console_PutByLocation';
+                case 'PutUserSettings':
+                    return 'UserSettings_Put';
+                case 'PutUserSettingsWithLocation':
+                    return 'UserSettings_PutByLocation';                
+                default:
+                    return false;
+            }
+        case 'app_service':
+            switch (opId) {
+                case 'ListSkus':
+                    return 'Skus_List';
+                case 'GetPublishingUser':
+                    return 'PublishingUser_Get';
+                case 'GetSourceControl':
+                    return 'SourceControl_Get';
+                case 'ListSourceControls':
+                    return 'SourceControls_List';
+                case 'ListSiteIdentifiersAssignedToHostName':
+                    return 'SiteIdentifiersAssignedToHostName_List';
+                case 'ListPremierAddOnOffers':
+                    return 'PremierAddOnOffers_List';
+                case 'ListGeoRegions':
+                    return 'GeoRegions_List';
+                case 'ListCustomHostNameSites':
+                    return 'CustomHostNameSites_List';
+                case 'ListBillingMeters':
+                    return 'BillingMeters_List';
+                case 'GetSubscriptionDeploymentLocations':
+                    return 'SubscriptionDeploymentLocations_Get';
+                case 'ListAseRegions':
+                    return 'AseRegions_List';
+                default:
+                    return false;
+            }
         case 'elastic':
             switch (opId) {
                 case 'createAndAssociatePLFilter_Create':
-                    return 'create_and_associate_pl_filter';
+                    return 'TrafficFilters_CreateAndAssociatePlFilter';
+                    // traffic_filters
+                    //return 'create_and_associate_pl_filter';
                 case 'createAndAssociateIPFilter_Create':
-                    return 'create_and_associate_ip_filter';                    
+                    return 'TrafficFilters_CreateAndAssociateIpFilter';
+                    // return 'create_and_associate_ip_filter';  
+                case 'DetachAndDeleteTrafficFilter_Delete':
+                    return 'TrafficFilters_DetachAndDelete';                    
                 default:
-                    return initMethod;
+                    return false;
             }
         case 'deployment_admin':
             switch (opId) {
                 case 'BootstrapAction_Product':
-                    return 'product_bootstrap_action';
+                    return 'Actions_ProductBootstrapAction';
                 case 'DeployAction_Product':
-                    return 'product_deploy_action';
+                    return 'Actions_ProductDeployAction';
                 case 'ExecuteRunnerAction_Product':
-                    return 'product_execute_runner_action';
+                    return 'Actions_ProductExecuteRunnerAction';
                 case 'RemoveAction_Product':
-                    return 'product_remove_action';
+                    return 'Actions_ProductRemoveAction';
                 case 'RotateSecretsAction_Product':
-                    return 'product_rotate_secrets_action';                                            
+                    return 'Actions_ProductRotateSecretsAction';                                            
                 default:
-                    return initMethod;
+                    return false;
             }            
         case 'azure_stack':
             switch (opId) {
                 case 'Products_ListProducts':
-                    return 'list_products';
+                    return 'Products_ListByProductName';
+                case 'Products_GetProducts':
+                    return 'Products_ExecGet';
+                case 'Products_GetProduct':
+                    return 'Product_ExecGet';
+                case 'Products_Get':
+                    return 'Product_Get';                                                            
                 default:
-                    return initMethod;
-            }            
+                    return false;
+            }
+        case 'compute':
+            switch (opId) {
+                case 'VirtualMachines_InstanceView':
+                    return 'VirtualMachine_Get';
+                default:
+                    return false;
+            }                        
         default:
-            return initMethod;
+            return false;
     }
 }
 
@@ -53,17 +133,17 @@ function getSqlVerbFromOpId(service, opId){
                 default:
                     return false;
             }
-        case 'elastic':
-            switch (opId) {
-                case 'createAndAssociateIPFilter_Create':
-                    return 'exec';
-                case 'createAndAssociatePLFilter_Create':
-                    return 'exec';                    
-                case 'DetachAndDeleteTrafficFilter_Delete':
-                    return 'exec';                    
-                default:
-                    return false;
-            }
+        // case 'elastic':
+        //     switch (opId) {
+        //         // case 'createAndAssociateIPFilter_Create':
+        //         //     return 'exec';
+        //         // case 'createAndAssociatePLFilter_Create':
+        //         //     return 'exec';                    
+        //         // case 'DetachAndDeleteTrafficFilter_Delete':
+        //         //     return 'exec';                    
+        //         default:
+        //             return false;
+        //     }
         case 'netapp':
             switch (opId) {
                 case 'NetAppResource_QueryNetworkSiblingSet':
@@ -94,7 +174,24 @@ function getSqlVerbFromOpId(service, opId){
                     return 'exec';        
                 default:
                     return false;
-            }                                       
+            }
+        case 'automation':
+            switch (opId) {
+                case 'DscConfiguration_GetContent':
+                    return 'exec';
+                case 'Job_GetOutput':
+                    return 'exec';
+                case 'Job_GetRunbookContent':
+                    return 'exec';
+                case 'NodeReports_GetContent':
+                    return 'exec';
+                case 'RunbookDraft_GetContent':
+                    return 'exec';
+                case 'Runbook_GetContent':
+                    return 'exec';                                                                                
+                default:
+                    return false;
+            }                                                   
         default:
             return false;
     }
@@ -197,14 +294,8 @@ export function getResourceNameFromOpId(service, opId){
                     return 'traffic_filters';
                 case 'AssociateTrafficFilter_Associate':
                     return 'traffic_filters';
-                case 'createAndAssociateIPFilter_Create':
-                    return 'traffic_filters';
-                case 'createAndAssociatePLFilter_Create':
-                    return 'traffic_filters';
                 case 'TrafficFilters_Delete':
                     return 'traffic_filters'; 
-                case 'DetachAndDeleteTrafficFilter_Delete':
-                    return 'traffic_filters';
                 case 'listAssociatedTrafficFilters_list':
                     return 'associated_traffic_filters';
                 case 'Monitor_Upgrade':
@@ -221,19 +312,6 @@ export function getResourceNameFromOpId(service, opId){
                 default:
                     return false;
             }
-        case 'azure_stack':
-            switch (opId) {
-                case 'Products_ListProducts':
-                    return 'products';
-                case 'Products_GetProducts':
-                    return 'products';
-                case 'Products_GetProduct':
-                    return 'product';
-                case 'Products_Get':
-                    return 'product';                                        
-                default:
-                    return false;
-            }
         case 'fabric_admin':
             switch (opId) {
                 case 'ScaleUnits_CreateFromJson':
@@ -245,21 +323,6 @@ export function getResourceNameFromOpId(service, opId){
             switch (opId) {
                 case 'Quota_CreateOrUpdate':
                     return 'quotas';
-                default:
-                    return false;
-            }                                                                                  
-        case 'deployment_admin':
-            switch (opId) {
-                case 'BootstrapAction_Product':
-                    return 'actions';
-                case 'DeployAction_Product':
-                    return 'actions';
-                case 'ExecuteRunnerAction_Product':
-                    return 'actions';
-                case 'RemoveAction_Product':
-                    return 'actions';
-                case 'RotateSecretsAction_Product':
-                    return 'actions';
                 default:
                     return false;
             }                                                                                  
@@ -430,13 +493,6 @@ export function getResourceNameFromOpId(service, opId){
                 default:
                     return false;
             }
-        case 'hybrid_network':
-            switch (opId) {
-                case 'ProxyArtifact_List':
-                    return 'proxy_artifact_list';
-                default:
-                    return false;
-            }
         case 'media_services':
             switch (opId) {
                 case 'OperationStatuses_Get':
@@ -493,13 +549,180 @@ export function getResourceNameFromOpId(service, opId){
                 default:
                     return false;
             }
-        // case 'hybrid_network':
-        //     switch (opId) {
-        //         case 'ProxyArtifact_List':
-        //             return 'proxy_artifact_list';
-        //         default:
-        //             return false;
-        //     }                                        
+        case 'api_management':
+            switch (opId) {
+                case 'Tag_GetEntityStateByOperation': return 'skip_this_resource';
+                case 'Tag_GetEntityStateByProduct': return 'skip_this_resource';
+                case 'Tag_GetEntityStateByApi': return 'skip_this_resource';
+                case 'Tag_GetEntityState': return 'skip_this_resource';
+                case 'Gateway_ListTrace': return 'skip_this_resource';
+                case 'ApiIssueAttachment_GetEntityTag': return 'skip_this_resource';
+                case 'Api_GetEntityTag': return 'skip_this_resource';
+                case 'ApiDiagnostic_GetEntityTag': return 'skip_this_resource';
+                case 'Logger_GetEntityTag': return 'skip_this_resource';
+                case 'Backend_GetEntityTag': return 'skip_this_resource';
+                case 'ContentItem_GetEntityTag': return 'skip_this_resource';
+                case 'PortalConfig_GetEntityTag': return 'skip_this_resource';
+                case 'OpenIdConnectProvider_GetEntityTag': return 'skip_this_resource';
+                case 'Documentation_GetEntityTag': return 'skip_this_resource';
+                case 'IdentityProvider_GetEntityTag': return 'skip_this_resource';
+                case 'ApiRelease_GetEntityTag': return 'skip_this_resource';
+                case 'ApiOperation_GetEntityTag': return 'skip_this_resource';
+                case 'ApiOperationPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'GraphQLApiResolver_GetEntityTag': return 'skip_this_resource';
+                case 'GraphQLApiResolverPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'ApiPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'ApiSchema_GetEntityTag': return 'skip_this_resource';
+                case 'ApiIssue_GetEntityTag': return 'skip_this_resource';
+                case 'ApiIssueComment_GetEntityTag': return 'skip_this_resource';
+                case 'ApiTagDescription_GetEntityTag': return 'skip_this_resource';
+                case 'ApiWiki_GetEntityTag': return 'skip_this_resource';
+                case 'PolicyRestriction_GetEntityTag': return 'skip_this_resource';
+                case 'AuthorizationServer_GetEntityTag': return 'skip_this_resource';
+                case 'EmailTemplate_GetEntityTag': return 'skip_this_resource';
+                case 'PolicyFragment_GetEntityTag': return 'skip_this_resource';
+                case 'Policy_GetEntityTag': return 'skip_this_resource';
+                case 'User_GetEntityTag': return 'skip_this_resource';
+                case 'Diagnostic_GetEntityTag': return 'skip_this_resource';
+                case 'ApiVersionSet_GetEntityTag': return 'skip_this_resource';
+                case 'Certificate_GetEntityTag': return 'skip_this_resource';
+                case 'Subscription_GetEntityTag': return 'skip_this_resource';
+                case 'Group_GetEntityTag': return 'skip_this_resource';
+                case 'NamedValue_GetEntityTag': return 'skip_this_resource';
+                case 'PortalRevision_GetEntityTag': return 'skip_this_resource';
+                case 'Product_GetEntityTag': return 'skip_this_resource';
+                case 'ProductPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'ProductWiki_GetEntityTag': return 'skip_this_resource';
+                case 'SignInSettings_GetEntityTag': return 'skip_this_resource';
+                case 'SignUpSettings_GetEntityTag': return 'skip_this_resource';
+                case 'DelegationSettings_GetEntityTag': return 'skip_this_resource';
+                case 'GlobalSchema_GetEntityTag': return 'skip_this_resource';
+                case 'Gateway_GetEntityTag': return 'skip_this_resource';
+                case 'GatewayHostnameConfiguration_GetEntityTag': return 'skip_this_resource';
+                case 'GatewayApi_GetEntityTag': return 'skip_this_resource';
+                case 'GatewayCertificateAuthority_GetEntityTag': return 'skip_this_resource';
+                case 'TenantAccess_GetEntityTag': return 'skip_this_resource';
+                case 'Cache_GetEntityTag': return 'skip_this_resource';
+                case 'Workspace_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspacePolicy_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceNamedValue_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceGlobalSchema_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspacePolicyFragment_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceGroup_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceSubscription_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiVersionSet_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApi_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiRelease_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiOperation_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiOperationPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceApiSchema_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceProduct_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceProductPolicy_GetEntityTag': return 'skip_this_resource';
+                case 'WorkspaceTag_GetEntityState': return 'skip_this_resource';
+                default: return false;
+            }            
+        case 'advisor':
+            switch (opId) {
+                case 'Recommendations_GetGenerateStatus':
+                    return 'skip_this_resource';
+                default:
+                    return false;
+            }
+        case 'analysis_services':
+            switch (opId) {
+                case 'Servers_ListOperationResults':
+                    return 'skip_this_resource';
+                default:
+                    return false;
+            }
+        case 'app_service':
+            switch (opId) {
+                case 'Global_GetSubscriptionOperationWithAsyncResponse': return 'skip_this_resource';
+                case 'AppServicePlans_GetServerFarmSkus': return 'skip_this_resource';
+                case 'WebApps_GetContainerLogsZip': return 'skip_this_resource';
+                case 'WebApps_GetWebSiteContainerLogs': return 'skip_this_resource';
+                case 'WebApps_GetOneDeployStatus': return 'skip_this_resource';
+                case 'WebApps_GetFunctionsAdminToken': return 'skip_this_resource';
+                case 'WebApps_ListSyncStatus': return 'skip_this_resource';
+                case 'WebApps_GetInstanceProcessDump': return 'skip_this_resource';
+                case 'WebApps_GetProcessDump': return 'skip_this_resource';
+                case 'WebApps_ListPublishingProfileXmlWithSecrets': return 'skip_this_resource';
+                case 'WebApps_GetWebSiteContainerLogsSlot': return 'skip_this_resource';
+                case 'WebApps_GetContainerLogsZipSlot': return 'skip_this_resource';
+                case 'WebApps_GetFunctionsAdminTokenSlot': return 'skip_this_resource';
+                case 'WebApps_ListSyncStatusSlot': return 'skip_this_resource';
+                case 'WebApps_GetInstanceProcessDumpSlot': return 'skip_this_resource';
+                case 'WebApps_GetProcessDumpSlot': return 'skip_this_resource';
+                case 'WebApps_ListPublishingProfileXmlWithSecretsSlot': return 'skip_this_resource';
+                default: return false;
+            }
+        case 'compute':
+            switch (opId) {
+                case 'CloudServiceRoleInstances_GetRemoteDesktopFile': return 'skip_this_resource';
+                case 'VirtualMachines_RunCommand': return 'virtual_machine';
+                case 'VirtualMachines_Capture': return 'virtual_machine';
+                case 'VirtualMachines_Update': return 'virtual_machine';
+                case 'VirtualMachines_ConvertToManagedDisks': return 'virtual_machine';
+                case 'VirtualMachines_Deallocate': return 'virtual_machine';
+                case 'VirtualMachines_Generalize': return 'virtual_machine';
+                case 'VirtualMachines_PowerOff': return 'virtual_machine';
+                case 'VirtualMachines_Reapply': return 'virtual_machine';
+                case 'VirtualMachines_Restart': return 'virtual_machine';
+                case 'VirtualMachines_Start': return 'virtual_machine';
+                case 'VirtualMachines_Redeploy': return 'virtual_machine';
+                case 'VirtualMachines_Reimage': return 'virtual_machine';
+                case 'VirtualMachines_RetrieveBootDiagnosticsData': return 'virtual_machine';
+                case 'VirtualMachines_PerformMaintenance': return 'virtual_machine';
+                case 'VirtualMachines_SimulateEviction': return 'virtual_machine';
+                case 'VirtualMachines_AssessPatches': return 'virtual_machine';
+                case 'VirtualMachines_InstallPatches': return 'virtual_machine';
+                case 'VirtualMachines_AttachDetachDataDisks': return 'virtual_machine';
+                default: return false;
+            }
+        case 'hybrid_network':
+            switch (opId) {
+                case 'ProxyArtifact_List': return 'skip_this_resource';
+                default: return false;
+            }
+        case 'logic_apps':
+            switch (opId) {
+                case 'Workflows_ListSwagger': return 'skip_this_resource';
+                default: return false;
+            }
+        case 'network':
+            switch (opId) {
+                case 'VirtualHubBgpConnections_ListAdvertisedRoutes': return 'skip_this_resource';
+                case 'VirtualHubBgpConnections_ListLearnedRoutes': return 'skip_this_resource';
+                case 'VirtualNetworkGatewayConnections_GetIkeSas': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_GetVpnProfilePackageUrl': return 'skip_this_resource';
+                case 'VpnLinkConnections_GetIkeSas': return 'skip_this_resource';
+                case 'VpnGateways_StartPacketCapture': return 'skip_this_resource';
+                case 'VpnGateways_StopPacketCapture': return 'skip_this_resource';
+                case 'VpnConnections_StartPacketCapture': return 'skip_this_resource';
+                case 'VpnConnections_StopPacketCapture': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_Generatevpnclientpackage': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_GenerateVpnProfile': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_GetVpnProfilePackageUrl': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_SupportedVpnDevices': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_VpnDeviceConfigurationScript': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_StartPacketCapture': return 'skip_this_resource';
+                case 'VirtualNetworkGateways_StopPacketCapture': return 'skip_this_resource';
+                case 'VirtualNetworkGatewayConnections_StartPacketCapture': return 'skip_this_resource';
+                case 'VirtualNetworkGatewayConnections_StopPacketCapture': return 'skip_this_resource';
+                case 'VirtualNetworkGatewayConnections_GetIkeSas': return 'skip_this_resource';
+                default: return false;
+                }
+        case 'spring_apps':
+            switch (opId) {
+                case 'Gateways_ListEnvSecrets': return 'skip_this_resource';
+                default: return false;
+            }
+        case 'synapse':
+            switch (opId) {
+                case 'Operations_GetLocationHeaderResult': return 'skip_this_resource';
+                default: return false;
+            }                                    
         default:
             return false;
     }
@@ -689,174 +912,85 @@ function selectOrExec(t, s, r, m, o){
 /* needed to find the appropriate return object in an Azure response */
 /* ----------------------------------------------------------------- */
 
-const nonDefaultReturnObjects = {
-    storage_admin: [
-        'storage_services_rg',
-        'storage_services_sub'
-    ],
-    ad_hybrid_health_service: [
-        'ip_address_aggregate_settings'
-    ],
-    api_management: [
-        'network_status',
-    ],
-    application_insights: [
-        'analytics_items',
-        'export_configurations',
-        'favorites',
-        'proactive_detection_configurations',
-    ],
-    azure_stack: [
-        'cloud_manifest_file',
-    ],
-    cdn: [
-        'afd_origin_groups',
-        'afd_origins',
-        'routes',
-        'rules',
-    ],
-    compute: [
-        'virtual_machine_images',
-        'virtual_machine_images_edge_zone',
-        'shared_galleries',
-    ],
-    compute_admin: [
-        'platform_images',
-        'vm_extensions',
-    ],
-    databricks: [
-        'outbound_network_dependencies_endpoints',
-    ],
-    deployment_admin: [
-        'action_plan_operation_attempt',
-    ],
-    deployment_manager: [
-        'rollouts',
-        'artifact_sources',
-        'service_topologies',
-        'service_units',
-        'services',
-        'steps',
-    ],
-    elastic: [
-        'deployment_info',
-    ],
-    engagement_fabric: [
-        'accounts',
-    ],
-    hdinsight: [
-        'configurations',
-    ],
-    iot_hub: [
-        'private_endpoint_connections',
-    ],
-    maria_db: [
-        'advisors',
-    ],
-    marketplace_ordering: [
-        'marketplace_agreements',
-    ],
-    mysql: [
-        'advisors',
-    ],
-    network: [
-        'firewall_policy_idps_signatures',
-        'firewall_policy_idps_signatures_filter_values',
-        'service_tags',
-    ],
-    operational_insights: [
-        'available_service_tiers',
-        'intelligence_packs',
-    ],
-    peering: [
-        'service_countries'
-    ],
-    powerbi_privatelinks: [
-        'power_bi_resources',
-        'private_link_services',
-        'private_link_services_for_power_bi',
-    ],
-    provider_hub: [
-        'operations',
-    ],
-    security: [
-        'external_security_solutions',
-    ],
-    service_fabric_managed_clusters: [
-        'managed_cluster_version',
-    ],
-    sql: [
-        'capabilities',
-        'database_advisors',
-        'database_recommended_actions',
-        'server_advisors',
-        'database_schemas',
-        'job_versions',
-        'managed_database_schemas',
-    ],
-    synapse: [
-        'integration_runtime_auth_keys',
-        'integration_runtime_monitoring_data',
-        'operations',
-        'sql_pool_schemas',
-        'sql_pool_tables',
-    ],
-};
+function resolveRef(ref, inputDoc) {
+    // Assuming the $ref is in the format "#/components/schemas/SchemaName"
+    const refParts = ref.split('/');
 
-export function getObjectKey(service, resource, verbKey, method){
-    let objectKey = 'none';
+    // Navigate through the inputDoc to find the referenced schema
+    let schema = inputDoc;
+    for (let i = 1; i < refParts.length; i++) { // Start from 1 to skip the '#' part
+        schema = schema[refParts[i]];
+        if (!schema) {
+            // If the schema is not found, handle the error appropriately
+            throw new Error(`Reference ${ref} not found in the document.`);
+        }
+    }
 
-    if (verbKey === 'get'){
+    return schema;
+}
 
-        if(method.toLowerCase().startsWith('list')){
+export function determineObjectKey(serviceName, operationId, operationObj, inputDoc) {
+    
+    // look for specific overrides
+    switch (serviceName) {
+        case 'orbital':
+            switch (operationId) {
+                case 'OperationsResults_Get':
+                    return 'none';
+                default:
+                    break;
+            }
+        case 'sql':
+            switch (operationId) {
+                case 'DatabaseSchemas_ListByDatabase':
+                    return 'none';
+                case 'JobVersions_ListByJob':
+                    return 'none';
+                case 'ManagedDatabaseSchemas_ListByDatabase':
+                    return 'none';
+                default:
+                    break;
+            }
+        case 'synapse':
+            switch (operationId) {
+                case 'SqlPoolSchemas_List':
+                    return 'none';
+                case 'SqlPoolTables_ListBySchema':
+                    return 'none';                    
+                default:
+                    break;
+            }                        
+        default:
+            break;
+    }
+    
+    // Check if there's a '200' response
+    if (operationObj.responses && operationObj.responses['200']) {
+        // Get the 200 response
+        const response200 = operationObj.responses['200'];
 
-            // default to jsonpath to 'value'
-            objectKey = '$.value';
+        // Check if the response has a content of 'application/json' with a schema
+        if (response200.content && response200.content['application/json'] && response200.content['application/json'].schema) {
+            // Get the schema
+            let schema = response200.content['application/json'].schema;
 
-            // override defaults where needed
-            if ([
-                'ad_hybrid_health_service',
-                'api_management',
-                'application_insights',
-                'azure_stack',
-                'cdn',
-                'compute',
-                'compute_admin',
-                'databricks',
-                'deployment_admin',
-                'deployment_manager',
-                'elastic',
-                'engagement_fabric',
-                'hdinsight',
-                'iot_hub',
-                'maria_db',
-                'marketplace_ordering',
-                'mysql',
-                'network',
-                'operational_insights',
-                'peering',
-                'powerbi_privatelinks',
-                'provider_hub',
-                'security',
-                'service_fabric_managed_clusters',
-                'sql',
-                'synapse',
-                'storage_admin',
-            ].includes(service)){
-                if(nonDefaultReturnObjects[service].includes(resource)){
-                    objectKey = 'none';
-                }
-            } else if (service === 'automation'){
-                if (resource === 'network_status'){
-                    objectKey = '$.keys';
-                } else if (resource === 'keys'){
-                    objectKey = 'none';
-                }
+            // If schema is a $ref, resolve it to get the actual schema object
+            if (schema.$ref) {
+                // Resolve the $ref to get the actual schema object
+                // This requires a function that can resolve $ref to a schema in 'components/schemas'
+                // Let's assume you have such a function implemented
+                schema = resolveRef(schema.$ref, inputDoc); // Assuming 'inputDoc' is accessible here
+            }
+
+            // Check if the schema has a 'value' property of type 'array'
+            if (schema.properties && schema.properties.value && schema.properties.value.type === 'array') {
+                return '$.value';
             }
         }
     }
 
-    return objectKey;
+    // Return 'none' if above conditions are not met
+    return 'none';
 }
 
 /* --------------------------------------------------------------------- */
