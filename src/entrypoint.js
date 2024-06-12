@@ -6,6 +6,8 @@ import { tag } from './tag';
 import { validate } from './validate';
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
+import yaml from 'js-yaml';
+import * as fs from 'fs';
 
 const logger = new ConsoleLogger();
 
@@ -14,7 +16,7 @@ const azureRestApiSpecsDir = 'azure-rest-api-specs';
 const generatedDir = 'openapi/1-autorest-generated';
 const derefedDir = 'openapi/2-dereferenced';
 const combinedDir = 'openapi/3-combined';
-const taggedDir = 'openapi/4-tagged';
+const taggedDir = 'openapi/src';
 
 async function autorest(options) {
   if (options.specificationDir){
@@ -91,29 +93,80 @@ async function openapiCombine(options) {
 
 async function openapiTag(options) {
   
-  if (options.specificationDir){
-    await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
-      logger.info(`finished tagging!`);
-    });
-  } else {
-    // interate through all combined subdirs
+  // if (options.specificationDir){
+  //   await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
+  //     logger.info(`finished tagging!`);
+  //   });
+  // } else {
+  //   // interate through all combined subdirs
    
-    const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });
-    const subdirs = allFilesAndDirs.filter(dirent => dirent.isDirectory());
+  //   const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });
+  //   const subdirs = allFilesAndDirs.filter(dirent => dirent.isDirectory());
 
-    for (const subdir of subdirs){
-      logger.info(`Processing ${subdir.name}`);
-      try {
-        await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
-          logger.info(`finished tagging!`);
-        });
-      } catch (err) {
-        logger.error(err);
-        continue;
+  //   for (const subdir of subdirs){
+  //     logger.info(`Processing ${subdir.name}`);
+  //     try {
+  //       await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+  //         logger.info(`finished tagging!`);
+  //       });
+  //     } catch (err) {
+  //       logger.error(err);
+  //       continue;
+  //     }
+  //   }
+  // }
+
+  // generate provider.yaml files
+  const providers = [
+    'azure',
+    'azure_extras',
+    'azure_stack',
+    'azure_isv'
+  ];
+  
+  for (const provider of providers){
+    logger.info(`Processing ${provider}`);
+    const providerServices = await readdir(`${taggedDir}/${provider}/v00.00.00000/services`, { withFileTypes: true });
+    const serviceFiles = providerServices
+      .filter(dirent => dirent.isFile() && dirent.name !== '.gitignore')
+      .map(dirent => dirent.name);
+    const providerYamlData = {
+      id: provider,
+      name: provider,
+      version: 'v00.00.00000',
+      config: {
+        auth: {
+          type: 'azure_default'
+        }
+      },
+      providerServices: {}
+    };
+    for(const serviceFile in serviceFiles){
+      logger.info(`Processing ${serviceFiles[serviceFile]}`);
+      const serviceName = serviceFiles[serviceFile].split('.')[0];
+      // read data from service file (its a yaml file)
+      const serviceData = yaml.load(fs.readFileSync(`${taggedDir}/${provider}/v00.00.00000/services/${serviceFiles[serviceFile]}`));
+      const serviceTitle = serviceData.info.title;
+      const serviceDescription = serviceData.info.description;
+
+      providerYamlData.providerServices[serviceName] = {
+        id: `${provider}:${serviceName}`,
+        name: serviceName,
+        preferred: true,
+        service: {
+          $ref: `${provider}/v00.00.00000/services/${serviceFiles[serviceFile]}`
+        },
+        title: serviceTitle,
+        version: 'v00.00.00000',
+        description: serviceDescription
       }
     }
+    // write provider.yaml
+    fs.writeFileSync(`${taggedDir}/${provider}/v00.00.00000/provider.yaml`, yaml.dump(providerYamlData)); 
+
   }
-  return true;
+
+  return true;    
 }
 
 

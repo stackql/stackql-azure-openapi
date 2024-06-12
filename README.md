@@ -106,3 +106,48 @@ To tags fo all OpenAPI documents for all services, run the following command:
 ```bash
 bin/stackql-azure-openapi tag
 ```
+
+## Testing locally with `stackql`
+1. download the latest `stackql` binary, for example `curl -L https://bit.ly/stackql-zip -O && unzip stackql-zip` for Linux systems
+2. run the following:
+```
+PROVIDER_REGISTRY_ROOT_DIR="$(pwd)"
+REG_STR='{"url": "file://'${PROVIDER_REGISTRY_ROOT_DIR}'", "localDocRoot": "'${PROVIDER_REGISTRY_ROOT_DIR}'", "verifyConfig": {"nopVerify": true}}'
+./stackql shell --registry="${REG_STR}"
+```
+
+### Run Test Suite
+
+from the `stackql-provider-tests` directory:
+
+```bash
+cd ../../stackql-provider-tests
+
+# azure
+sh test-provider.sh \
+azure \
+false \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+true
+
+# azure_extras
+sh test-provider.sh \
+azure_extras \
+false \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+true
+
+# azure_isv
+sh test-provider.sh \
+azure_isv \
+false \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+true
+
+# azure_stack
+sh test-provider.sh \
+azure_stack \
+false \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi/openapi \
+true
+```
