@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2023-11-01'
+  version: 2024-06-01-preview
   title: RedisEnterpriseManagementClient
   description: REST API for managing Redis Enterprise resources in Azure.
 security:
@@ -118,28 +118,36 @@ components:
       allOf:
         - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
-      description: SKU parameters supplied to the create RedisEnterprise operation.
+      description: The resource model definition representing SKU
       type: object
       properties:
         name:
           type: string
-          description: 'The type of RedisEnterprise cluster to deploy. Possible values: (Enterprise_E10, EnterpriseFlash_F300 etc.)'
-          enum:
-            - Enterprise_E10
-            - Enterprise_E20
-            - Enterprise_E50
-            - Enterprise_E100
-            - EnterpriseFlash_F300
-            - EnterpriseFlash_F700
-            - EnterpriseFlash_F1500
-          x-ms-enum:
-            name: SkuName
-            modelAsString: true
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
         capacity:
           type: integer
           format: int32
-          description: The size of the RedisEnterprise cluster. Defaults to 2 or 3 depending on SKU. Valid values are (2, 4, 6, ...) for Enterprise SKUs and (3, 9, 15, ...) for Flash SKUs.
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
     Identity:
@@ -456,95 +464,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-    UserAssignedIdentities:
-      title: User-Assigned Identities
-      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/UserAssignedIdentity'
-    UserAssignedIdentity:
-      type: object
-      description: User assigned identity properties
-      properties:
-        principalId:
-          description: The principal ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-        clientId:
-          description: The client ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-    ManagedServiceIdentityType:
-      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
-      enum:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned, UserAssigned
-      type: string
-      x-ms-enum:
-        name: ManagedServiceIdentityType
-        modelAsString: true
-    ManagedServiceIdentity:
-      description: Managed service identity (system assigned and/or user assigned identities)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/ManagedServiceIdentityType'
-        userAssignedIdentities:
-          $ref: '#/components/schemas/UserAssignedIdentities'
-      required:
-        - type
-    SystemAssignedServiceIdentityType:
-      description: Type of managed service identity (either system assigned, or none).
-      enum:
-        - None
-        - SystemAssigned
-      type: string
-      x-ms-enum:
-        name: SystemAssignedServiceIdentityType
-        modelAsString: true
-    SystemAssignedServiceIdentity:
-      description: Managed service identity (either system assigned, or none)
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
-      required:
-        - type
     PrivateEndpoint:
       type: object
       properties:
@@ -660,6 +579,84 @@ components:
           items:
             $ref: '#/components/schemas/PrivateLinkResource'
       description: A list of private link resources
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned, UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
     ProvisioningState:
       type: string
       readOnly: true
@@ -925,6 +922,19 @@ components:
               description: List of database resources to link with this database
               items:
                 $ref: '#/components/schemas/LinkedDatabase'
+        redisVersion:
+          type: string
+          readOnly: true
+          description: Version of Redis the database is running on, e.g. '6.0'
+        deferUpgrade:
+          type: string
+          description: 'Option to defer upgrade when newest version is released - default is NotDeferred. Learn more:  https://aka.ms/redisversionupgrade'
+          enum:
+            - Deferred
+            - NotDeferred
+          x-ms-enum:
+            name: DeferUpgradeSetting
+            modelAsString: true
     DatabaseList:
       type: object
       properties:
@@ -1094,6 +1104,21 @@ components:
         error:
           $ref: '#/components/schemas/ErrorResponse'
           description: Error response describing why the operation failed.
+    ForceLinkParameters:
+      type: object
+      description: Parameters for reconfiguring active geo-replication, of an existing database that was previously unlinked from a replication group.
+      required:
+        - groupNickname
+        - linkedDatabases
+      properties:
+        groupNickname:
+          type: string
+          description: The name of the group of linked database resources. This should match the existing replication group name.
+        linkedDatabases:
+          type: array
+          description: The resource IDs of the databases that are expected to be linked and included in the replication group. This parameter is used to validate that the linking is to the expected (unlinked) part of the replication group, if it is splintered.
+          items:
+            $ref: '#/components/schemas/LinkedDatabase'
     ForceUnlinkParameters:
       title: Forcibly unlink another database from this database.
       type: object
@@ -1151,6 +1176,35 @@ components:
         minLength: 1
         maxLength: 90
         type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
     OperationIdParameter:
       name: operationId
       in: path
@@ -1169,6 +1223,22 @@ components:
       schema:
         minLength: 1
         type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     PrivateEndpointConnectionName:
       name: privateEndpointConnectionName
       in: path
@@ -1180,22 +1250,24 @@ components:
     ClusterNameParameter:
       name: clusterName
       in: path
-      description: The name of the RedisEnterprise cluster.
+      description: The name of the Redis Enterprise cluster.
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[A-Za-z0-9]{1,60}$
         type: string
     DatabaseNameParameter:
       name: databaseName
       in: path
-      description: The name of the database.
+      description: The name of the Redis Enterprise database.
       required: true
       x-ms-parameter-location: method
       schema:
+        pattern: ^[A-Za-z0-9]{1,60}$
         type: string
 paths:
   /providers/Microsoft.Cache/operations:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - Operations
@@ -1219,7 +1291,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/locations/{location}/operationsStatus/{operationId}:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - OperationsStatus
@@ -1244,7 +1316,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     put:
       tags:
         - RedisEnterprise
@@ -1371,7 +1443,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - RedisEnterprise
@@ -1397,7 +1469,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Cache/redisEnterprise:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - RedisEnterprise
@@ -1422,7 +1494,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - RedisEnterprise
@@ -1450,7 +1522,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     put:
       tags:
         - RedisEnterprise
@@ -1585,7 +1657,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/listKeys:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1612,7 +1684,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/regenerateKey:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1652,7 +1724,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/import:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1688,7 +1760,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/export:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1724,7 +1796,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateEndpointConnections:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -1751,7 +1823,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -1846,7 +1918,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/privateLinkResources:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     get:
       tags:
         - PrivateLinkResources
@@ -1873,7 +1945,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/forceUnlink:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1908,8 +1980,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/forceLinkToReplicationGroup:
+    x-api-version: 2024-06-01-preview
+    post:
+      tags:
+        - RedisEnterprise
+        - Databases
+      operationId: Databases_ForceLinkToReplicationGroup
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      description: Forcibly recreates an existing database on the specified cluster, and rejoins it to an existing replication group. **IMPORTANT NOTE:** All data in this database will be discarded, and the database will temporarily be unavailable while rejoining the replication group.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ClusterNameParameter'
+        - $ref: '#/components/parameters/DatabaseNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Information identifying the database to be unlinked.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLinkParameters'
+      responses:
+        '202':
+          description: Force link operation successfully enqueued; follow the Azure-AsyncOperation header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                format: uri
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                format: uri
+                type: string
+              description: Azure-AsyncOperation URI to poll for result
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/flush:
-    x-api-version: '2023-11-01'
+    x-api-version: 2024-06-01-preview
     post:
       tags:
         - RedisEnterprise
@@ -1938,6 +2055,41 @@ paths:
           description: Flush operation succeeded. All the keys are cleared in this and all its linked databases.
         '202':
           description: Flush operation successfully enqueued; follow the Azure-AsyncOperation header to poll for final outcome.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Cache/redisEnterprise/{clusterName}/databases/{databaseName}/upgradeDBRedisVersion:
+    x-api-version: 2024-06-01-preview
+    post:
+      tags:
+        - RedisEnterprise
+        - Databases
+      operationId: Databases_UpgradeDBRedisVersion
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      description: Upgrades the database Redis version to the latest available.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ClusterNameParameter'
+        - $ref: '#/components/parameters/DatabaseNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '202':
+          description: Upgrade operation successfully enqueued; follow the Azure-AsyncOperation header to poll for final outcome.
           headers:
             Location:
               schema:

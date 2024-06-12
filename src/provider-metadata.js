@@ -119,6 +119,36 @@ export const serviceInfo = {
     //
     // Azure ISV
     //
+    splitio: {
+        provider: 'azure_isv',
+        service: 'splitio',
+        title: 'Split Software (Azure Native ISV Service)',
+        description: 'Switch on the Split Feature Data Platform and deliver software features that matter, fast.'
+    },
+    'redhatopenshift_Microsoft.RedHatOpenShift_openshiftclusters': {
+        provider: 'azure_isv',
+        service: 'openshift_clusters',
+        title: 'Azure Red Hat OpenShift (Azure Native ISV Service)',
+        description: 'Deploy and scale containers on managed Red Hat OpenShift.'
+    },
+    oracle: {
+        provider: 'azure_isv',
+        service: 'oracle',
+        title: 'Oracle Database Service for Azure (Azure Native ISV Service)',
+        description: 'Oracle Database Service for Microsoft Azure is an Oracle-managed service for Azure customers to easily provision, access, and operate enterprise-grade Oracle Database services in Oracle Cloud Infrastructure (OCI) with a familiar Azure-like experience.'
+    },
+    mongocluster: {
+        provider: 'azure_isv',
+        service: 'mongocluster',
+        title: 'MongoDB Atlas on Azure (Azure Native ISV Service)',
+        description: 'Run your fully managed MongoDB workloads on Azure with MongoDB Atlas, a global developer data platform with the versatility you need to build modern and scalable applications.'
+    },
+    informatica: {
+        provider: 'azure_isv',
+        service: 'informatica',
+        title: 'Informatica Intelligent Data Management Cloud (Azure Native ISV Service)',
+        description: 'Empowering users to deliver value from data with the Intelligent Data Management Cloud on Microsoft.'
+    },
     liftrastronomer: {
         provider: 'azure_isv',
         service: 'astro',
@@ -242,6 +272,42 @@ export const serviceInfo = {
     //
     // Azure
     //
+    verifiedid: {
+        provider: 'azure',
+        service: 'verifiedid',
+        title: 'Microsoft Entra Verified ID',
+        description: 'Start your decentralized identity journey with Microsoft Entra Verified ID—included free with any Microsoft Entra ID subscription.'
+    },
+    standbypool: {
+        provider: 'azure',
+        service: 'standbypool',
+        title: 'Azure Standby Pools',
+        description: 'Azure standby pools is a feature for Virtual Machine Scale Sets with Flexible Orchestration that enables faster scaling out of resources by creating a pool of pre-provisioned virtual machines ready to service your workload.'
+    },
+    kubernetesruntime: {
+        provider: 'azure',
+        service: 'kubernetesruntime',
+        title: 'Microsoft Kubernetes Runtime',
+        description: 'Microsoft Kubernetes Runtime.'
+    },
+    edgezones: {
+        provider: 'azure',
+        service: 'edgezones',
+        title: 'Azure Edge Zones',
+        description: 'Azure Edge Zones are part of the Microsoft global network and offer secure, reliable, and high-bandwidth connectivity between apps—running at the Azure Edge Zone (close to the user), and the full set of Azure services running across the larger Azure regions.'
+    },
+    databasewatcher: {
+        provider: 'azure',
+        service: 'databasewatcher',
+        title: 'Database Watcher',
+        description: 'Database watcher is a managed monitoring solution for database services in the Azure SQL family. It supports Azure SQL Database and Azure SQL Managed Instance.'
+    },
+    azurefleet: {
+        provider: 'azure',
+        service: 'azurefleet',
+        title: 'Azure Fleet',
+        description: 'Fleet cluster enables centralized management of all your clusters at scale.'
+    },
     advisor: {
         provider: 'azure',
         service: 'advisor',
@@ -1214,12 +1280,12 @@ export const serviceInfo = {
         title: 'Hybrid Cloud',
         description: 'Hybrid cloud connectivity Management.'
     },
-    // iotspaces: {
-    //     provider: 'azure',
-    //     service: 'iot_spaces',
-    //     title: 'IoT Spaces Client',
-    //     description: 'Use this API to manage the IoTSpaces service instances in your Azure subscription.'
-    // },
+    iotspaces: {
+        provider: 'azure',
+        service: 'iot_spaces',
+        title: 'IoT Spaces Client',
+        description: 'Use this API to manage the IoTSpaces service instances in your Azure subscription.'
+    },
     managednetworkfabric: {
         provider: 'azure',
         service: 'managed_network_fabric',
@@ -1412,12 +1478,12 @@ export const serviceInfo = {
         title: 'Customer Lockbox for Microsoft Azure',
         description: 'Most operations, support, and troubleshooting performed by Microsoft personnel and sub-processors do not require access to customer data. In those rare circumstances where such access is required, Customer Lockbox for Microsoft Azure provides an interface for customers to review and approve or reject customer data access requests. It is used in cases where a Microsoft engineer needs to access customer data, whether in response to a customer-initiated support ticket or a problem identified by Microsoft.'
     },
-    // devspaces: {
-    //     provider: 'azure_extras',
-    //     service: 'dev_spaces',
-    //     title: 'Dev Spaces Management',
-    //     description: 'Dev Spaces REST API'
-    // },
+    devspaces: {
+        provider: 'azure_extras',
+        service: 'dev_spaces',
+        title: 'Dev Spaces Management',
+        description: 'Dev Spaces REST API'
+    },
     digitaltwins: {
         provider: 'azure',
         service: 'digital_twins',
@@ -1445,6 +1511,18 @@ export const serviceInfo = {
     //
     // Azure Extras
     //
+    mobilepacketcore: {
+        provider: 'azure_extras',
+        service: 'mobilepacketcore',
+        title: 'Azure Operator 5G Core',
+        description: 'Modernize your network with a flexible, scalable 5G mobile packet core.'
+    },
+    codesigning: {
+        provider: 'azure_extras',
+        service: 'codesigning',
+        title: 'Trusted Signing',
+        description: 'Trusted Signing (formerly Azure Code Signing) is a fully managed service that facilitates app signing for developers.'
+    },
     appcomplianceautomation: {
         provider: 'azure_extras',
         service: 'app_compliance_automation',

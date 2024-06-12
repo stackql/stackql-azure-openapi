@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2023-08-01-preview
+  version: 2023-09-01-preview
   title: AppConfigurationManagementClient
 security:
   - azure_auth:
@@ -124,6 +124,12 @@ components:
             modelAsString: false
           x-ms-mutability:
             - create
+        telemetry:
+          $ref: '#/components/schemas/TelemetryProperties'
+          description: Property specifying the configuration of telemetry for this configuration store
+        experimentation:
+          $ref: '#/components/schemas/ExperimentationProperties'
+          description: Property specifying the configuration of experimentation for this configuration store
     EncryptionProperties:
       type: object
       description: The encryption settings for a configuration store.
@@ -236,6 +242,12 @@ components:
         dataPlaneProxy:
           $ref: '#/components/schemas/DataPlaneProxyProperties'
           description: Property specifying the configuration of data plane proxy for Azure Resource Manager (ARM).
+        telemetry:
+          $ref: '#/components/schemas/TelemetryProperties'
+          description: Property specifying the configuration of telemetry to update for this configuration store
+        experimentation:
+          $ref: '#/components/schemas/ExperimentationProperties'
+          description: Property specifying the configuration of experimentation to update for this configuration store
     CheckNameAvailabilityParameters:
       description: Parameters used for checking whether a resource name is available.
       required:
@@ -569,18 +581,9 @@ components:
       properties:
         name:
           type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -1027,6 +1030,26 @@ components:
         label:
           description: Filters key-values by their label field.
           type: string
+    TelemetryProperties:
+      description: Telemetry settings
+      type: object
+      properties:
+        resourceId:
+          description: Resource ID of a resource enabling telemetry collection
+          type: string
+          format: arm-id
+    ExperimentationProperties:
+      description: Experimentation settings
+      type: object
+      properties:
+        resourceId:
+          description: Resource ID of a resource enabling experimentation
+          type: string
+          format: arm-id
+        dataPlaneEndpoint:
+          description: The data plane endpoint of the Split experimentation workspace resource where experimentation data can be retrieved
+          type: string
+          format: uri
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1035,7 +1058,8 @@ components:
         id:
           readOnly: true
           type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         name:
           readOnly: true
           type: string
@@ -1044,6 +1068,10 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -1091,28 +1119,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -1125,21 +1131,12 @@ components:
           x-ms-mutability:
             - read
             - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
           pattern: ^[-\w\._,\(\)]+$
         etag:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -1149,18 +1146,9 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Identity:
       description: Identity for the resource.
       type: object
@@ -1168,11 +1156,13 @@ components:
         principalId:
           readOnly: true
           type: string
-          description: The principal ID of resource identity.
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
         tenantId:
           readOnly: true
           type: string
-          description: The tenant ID of resource.
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
         type:
           type: string
           description: The identity type.
@@ -1303,6 +1293,7 @@ components:
           readOnly: true
         nextLink:
           type: string
+          format: uri
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
     OperationStatusResult:
@@ -1314,6 +1305,12 @@ components:
         id:
           description: Fully qualified ID for the async operation.
           type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
         name:
           description: Name of the async operation.
           type: string
@@ -1446,14 +1443,25 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription.
+      description: The ID of the target subscription. The value must be an UUID.
       required: true
       schema:
-        minLength: 1
+        format: uuid
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName
@@ -1487,7 +1495,7 @@ components:
     LocationParameter:
       name: location
       in: path
-      description: The name of Azure region.
+      description: The name of the Azure region.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -1501,6 +1509,15 @@ components:
       x-ms-parameter-location: method
       schema:
         pattern: ^[^\x00-\x1F\x7F]+$
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
         type: string
     ManagementGroupNameParameter:
       name: managementGroupName
@@ -1521,7 +1538,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -1531,15 +1547,6 @@ components:
       x-ms-parameter-location: method
       schema:
         format: uuid
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
         type: string
     If-Match:
       name: ifMatch
@@ -1559,7 +1566,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/configurationStores:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - ConfigurationStores
@@ -1590,7 +1597,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - ConfigurationStores
@@ -1622,7 +1629,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - ConfigurationStores
@@ -1747,7 +1754,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/checkNameAvailability:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     post:
       tags:
         - Operations
@@ -1778,7 +1785,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/listKeys:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     post:
       tags:
         - ConfigurationStores
@@ -1811,7 +1818,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/regenerateKey:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     post:
       tags:
         - ConfigurationStores
@@ -1844,7 +1851,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.AppConfiguration/operations:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - Operations
@@ -1874,7 +1881,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/privateEndpointConnections:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -1901,7 +1908,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -2006,7 +2013,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/privateLinkResources:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - PrivateLinkResources
@@ -2033,7 +2040,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/privateLinkResources/{groupName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - PrivateLinkResources
@@ -2064,7 +2071,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/keyValues/{keyValueName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - KeyValues
@@ -2162,7 +2169,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/deletedConfigurationStores:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - DeletedConfigurationStores
@@ -2187,7 +2194,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/locations/{location}/deletedConfigurationStores/{configStoreName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - DeletedConfigurationStores
@@ -2212,7 +2219,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/locations/{location}/deletedConfigurationStores/{configStoreName}/purge:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     post:
       tags:
         - DeletedConfigurationStores
@@ -2238,7 +2245,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.AppConfiguration/locations/{location}/checkNameAvailability:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     post:
       tags:
         - Operations
@@ -2270,7 +2277,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/replicas:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - Replicas
@@ -2303,7 +2310,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/replicas/{replicaName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - Replicas
@@ -2418,7 +2425,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AppConfiguration/configurationStores/{configStoreName}/snapshots/{snapshotName}:
-    x-api-version: 2023-08-01-preview
+    x-api-version: 2023-09-01-preview
     get:
       tags:
         - Snapshots

@@ -2,7 +2,6 @@ import $RefParser from '@apidevtools/json-schema-ref-parser';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
-import { createOrCleanDir } from './shared-functions';
 import { contactInfo, serviceInfo } from './provider-metadata';
 import {     
     getSQLVerbFromMethod,
@@ -93,25 +92,136 @@ function processOperationId(operationId, debug) {
     return { initResName, initMethod };
 }
 
+function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey) {
+    if (!outputDoc.components) {
+        outputDoc.components = {};
+    }
+    if (!outputDoc.components['x-stackQL-resources']) {
+        outputDoc.components['x-stackQL-resources'] = {};
+    }
+    if (!outputDoc.components['x-stackQL-resources'][stackqlResName]) {
+        outputDoc.components['x-stackQL-resources'][stackqlResName] = {
+            id: `${providerName}.${serviceName}.${stackqlResName}`,
+            name: stackqlResName,
+            title: stackqlResName,
+            methods: {},
+            sqlVerbs: {
+                select: [],
+                insert: [],
+                update: [],
+                delete: []
+            }
+        };
+    }
+
+    const methodObj = {
+        operation: {
+            $ref: `#/paths/${versionedPath.replace(/\//g, '~1')}/${verbKey}`
+        },
+        response: {
+            mediaType: 'application/json',
+            openAPIDocKey: '200'
+        }
+    };
+
+    if (stackqlObjectKey !== 'none' && stackqlSqlVerb === 'select') {
+        methodObj.response.objectKey = stackqlObjectKey;
+    }
+
+    outputDoc.components['x-stackQL-resources'][stackqlResName].methods[stackqlMethodName] = methodObj;
+
+    // Add "naked" method if objectKey is present
+    if (stackqlObjectKey !== 'none') {
+        const nakedMethodName = `_${stackqlMethodName}`;
+        const nakedMethodObj = { ...methodObj };
+        delete nakedMethodObj.response.objectKey;
+        outputDoc.components['x-stackQL-resources'][stackqlResName].methods[nakedMethodName] = nakedMethodObj;
+    }
+
+    // Add references to sqlVerbs
+    const methodRef = `#/components/x-stackQL-resources/${stackqlResName}/methods/${stackqlMethodName}`;
+    const nakedMethodRef = `#/components/x-stackQL-resources/${stackqlResName}/methods/_${stackqlMethodName}`;
+
+    switch (stackqlSqlVerb.toLowerCase()) {
+        case 'select':
+            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.select.push(methodRef);
+            break;
+        case 'insert':
+            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.insert.push(methodRef);
+            break;
+        case 'update':
+            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.update.push(methodRef);
+            break;
+        case 'delete':
+            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.delete.push(methodRef);
+            break;
+    }
+}
+
+function sortSQLVerbs(outputDoc) {
+    if (!outputDoc.components || !outputDoc.components['x-stackQL-resources']) {
+        return;
+    }
+
+    for (const resourceName in outputDoc.components['x-stackQL-resources']) {
+        const resource = outputDoc.components['x-stackQL-resources'][resourceName];
+
+        for (const sqlVerb in resource.sqlVerbs) {
+            resource.sqlVerbs[sqlVerb].sort((a, b) => {
+                const aPath = getPathFromRef(a, outputDoc);
+                const bPath = getPathFromRef(b, outputDoc);
+                const aPathParams = countCurlyBraces(aPath);
+                const bPathParams = countCurlyBraces(bPath);
+                return bPathParams - aPathParams; // Sort in descending order of path params
+            });
+        }
+    }
+}
+
+function getPathFromRef(ref, outputDoc) {
+    const refPath = ref.split('#/')[1];
+    const pathObject = getPathObjectFromRef(outputDoc, refPath.replace(/~1/g, '/').replace(/~0/g, '~'));
+    return pathObject ? pathObject.operation.$ref : '';
+}
+
+function countCurlyBraces(str) {
+    return (str.match(/{/g) || []).length;
+}
+
+function getPathObjectFromRef(obj, path) {
+    const keys = path.split('/');
+    let result = obj;
+    for (const key of keys) {
+        if (result && result.hasOwnProperty(key)) {
+            result = result[key];
+        } else {
+            return undefined;
+        }
+    }
+    return result;
+}
 
 export async function tag(combinedDir, taggedDir, specificationDir, debug, dryrun) {
 
     logger.info(`tagging ${specificationDir}...`);
 
-    const inputDir = `${combinedDir}/${specificationDir}`;
-    
-    // get metadata for service
-    if (!serviceInfo[specificationDir]){
-        logger.warn(`skipping ${specificationDir}, no metadata...`);
+    const servicesToSkip = [
+        'iotspaces'
+    ];
+
+    if(servicesToSkip.includes(specificationDir)){
+        logger.info(`skipping ${specificationDir}...`);
         return;
     }
 
+    const inputDir = `${combinedDir}/${specificationDir}`;
+    
     const providerName = serviceInfo[specificationDir].provider;
     const serviceName = serviceInfo[specificationDir].service;
     const title = serviceInfo[specificationDir].title;
     const description = serviceInfo[specificationDir].description;
         
-    const outputDir = `${taggedDir}/${providerName}/v00.00.00000/services/${serviceName}`;
+    const outputDir = `${taggedDir}/${providerName}/v00.00.00000/services`;
 
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
@@ -127,8 +237,6 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         'patch',
         'trace',
     ];
-
-    createOrCleanDir(outputDir, debug);
 
     // get generated date for version
     const date = new Date();
@@ -204,20 +312,6 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                         if (fieldName == 'properties'){
                             finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};
-                            
-                            // flatten nested props?
-                            // if (inputDoc.components.schemas[schemaName]['properties']['properties'] &&
-                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] &&
-                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['x-ms-client-flatten'] == true &&
-                            //     inputDoc.components.schemas[schemaName]['properties']['properties']['$ref']){
-                            //         let origProps = inputDoc.components.schemas[schemaName]['properties'];
-                            //         let referredSchemaName = inputDoc.components.schemas[schemaName]['properties']['properties']['$ref'].split('/').pop();
-                            //         finalProps = {...finalProps, ...inputDoc.components.schemas[referredSchemaName]['properties']};
-                            //         delete origProps['properties'];
-                            //         finalProps = {...finalProps, ...origProps};
-                            // } else {
-                            //     finalProps = {...finalProps, ...inputDoc.components.schemas[schemaName]['properties']};    
-                            // }
                         }
                     });
 
@@ -363,10 +457,12 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         debug ? logger.debug(`stackql object key : ${stackqlObjectKey}`): null;
 
                         // add special keys to the operation
-                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
-                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = stackqlMethodName;
-                        outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
-                        stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;                        
+                        // outputDoc.paths[versionedPath][verbKey]['x-stackQL-resource'] = stackqlResName;
+                        // outputDoc.paths[versionedPath][verbKey]['x-stackQL-method'] = stackqlMethodName;
+                        // outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
+                        // stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;   
+                        
+                        addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey);
 
                     } catch (e) {
                         console.log(e);
@@ -378,6 +474,10 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         });
     }
 
+    // sort the sqlverbs from most specific (highest number of path params) to least specific (lowest number of path params)
+    debug ? logger.debug(`sorting sqlVerbs...`): null;
+    sortSQLVerbs(outputDoc);
+    
     // clean up all free text descriptions
     debug ? logger.debug(`cleaning up markdown in description fields...`): null;
     outputDoc = cleanUpDescriptions(outputDoc);

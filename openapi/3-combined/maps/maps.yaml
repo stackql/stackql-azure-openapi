@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure Maps Resource Provider
   description: Resource Provider
-  version: 2023-12-01-preview
+  version: 2024-01-01-preview
 security:
   - azure_auth:
       - user_impersonation
@@ -19,127 +19,49 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    PrivateEndpoint:
+    encryption:
       type: object
+      description: All encryption configuration for a resource.
       properties:
-        id:
-          readOnly: true
+        infrastructureEncryption:
           type: string
-          description: The ARM identifier for private endpoint.
-      description: The private endpoint resource.
-    PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          x-ms-client-flatten: true
-          description: Resource properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: The private endpoint connection resource.
-    PrivateEndpointConnectionProperties:
-      type: object
-      properties:
-        groupIds:
-          description: The group ids for the private endpoint resource.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The private endpoint resource.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
-      required:
-        - privateLinkServiceConnectionState
-      description: Properties of the private endpoint connection.
-    PrivateLinkServiceConnectionState:
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
-          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
-        description:
-          type: string
-          description: The reason for approval/rejection of the connection.
-        actionsRequired:
-          type: string
-          description: A message indicating if changes on the service provider require any updates on the consumer.
-      description: A collection of information about the state of the connection between service consumer and provider.
-    PrivateEndpointServiceConnectionStatus:
-      type: string
-      description: The private endpoint connection status.
-      enum:
-        - Pending
-        - Approved
-        - Rejected
-      x-ms-enum:
-        name: PrivateEndpointServiceConnectionStatus
-        modelAsString: true
-    PrivateEndpointConnectionProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Creating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PrivateEndpointConnectionProvisioningState
-        modelAsString: true
-    PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: A private link resource.
-    PrivateLinkResourceProperties:
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource private link DNS zone name.
-      description: Properties of a private link resource.
-    PrivateEndpointConnectionListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private endpoint connections.
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-      description: List of private endpoint connections associated with the specified resource.
-    PrivateLinkResourceListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private link resources
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-      description: A list of private link resources.
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: InfrastructureEncryption
+            modelAsString: true
+          description: (Optional) Discouraged to include in resource definition. Only needed where it is possible to disable platform (AKA infrastructure) encryption. Azure SQL TDE is an example of this. Values are enabled and disabled.
+        customerManagedKeyEncryption:
+          type: object
+          description: All Customer-managed key encryption properties for the resource.
+          properties:
+            keyEncryptionKeyIdentity:
+              type: object
+              description: All identity configuration for Customer-managed key settings defining which identity should be used to auth to Key Vault.
+              properties:
+                identityType:
+                  type: string
+                  enum:
+                    - systemAssignedIdentity
+                    - userAssignedIdentity
+                    - delegatedResourceIdentity
+                  description: The type of identity to use. Values can be systemAssignedIdentity, userAssignedIdentity, or delegatedResourceIdentity.
+                userAssignedIdentityResourceId:
+                  type: string
+                  format: arm-id
+                  description: 'User assigned identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity.'
+                federatedClientId:
+                  type: string
+                  format: uuid
+                  description: 'application client identity to use for accessing key encryption key Url in a different tenant. Ex: f83c6b1b-4d34-47e4-bb34-9d83df58b540'
+                delegatedIdentityClientId:
+                  type: string
+                  format: uuid
+                  description: 'delegated identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity and userAssignedIdentity - internal use only.'
+            keyEncryptionKeyUrl:
+              type: string
+              description: 'key encryption key Url, versioned or unversioned. Ex: https://contosovault.vault.azure.net/keys/contosokek/562a4bb76b524a1493a6afe8e536ee78 or https://contosovault.vault.azure.net/keys/contosokek.'
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -591,6 +513,86 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+        nullable: true
+        x-nullable: true
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
     PrivateLinkResourceList:
       description: A list of private link resources for a Maps Account resource type.
       type: object
@@ -854,6 +856,9 @@ components:
             name: PublicNetworkAccess
             modelAsString: true
           description: Property to specify whether the Maps Account will accept traffic from public internet. If set to 'disabled' all traffic except private endpoint traffic and that that originates from trusted services will be blocked.
+        locations:
+          $ref: '#/components/schemas/Locations'
+          description: List of additional data processing regions for the Maps Account, which may result in requests being processed in another geography. Some features or results may be restricted to specific regions. By default, Maps REST APIs process requests according to the account location or the [geographic scope](https://learn.microsoft.com/en-us/azure/azure-maps/geographic-scope).
     LinkedResources:
       type: array
       maxItems: 10
@@ -896,6 +901,20 @@ components:
       required:
         - allowedOrigins
       description: Specifies a CORS rule for the Maps Account.
+    Locations:
+      description: The list of data processing locations for the Maps Account.
+      type: array
+      items:
+        description: Data processing location.
+        type: object
+        properties:
+          locationName:
+            type: string
+            description: The location name.
+        required:
+          - locationName
+      x-ms-identifiers:
+        - locationName
     CreatorProperties:
       description: Creator resource properties
       type: object
@@ -920,141 +939,128 @@ components:
           format: int32
       required:
         - storageUnits
-    UserAssignedIdentities:
-      title: User-Assigned Identities
-      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/UserAssignedIdentity'
-        nullable: true
-        x-nullable: true
-    UserAssignedIdentity:
-      type: object
-      description: User assigned identity properties
-      properties:
-        principalId:
-          description: The principal ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-        clientId:
-          description: The client ID of the assigned identity.
-          format: uuid
-          type: string
-          readOnly: true
-    ManagedServiceIdentityType:
-      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
-      enum:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned,UserAssigned
-      type: string
-      x-ms-enum:
-        name: ManagedServiceIdentityType
-        modelAsString: true
-    ManagedServiceIdentity:
-      description: Managed service identity (system assigned and/or user assigned identities)
+    PrivateEndpoint:
       type: object
       properties:
-        principalId:
+        id:
           readOnly: true
-          format: uuid
           type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
+          description: The ARM identifier for private endpoint.
+      description: The private endpoint resource.
+    PrivateEndpointConnection:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          x-ms-client-flatten: true
+          description: Resource properties.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: The private endpoint connection resource.
+    PrivateEndpointConnectionProperties:
+      type: object
+      properties:
+        groupIds:
+          description: The group ids for the private endpoint resource.
+          type: array
+          items:
+            type: string
           readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/ManagedServiceIdentityType'
-        userAssignedIdentities:
-          $ref: '#/components/schemas/UserAssignedIdentities'
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The private endpoint resource.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+        provisioningState:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
+          description: The provisioning state of the private endpoint connection resource.
       required:
-        - type
-    SystemAssignedServiceIdentityType:
-      description: Type of managed service identity (either system assigned, or none).
-      enum:
-        - None
-        - SystemAssigned
+        - privateLinkServiceConnectionState
+      description: Properties of the private endpoint connection.
+    PrivateLinkServiceConnectionState:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
+          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        description:
+          type: string
+          description: The reason for approval/rejection of the connection.
+        actionsRequired:
+          type: string
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+      description: A collection of information about the state of the connection between service consumer and provider.
+    PrivateEndpointServiceConnectionStatus:
       type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Rejected
       x-ms-enum:
-        name: SystemAssignedServiceIdentityType
+        name: PrivateEndpointServiceConnectionStatus
         modelAsString: true
-    SystemAssignedServiceIdentity:
-      description: Managed service identity (either system assigned, or none)
+    PrivateEndpointConnectionProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Creating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PrivateEndpointConnectionProvisioningState
+        modelAsString: true
+    PrivateLinkResource:
       type: object
       properties:
-        principalId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
-          type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
-      required:
-        - type
-    encryption:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: A private link resource.
+    PrivateLinkResourceProperties:
       type: object
-      description: All encryption configuration for a resource.
       properties:
-        infrastructureEncryption:
+        groupId:
+          description: The private link resource group id.
           type: string
-          enum:
-            - enabled
-            - disabled
-          x-ms-enum:
-            name: InfrastructureEncryption
-            modelAsString: true
-          description: (Optional) Discouraged to include in resource definition. Only needed where it is possible to disable platform (AKA infrastructure) encryption. Azure SQL TDE is an example of this. Values are enabled and disabled.
-        customerManagedKeyEncryption:
-          type: object
-          description: All Customer-managed key encryption properties for the resource.
-          properties:
-            keyEncryptionKeyIdentity:
-              type: object
-              description: All identity configuration for Customer-managed key settings defining which identity should be used to auth to Key Vault.
-              properties:
-                identityType:
-                  type: string
-                  enum:
-                    - systemAssignedIdentity
-                    - userAssignedIdentity
-                    - delegatedResourceIdentity
-                  description: The type of identity to use. Values can be systemAssignedIdentity, userAssignedIdentity, or delegatedResourceIdentity.
-                userAssignedIdentityResourceId:
-                  type: string
-                  format: arm-id
-                  description: 'User assigned identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity.'
-                federatedClientId:
-                  type: string
-                  format: uuid
-                  description: 'application client identity to use for accessing key encryption key Url in a different tenant. Ex: f83c6b1b-4d34-47e4-bb34-9d83df58b540'
-                delegatedIdentityClientId:
-                  type: string
-                  format: uuid
-                  description: 'delegated identity to use for accessing key encryption key Url. Ex: /subscriptions/fa5fc227-a624-475e-b696-cdd604c735bc/resourceGroups/<resource group>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/myId. Mutually exclusive with identityType systemAssignedIdentity and userAssignedIdentity - internal use only.'
-            keyEncryptionKeyUrl:
-              type: string
-              description: 'key encryption key Url, versioned or unversioned. Ex: https://contosovault.vault.azure.net/keys/contosokek/562a4bb76b524a1493a6afe8e536ee78 or https://contosovault.vault.azure.net/keys/contosokek.'
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource private link DNS zone name.
+      description: Properties of a private link resource.
+    PrivateEndpointConnectionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private endpoint connections.
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+      description: List of private endpoint connections associated with the specified resource.
+    PrivateLinkResourceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private link resources
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+      description: A list of private link resources.
   parameters:
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the Private Endpoint Connection.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 3
-        maxLength: 98
-        pattern: ^[a-zA-Z][a-zA-Z0-9-]{3,98}[a-zA-Z0-9]$
-        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -1100,7 +1106,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -1167,6 +1172,14 @@ components:
         maxLength: 98
         pattern: ^[a-zA-Z][a-zA-Z0-9-]{3,98}[a-zA-Z0-9]$
         type: string
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     PrivateLinkResourceNameParameter:
       name: privateLinkResourceName
       in: path
@@ -1178,7 +1191,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     put:
       tags:
         - Accounts
@@ -1292,7 +1305,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - Accounts
@@ -1318,7 +1331,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Maps/accounts:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - Accounts
@@ -1343,7 +1356,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/listSas:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     post:
       tags:
         - Accounts
@@ -1381,7 +1394,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/listKeys:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     post:
       tags:
         - Accounts
@@ -1406,7 +1419,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/regenerateKey:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     post:
       tags:
         - Accounts
@@ -1439,7 +1452,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Maps/operations:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - Operations
@@ -1463,7 +1476,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/creators:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - Creators
@@ -1490,7 +1503,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/creators/{creatorName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     put:
       tags:
         - Creators
@@ -1608,7 +1621,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/privateLinkResources:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - PrivateLinkResources
@@ -1635,7 +1648,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/privateLinkResources/{privateLinkResourceName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - PrivateLinkResources
@@ -1661,7 +1674,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -1769,7 +1782,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Maps/accounts/{accountName}/privateEndpointConnections:
-    x-api-version: 2023-12-01-preview
+    x-api-version: 2024-01-01-preview
     get:
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'

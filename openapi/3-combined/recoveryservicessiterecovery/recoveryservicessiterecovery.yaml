@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2023-06-01'
+  version: '2024-04-01'
   title: SiteRecoveryManagementClient
   x-ms-code-generation-settings:
     header: MICROSOFT_MIT_NO_VERSION
@@ -20,6 +20,457 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    Resource:
+      description: Azure resource.
+      type: object
+      properties:
+        id:
+          description: Resource Id
+          type: string
+          readOnly: true
+        name:
+          description: Resource Name
+          type: string
+          readOnly: true
+        type:
+          description: Resource Type
+          type: string
+          readOnly: true
+        location:
+          description: Resource Location
+          type: string
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
+        tenantId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     A2AAddDisksInput:
       description: A2A add disk(s) input.
       type: object
@@ -37,6 +488,37 @@ components:
           items:
             $ref: '#/components/schemas/A2AVmManagedDiskInputDetails'
       x-ms-discriminator-value: A2A
+    A2AApplyClusterRecoveryPointInput:
+      description: A2A provider specific input for apply cluster recovery point.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ApplyClusterRecoveryPointProviderSpecificInput'
+      properties: {}
+      x-ms-discriminator-value: A2A
+    A2AClusterRecoveryPointDetails:
+      description: A2A provider specific cluster recovery point details.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ClusterProviderSpecificRecoveryPointDetails'
+      properties:
+        recoveryPointSyncType:
+          description: A value indicating whether the recovery point is multi VM consistent.
+          enum:
+            - MultiVmSyncRecoveryPoint
+          type: string
+          x-ms-enum:
+            name: RecoveryPointSyncType
+            modelAsString: true
+        nodes:
+          description: The list of nodes representing the cluster.
+          type: array
+          items:
+            type: string
+            format: arm-id
+            x-ms-arm-id-details:
+              allowedResources:
+                - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems
+      x-ms-discriminator-value: A2A
     A2AApplyRecoveryPointInput:
       description: ApplyRecoveryPoint input specific to A2A provider.
       required:
@@ -45,6 +527,43 @@ components:
       allOf:
         - $ref: '#/components/schemas/ApplyRecoveryPointProviderSpecificInput'
       properties: {}
+      x-ms-discriminator-value: A2A
+    A2AClusterTestFailoverInput:
+      description: A2A provider specific input for test cluster failover.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ClusterTestFailoverProviderSpecificInput'
+      properties:
+        clusterRecoveryPointId:
+          description: The cluster recovery point id to be passed to failover to a particular recovery point.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionClusters/recoveryPoints
+        individualNodeRecoveryPoints:
+          description: The list of individual node recovery points.
+          type: array
+          items:
+            type: string
+            x-ms-arm-id-details:
+              allowedResources:
+                - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems/recoveryPoints
+      x-ms-discriminator-value: A2A
+    A2AClusterUnplannedFailoverInput:
+      description: A2A provider specific input for unplanned cluster failover.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ClusterUnplannedFailoverProviderSpecificInput'
+      properties:
+        clusterRecoveryPointId:
+          description: The cluster recovery point id to be passed to failover to a particular recovery point.
+          type: string
+        individualNodeRecoveryPoints:
+          description: The list of individual node recovery points.
+          type: array
+          items:
+            type: string
       x-ms-discriminator-value: A2A
     A2AContainerCreationInput:
       description: A2A cloud creation input.
@@ -295,6 +814,13 @@ components:
         multiVmGroupId:
           description: The multi vm group id.
           type: string
+        protectionClusterId:
+          description: The replication protection cluster Id.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionClusters
         recoveryBootDiagStorageAccountId:
           description: The boot diagnostic storage account.
           type: string
@@ -319,6 +845,15 @@ components:
         recoveryCapacityReservationGroupId:
           description: The recovery capacity reservation group Id.
           type: string
+        autoProtectionOfDataDisk:
+          description: A value indicating whether the auto protection is enabled.
+          enum:
+            - Disabled
+            - Enabled
+          type: string
+          x-ms-enum:
+            name: AutoProtectionOfDataDisk
+            modelAsString: true
       x-ms-discriminator-value: A2A
     A2AEventDetails:
       description: Model class for event details of a A2A event.
@@ -529,6 +1064,42 @@ components:
           type: string
         tfoDiskName:
           description: The test failover name for the managed disk.
+          type: string
+    A2AProtectedItemDetail:
+      description: A2A specific switch cluster protection input.
+      type: object
+      properties:
+        vmManagedDisks:
+          description: The list of vm managed disk details.
+          type: array
+          items:
+            $ref: '#/components/schemas/A2AVmManagedDiskInputDetails'
+        recoveryResourceGroupId:
+          description: The recovery resource group Id.
+          type: string
+        recoveryAvailabilitySetId:
+          description: The recovery availability set.
+          type: string
+        recoveryBootDiagStorageAccountId:
+          description: The boot diagnostic storage account.
+          type: string
+        recoveryAvailabilityZone:
+          description: The recovery availability zone.
+          type: string
+        recoveryProximityPlacementGroupId:
+          description: The recovery proximity placement group Id.
+          type: string
+        recoveryVirtualMachineScaleSetId:
+          description: The virtual machine scale set id.
+          type: string
+        recoveryCapacityReservationGroupId:
+          description: The recovery capacity reservation group Id.
+          type: string
+        diskEncryptionInfo:
+          $ref: '#/components/schemas/DiskEncryptionInfo'
+          description: The recovery disk encryption information.
+        replicationProtectedItemName:
+          description: The Replication Protected item name.
           type: string
     A2AProtectedManagedDiskDetails:
       description: A2A protected managed disk details.
@@ -788,6 +1359,12 @@ components:
         managementId:
           description: The management Id.
           type: string
+        protectionClusterId:
+          description: The replication protection cluster Id.
+          type: string
+        isClusterInfraReady:
+          description: A value indicating if the cluster infra is ready or not.
+          type: boolean
         protectedDisks:
           description: The list of protected disks.
           type: array
@@ -1053,6 +1630,81 @@ components:
             name: AutomationAccountAuthenticationType
             modelAsString: true
       x-ms-discriminator-value: A2A
+    A2AReplicationProtectionClusterDetails:
+      description: A2A provider specific settings.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ReplicationClusterProviderSpecificSettings'
+      properties:
+        multiVmGroupId:
+          description: The multi vm group Id.
+          type: string
+        multiVmGroupName:
+          description: The multi vm group name.
+          type: string
+        multiVmGroupCreateOption:
+          description: Whether Multi VM group is auto created or specified by user.
+          enum:
+            - AutoCreated
+            - UserSpecified
+          type: string
+          x-ms-enum:
+            name: MultiVmGroupCreateOption
+            modelAsString: true
+        primaryFabricLocation:
+          description: Primary fabric location.
+          type: string
+        recoveryFabricLocation:
+          description: The recovery fabric location.
+          type: string
+        failoverRecoveryPointId:
+          description: The recovery point Id to which the cluster was failed over.
+          type: string
+        clusterManagementId:
+          description: The cluster management Id.
+          type: string
+        rpoInSeconds:
+          format: int64
+          description: The last RPO value in seconds.
+          type: integer
+        lastRpoCalculatedTime:
+          format: date-time
+          description: The time (in UTC) when the last RPO value was calculated by Protection Service.
+          type: string
+        initialPrimaryZone:
+          description: The initial primary availability zone.
+          type: string
+        initialPrimaryFabricLocation:
+          description: The initial primary fabric location.
+          type: string
+        initialRecoveryZone:
+          description: The initial recovery availability zone.
+          type: string
+        initialRecoveryFabricLocation:
+          description: The initial recovery fabric location.
+          type: string
+        initialPrimaryExtendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The initial primary extended location.
+        initialRecoveryExtendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The initial recovery extended location.
+        primaryAvailabilityZone:
+          description: The primary availability zone.
+          type: string
+        recoveryAvailabilityZone:
+          description: The recovery availability zone.
+          type: string
+        primaryExtendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The primary Extended Location.
+        recoveryExtendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The recovery Extended Location.
+        lifecycleId:
+          description: An id that survives actions like switch protection which change the backing PE/CPE objects internally.The lifecycle id gets carried forward to have a link/continuity in being able to have an Id that denotes the "same" protected cluster even though other internal Ids/ARM Id might be changing.
+          type: string
+      x-ms-discriminator-value: A2A
     A2AReprotectInput:
       description: Azure specific reprotect input.
       type: object
@@ -1079,6 +1731,104 @@ components:
         policyId:
           description: The Policy Id.
           type: string
+      x-ms-discriminator-value: A2A
+    A2ASharedDiskIRErrorDetails:
+      description: Extended location of the resource.
+      type: object
+      properties:
+        errorCode:
+          description: The error code.
+          type: string
+          readOnly: true
+        errorCodeEnum:
+          description: The error code enum.
+          type: string
+          readOnly: true
+        errorMessage:
+          description: The error message.
+          type: string
+          readOnly: true
+        possibleCauses:
+          description: The possible causes.
+          type: string
+          readOnly: true
+        recommendedAction:
+          description: The recommended action.
+          type: string
+          readOnly: true
+    A2ASharedDiskReplicationDetails:
+      description: A2A provider specific settings.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/SharedDiskReplicationProviderSpecificSettings'
+      properties:
+        managementId:
+          description: The management Id.
+          type: string
+        unprotectedDisks:
+          description: The list of unprotected disks.
+          type: array
+          items:
+            $ref: '#/components/schemas/A2AUnprotectedDiskDetails'
+          x-ms-identifiers:
+            - diskLunId
+        protectedManagedDisks:
+          description: The list of protected managed disks.
+          type: array
+          items:
+            $ref: '#/components/schemas/A2AProtectedManagedDiskDetails'
+          x-ms-identifiers:
+            - diskId
+        primaryFabricLocation:
+          description: Primary fabric location.
+          type: string
+        recoveryFabricLocation:
+          description: The recovery fabric location.
+          type: string
+        failoverRecoveryPointId:
+          description: The recovery point id to which the Virtual node was failed over.
+          type: string
+        monitoringPercentageCompletion:
+          format: int32
+          description: The percentage of the monitoring job. The type of the monitoring job is defined by MonitoringJobType property.
+          type: integer
+        monitoringJobType:
+          description: The type of the monitoring job. The progress is contained in MonitoringPercentageCompletion property.
+          type: string
+        rpoInSeconds:
+          format: int64
+          description: The last RPO value in seconds.
+          type: integer
+        lastRpoCalculatedTime:
+          format: date-time
+          description: The time (in UTC) when the last RPO value was calculated by Protection Service.
+          type: string
+        sharedDiskIRErrors:
+          description: The IR Errors.
+          type: array
+          items:
+            $ref: '#/components/schemas/A2ASharedDiskIRErrorDetails'
+          x-ms-identifiers:
+            - errorCode
+      x-ms-discriminator-value: A2A
+    A2ASwitchClusterProtectionInput:
+      description: A2A specific switch cluster protection input.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/SwitchClusterProtectionProviderSpecificInput'
+      properties:
+        recoveryContainerId:
+          description: The recovery container Id.
+          type: string
+        policyId:
+          description: The Policy Id.
+          type: string
+        protectedItemsDetail:
+          type: array
+          items:
+            $ref: '#/components/schemas/A2AProtectedItemDetail'
+          x-ms-identifiers:
+            - replicationProtectedItemName
       x-ms-discriminator-value: A2A
     A2ASwitchProtectionInput:
       description: A2A specific switch protection input.
@@ -1576,6 +2326,51 @@ components:
         propertyName: instanceType
       required:
         - instanceType
+    ApplyClusterRecoveryPointInput:
+      description: Input definition for apply cluster recovery point.
+      required:
+        - properties
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ApplyClusterRecoveryPointInputProperties'
+          description: The properties to apply cluster recovery point input.
+    ApplyClusterRecoveryPointInputProperties:
+      description: Input definition for apply cluster recovery point properties.
+      required:
+        - providerSpecificDetails
+      type: object
+      properties:
+        clusterRecoveryPointId:
+          description: The cluster recovery point id to be passed to failover to a particular recovery point.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionClusters/recoveryPoints
+        individualNodeRecoveryPoints:
+          description: The list of individual node recovery points.
+          type: array
+          items:
+            type: string
+            format: arm-id
+            x-ms-arm-id-details:
+              allowedResources:
+                - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems
+        providerSpecificDetails:
+          $ref: '#/components/schemas/ApplyClusterRecoveryPointProviderSpecificInput'
+          description: The provider specific input for applying cluster recovery point.
+    ApplyClusterRecoveryPointProviderSpecificInput:
+      description: Provider specific input for apply cluster recovery point.
+      required:
+        - instanceType
+      type: object
+      properties:
+        instanceType:
+          description: The class type.
+          type: string
+      discriminator:
+        propertyName: instanceType
     ApplyRecoveryPointInput:
       description: Input to apply recovery point.
       required:
@@ -1820,6 +2615,218 @@ components:
         customTargetDiskName:
           description: The custom target Azure disk name.
           type: string
+    ClusterFailoverJobDetails:
+      description: This class represents the details for a failover job of cluster.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/JobDetails'
+      properties:
+        protectedItemDetails:
+          description: The test VM details.
+          type: array
+          items:
+            $ref: '#/components/schemas/FailoverReplicationProtectedItemDetails'
+          x-ms-identifiers:
+            - name
+      x-ms-discriminator-value: ClusterFailoverJobDetails
+    ClusterProviderSpecificRecoveryPointDetails:
+      description: Replication provider specific cluster recovery point details.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: Gets the provider type.
+          type: string
+          readOnly: true
+      discriminator:
+        propertyName: instanceType
+    ClusterRecoveryPoint:
+      description: Recovery point.
+      type: object
+      properties:
+        id:
+          description: The recovery point Id.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionClusters/recoveryPoints
+        name:
+          description: The name of the recovery point.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+        properties:
+          $ref: '#/components/schemas/ClusterRecoveryPointProperties'
+          description: The recovery point properties.
+    ClusterRecoveryPointCollection:
+      description: Collection of cluster recovery point details.
+      type: object
+      properties:
+        value:
+          description: The cluster recovery point details.
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterRecoveryPoint'
+        nextLink:
+          description: The value of next link.
+          type: string
+    ClusterRecoveryPointProperties:
+      description: Cluster recovery point properties.
+      type: object
+      properties:
+        recoveryPointTime:
+          format: date-time
+          description: The recovery point time.
+          type: string
+        recoveryPointType:
+          description: The recovery point type.
+          enum:
+            - NotSpecified
+            - ApplicationConsistent
+            - CrashConsistent
+          type: string
+          x-ms-enum:
+            name: ClusterRecoveryPointType
+            modelAsString: true
+        providerSpecificDetails:
+          $ref: '#/components/schemas/ClusterProviderSpecificRecoveryPointDetails'
+          description: The provider specific details for the recovery point.
+    ClusterSwitchProtectionJobDetails:
+      description: This class represents details for switch cluster protection job.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/JobDetails'
+      properties:
+        newReplicationProtectionClusterId:
+          description: ARM Id of the new replication protection cluster.
+          type: string
+      x-ms-discriminator-value: ClusterSwitchProtectionJobDetails
+    ClusterTestFailoverCleanupInput:
+      description: Input definition for test failover cleanup for cluster.
+      required:
+        - properties
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ClusterTestFailoverCleanupInputProperties'
+          description: Test failover cleanup input properties.
+    ClusterTestFailoverCleanupInputProperties:
+      description: Input definition for test failover cleanup input properties.
+      type: object
+      properties:
+        comments:
+          description: Test failover cleanup comments.
+          maxLength: 1024
+          type: string
+    ClusterTestFailoverInput:
+      description: Input definition for test cluster failover.
+      required:
+        - properties
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ClusterTestFailoverInputProperties'
+          description: Test failover input properties.
+    ClusterTestFailoverInputProperties:
+      description: Input definition for test failover input properties.
+      type: object
+      properties:
+        failoverDirection:
+          description: Failover direction.
+          enum:
+            - PrimaryToRecovery
+            - RecoveryToPrimary
+          type: string
+          x-ms-enum:
+            name: FailoverDirection
+            modelAsString: true
+        networkType:
+          description: Network type to be used for test failover.
+          type: string
+        networkId:
+          description: The id of the network to be used for test failover.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.Network/virtualNetworks
+        providerSpecificDetails:
+          $ref: '#/components/schemas/ClusterTestFailoverProviderSpecificInput'
+          description: Provider specific settings.
+    ClusterTestFailoverJobDetails:
+      description: This class represents the details for a test failover job of cluster.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/JobDetails'
+      properties:
+        testFailoverStatus:
+          description: The test failover status.
+          type: string
+        comments:
+          description: The test failover comments.
+          type: string
+        networkName:
+          description: The test network name.
+          type: string
+        networkFriendlyName:
+          description: The test network friendly name.
+          type: string
+        networkType:
+          description: The test network type (see TestFailoverInput enum for possible values).
+          type: string
+        protectedItemDetails:
+          description: The test VM details.
+          type: array
+          items:
+            $ref: '#/components/schemas/FailoverReplicationProtectedItemDetails'
+      x-ms-discriminator-value: ClusterTestFailoverJobDetails
+    ClusterTestFailoverProviderSpecificInput:
+      description: Provider specific test cluster failover input.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: The class type.
+          type: string
+      discriminator:
+        propertyName: instanceType
+    ClusterUnplannedFailoverInput:
+      description: Input definition for unplanned cluster failover.
+      required:
+        - properties
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ClusterUnplannedFailoverInputProperties'
+          description: Unplanned failover input properties.
+    ClusterUnplannedFailoverInputProperties:
+      description: Input definition for unplanned failover input properties.
+      type: object
+      properties:
+        failoverDirection:
+          description: Failover direction.
+          type: string
+        sourceSiteOperations:
+          description: Source site operations status.
+          type: string
+        providerSpecificDetails:
+          $ref: '#/components/schemas/ClusterUnplannedFailoverProviderSpecificInput'
+          description: Provider specific settings.
+    ClusterUnplannedFailoverProviderSpecificInput:
+      description: Provider specific unplanned cluster failover input.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: The class type.
+          type: string
+      discriminator:
+        propertyName: instanceType
     ComputeSizeErrorDetails:
       description: Represents the error used to indicate why the target compute size is not applicable.
       type: object
@@ -2179,6 +3186,20 @@ components:
         vhdName:
           description: The VHD name.
           type: string
+    DiskAccountType:
+      description: The disk type.
+      enum:
+        - Standard_LRS
+        - Premium_LRS
+        - StandardSSD_LRS
+        - PremiumV2_LRS
+        - UltraSSD_LRS
+        - StandardSSD_ZRS
+        - Premium_ZRS
+      type: string
+      x-ms-enum:
+        name: DiskAccountType
+        modelAsString: true
     DiskEncryptionInfo:
       description: Recovery disk encryption info (BEK and KEK).
       type: object
@@ -2209,6 +3230,15 @@ components:
         name:
           description: The volume name.
           type: string
+    SecurityConfiguration:
+      description: Security configuration state.
+      enum:
+        - Disabled
+        - Enabled
+      type: string
+      x-ms-enum:
+        name: SecurityConfiguration
+        modelAsString: true
     Display:
       description: Contains the localized display information for this particular operation / action. These value will be used by several clients for (1) custom role definitions for RBAC; (2) complex query filters for the event service; and (3) audit history / records for management operations.
       type: object
@@ -3038,18 +4068,14 @@ components:
           description: The LogStorageAccountId.
           type: string
         diskType:
-          description: The DiskType.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         diskEncryptionSetId:
           description: The DiskEncryptionSet ARM ID.
           type: string
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     HyperVReplicaAzureEnableProtectionInput:
       description: HyperVReplicaAzure specific enable protection input.
       type: object
@@ -3064,6 +4090,9 @@ components:
           type: string
         osType:
           description: The OS type associated with VM.
+          type: string
+        userSelectedOSName:
+          description: The OS name selected by user.
           type: string
         vhdId:
           description: The OS disk VHD id associated with VM.
@@ -3127,6 +4156,9 @@ components:
           x-ms-enum:
             name: SqlServerLicenseType
             modelAsString: true
+        targetVmSecurityProfile:
+          $ref: '#/components/schemas/SecurityProfileProperties'
+          description: The target VM security profile.
         targetVmSize:
           description: The target VM size.
           type: string
@@ -3137,15 +4169,7 @@ components:
           description: A value indicating whether managed disks should be used during replication.
           type: string
         diskType:
-          description: The DiskType.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         disksToIncludeForManagedDisks:
           description: The disks to include list for managed disks.
           type: array
@@ -3227,6 +4251,12 @@ components:
         diskEncryptionSetId:
           description: The disk encryption set ARM Id.
           type: string
+        targetDiskAccountType:
+          $ref: '#/components/schemas/DiskAccountType'
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     HyperVReplicaAzurePlannedFailoverProviderInput:
       description: HyperVReplicaAzure specific planned failover input.
       type: object
@@ -3434,6 +4464,9 @@ components:
           items:
             $ref: '#/components/schemas/OSUpgradeSupportedVersions'
           x-ms-identifiers: []
+        targetVmSecurityProfile:
+          $ref: '#/components/schemas/SecurityProfileProperties'
+          description: The target VM security profile.
       x-ms-discriminator-value: HyperVReplicaAzure
     HyperVReplicaAzureReprotectInput:
       description: Azure specific reprotect input.
@@ -4050,15 +5083,7 @@ components:
           description: The LogStorageAccountId.
           type: string
         diskType:
-          description: The DiskType.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         diskEncryptionSetId:
           description: The DiskEncryptionSet ARM ID.
           type: string
@@ -4113,15 +5138,7 @@ components:
           description: The Id of the target resource group (for resource manager deployment) in which the failover VM is to be created.
           type: string
         diskType:
-          description: The DiskType.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         targetAvailabilitySetId:
           description: The target availability set ARM Id for resource manager deployment.
           type: string
@@ -5121,6 +6138,23 @@ components:
         progressStatus:
           description: The Progress Status.
           type: string
+    InMageRcmAddDisksInput:
+      description: InMageRcm add disk(s) input.
+      required:
+        - disks
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AddDisksProviderSpecificInput'
+      properties:
+        disks:
+          description: The list of disk details.
+          minLength: 1
+          type: array
+          items:
+            $ref: '#/components/schemas/InMageRcmDiskInput'
+          x-ms-identifiers:
+            - diskId
+      x-ms-discriminator-value: InMageRcm
     InMageRcmAgentUpgradeBlockingErrorDetails:
       description: InMageRcm source agent upgrade blocking error details.
       type: object
@@ -5303,18 +6337,14 @@ components:
           description: The log storage account ARM Id.
           type: string
         diskType:
-          description: The disk type.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         diskEncryptionSetId:
           description: The DiskEncryptionSet ARM Id.
           type: string
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     InMageRcmDisksDefaultInput:
       description: InMageRcm disk input.
       required:
@@ -5326,18 +6356,14 @@ components:
           description: The log storage account ARM Id.
           type: string
         diskType:
-          description: The disk type.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         diskEncryptionSetId:
           description: The DiskEncryptionSet ARM Id.
           type: string
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     InMageRcmEnableProtectionInput:
       description: InMageRcm specific enable protection input.
       required:
@@ -5412,6 +6438,55 @@ components:
         multiVmGroupName:
           description: The multi VM group name.
           type: string
+        sqlServerLicenseType:
+          description: The SQL Server license type.
+          enum:
+            - NotSpecified
+            - NoLicenseType
+            - PAYG
+            - AHUB
+          type: string
+          x-ms-enum:
+            name: SqlServerLicenseType
+            modelAsString: true
+        targetVmTags:
+          description: The target VM tags.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        seedManagedDiskTags:
+          description: The tags for the seed managed disks.
+          maxLength: 49
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetManagedDiskTags:
+          description: The tags for the target managed disks.
+          maxLength: 49
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetNicTags:
+          description: The tags for the target NICs.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        userSelectedOSName:
+          description: The OS name selected by user.
+          type: string
+        targetVmSecurityProfile:
+          $ref: '#/components/schemas/SecurityProfileProperties'
+          description: The target VM security profile.
       x-ms-discriminator-value: InMageRcm
     InMageRcmEventDetails:
       description: Event details for InMageRcm provider.
@@ -6344,6 +7419,18 @@ components:
           description: The disk capacity in bytes.
           type: integer
           readOnly: true
+        diskState:
+          description: The disk state.
+          enum:
+            - Unavailable
+            - InitialReplicationPending
+            - InitialReplicationFailed
+            - Protected
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: DiskState
+            modelAsString: true
         logStorageAccountId:
           description: The log storage account ARM Id.
           type: string
@@ -6365,15 +7452,7 @@ components:
           type: string
           readOnly: true
         diskType:
-          description: The disk type.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         dataPendingInLogDataStoreInMB:
           format: double
           description: The data pending in log data store in MB.
@@ -6394,6 +7473,30 @@ components:
         resyncDetails:
           $ref: '#/components/schemas/InMageRcmSyncDetails'
           description: The resync details.
+        customTargetDiskName:
+          description: The custom target Azure disk name.
+          type: string
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
+    InMageRcmUnProtectedDiskDetails:
+      description: InMageRcm un-protected disk details.
+      type: object
+      properties:
+        diskId:
+          description: The disk Id.
+          type: string
+          readOnly: true
+        diskName:
+          description: The disk name.
+          type: string
+          readOnly: true
+        capacityInBytes:
+          format: int64
+          description: The disk capacity in bytes.
+          type: integer
+          readOnly: true
     InMageRcmProtectionContainerMappingDetails:
       description: InMageRcm provider specific container mapping details.
       type: object
@@ -6634,6 +7737,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/InMageRcmProtectedDiskDetails'
+        unprotectedDisks:
+          description: The list of unprotected disks.
+          type: array
+          items:
+            $ref: '#/components/schemas/InMageRcmUnProtectedDiskDetails'
+          x-ms-identifiers:
+            - diskId
         isLastUpgradeSuccessful:
           description: A value indicating whether last agent upgrade was successful or not.
           type: string
@@ -6663,6 +7773,52 @@ components:
         discoveredVmDetails:
           $ref: '#/components/schemas/InMageRcmDiscoveredProtectedVmDetails'
           description: The discovered VM details.
+        targetVmTags:
+          description: The target VM tags.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        seedManagedDiskTags:
+          description: The tags for the seed managed disks.
+          maxLength: 49
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetManagedDiskTags:
+          description: The tags for the target managed disks.
+          maxLength: 49
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetNicTags:
+          description: The tags for the target NICs.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        sqlServerLicenseType:
+          description: The SQL Server license type.
+          type: string
+        supportedOSVersions:
+          description: A value indicating the inplace OS Upgrade version.
+          type: array
+          items:
+            type: string
+        osName:
+          description: The OS name associated with VM.
+          type: string
+        targetVmSecurityProfile:
+          $ref: '#/components/schemas/SecurityProfileProperties'
+          description: The target VM security profile.
       x-ms-discriminator-value: InMageRcm
     InMageRcmReprotectInput:
       description: InMageRcm specific provider input.
@@ -6835,6 +7991,41 @@ components:
           x-ms-enum:
             name: LicenseType
             modelAsString: true
+        sqlServerLicenseType:
+          description: The SQL Server license type.
+          enum:
+            - NotSpecified
+            - NoLicenseType
+            - PAYG
+            - AHUB
+          type: string
+          x-ms-enum:
+            name: SqlServerLicenseType
+            modelAsString: true
+        targetVmTags:
+          description: The target VM tags.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetManagedDiskTags:
+          description: The tags for the target managed disks.
+          maxLength: 49
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
+        targetNicTags:
+          description: The tags for the target NICs.
+          maxLength: 50
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCreatedResourceTag'
+          x-ms-identifiers:
+            - tagName
       x-ms-discriminator-value: InMageRcm
     InMageReplicationDetails:
       description: InMage provider specific settings.
@@ -7387,6 +8578,23 @@ components:
           type: string
         logicalNetworkDefinitionsStatus:
           description: A value indicating whether logical network definitions are isolated.
+          type: string
+    ManagedRunCommandScriptInput:
+      description: Managed RunCommand script input
+      required:
+        - stepName
+        - scriptUrl
+        - scriptParameters
+      type: object
+      properties:
+        stepName:
+          description: The step name.
+          type: string
+        scriptUrl:
+          description: The script url.
+          type: string
+        scriptParameters:
+          description: The script parameters.
           type: string
     ManualActionTaskDetails:
       description: This class represents the manual action task details.
@@ -7998,6 +9206,9 @@ components:
           type: string
         oSMinorVersion:
           description: The OS Minor Version.
+          type: string
+        userSelectedOSName:
+          description: The OS name selected by user.
           type: string
     OSDiskDetails:
       description: Details of the OS Disk.
@@ -9643,6 +10854,22 @@ components:
           type: string
       discriminator:
         propertyName: resourceType
+    RegisteredClusterNodes:
+      description: Extended location of the resource.
+      type: object
+      properties:
+        clusterNodeFqdn:
+          description: The cluster node name.
+          type: string
+        machineId:
+          description: The machine ID.
+          type: string
+        biosId:
+          description: The BIOS ID.
+          type: string
+        isSharedDiskVirtualNode:
+          description: A value indicating whether this represents virtual entity hosting all the shared disks.
+          type: boolean
     RemoveDisksInput:
       description: Input for remove disk(s) operation.
       type: object
@@ -9761,6 +10988,17 @@ components:
         providerSpecificDetails:
           $ref: '#/components/schemas/ApplianceSpecificDetails'
           description: Provider specific settings.
+    ReplicationClusterProviderSpecificSettings:
+      description: Replication cluster provider specific settings.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: Gets the Instance type.
+          type: string
+      discriminator:
+        propertyName: instanceType
     ReplicationEligibilityResults:
       description: Replication eligibility results response model.
       type: object
@@ -9953,6 +11191,164 @@ components:
         eventCorrelationId:
           description: The correlation Id for events associated with this protected item.
           type: string
+    ReplicationProtectionCluster:
+      description: Replication protection Cluster.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          description: The protection cluster Id.
+          type: string
+        name:
+          readOnly: true
+          description: The name of the protection cluster.
+          type: string
+        type:
+          readOnly: true
+          description: The Type of the object.
+          type: string
+        properties:
+          $ref: '#/components/schemas/ReplicationProtectionClusterProperties'
+          description: The custom data.
+      x-ms-azure-resource: true
+    ReplicationProtectionClusterCollection:
+      description: Replication protected item collection.
+      type: object
+      properties:
+        value:
+          description: The Replication protection cluster details.
+          type: array
+          items:
+            $ref: '#/components/schemas/ReplicationProtectionCluster'
+        nextLink:
+          description: The value of next link.
+          type: string
+    ReplicationProtectionClusterProperties:
+      description: Replication protection cluster custom data details.
+      type: object
+      properties:
+        protectionClusterType:
+          description: The type of protection cluster type.
+          type: string
+        primaryFabricFriendlyName:
+          description: The friendly name of the primary fabric.
+          type: string
+        primaryFabricProvider:
+          description: The fabric provider of the primary fabric.
+          type: string
+        recoveryFabricFriendlyName:
+          description: The friendly name of recovery fabric.
+          type: string
+        recoveryFabricId:
+          description: The Arm Id of recovery fabric.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics
+        primaryProtectionContainerFriendlyName:
+          description: The name of primary protection container friendly name.
+          type: string
+        recoveryProtectionContainerFriendlyName:
+          description: The name of recovery container friendly name.
+          type: string
+        protectionState:
+          description: The protection status.
+          type: string
+        protectionStateDescription:
+          description: The protection state description.
+          type: string
+        activeLocation:
+          description: The Current active location of the Protection cluster.
+          type: string
+        testFailoverState:
+          description: The Test failover state.
+          type: string
+        testFailoverStateDescription:
+          description: The Test failover state description.
+          type: string
+        allowedOperations:
+          description: The allowed operations on the Replication protection cluster.
+          type: array
+          items:
+            type: string
+        replicationHealth:
+          description: The consolidated protection health for the VM taking any issues with SRS as well as all the replication units associated with the VM's replication group into account. This is a string representation of the ProtectionHealth enumeration.
+          type: string
+        healthErrors:
+          description: List of health errors.
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthError'
+          x-ms-identifiers: []
+        lastSuccessfulFailoverTime:
+          format: date-time
+          description: The last successful failover time.
+          type: string
+        lastSuccessfulTestFailoverTime:
+          format: date-time
+          description: The last successful test failover time.
+          type: string
+        policyFriendlyName:
+          description: The name of Policy governing this PE.
+          type: string
+        currentScenario:
+          $ref: '#/components/schemas/CurrentScenarioDetails'
+          description: The current scenario.
+        recoveryContainerId:
+          description: The recovery container Id.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers
+        agentClusterId:
+          description: The Agent cluster Id.
+          type: string
+        clusterFqdn:
+          description: The cluster FQDN.
+          type: string
+        clusterNodeFqdns:
+          description: The List of cluster Node FQDNs.
+          type: array
+          items:
+            type: string
+        clusterProtectedItemIds:
+          description: The List of Protected Item Id's.
+          type: array
+          items:
+            type: string
+            format: arm-id
+            x-ms-arm-id-details:
+              allowedResources:
+                - type: Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems
+        provisioningState:
+          description: The provisioning state of the cluster.
+          type: string
+          readOnly: true
+        areAllClusterNodesRegistered:
+          description: A value indicating whether all nodes of the cluster are registered or not.
+          type: boolean
+        clusterRegisteredNodes:
+          description: The registered node details.
+          type: array
+          items:
+            $ref: '#/components/schemas/RegisteredClusterNodes'
+          x-ms-identifiers:
+            - clusterNodeFqdn
+        providerSpecificDetails:
+          $ref: '#/components/schemas/ReplicationClusterProviderSpecificSettings'
+          description: The Replication cluster provider custom settings.
+        sharedDiskProperties:
+          $ref: '#/components/schemas/SharedDiskReplicationItemProperties'
+          description: The shared disk properties.
+        policyId:
+          description: The Policy Id.
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.RecoveryServices/vaults/replicationPolicies
     ReplicationProtectionIntent:
       description: Replication protection intent.
       type: object
@@ -10112,6 +11508,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HealthError'
+          x-ms-identifier:
+            - errorCode
           readOnly: true
         protectedItemCount:
           format: int32
@@ -10156,26 +11554,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResolveHealthError'
-    Resource:
-      description: Azure resource.
-      type: object
-      properties:
-        id:
-          description: Resource Id
-          type: string
-          readOnly: true
-        name:
-          description: Resource Name
-          type: string
-          readOnly: true
-        type:
-          description: Resource Type
-          type: string
-          readOnly: true
-        location:
-          description: Resource Location
-          type: string
-      x-ms-azure-resource: true
     ResourceHealthSummary:
       description: Base class to define the health summary of the resources contained under an Arm resource.
       type: object
@@ -10362,6 +11740,32 @@ components:
           description: A value indicating whether it is a primary side script or not.
           type: boolean
       x-ms-discriminator-value: ScriptActionTaskDetails
+    SecurityProfileProperties:
+      description: Security profile input.
+      type: object
+      properties:
+        targetVmSecurityType:
+          description: The target VM security type.
+          enum:
+            - None
+            - TrustedLaunch
+            - ConfidentialVM
+          type: string
+          x-ms-enum:
+            name: SecurityType
+            modelAsString: true
+        targetVmSecureBoot:
+          $ref: '#/components/schemas/SecurityConfiguration'
+          description: A value indicating whether secure boot to be enabled.
+        targetVmTpm:
+          $ref: '#/components/schemas/SecurityConfiguration'
+          description: A value indicating whether trusted platform module to be enabled.
+        targetVmMonitoring:
+          $ref: '#/components/schemas/SecurityConfiguration'
+          description: A value indicating whether integrity monitoring to be enabled.
+        targetVmConfidentialEncryption:
+          $ref: '#/components/schemas/SecurityConfiguration'
+          description: A value indicating whether confidential compute encryption to be enabled.
     ServiceError:
       description: ASR error model.
       type: object
@@ -10381,6 +11785,51 @@ components:
         activityId:
           description: Activity Id.
           type: string
+    SharedDiskReplicationItemProperties:
+      description: Shared Disk Replication item custom data details.
+      type: object
+      properties:
+        protectionState:
+          description: The protection state of shared disk.
+          type: string
+        testFailoverState:
+          description: The tfo state of shared disk.
+          type: string
+        activeLocation:
+          description: The Current active location of the PE.
+          type: string
+        allowedOperations:
+          description: The allowed operations on the Replication protected item.
+          type: array
+          items:
+            type: string
+        replicationHealth:
+          description: The consolidated protection health for the VM taking any issues with SRS as well as all the replication units associated with the VM's replication group into account. This is a string representation of the ProtectionHealth enumeration.
+          type: string
+        healthErrors:
+          description: List of health errors.
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthError'
+          x-ms-identifiers:
+            - errorCode
+        currentScenario:
+          $ref: '#/components/schemas/CurrentScenarioDetails'
+          description: The current scenario.
+        sharedDiskProviderSpecificDetails:
+          $ref: '#/components/schemas/SharedDiskReplicationProviderSpecificSettings'
+          description: The Replication provider custom settings.
+    SharedDiskReplicationProviderSpecificSettings:
+      description: Replication provider specific settings.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: Gets the Instance type.
+          type: string
+      discriminator:
+        propertyName: instanceType
     IPConfigDetails:
       type: object
       properties:
@@ -10588,6 +12037,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SupportedOSDetails'
+    SwitchClusterProtectionInput:
+      description: Switch cluster protection input.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/SwitchClusterProtectionInputProperties'
+          description: Switch cluster protection properties.
+    SwitchClusterProtectionInputProperties:
+      description: Switch cluster protection input properties.
+      type: object
+      properties:
+        replicationProtectionClusterName:
+          description: The unique replication protection cluster name.
+          type: string
+        providerSpecificDetails:
+          $ref: '#/components/schemas/SwitchClusterProtectionProviderSpecificInput'
+          description: Provider specific switch protection input.
+    SwitchClusterProtectionProviderSpecificInput:
+      description: Provider specific switch cluster protection input.
+      type: object
+      required:
+        - instanceType
+      properties:
+        instanceType:
+          description: Gets the Instance type.
+          type: string
+      discriminator:
+        propertyName: instanceType
     SwitchProtectionInput:
       description: Switch protection input.
       type: object
@@ -11133,6 +12610,18 @@ components:
         runAsAccountId:
           description: The CS account Id which has privileges to update the vCenter.
           type: string
+    UserCreatedResourceTag:
+      description: Resource tag input.
+      type: object
+      properties:
+        tagName:
+          description: 'The tag name. Please read for more information: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources#limitations'
+          maxLength: 512
+          type: string
+        tagValue:
+          description: 'The tag value. Please read her for more information: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources#limitations'
+          maxLength: 256
+          type: string
     VaultHealthDetails:
       description: Vault health details definition.
       type: object
@@ -11540,15 +13029,7 @@ components:
           description: The disk Id.
           type: string
         diskType:
-          description: The disk type.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         isOSDisk:
           description: A value indicating whether the disk is the OS disk.
           type: string
@@ -11561,6 +13042,10 @@ components:
         diskEncryptionSetId:
           description: The DiskEncryptionSet ARM Id.
           type: string
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     VMwareCbtEnableMigrationInput:
       description: VMwareCbt specific enable migration input.
       required:
@@ -11604,6 +13089,16 @@ components:
           type: string
           x-ms-enum:
             name: SqlServerLicenseType
+            modelAsString: true
+        linuxLicenseType:
+          description: The license type for Linux VM's.
+          enum:
+            - NotSpecified
+            - NoLicenseType
+            - LinuxServer
+          type: string
+          x-ms-enum:
+            name: LinuxLicenseType
             modelAsString: true
         performSqlBulkRegistration:
           description: A value indicating whether bulk SQL RP registration to be done.
@@ -11680,6 +13175,9 @@ components:
           type: object
           additionalProperties:
             type: string
+        userSelectedOSName:
+          description: The OS name selected by user.
+          type: string
       x-ms-discriminator-value: VMwareCbt
     VMwareCbtEventDetails:
       description: Event details for VMwareCbt provider.
@@ -11707,6 +13205,13 @@ components:
         osUpgradeVersion:
           description: A value indicating the inplace OS Upgrade version.
           type: string
+        postMigrationSteps:
+          description: The managed run command script input.
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRunCommandScriptInput'
+          x-ms-identifiers:
+            - stepName
       x-ms-discriminator-value: VMwareCbt
     VMwareCbtMigrationDetails:
       description: VMwareCbt provider specific settings.
@@ -11740,6 +13245,16 @@ components:
         sqlServerLicenseType:
           description: The SQL Server license type.
           type: string
+        linuxLicenseType:
+          description: The license type for Linux VM's.
+          enum:
+            - NotSpecified
+            - NoLicenseType
+            - LinuxServer
+          type: string
+          x-ms-enum:
+            name: LinuxLicenseType
+            modelAsString: true
         dataMoverRunAsAccountId:
           description: The data mover run as account Id.
           type: string
@@ -12067,15 +13582,7 @@ components:
           type: string
           readOnly: true
         diskType:
-          description: The disk type.
-          enum:
-            - Standard_LRS
-            - Premium_LRS
-            - StandardSSD_LRS
-          type: string
-          x-ms-enum:
-            name: DiskAccountType
-            modelAsString: true
+          $ref: '#/components/schemas/DiskAccountType'
         diskPath:
           description: The disk path.
           type: string
@@ -12124,6 +13631,10 @@ components:
           $ref: '#/components/schemas/GatewayOperationDetails'
           description: A value indicating the gateway operation details.
           readOnly: true
+        sectorSizeInBytes:
+          format: int32
+          description: The logical sector size (in bytes), 512 by default.
+          type: integer
     VMwareCbtProtectionContainerMappingDetails:
       description: VMwareCbt provider specific container mapping details.
       type: object
@@ -12243,6 +13754,13 @@ components:
         osUpgradeVersion:
           description: A value indicating the inplace OS Upgrade version.
           type: string
+        postMigrationSteps:
+          description: The managed run command script input.
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedRunCommandScriptInput'
+          x-ms-identifiers:
+            - stepName
       x-ms-discriminator-value: VMwareCbt
     VMwareCbtUpdateDiskInput:
       description: VMwareCbt disk input for update.
@@ -12324,6 +13842,16 @@ components:
           type: string
           x-ms-enum:
             name: SqlServerLicenseType
+            modelAsString: true
+        linuxLicenseType:
+          description: The license type for Linux VM's.
+          enum:
+            - NotSpecified
+            - NoLicenseType
+            - LinuxServer
+          type: string
+          x-ms-enum:
+            name: LinuxLicenseType
             modelAsString: true
         performAutoResync:
           description: A value indicating whether auto resync is to be done.
@@ -12566,6 +14094,95 @@ components:
             $ref: '#/components/schemas/HealthError'
       x-ms-discriminator-value: VMwareVirtualMachine
   parameters:
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription. The value must be an UUID.
+      required: true
+      schema:
+        format: uuid
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionId:
       name: subscriptionId
       in: path
@@ -12596,9 +14213,33 @@ components:
       required: true
       schema:
         type: string
+    FabricName:
+      name: fabricName
+      in: path
+      description: Fabric name.
+      required: true
+      schema:
+        pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+        type: string
+    ProtectionContainerName:
+      name: protectionContainerName
+      in: path
+      description: Protection container name.
+      required: true
+      schema:
+        pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+        type: string
+    ReplicationProtectionClusterName:
+      name: replicationProtectionClusterName
+      in: path
+      description: Replication protection cluster name.
+      required: true
+      schema:
+        pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/operations:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Operations
@@ -12619,7 +14260,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationAlertSettings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationAlertSettings
@@ -12641,7 +14282,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationAlertSettings/{alertSettingName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationAlertSettings
@@ -12699,7 +14340,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Alert'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationAppliances:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationAppliances
@@ -12728,7 +14369,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/ApplianceQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{virtualMachineName}/providers/Microsoft.RecoveryServices/replicationEligibilityResults:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationEligibilityResults
@@ -12753,7 +14394,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReplicationEligibilityResultsCollection'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{virtualMachineName}/providers/Microsoft.RecoveryServices/replicationEligibilityResults/default:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationEligibilityResults
@@ -12778,7 +14419,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReplicationEligibilityResults'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationEvents:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationEvents
@@ -12807,7 +14448,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/EventQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationEvents/{eventName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationEvents
@@ -12833,7 +14474,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationFabrics
@@ -12855,7 +14496,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationFabrics
@@ -12946,7 +14587,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/checkConsistency:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationFabrics
@@ -12975,7 +14616,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/migratetoaad:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationFabrics
@@ -13000,7 +14641,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/reassociateGateway:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationFabrics
@@ -13037,7 +14678,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/remove:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationFabrics
@@ -13062,7 +14703,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/renewCertificate:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationFabrics
@@ -13098,8 +14739,47 @@ paths:
         '202':
           description: Accepted
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/removeInfra:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationFabrics
+      summary: Removes the appliance's infrastructure under the fabric.
+      operationId: ReplicationFabrics_RemoveInfra
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - name: resourceName
+          in: path
+          description: Resource name.
+          required: true
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - name: fabricName
+          in: path
+          description: Fabric name.
+          required: true
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationLogicalNetworks:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationLogicalNetworks
@@ -13127,7 +14807,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationLogicalNetworks/{logicalNetworkName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationLogicalNetworks
@@ -13159,7 +14839,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LogicalNetwork'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationNetworks:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworks
@@ -13187,7 +14867,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationNetworks/{networkName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworks
@@ -13219,7 +14899,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Network'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationNetworks/{networkName}/replicationNetworkMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworkMappings
@@ -13253,7 +14933,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationNetworks/{networkName}/replicationNetworkMappings/{networkMappingName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworkMappings
@@ -13420,7 +15100,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainers
@@ -13448,7 +15128,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainers
@@ -13521,7 +15201,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/discoverProtectableItem:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectionContainers
@@ -13564,7 +15244,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/remove:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectionContainers
@@ -13595,7 +15275,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationMigrationItems
@@ -13648,7 +15328,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/MigrationItemsQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationMigrationItems
@@ -13820,7 +15500,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/migrate:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -13869,7 +15549,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/migrationRecoveryPoints:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - MigrationRecoveryPoints
@@ -13908,7 +15588,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/migrationRecoveryPoints/{migrationRecoveryPointName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - MigrationRecoveryPoints
@@ -13951,7 +15631,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MigrationRecoveryPoint'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/pauseReplication:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -14000,7 +15680,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/resumeReplication:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -14049,7 +15729,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/resync:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -14098,7 +15778,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/testMigrate:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -14147,7 +15827,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationMigrationItems/{migrationItemName}/testMigrateCleanup:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationMigrationItems
@@ -14196,7 +15876,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectableItems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectableItems
@@ -14249,7 +15929,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/ProtectableItemQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectableItems/{protectableItemName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectableItems
@@ -14287,7 +15967,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProtectableItem'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectedItems
@@ -14321,7 +16001,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectedItems
@@ -14488,7 +16168,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/addDisks:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14537,7 +16217,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/applyRecoveryPoint:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14586,7 +16266,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/failoverCancel:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14627,7 +16307,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/failoverCommit:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14668,7 +16348,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/plannedFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14717,7 +16397,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/recoveryPoints:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - RecoveryPoints
@@ -14757,7 +16437,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/recoveryPoints/{recoveryPointName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - RecoveryPoints
@@ -14801,7 +16481,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecoveryPoint'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/remove:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14846,7 +16526,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/removeDisks:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14895,7 +16575,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/repairReplication:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14936,7 +16616,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/reProtect:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -14985,7 +16665,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/resolveHealthErrors:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15034,7 +16714,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/switchProvider:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15085,7 +16765,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/targetComputeSizes:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - TargetComputeSizes
@@ -15125,7 +16805,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/testFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15174,7 +16854,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/testFailoverCleanup:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15223,7 +16903,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/unplannedFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15272,7 +16952,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/updateAppliance:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15321,7 +17001,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectedItems/{replicatedProtectedItemName}/updateMobilityService:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectedItems
@@ -15375,8 +17055,623 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Gets the list of Replication protection clusters in fabric, container.
+      description: Gets the list of ASR replication protected clusters in the protection container.
+      operationId: ReplicationProtectionClusters_ListByReplicationProtectionContainers
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionClusterCollection'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Gets the details of a Replication protection cluster.
+      description: Gets the details of an ASR replication protection cluster.
+      operationId: ReplicationProtectionClusters_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Create Replication protection Cluster.
+      description: The operation to create an ASR replication protection cluster item.
+      operationId: ReplicationProtectionClusters_Create
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - $ref: '#/components/parameters/ResourceName'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      requestBody:
+        description: Create replication protection cluster Input.
+        required: true
+        x-ms-requestBody-name: replicationProtectionCluster
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplicationProtectionCluster'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    delete:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Purge the replication protection cluster.
+      description: The operation to purge the replication protection cluster. This operation will force delete the replication protection cluster. Use the remove operation on replication protection cluster to perform a clean disable replication protection cluster.
+      operationId: ReplicationProtectionClusters_Purge
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - $ref: '#/components/parameters/ResourceName'
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        '204':
+          description: NoContent
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/applyRecoveryPoint:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Execute the change recovery point operation for cluster.
+      description: Operation to apply a new cluster recovery point on the Protection cluster.
+      operationId: ReplicationProtectionClusters_ApplyRecoveryPoint
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      requestBody:
+        description: Apply recovery point input.
+        required: true
+        x-ms-requestBody-name: applyClusterRecoveryPointInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyClusterRecoveryPointInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/failoverCommit:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Execute commit failover for cluster.
+      description: Operation to initiate commit failover of the replication protection cluster.
+      operationId: ReplicationProtectionClusters_FailoverCommit
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/operationResults/{jobId}:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Tracks the Replication protection cluster async operation.
+      description: Track the results of an asynchronous operation on the replication protection cluster.
+      operationId: ReplicationProtectionClusters_GetOperationResults
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+        - name: jobId
+          in: path
+          description: job id to track.
+          required: true
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/recoveryPoints:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ClusterRecoveryPoints
+      summary: Gets the list of cluster recovery points.
+      description: The list of cluster recovery points.
+      operationId: ClusterRecoveryPoints_ListByReplicationProtectionCluster
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterRecoveryPointCollection'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/recoveryPoints/{recoveryPointName}:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ClusterRecoveryPoint
+      summary: Gets a recovery point.
+      description: Get the details of specified recovery point.
+      operationId: ClusterRecoveryPoint_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+        - name: recoveryPointName
+          in: path
+          description: The recovery point name.
+          required: true
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterRecoveryPoint'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/repairReplication:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Resynchronize or repair replication of protection cluster.
+      description: The operation to repair replication protection cluster.
+      operationId: ReplicationProtectionClusters_RepairReplication
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/testFailover:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Execute test failover for cluster.
+      description: Operation to initiate a failover of the replication protection cluster.
+      operationId: ReplicationProtectionClusters_TestFailover
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      requestBody:
+        description: Cluster test failover input body.
+        required: true
+        x-ms-requestBody-name: failoverInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTestFailoverInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/testFailoverCleanup:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Execute test failover cleanup for cluster.
+      description: Operation to clean up the test failover of a replication protected cluster.
+      operationId: ReplicationProtectionClusters_TestFailoverCleanup
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      requestBody:
+        description: Test failover cleanup input.
+        required: true
+        x-ms-requestBody-name: cleanupInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTestFailoverCleanupInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionClusters/{replicationProtectionClusterName}/unplannedFailover:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Execute unplanned cluster failover.
+      description: Operation to initiate a failover of the replication protection cluster.
+      operationId: ReplicationProtectionClusters_UnplannedFailover
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+        - $ref: '#/components/parameters/ReplicationProtectionClusterName'
+      requestBody:
+        description: Failover input.
+        required: true
+        x-ms-requestBody-name: failoverInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterUnplannedFailoverInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionCluster'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionContainerMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainerMappings
@@ -15410,7 +17705,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionContainerMappings/{mappingName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainerMappings
@@ -15577,7 +17872,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/replicationProtectionContainerMappings/{mappingName}/remove:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectionContainerMappings
@@ -15621,8 +17916,66 @@ paths:
         '204':
           description: NoContent
       x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/switchClusterProtection:
+    x-api-version: '2024-04-01'
+    post:
+      tags:
+        - ReplicationProtectionContainers
+      summary: Switches protection from one container to another.
+      description: Operation to switch protection from one container to another.
+      operationId: ReplicationProtectionContainers_SwitchClusterProtection
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - $ref: '#/components/parameters/FabricName'
+        - $ref: '#/components/parameters/ProtectionContainerName'
+      requestBody:
+        description: Switch protection input.
+        required: true
+        x-ms-requestBody-name: switchInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchClusterProtectionInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectionContainer'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationProtectionContainers/{protectionContainerName}/switchprotection:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationProtectionContainers
@@ -15663,9 +18016,19 @@ paths:
                 $ref: '#/components/schemas/ProtectionContainer'
         '202':
           description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+            Azure-AsyncOperation:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: string
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationRecoveryServicesProviders:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationRecoveryServicesProviders
@@ -15693,7 +18056,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationRecoveryServicesProviders/{providerName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationRecoveryServicesProviders
@@ -15795,7 +18158,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationRecoveryServicesProviders/{providerName}/refreshProvider:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryServicesProviders
@@ -15830,7 +18193,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationRecoveryServicesProviders/{providerName}/remove:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryServicesProviders
@@ -15861,7 +18224,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationStorageClassifications:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassifications
@@ -15889,7 +18252,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationStorageClassifications/{storageClassificationName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassifications
@@ -15921,7 +18284,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageClassification'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationStorageClassifications/{storageClassificationName}/replicationStorageClassificationMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassificationMappings
@@ -15955,7 +18318,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationStorageClassifications/{storageClassificationName}/replicationStorageClassificationMappings/{storageClassificationMappingName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassificationMappings
@@ -16075,7 +18438,7 @@ paths:
           description: NoContent
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationvCenters:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationvCenters
@@ -16103,7 +18466,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationFabrics/{fabricName}/replicationvCenters/{vcenterName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationvCenters
@@ -16246,7 +18609,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationJobs
@@ -16275,7 +18638,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/JobQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs/{jobName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationJobs
@@ -16301,7 +18664,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Job'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs/{jobName}/cancel:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationJobs
@@ -16330,7 +18693,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs/{jobName}/restart:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationJobs
@@ -16359,7 +18722,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs/{jobName}/resume:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationJobs
@@ -16396,7 +18759,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationJobs/export:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationJobs
@@ -16427,7 +18790,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationMigrationItems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationMigrationItems
@@ -16467,7 +18830,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/MigrationItemsQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationNetworkMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworkMappings
@@ -16489,7 +18852,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationNetworks:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationNetworks
@@ -16511,7 +18874,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationPolicies:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationPolicies
@@ -16533,7 +18896,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationPolicies/{policyName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationPolicies
@@ -16652,7 +19015,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectedItems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectedItems
@@ -16686,8 +19049,56 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/ProtectedItemsQueryParameter'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectionClusters:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - ReplicationProtectionClusters
+      summary: Gets the list of Replication protection clusters in vault.
+      description: Gets the list of ASR replication protected clusters in the vault.
+      operationId: ReplicationProtectionClusters_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+        - name: resourceName
+          in: path
+          description: The name of the recovery services vault.
+          required: true
+          x-ms-parameter-location: client
+          schema:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$
+            type: string
+        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/SubscriptionId'
+        - name: skipToken
+          in: query
+          description: 'The pagination token. Possible values: "FabricId" or "FabricId_CloudId" or null.'
+          required: false
+          schema:
+            type: string
+        - name: $filter
+          in: query
+          description: OData filter options.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProtectionClusterCollection'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      x-ms-odata: '#/components/schemas/ProtectedClustersQueryParameter'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectionContainerMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainerMappings
@@ -16709,7 +19120,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectionContainers:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionContainers
@@ -16731,7 +19142,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectionIntents:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionIntents
@@ -16765,7 +19176,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationProtectionIntents/{intentObjectName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationProtectionIntents
@@ -16823,7 +19234,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReplicationProtectionIntent'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationRecoveryPlans
@@ -16845,7 +19256,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationRecoveryPlans
@@ -16964,7 +19375,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/failoverCancel:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -16993,7 +19404,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/failoverCommit:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17022,7 +19433,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/plannedFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17059,7 +19470,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/reProtect:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17088,7 +19499,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/testFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17125,7 +19536,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/testFailoverCleanup:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17162,7 +19573,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryPlans/{recoveryPlanName}/unplannedFailover:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationRecoveryPlans
@@ -17199,7 +19610,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationRecoveryServicesProviders:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationRecoveryServicesProviders
@@ -17221,7 +19632,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationStorageClassificationMappings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassificationMappings
@@ -17243,7 +19654,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationStorageClassifications:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationStorageClassifications
@@ -17265,7 +19676,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationSupportedOperatingSystems:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - SupportedOperatingSystems
@@ -17290,7 +19701,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SupportedOperatingSystems'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationVaultHealth:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationVaultHealth
@@ -17310,7 +19721,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VaultHealthDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationVaultHealth/default/refresh:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - ReplicationVaultHealth
@@ -17332,7 +19743,7 @@ paths:
           description: Accepted
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationVaultSettings:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationVaultSetting
@@ -17354,7 +19765,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationVaultSettings/{vaultSettingName}:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationVaultSetting
@@ -17413,7 +19824,7 @@ paths:
                 $ref: '#/components/schemas/VaultSetting'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.RecoveryServices/vaults/{resourceName}/replicationvCenters:
-    x-api-version: '2023-06-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ReplicationvCenters

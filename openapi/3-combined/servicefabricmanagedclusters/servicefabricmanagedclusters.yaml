@@ -4,7 +4,7 @@ servers:
 info:
   title: ServiceFabricManagementClient
   description: Azure Service Fabric Resource Provider API Client
-  version: 2023-12-01-preview
+  version: '2024-04-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -365,9 +365,11 @@ components:
       description: The amount of time to retry health evaluation when the application or cluster is unhealthy before FailureAction is executed. It is interpreted as a string representing an ISO 8601 duration with following format "hh:mm:ss.fff".
     HealthCheckStableDuration:
       type: string
+      x-ms-format: duration-constant
       description: The amount of time that the application or cluster must remain healthy before the upgrade proceeds to the next upgrade domain. It is interpreted as a string representing an ISO 8601 duration with following format "hh:mm:ss.fff".
     HealthCheckWaitDuration:
       type: string
+      x-ms-format: duration-constant
       description: The amount of time to wait after completing an upgrade domain before applying health policies. It is interpreted as a string representing an ISO 8601 duration with following format "hh:mm:ss.fff".
     ManagedIdentity:
       type: object
@@ -1306,9 +1308,11 @@ components:
       properties:
         healthCheckWaitDuration:
           type: string
+          x-ms-format: duration-constant
           description: The length of time to wait after completing an upgrade domain before performing health checks. The duration can be in either hh:mm:ss or in d.hh:mm:ss.ms format.
         healthCheckStableDuration:
           type: string
+          x-ms-format: duration-constant
           description: The amount of time that the application or cluster must remain healthy before the upgrade proceeds to the next upgrade domain. The duration can be in either hh:mm:ss or in d.hh:mm:ss.ms format.
         healthCheckRetryTimeout:
           type: string
@@ -1436,19 +1440,6 @@ components:
             The timeout is reset at the start of each upgrade domain. The timeout can be in either hh:mm:ss or in d.hh:mm:ss.ms format.
             This value must be between 00:00:00 and 49710.06:28:15 (unsigned 32 bit integer for seconds)
       description: Describes the policy used when upgrading the cluster.
-    IPTag:
-      type: object
-      required:
-        - ipTagType
-        - tag
-      properties:
-        ipTagType:
-          type: string
-          description: The IP tag type.
-        tag:
-          type: string
-          description: The value of the IP tag.
-      description: IPTag associated with the object.
     LoadBalancingRule:
       type: object
       required:
@@ -1690,7 +1681,7 @@ components:
         ipTags:
           type: array
           items:
-            $ref: '#/components/schemas/IPTag'
+            $ref: '#/components/schemas/IpTag'
           x-ms-identifiers: []
           description: The list of IP tags associated with the default public IP address of the cluster.
         ipv6Address:
@@ -1868,6 +1859,10 @@ components:
           type: boolean
           description: VM Size name.
           readOnly: true
+        details:
+          type: string
+          description: Zone resiliency status details for the resource.
+          readOnly: true
       description: Describes Az Resiliency status of Base resources
     OsType:
       type: string
@@ -1972,6 +1967,19 @@ components:
             description: The cluster will use 5 upgrade domains for Cross Az Node types.
           - value: Fast
             description: The cluster will use a maximum of 3 upgrade domains per zone instead of 5 for Cross Az Node types for faster deployments.
+    IpTag:
+      type: object
+      required:
+        - ipTagType
+        - tag
+      properties:
+        ipTagType:
+          type: string
+          description: 'IP tag type. Example: FirstPartyUsage.'
+        tag:
+          type: string
+          description: 'IP tag associated with the public IP. Example: SQL, Storage etc.'
+      description: The IP tag associated with the public IP address.
     ManagedResourceProvisioningState:
       type: string
       description: The provisioning state of the managed resource.
@@ -2317,19 +2325,6 @@ components:
                 values:
                   - value: IPv4
                   - value: IPv6
-    IpTag:
-      type: object
-      required:
-        - ipTagType
-        - tag
-      properties:
-        ipTagType:
-          type: string
-          description: 'IP tag type. Example: FirstPartyUsage.'
-        tag:
-          type: string
-          description: 'IP tag associated with the public IP. Example: SQL, Storage etc.'
-      description: The IP tag associated with the public IP address.
     ManagedProxyResource:
       type: object
       properties:
@@ -2564,15 +2559,18 @@ components:
           description: Specifies the actions to be performed on the vms before bootstrapping the service fabric runtime.
         securityType:
           type: string
-          description: Specifies the security type of the nodeType. Only TrustedLaunch is currently supported
+          description: Specifies the security type of the nodeType. Only Standard and TrustedLaunch are currently supported
           enum:
             - TrustedLaunch
+            - Standard
           x-ms-enum:
             name: securityType
             modelAsString: true
             values:
               - value: TrustedLaunch
                 description: Trusted Launch is a security type that secures generation 2 virtual machines.
+              - value: Standard
+                description: Standard is the default security type for all machines.
         secureBootEnabled:
           type: boolean
           description: Specifies whether secure boot should be enabled on the nodeType. Can only be used with TrustedLaunch SecurityType
@@ -2597,6 +2595,12 @@ components:
             allowedResources:
               - type: Microsoft.Network/natGateways
           description: Specifies the resource id of a NAT Gateway to attach to the subnet of this node type. Node type must use custom load balancer.
+        natConfigurations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeTypeNatConfig'
+          x-ms-identifiers: []
+          description: Specifies the NAT configuration on default public Load Balancer for the node type. This is only supported for node types use the default public Load Balancer.
         vmImagePlan:
           $ref: '#/components/schemas/VmImagePlan'
           description: Specifies information about the marketplace image used to create the virtual machine. This element is only used for marketplace images. Before you can use a marketplace image from an API, you must enable the image for programmatic use. In the Azure portal, find the marketplace image that you want to use and then click Want to deploy programmatically, Get Started ->. Enter any required information and then click Save.
@@ -2621,6 +2625,9 @@ components:
           x-ms-identifiers:
             - name
           description: Specifies the settings for any additional secondary network interfaces to attach to the node type.
+        computerNamePrefix:
+          type: string
+          description: Specifies the computer name prefix. Limited to 9 characters. If specified, allows for a longer name to be specified for the node type name.
       description: Describes a node type in the cluster, each node type represents sub set of nodes in the cluster.
     NodeTypeListResult:
       type: object
@@ -2635,6 +2642,28 @@ components:
           type: string
           description: The URL to use for getting the next set of results.
       description: Node type list results
+    NodeTypeNatConfig:
+      type: object
+      properties:
+        backendPort:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65535
+          description: The internal port for the NAT configuration.
+        frontendPortRangeStart:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65534
+          description: The port range start for the external endpoint.
+        frontendPortRangeEnd:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65534
+          description: The port range end for the external endpoint.
+      description: Provides information about NAT configuration on the default public Load Balancer for the node type.
     NodeTypeUpdateParameters:
       type: object
       properties:
@@ -2942,7 +2971,7 @@ components:
     api-version:
       name: api-version
       in: query
-      description: The version of the Service Fabric resource provider API. This is a required parameter and it's value must be "2023-12-01-preview" for this specification.
+      description: The version of the Service Fabric resource provider API. This is a required parameter and it's value must be "2024-04-01" for this specification.
       required: true
       x-ms-parameter-location: client
       schema:
@@ -3061,7 +3090,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applicationTypes/{applicationTypeName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ApplicationType
@@ -3183,7 +3212,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applicationTypes:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ApplicationType
@@ -3211,7 +3240,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applicationTypes/{applicationTypeName}/versions/{version}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ApplicationTypeVersion
@@ -3364,7 +3393,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applicationTypes/{applicationTypeName}/versions:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ApplicationTypeVersion
@@ -3393,7 +3422,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/applications/{applicationName}/fetchUpgradeStatus:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - Application
@@ -3428,7 +3457,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/applications/{applicationName}/startRollback:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - Application
@@ -3463,7 +3492,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/applications/{applicationName}/resumeUpgrade:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - Application
@@ -3507,7 +3536,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applications/{applicationName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Application
@@ -3656,7 +3685,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applications:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Application
@@ -3684,7 +3713,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applications/{applicationName}/services/{serviceName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Service
@@ -3837,7 +3866,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedclusters/{clusterName}/applications/{applicationName}/services:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Service
@@ -3866,7 +3895,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusters_ListByResourceGroup
       summary: Gets the list of Service Fabric cluster resources created in the specified resource group.
@@ -3893,7 +3922,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/managedClusters:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusters_ListBySubscription
       summary: Gets the list of Service Fabric cluster resources created in the specified subscription.
@@ -3919,7 +3948,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ManagedCluster
@@ -4065,7 +4094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/getazresiliencystatus:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - managedAzResiliencyStatus
@@ -4091,7 +4120,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/getMaintenanceWindowStatus:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - managedMaintenanceWindowStatus
@@ -4117,7 +4146,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/applyMaintenanceWindow:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - managedApplyMaintenanceWindow
@@ -4139,7 +4168,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedClusterVersions/{clusterVersion}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusterVersion_Get
       summary: Gets information about a Service Fabric managed cluster code version available in the specified location.
@@ -4165,7 +4194,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/environments/{environment}/managedClusterVersions/{clusterVersion}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusterVersion_GetByEnvironment
       summary: Gets information about a Service Fabric cluster code version available for the specified environment.
@@ -4192,7 +4221,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedClusterVersions:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusterVersion_List
       summary: Gets the list of Service Fabric cluster code versions available for the specified location.
@@ -4217,7 +4246,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/environments/{environment}/managedClusterVersions:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: ManagedClusterVersion_ListByEnvironment
       summary: Gets the list of Service Fabric cluster code versions available for the specified environment.
@@ -4243,7 +4272,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedUnsupportedVMSizes:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - managedVMSizes
@@ -4270,7 +4299,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedUnsupportedVMSizes/{vmSize}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - managedVMSizes
@@ -4296,7 +4325,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedClusterOperations/{operationId}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - LongRunningOperations
@@ -4322,7 +4351,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/providers/Microsoft.ServiceFabric/locations/{location}/managedClusterOperationResults/{operationId}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - LongRunningOperations
@@ -4353,7 +4382,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /providers/Microsoft.ServiceFabric/operations:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Operations
@@ -4383,7 +4412,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       operationId: NodeTypes_ListByManagedClusters
       summary: Gets the list of Node types of the specified managed cluster.
@@ -4411,7 +4440,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes/{nodeTypeName}/restart:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - NodeType
@@ -4457,7 +4486,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes/{nodeTypeName}/reimage:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - NodeType
@@ -4503,7 +4532,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes/{nodeTypeName}/deleteNode:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     post:
       tags:
         - NodeType
@@ -4549,7 +4578,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes/{nodeTypeName}/skus:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - NodeType
@@ -4578,7 +4607,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorModel'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ServiceFabric/managedClusters/{clusterName}/nodeTypes/{nodeTypeName}:
-    x-api-version: 2023-12-01-preview
+    x-api-version: '2024-04-01'
     get:
       tags:
         - NodeType

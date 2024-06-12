@@ -103,7 +103,11 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
         autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
     }
 
-    const servicesToSkip = ['policyinsights', 'resourcehealth'];
+    const servicesToSkip = [
+        'chaos',
+        'policyinsights', 
+        'resourcehealth'
+    ];
     
     // Skip processing for specified services
     if (servicesToSkip.includes(serviceName)) {

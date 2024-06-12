@@ -4,7 +4,7 @@ servers:
 info:
   title: Azure Cosmos DB for PostgreSQL
   description: Azure Cosmos DB for PostgreSQL database service resource provider REST APIs
-  version: '2022-11-08'
+  version: 2023-03-02-preview
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,86 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+        nullable: true
+        x-nullable: true
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
     ServerRole:
       type: string
       description: The role of a server.
@@ -126,6 +206,9 @@ components:
           $ref: '#/components/schemas/ClusterPropertiesForUpdate'
           x-ms-client-flatten: true
           description: Properties of the cluster.
+        identity:
+          $ref: '#/components/schemas/IdentityProperties'
+          description: Describes the identity of the cluster.
         tags:
           type: object
           additionalProperties:
@@ -215,12 +298,25 @@ components:
           $ref: '#/components/schemas/ClusterProperties'
           x-ms-client-flatten: true
           description: Properties of the cluster.
+        identity:
+          $ref: '#/components/schemas/IdentityProperties'
+          description: Describes the identity of the cluster.
       allOf:
         - $ref: '#/components/schemas/TrackedResource'
     ClusterProperties:
       description: Properties of the cluster.
       type: object
       properties:
+        aadAuthEnabled:
+          type: string
+          readOnly: true
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: AadEnabledEnum
+            modelAsString: true
+          description: Indicates whether the cluster was created using AAD authentication.
         administratorLogin:
           type: string
           description: The administrator's login name of the servers in the cluster.
@@ -233,6 +329,9 @@ components:
             - create
             - update
           description: The password of the administrator login. Required for creation.
+        dataEncryption:
+          $ref: '#/components/schemas/DataEncryption'
+          description: The data encryption properties of a cluster.
         provisioningState:
           type: string
           description: Provisioning state of the cluster
@@ -306,6 +405,16 @@ components:
         sourceLocation:
           type: string
           description: The Azure region of source cluster for read replica clusters.
+        passwordEnabled:
+          type: string
+          readOnly: true
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: PasswordEnabledEnum
+            modelAsString: true
+          description: Indicates whether the cluster was created with a password or using AAD authentication.
         pointInTimeUTC:
           type: string
           format: date-time
@@ -328,6 +437,53 @@ components:
           items:
             $ref: '#/components/schemas/SimplePrivateEndpointConnection'
           readOnly: true
+        databaseName:
+          type: string
+          description: The database name of the cluster. Only one database per cluster is supported.
+        enableGeoBackup:
+          type: boolean
+          description: If cluster backup is stored in another Azure region in addition to the copy of the backup stored in the cluster's region. Enabled only at the time of cluster creation.
+        authConfig:
+          $ref: '#/components/schemas/AuthConfig'
+          description: Authentication configuration of a cluster.
+    AuthConfig:
+      type: object
+      description: Authentication configuration of a cluster.
+      properties:
+        activeDirectoryAuth:
+          type: string
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: ActiveDirectoryAuth
+            modelAsString: true
+        passwordAuth:
+          type: string
+          enum:
+            - enabled
+            - disabled
+          x-ms-enum:
+            name: PasswordAuth
+            modelAsString: true
+    DataEncryption:
+      type: object
+      description: The data encryption properties of a cluster.
+      properties:
+        primaryKeyUri:
+          type: string
+          description: URI for the key in keyvault for data encryption of the primary server.
+        primaryUserAssignedIdentityId:
+          type: string
+          description: Resource Id for the User assigned identity to be used for data encryption of the primary server.
+        type:
+          type: string
+          enum:
+            - AzureKeyVault
+            - SystemAssigned
+          x-ms-enum:
+            name: DataEncryptionType
+            modelAsString: true
     MaintenanceWindow:
       type: object
       description: Schedule settings for regular cluster updates.
@@ -539,8 +695,31 @@ components:
           description: The list of firewall rules in a cluster.
           items:
             $ref: '#/components/schemas/FirewallRule'
+    IdentityProperties:
+      type: object
+      description: Describes the identity of the cluster.
+      properties:
+        type:
+          type: string
+          enum:
+            - UserAssigned
+            - SystemAssigned
+          x-ms-enum:
+            name: IdentityType
+            modelAsString: true
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
     RoleProperties:
       properties:
+        roleType:
+          type: string
+          enum:
+            - user
+            - admin
+          default: user
+          x-ms-enum:
+            name: RoleType
+            modelAsString: true
         password:
           type: string
           x-ms-secret: true
@@ -548,13 +727,33 @@ components:
           x-ms-mutability:
             - create
             - update
-          description: The password of the cluster role.
+          description: The password of the cluster role. If an identity is used, password will not be required.
+        externalIdentity:
+          type: object
+          required:
+            - objectId
+            - principalType
+          properties:
+            objectId:
+              type: string
+              format: arm-id
+            principalType:
+              type: string
+              enum:
+                - user
+                - servicePrincipal
+                - group
+              x-ms-enum:
+                name: PrincipalType
+                modelAsString: true
+            tenantId:
+              type: string
+              format: arm-id
+          x-ms-client-flatten: true
         provisioningState:
           $ref: '#/components/schemas/ProvisioningState'
           description: Provisioning state of the role
           readOnly: true
-      required:
-        - password
       description: The properties of a cluster role.
       type: object
     Role:
@@ -763,6 +962,13 @@ components:
       x-ms-enum:
         name: ProvisioningState
         modelAsString: true
+    PromoteRequest:
+      description: Request from client to promote geo-redundant replica
+      type: object
+      properties:
+        enableGeoBackup:
+          type: boolean
+          description: Boolean property to enable geo-redundant replica promotion.
     PrivateEndpoint:
       type: object
       properties:
@@ -1368,7 +1574,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -1415,7 +1620,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       tags:
         - Clusters
@@ -1440,7 +1645,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       tags:
         - Clusters
@@ -1466,7 +1671,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     put:
       description: Creates a new cluster with servers.
       tags:
@@ -1618,7 +1823,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/servers:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Lists servers of a cluster.
       tags:
@@ -1645,7 +1850,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/servers/{serverName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets information about a server in cluster.
       tags:
@@ -1671,7 +1876,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/servers/{serverName}/configurations:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: List all the configurations of a server in cluster.
       tags:
@@ -1699,7 +1904,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/configurations:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: List all the configurations of a cluster.
       tags:
@@ -1726,7 +1931,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/configurations/{configurationName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets information of a configuration for coordinator and nodes.
       tags:
@@ -1752,7 +1957,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/coordinatorConfigurations/{configurationName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets information of a configuration for coordinator.
       tags:
@@ -1826,7 +2031,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/nodeConfigurations/{configurationName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets information of a configuration for worker nodes.
       tags:
@@ -1900,7 +2105,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/firewallRules/{firewallRuleName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     put:
       description: Creates a new cluster firewall rule or updates an existing cluster firewall rule.
       tags:
@@ -2006,7 +2211,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/firewallRules:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Lists all the firewall rules on cluster.
       tags:
@@ -2033,7 +2238,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/roles/{roleName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets information about a cluster role.
       tags:
@@ -2139,7 +2344,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/roles:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       tags:
         - Roles
@@ -2166,7 +2371,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/restart:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     post:
       description: Restarts all nodes in the cluster.
       tags:
@@ -2197,7 +2402,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/start:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     post:
       description: Starts stopped compute on all cluster nodes.
       tags:
@@ -2230,7 +2435,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/stop:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     post:
       description: Stops compute on all cluster nodes.
       tags:
@@ -2263,7 +2468,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/promote:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     post:
       description: Promotes read replica cluster to an independent read-write cluster.
       tags:
@@ -2277,6 +2482,13 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ClusterNameParameter'
+      requestBody:
+        description: The parameter for enabling geo-redundant backup while promoting read replica.
+        x-ms-requestBody-name: promoteRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteRequest'
       responses:
         '202':
           description: Accepted
@@ -2294,7 +2506,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/checkNameAvailability:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     post:
       description: Checks availability of a cluster name. Cluster names should be globally unique; at least 3 characters and at most 40 characters long; they must only contain lowercase letters, numbers, and hyphens; and must not start or end with a hyphen.
       tags:
@@ -2325,7 +2537,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.DBforPostgreSQL/operations:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Lists all of the available REST API operations.
       tags:
@@ -2349,7 +2561,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/privateEndpointConnections:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets list of private endpoint connections on a cluster.
       tags:
@@ -2376,7 +2588,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets private endpoint connection.
       tags:
@@ -2482,7 +2694,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/privateLinkResources:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets the private link resources for cluster.
       tags:
@@ -2509,7 +2721,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/serverGroupsv2/{clusterName}/privateLinkResources/{privateLinkResourceName}:
-    x-api-version: '2022-11-08'
+    x-api-version: 2023-03-02-preview
     get:
       description: Gets a private link resource for cluster.
       tags:

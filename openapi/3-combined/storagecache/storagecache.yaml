@@ -2,9 +2,9 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  description: Azure Managed Lustre provides a fully managed Lustre® file system, integrated with Blob storage, for use on demand. These operations create and manage Azure Managed Lustre file systems.
-  title: Managed Lustre client
-  version: 2023-11-01-preview
+  description: A Storage Cache provides scalable caching service for NAS clients, serving data from either NFSv3 or Blob at-rest storage (referred to as "Storage Targets"). These operations allow you to manage Caches.
+  title: Storage Cache Mgmt Client
+  version: '2024-03-01'
 security:
   - azure_auth:
       - user_impersonation
@@ -19,915 +19,6 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          type: object
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          $ref: '#/components/schemas/SkuTier'
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      description: Describes the format of Error response.
-      type: object
-      properties:
-        code:
-          description: Error code
-          type: string
-        message:
-          description: Error message indicating why the operation failed.
-          type: string
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
-    AmlFilesystemIdentity:
-      type: object
-      description: Managed Identity properties.
-      x-ms-mutability:
-        - read
-        - create
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID for the user-assigned identity of the resource.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID associated with the resource.
-        type:
-          type: string
-          description: The type of identity used for the resource.
-          enum:
-            - UserAssigned
-            - None
-          x-ms-enum:
-            name: AmlFilesystemIdentityType
-            modelAsString: false
-        userAssignedIdentities:
-          description: A dictionary where each key is a user assigned identity resource ID, and each key's value is an empty dictionary.
-          $ref: '#/components/schemas/UserAssignedIdentities'
-    AmlFilesystem:
-      description: 'An AML file system instance. Follows Azure Resource Manager standards: https://github.com/Azure/azure-resource-manager-rpc/blob/master/v1.0/resource-api-reference.md'
-      x-ms-azure-resource: true
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        identity:
-          $ref: '#/components/schemas/AmlFilesystemIdentity'
-          description: The managed identity used by the AML file system, if configured.
-        sku:
-          description: SKU for the resource.
-          $ref: '#/components/schemas/SkuName'
-        zones:
-          type: array
-          items:
-            type: string
-          description: Availability zones for resources. This field should only contain a single element in the array.
-          x-ms-mutability:
-            - read
-            - create
-        properties:
-          x-ms-client-flatten: true
-          description: Properties of the AML file system.
-          properties:
-            storageCapacityTiB:
-              description: The size of the AML file system, in TiB. This might be rounded up.
-              x-ms-mutability:
-                - read
-                - create
-              type: number
-              format: float
-            health:
-              description: Health of the AML file system.
-              readOnly: true
-              $ref: '#/components/schemas/AmlFilesystemHealth'
-            provisioningState:
-              description: ARM provisioning state.
-              enum:
-                - Succeeded
-                - Failed
-                - Creating
-                - Deleting
-                - Updating
-                - Canceled
-              x-ms-enum:
-                name: AmlFilesystemProvisioningStateType
-                modelAsString: true
-              type: string
-              readOnly: true
-            filesystemSubnet:
-              description: Subnet used for managing the AML file system and for client-facing operations. This subnet should have at least a /24 subnet mask within the VNET's address space.
-              x-ms-mutability:
-                - read
-                - create
-              $ref: '#/components/schemas/URLString'
-            clientInfo:
-              $ref: '#/components/schemas/AmlFilesystemClientInfo'
-              description: Client information for the AML file system.
-            throughputProvisionedMBps:
-              type: integer
-              format: int32
-              description: Throughput provisioned in MB per sec, calculated as storageCapacityTiB * per-unit storage throughput
-              readOnly: true
-            encryptionSettings:
-              $ref: '#/components/schemas/AmlFilesystemEncryptionSettings'
-              description: Specifies encryption settings of the AML file system.
-            maintenanceWindow:
-              description: Start time of a 30-minute weekly maintenance window.
-              type: object
-              properties:
-                dayOfWeek:
-                  type: string
-                  enum:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                    - Sunday
-                  x-ms-enum:
-                    name: MaintenanceDayOfWeekType
-                    modelAsString: false
-                  description: Day of the week on which the maintenance window will occur.
-                timeOfDayUTC:
-                  type: string
-                  pattern: ^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$
-                  description: The time of day (in UTC) to start the maintenance window.
-            hsm:
-              type: object
-              description: Hydration and archive settings and status
-              properties:
-                settings:
-                  $ref: '#/components/schemas/AmlFilesystemHsmSettings'
-                  description: Specifies HSM settings of the AML file system.
-                archiveStatus:
-                  type: array
-                  readOnly: true
-                  description: Archive status
-                  items:
-                    $ref: '#/components/schemas/AmlFilesystemArchive'
-                  x-ms-identifiers:
-                    - filesystemPath
-            rootSquashSettings:
-              $ref: '#/components/schemas/AmlFilesystemRootSquashSettings'
-              description: Specifies root squash settings of the AML file system.
-          type: object
-          required:
-            - filesystemSubnet
-            - storageCapacityTiB
-            - maintenanceWindow
-    AmlFilesystemUpdate:
-      description: An AML file system update instance.
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags.
-        properties:
-          type: object
-          x-ms-client-flatten: true
-          description: Properties of the AML file system.
-          properties:
-            encryptionSettings:
-              $ref: '#/components/schemas/AmlFilesystemEncryptionSettings'
-              description: Specifies encryption settings of the AML file system.
-            maintenanceWindow:
-              description: Start time of a 30-minute weekly maintenance window.
-              type: object
-              properties:
-                dayOfWeek:
-                  type: string
-                  enum:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                    - Sunday
-                  x-ms-enum:
-                    name: MaintenanceDayOfWeekType
-                    modelAsString: false
-                  description: Day of the week on which the maintenance window will occur.
-                timeOfDayUTC:
-                  type: string
-                  pattern: ^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$
-                  description: The time of day (in UTC) to start the maintenance window.
-            rootSquashSettings:
-              $ref: '#/components/schemas/AmlFilesystemRootSquashSettings'
-              description: Specifies root squash settings of the AML file system.
-    AmlFilesystemName:
-      readOnly: true
-      description: Name for the AML file system. Allows alphanumerics, underscores, and hyphens. Start and end with alphanumeric.
-      type: string
-      pattern: ^[0-9a-zA-Z][-0-9a-zA-Z_]{0,78}[0-9a-zA-Z]$
-      minLength: 2
-      maxLength: 80
-    AmlFilesystemsListResult:
-      description: Result of the request to list AML file systems. It contains a list of AML file systems and a URL link to get the next set of results.
-      properties:
-        nextLink:
-          description: URL to get the next set of AML file system list results, if there are any.
-          type: string
-        value:
-          description: List of AML file systems.
-          items:
-            $ref: '#/components/schemas/AmlFilesystem'
-          type: array
-      type: object
-    AmlFilesystemHealth:
-      description: An indication of AML file system health. Gives more information about health than just that related to provisioning.
-      readOnly: true
-      properties:
-        state:
-          description: List of AML file system health states.
-          enum:
-            - Unavailable
-            - Available
-            - Degraded
-            - Transitioning
-            - Maintenance
-          x-ms-enum:
-            name: AmlFilesystemHealthStateType
-            modelAsString: true
-          type: string
-        statusCode:
-          description: Server-defined error code for the AML file system health
-          type: string
-        statusDescription:
-          description: Describes the health state.
-          type: string
-      type: object
-    AmlFilesystemEncryptionSettings:
-      description: AML file system encryption settings.
-      properties:
-        keyEncryptionKey:
-          $ref: '#/components/schemas/KeyVaultKeyReference'
-          description: Specifies the location of the encryption key in Key Vault.
-      type: object
-    AmlFilesystemHsmSettings:
-      description: AML file system HSM settings.
-      x-ms-mutability:
-        - read
-        - create
-      type: object
-      properties:
-        container:
-          description: Resource ID of storage container used for hydrating the namespace and archiving from the namespace. The resource provider must have permission to create SAS tokens on the storage account.
-          $ref: '#/components/schemas/URLString'
-        loggingContainer:
-          description: Resource ID of storage container used for logging events and errors.  Must be a separate container in the same storage account as the hydration and archive container. The resource provider must have permission to create SAS tokens on the storage account.
-          $ref: '#/components/schemas/URLString'
-        importPrefix:
-          description: Only blobs in the non-logging container that start with this path/prefix get hydrated into the cluster namespace.
-          type: string
-          default: /
-      required:
-        - container
-        - loggingContainer
-    AmlFilesystemRootSquashSettings:
-      description: AML file system squash settings.
-      properties:
-        mode:
-          type: string
-          description: 'Squash mode of the AML file system. ''All'': User and Group IDs on files will be squashed to the provided values for all users on non-trusted systems. ''RootOnly'': User and Group IDs on files will be squashed to provided values for solely the root user on non-trusted systems. ''None'': No squashing of User and Group IDs is performed for any users on any systems.'
-          enum:
-            - None
-            - RootOnly
-            - All
-          x-ms-enum:
-            name: AmlFilesystemSquashMode
-            modelAsString: true
-        noSquashNidLists:
-          description: Semicolon separated NID IP Address list(s) to be added to the TrustedSystems.
-          type: string
-        squashUID:
-          type: integer
-          description: User ID to squash to.
-          format: int64
-        squashGID:
-          type: integer
-          description: Group ID to squash to.
-          format: int64
-        status:
-          readOnly: true
-          type: string
-          description: AML file system squash status.
-      type: object
-    AmlFilesystemClientInfo:
-      type: object
-      description: AML file system client information
-      readOnly: true
-      properties:
-        mgsAddress:
-          description: The IPv4 address used by clients to mount the AML file system's Lustre Management Service (MGS).
-          readOnly: true
-          type: string
-        mountCommand:
-          description: Recommended command to mount the AML file system
-          readOnly: true
-          type: string
-        lustreVersion:
-          type: string
-          description: The version of Lustre running in the AML file system
-          readOnly: true
-        containerStorageInterface:
-          $ref: '#/components/schemas/AmlFilesystemContainerStorageInterface'
-          description: Container Storage Interface information for the AML file system.
-    AmlFilesystemContainerStorageInterface:
-      type: object
-      description: AML file system container storage interface information
-      readOnly: true
-      properties:
-        persistentVolumeClaim:
-          description: Recommended AKS Persistent Volume Claim for the CSI driver, in Base64 encoded YAML
-          readOnly: true
-          type: string
-        persistentVolume:
-          description: Recommended AKS Persistent Volume for the CSI driver, in Base64 encoded YAML
-          readOnly: true
-          type: string
-        storageClass:
-          description: Recommended AKS Storage Class for the CSI driver, in Base64 encoded YAML
-          readOnly: true
-          type: string
-    AmlFilesystemArchiveInfo:
-      type: object
-      description: Information required to execute the archive operation
-      properties:
-        filesystemPath:
-          type: string
-          description: Lustre file system path to archive relative to the file system root.  Specify '/' to archive all modified data.
-          default: /
-    AmlFilesystemArchive:
-      description: Information about the AML file system archive
-      type: object
-      readOnly: true
-      properties:
-        filesystemPath:
-          readOnly: true
-          type: string
-          description: Lustre file system path to archive relative to the file system root.  Specify '/' to archive all modified data.
-        status:
-          description: The status of the archive
-          type: object
-          readOnly: true
-          properties:
-            state:
-              readOnly: true
-              description: The state of the archive operation
-              type: string
-              enum:
-                - NotConfigured
-                - Idle
-                - InProgress
-                - Canceled
-                - Completed
-                - Failed
-                - Cancelling
-                - FSScanInProgress
-              x-ms-enum:
-                name: ArchiveStatusType
-                modelAsString: true
-            lastCompletionTime:
-              readOnly: true
-              description: The time of the last completed archive operation
-              type: string
-              format: date-time
-            lastStartedTime:
-              readOnly: true
-              description: The time the latest archive operation started
-              type: string
-              format: date-time
-            percentComplete:
-              readOnly: true
-              description: The completion percentage of the archive operation
-              type: integer
-              format: int32
-            errorCode:
-              readOnly: true
-              description: Server-defined error code for the archive operation
-              type: string
-            errorMessage:
-              readOnly: true
-              description: Server-defined error message for the archive operation
-              type: string
-    RequiredAmlFilesystemSubnetsSizeInfo:
-      type: object
-      description: Information required to get the number of available IP addresses a subnet should have that will be used in AML file system create
-      properties:
-        storageCapacityTiB:
-          description: The size of the AML file system, in TiB.
-          type: number
-          format: float
-        sku:
-          description: SKU for the resource.
-          $ref: '#/components/schemas/SkuName'
-    RequiredAmlFilesystemSubnetsSize:
-      type: object
-      description: Information about the number of available IP addresses that are required for the AML file system.
-      properties:
-        filesystemSubnetSize:
-          description: The number of available IP addresses that are required for the AML file system.
-          type: integer
-          format: int32
-    AmlFilesystemSubnetInfo:
-      type: object
-      description: Information required to validate the subnet that will be used in AML file system create
-      properties:
-        filesystemSubnet:
-          description: Subnet used for managing the AML file system and for client-facing operations. This subnet should have at least a /24 subnet mask within the VNET's address space.
-          $ref: '#/components/schemas/URLString'
-        storageCapacityTiB:
-          description: The size of the AML file system, in TiB.
-          type: number
-          format: float
-        sku:
-          description: SKU for the resource.
-          $ref: '#/components/schemas/SkuName'
-        location:
-          description: Region that the AML file system will be created in.
-          type: string
-          x-ms-mutability:
-            - create
-            - read
-    AmlFilesystemCheckSubnetError:
-      type: object
-      description: The error details provided when the checkAmlFSSubnets call fails.
-      readOnly: true
-      properties:
-        filesystemSubnet:
-          type: object
-          description: The error details for the AML file system's subnet.
-          properties:
-            status:
-              type: string
-              enum:
-                - Ok
-                - Invalid
-              x-ms-enum:
-                name: FilesystemSubnetStatusType
-                modelAsString: true
-              description: The status of the AML file system subnet check.
-            message:
-              type: string
-              description: The details of the AML file system subnet check.
-    UserAssignedIdentities:
-      type: object
-      description: A dictionary where each key is a user assigned identity resource ID, and each key's value is an empty dictionary.
-      additionalProperties:
-        type: object
-        x-ms-client-name: userAssignedIdentitiesValue
-        properties:
-          principalId:
-            readOnly: true
-            type: string
-            description: The principal ID of the user-assigned identity.
-          clientId:
-            readOnly: true
-            type: string
-            description: The client ID of the user-assigned identity.
-    SkuName:
-      x-ms-mutability:
-        - read
-        - create
-      description: SKU for the resource.
-      properties:
-        name:
-          description: SKU name for this resource.
-          type: string
-      type: object
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     ApiOperation:
       description: 'REST API operation description: see https://github.com/Azure/azure-rest-api-specs/blob/master/documentation/openapi-authoring-automated-guidelines.md#r3023-operationsapiimplementation'
       properties:
@@ -1042,7 +133,7 @@ components:
         error:
           type: object
           description: The error detail of the operation if any.
-          $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/schemas/AscOperationErrorResponse'
         properties:
           x-ms-client-flatten: true
           description: Additional operation-specific properties
@@ -1056,6 +147,16 @@ components:
           description: Additional operation-specific output.
           additionalProperties:
             type: object
+    AscOperationErrorResponse:
+      description: Describes the format of Error response.
+      type: object
+      properties:
+        code:
+          description: Error code
+          type: string
+        message:
+          description: Error message indicating why the operation failed.
+          type: string
     Cache:
       description: 'A cache instance. Follows Azure Resource Manager standards: https://github.com/Azure/azure-resource-manager-rpc/blob/master/v1.0/resource-api-reference.md'
       properties:
@@ -2128,7 +1229,1109 @@ components:
           minimum: 1
           maximum: 100
       type: object
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
+        tier:
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
+    AmlFilesystemIdentity:
+      type: object
+      description: Managed Identity properties.
+      x-ms-mutability:
+        - read
+        - create
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID for the user-assigned identity of the resource.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID associated with the resource.
+        type:
+          type: string
+          description: The type of identity used for the resource.
+          enum:
+            - UserAssigned
+            - None
+          x-ms-enum:
+            name: AmlFilesystemIdentityType
+            modelAsString: false
+        userAssignedIdentities:
+          description: A dictionary where each key is a user assigned identity resource ID, and each key's value is an empty dictionary.
+          $ref: '#/components/schemas/UserAssignedIdentities'
+    AmlFilesystem:
+      description: 'An AML file system instance. Follows Azure Resource Manager standards: https://github.com/Azure/azure-resource-manager-rpc/blob/master/v1.0/resource-api-reference.md'
+      x-ms-azure-resource: true
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        identity:
+          $ref: '#/components/schemas/AmlFilesystemIdentity'
+          description: The managed identity used by the AML file system, if configured.
+        sku:
+          description: SKU for the resource.
+          $ref: '#/components/schemas/SkuName'
+        zones:
+          type: array
+          items:
+            type: string
+          description: Availability zones for resources. This field should only contain a single element in the array.
+          x-ms-mutability:
+            - read
+            - create
+        properties:
+          x-ms-client-flatten: true
+          description: Properties of the AML file system.
+          properties:
+            storageCapacityTiB:
+              description: The size of the AML file system, in TiB. This might be rounded up.
+              x-ms-mutability:
+                - read
+                - create
+              type: number
+              format: float
+            health:
+              description: Health of the AML file system.
+              readOnly: true
+              $ref: '#/components/schemas/AmlFilesystemHealth'
+            provisioningState:
+              description: ARM provisioning state.
+              enum:
+                - Succeeded
+                - Failed
+                - Creating
+                - Deleting
+                - Updating
+                - Canceled
+              x-ms-enum:
+                name: AmlFilesystemProvisioningStateType
+                modelAsString: true
+              type: string
+              readOnly: true
+            filesystemSubnet:
+              description: Subnet used for managing the AML file system and for client-facing operations. This subnet should have at least a /24 subnet mask within the VNET's address space.
+              x-ms-mutability:
+                - read
+                - create
+              $ref: '#/components/schemas/URLString'
+            clientInfo:
+              $ref: '#/components/schemas/AmlFilesystemClientInfo'
+              description: Client information for the AML file system.
+            throughputProvisionedMBps:
+              type: integer
+              format: int32
+              description: Throughput provisioned in MB per sec, calculated as storageCapacityTiB * per-unit storage throughput
+              readOnly: true
+            encryptionSettings:
+              $ref: '#/components/schemas/AmlFilesystemEncryptionSettings'
+              description: Specifies encryption settings of the AML file system.
+            maintenanceWindow:
+              description: Start time of a 30-minute weekly maintenance window.
+              type: object
+              properties:
+                dayOfWeek:
+                  type: string
+                  enum:
+                    - Monday
+                    - Tuesday
+                    - Wednesday
+                    - Thursday
+                    - Friday
+                    - Saturday
+                    - Sunday
+                  x-ms-enum:
+                    name: MaintenanceDayOfWeekType
+                    modelAsString: false
+                  description: Day of the week on which the maintenance window will occur.
+                timeOfDayUTC:
+                  type: string
+                  pattern: ^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$
+                  description: The time of day (in UTC) to start the maintenance window.
+            hsm:
+              type: object
+              description: Hydration and archive settings and status
+              properties:
+                settings:
+                  $ref: '#/components/schemas/AmlFilesystemHsmSettings'
+                  description: Specifies HSM settings of the AML file system.
+                archiveStatus:
+                  type: array
+                  readOnly: true
+                  description: Archive status
+                  items:
+                    $ref: '#/components/schemas/AmlFilesystemArchive'
+                  x-ms-identifiers:
+                    - filesystemPath
+            rootSquashSettings:
+              $ref: '#/components/schemas/AmlFilesystemRootSquashSettings'
+              description: Specifies root squash settings of the AML file system.
+          type: object
+          required:
+            - filesystemSubnet
+            - storageCapacityTiB
+            - maintenanceWindow
+    AmlFilesystemUpdate:
+      description: An AML file system update instance.
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags.
+        properties:
+          type: object
+          x-ms-client-flatten: true
+          description: Properties of the AML file system.
+          properties:
+            encryptionSettings:
+              $ref: '#/components/schemas/AmlFilesystemEncryptionSettings'
+              description: Specifies encryption settings of the AML file system.
+            maintenanceWindow:
+              description: Start time of a 30-minute weekly maintenance window.
+              type: object
+              properties:
+                dayOfWeek:
+                  type: string
+                  enum:
+                    - Monday
+                    - Tuesday
+                    - Wednesday
+                    - Thursday
+                    - Friday
+                    - Saturday
+                    - Sunday
+                  x-ms-enum:
+                    name: MaintenanceDayOfWeekType
+                    modelAsString: false
+                  description: Day of the week on which the maintenance window will occur.
+                timeOfDayUTC:
+                  type: string
+                  pattern: ^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$
+                  description: The time of day (in UTC) to start the maintenance window.
+            rootSquashSettings:
+              $ref: '#/components/schemas/AmlFilesystemRootSquashSettings'
+              description: Specifies root squash settings of the AML file system.
+    AmlFilesystemName:
+      readOnly: true
+      description: Name for the AML file system. Allows alphanumerics, underscores, and hyphens. Start and end with alphanumeric.
+      type: string
+      pattern: ^[0-9a-zA-Z][-0-9a-zA-Z_]{0,78}[0-9a-zA-Z]$
+      minLength: 2
+      maxLength: 80
+    AmlFilesystemsListResult:
+      description: Result of the request to list AML file systems. It contains a list of AML file systems and a URL link to get the next set of results.
+      properties:
+        nextLink:
+          description: URL to get the next set of AML file system list results, if there are any.
+          type: string
+        value:
+          description: List of AML file systems.
+          items:
+            $ref: '#/components/schemas/AmlFilesystem'
+          type: array
+      type: object
+    AmlFilesystemHealth:
+      description: An indication of AML file system health. Gives more information about health than just that related to provisioning.
+      readOnly: true
+      properties:
+        state:
+          description: List of AML file system health states.
+          enum:
+            - Unavailable
+            - Available
+            - Degraded
+            - Transitioning
+            - Maintenance
+          x-ms-enum:
+            name: AmlFilesystemHealthStateType
+            modelAsString: true
+          type: string
+        statusCode:
+          description: Server-defined error code for the AML file system health
+          type: string
+        statusDescription:
+          description: Describes the health state.
+          type: string
+      type: object
+    AmlFilesystemEncryptionSettings:
+      description: AML file system encryption settings.
+      properties:
+        keyEncryptionKey:
+          $ref: '#/components/schemas/KeyVaultKeyReference'
+          description: Specifies the location of the encryption key in Key Vault.
+      type: object
+    AmlFilesystemHsmSettings:
+      description: AML file system HSM settings.
+      x-ms-mutability:
+        - read
+        - create
+      type: object
+      properties:
+        container:
+          description: Resource ID of storage container used for hydrating the namespace and archiving from the namespace. The resource provider must have permission to create SAS tokens on the storage account.
+          $ref: '#/components/schemas/URLString'
+        loggingContainer:
+          description: Resource ID of storage container used for logging events and errors.  Must be a separate container in the same storage account as the hydration and archive container. The resource provider must have permission to create SAS tokens on the storage account.
+          $ref: '#/components/schemas/URLString'
+        importPrefix:
+          description: Only blobs in the non-logging container that start with this path/prefix get imported into the cluster namespace. This is only used during initial creation of the AML file system. It automatically creates an import job resource that can be deleted.
+          type: string
+          default: /
+        importPrefixesInitial:
+          type: array
+          description: Only blobs in the non-logging container that start with one of the paths/prefixes in this array get imported into the cluster namespace. This is only used during initial creation of the AML file system and has '/' as the default value. It automatically creates an import job resource that can be deleted.
+          items:
+            type: string
+      required:
+        - container
+        - loggingContainer
+    AmlFilesystemRootSquashSettings:
+      description: AML file system squash settings.
+      properties:
+        mode:
+          type: string
+          description: 'Squash mode of the AML file system. ''All'': User and Group IDs on files will be squashed to the provided values for all users on non-trusted systems. ''RootOnly'': User and Group IDs on files will be squashed to provided values for solely the root user on non-trusted systems. ''None'': No squashing of User and Group IDs is performed for any users on any systems.'
+          enum:
+            - None
+            - RootOnly
+            - All
+          x-ms-enum:
+            name: AmlFilesystemSquashMode
+            modelAsString: true
+        noSquashNidLists:
+          description: Semicolon separated NID IP Address list(s) to be added to the TrustedSystems.
+          type: string
+        squashUID:
+          type: integer
+          description: User ID to squash to.
+          format: int64
+        squashGID:
+          type: integer
+          description: Group ID to squash to.
+          format: int64
+        status:
+          readOnly: true
+          type: string
+          description: AML file system squash status.
+      type: object
+    AmlFilesystemClientInfo:
+      type: object
+      description: AML file system client information
+      readOnly: true
+      properties:
+        mgsAddress:
+          description: The IPv4 address used by clients to mount the AML file system's Lustre Management Service (MGS).
+          readOnly: true
+          type: string
+        mountCommand:
+          description: Recommended command to mount the AML file system
+          readOnly: true
+          type: string
+        lustreVersion:
+          type: string
+          description: The version of Lustre running in the AML file system
+          readOnly: true
+        containerStorageInterface:
+          $ref: '#/components/schemas/AmlFilesystemContainerStorageInterface'
+          description: Container Storage Interface information for the AML file system.
+    AmlFilesystemContainerStorageInterface:
+      type: object
+      description: AML file system container storage interface information
+      readOnly: true
+      properties:
+        persistentVolumeClaim:
+          description: Recommended AKS Persistent Volume Claim for the CSI driver, in Base64 encoded YAML
+          readOnly: true
+          type: string
+        persistentVolume:
+          description: Recommended AKS Persistent Volume for the CSI driver, in Base64 encoded YAML
+          readOnly: true
+          type: string
+        storageClass:
+          description: Recommended AKS Storage Class for the CSI driver, in Base64 encoded YAML
+          readOnly: true
+          type: string
+    AmlFilesystemArchiveInfo:
+      type: object
+      description: Information required to execute the archive operation
+      properties:
+        filesystemPath:
+          type: string
+          description: Lustre file system path to archive relative to the file system root.  Specify '/' to archive all modified data.
+          default: /
+    AmlFilesystemArchive:
+      description: Information about the AML file system archive
+      type: object
+      readOnly: true
+      properties:
+        filesystemPath:
+          readOnly: true
+          type: string
+          description: Lustre file system path to archive relative to the file system root.  Specify '/' to archive all modified data.
+        status:
+          description: The status of the archive
+          type: object
+          readOnly: true
+          properties:
+            state:
+              readOnly: true
+              description: The state of the archive operation
+              type: string
+              enum:
+                - NotConfigured
+                - Idle
+                - InProgress
+                - Canceled
+                - Completed
+                - Failed
+                - Cancelling
+                - FSScanInProgress
+              x-ms-enum:
+                name: ArchiveStatusType
+                modelAsString: true
+            lastCompletionTime:
+              readOnly: true
+              description: The time of the last completed archive operation
+              type: string
+              format: date-time
+            lastStartedTime:
+              readOnly: true
+              description: The time the latest archive operation started
+              type: string
+              format: date-time
+            percentComplete:
+              readOnly: true
+              description: The completion percentage of the archive operation
+              type: integer
+              format: int32
+            errorCode:
+              readOnly: true
+              description: Server-defined error code for the archive operation
+              type: string
+            errorMessage:
+              readOnly: true
+              description: Server-defined error message for the archive operation
+              type: string
+    ImportJob:
+      description: 'An import job instance. Follows Azure Resource Manager standards: https://github.com/Azure/azure-resource-manager-rpc/blob/master/v1.0/resource-api-reference.md'
+      x-ms-azure-resource: true
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          type: object
+          description: Properties of the import job.
+          properties:
+            provisioningState:
+              description: ARM provisioning state.
+              enum:
+                - Succeeded
+                - Failed
+                - Creating
+                - Deleting
+                - Updating
+                - Canceled
+              x-ms-enum:
+                name: ImportJobProvisioningStateType
+                modelAsString: true
+              type: string
+              readOnly: true
+            importPrefixes:
+              type: array
+              description: An array of blob paths/prefixes that get imported into the cluster namespace. It has '/' as the default value.
+              items:
+                type: string
+            conflictResolutionMode:
+              description: How the import job will handle conflicts. For example, if the import job is trying to bring in a directory, but a file is at that path, how it handles it. Fail indicates that the import job should stop immediately and not do anything with the conflict. Skip indicates that it should pass over the conflict. OverwriteIfDirty causes the import job to delete and re-import the file or directory if it is a conflicting type, is dirty, or was not previously imported. OverwriteAlways extends OverwriteIfDirty to include releasing files that had been restored but were not dirty. Please reference https://learn.microsoft.com/en-us/azure/azure-managed-lustre/ for a thorough explanation of these resolution modes.
+              type: string
+              enum:
+                - Fail
+                - Skip
+                - OverwriteIfDirty
+                - OverwriteAlways
+              default: Fail
+              x-ms-enum:
+                name: ConflictResolutionMode
+                modelAsString: true
+              x-ms-mutability:
+                - read
+                - create
+            maximumErrors:
+              description: Total non-conflict oriented errors the import job will tolerate before exiting with failure. -1 means infinite. 0 means exit immediately and is the default.
+              type: integer
+              format: int32
+              default: 0
+              x-ms-mutability:
+                - read
+                - create
+            status:
+              x-ms-client-flatten: true
+              description: The status of the import
+              type: object
+              readOnly: true
+              properties:
+                state:
+                  readOnly: true
+                  description: The state of the import job. InProgress indicates the import is still running. Canceled indicates it has been canceled by the user. Completed indicates import finished, successfully importing all discovered blobs into the Lustre namespace. CompletedPartial indicates the import finished but some blobs either were found to be conflicting and could not be imported or other errors were encountered. Failed means the import was unable to complete due to a fatal error.
+                  type: string
+                  enum:
+                    - InProgress
+                    - Cancelling
+                    - Canceled
+                    - Completed
+                    - CompletedPartial
+                    - Failed
+                  x-ms-enum:
+                    name: ImportStatusType
+                    modelAsString: true
+                statusMessage:
+                  readOnly: true
+                  description: The status message of the import job.
+                  type: string
+                totalBlobsWalked:
+                  readOnly: true
+                  description: The total blob objects walked.
+                  type: integer
+                  format: int64
+                blobsWalkedPerSecond:
+                  readOnly: true
+                  description: A recent and frequently updated rate of blobs walked per second.
+                  type: integer
+                  format: int64
+                totalBlobsImported:
+                  readOnly: true
+                  description: The total blobs that have been imported since import began.
+                  type: integer
+                  format: int64
+                blobsImportedPerSecond:
+                  readOnly: true
+                  description: A recent and frequently updated rate of total files, directories, and symlinks imported per second.
+                  type: integer
+                  format: int64
+                lastCompletionTime:
+                  readOnly: true
+                  description: The time of the last completed archive operation
+                  type: string
+                  format: date-time
+                lastStartedTime:
+                  readOnly: true
+                  description: The time the latest archive operation started
+                  type: string
+                  format: date-time
+                totalErrors:
+                  readOnly: true
+                  description: Number of errors in the import job.
+                  type: integer
+                  format: int32
+                totalConflicts:
+                  readOnly: true
+                  description: Number of conflicts in the import job.
+                  type: integer
+                  format: int32
+    ImportJobUpdate:
+      description: An import job update instance.
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags.
+    ImportJobsListResult:
+      description: Result of the request to list import jobs. It contains a list of import jobs and a URL link to get the next set of results.
+      properties:
+        nextLink:
+          description: URL to get the next set of import job list results, if there are any.
+          type: string
+        value:
+          description: List of import jobs.
+          items:
+            $ref: '#/components/schemas/ImportJob'
+          type: array
+      type: object
+    RequiredAmlFilesystemSubnetsSizeInfo:
+      type: object
+      description: Information required to get the number of available IP addresses a subnet should have that will be used in AML file system create
+      properties:
+        storageCapacityTiB:
+          description: The size of the AML file system, in TiB.
+          type: number
+          format: float
+        sku:
+          description: SKU for the resource.
+          $ref: '#/components/schemas/SkuName'
+    RequiredAmlFilesystemSubnetsSize:
+      type: object
+      description: Information about the number of available IP addresses that are required for the AML file system.
+      properties:
+        filesystemSubnetSize:
+          description: The number of available IP addresses that are required for the AML file system.
+          type: integer
+          format: int32
+    AmlFilesystemSubnetInfo:
+      type: object
+      description: Information required to validate the subnet that will be used in AML file system create
+      properties:
+        filesystemSubnet:
+          description: Subnet used for managing the AML file system and for client-facing operations. This subnet should have at least a /24 subnet mask within the VNET's address space.
+          $ref: '#/components/schemas/URLString'
+        storageCapacityTiB:
+          description: The size of the AML file system, in TiB.
+          type: number
+          format: float
+        sku:
+          description: SKU for the resource.
+          $ref: '#/components/schemas/SkuName'
+        location:
+          description: Region that the AML file system will be created in.
+          type: string
+          x-ms-mutability:
+            - create
+            - read
+    AmlFilesystemCheckSubnetError:
+      type: object
+      description: The error details provided when the checkAmlFSSubnets call fails.
+      readOnly: true
+      properties:
+        filesystemSubnet:
+          type: object
+          description: The error details for the AML file system's subnet.
+          properties:
+            status:
+              type: string
+              enum:
+                - Ok
+                - Invalid
+              x-ms-enum:
+                name: FilesystemSubnetStatusType
+                modelAsString: true
+              description: The status of the AML file system subnet check.
+            message:
+              type: string
+              description: The details of the AML file system subnet check.
+    UserAssignedIdentities:
+      type: object
+      description: A dictionary where each key is a user assigned identity resource ID, and each key's value is an empty dictionary.
+      additionalProperties:
+        type: object
+        x-ms-client-name: userAssignedIdentitiesValue
+        properties:
+          principalId:
+            readOnly: true
+            type: string
+            description: The principal ID of the user-assigned identity.
+          clientId:
+            readOnly: true
+            type: string
+            description: The client ID of the user-assigned identity.
+    SkuName:
+      x-ms-mutability:
+        - read
+        - create
+      description: SKU for the resource.
+      properties:
+        name:
+          description: SKU name for this resource.
+          type: string
+      type: object
   parameters:
+    CacheNameParameter:
+      name: cacheName
+      in: path
+      description: Name of cache. Length of name must not be greater than 80 and chars must be from the [-0-9a-zA-Z_] char class.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-0-9a-zA-Z_]{1,80}$
+        type: string
+    StorageTargetParameter:
+      name: storageTargetName
+      in: path
+      description: Name of Storage Target.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[-0-9a-zA-Z_]{1,80}$
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -2155,6 +2358,35 @@ components:
         minLength: 1
         maxLength: 90
         type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
     OperationIdParameter:
       name: operationId
       in: path
@@ -2173,6 +2405,22 @@ components:
       schema:
         minLength: 1
         type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     AmlFilesystemNameParameter:
       name: amlFilesystemName
       in: path
@@ -2184,27 +2432,1092 @@ components:
         minLength: 2
         maxLength: 80
         type: string
-    CacheNameParameter:
-      name: cacheName
+    ImportJobNameParameter:
+      name: importJobName
       in: path
-      description: Name of cache. Length of name must not be greater than 80 and chars must be from the [-0-9a-zA-Z_] char class.
+      description: Name for the import job. Allows alphanumerics, underscores, and hyphens. Start and end with alphanumeric.
       required: true
       x-ms-parameter-location: method
       schema:
-        pattern: ^[-0-9a-zA-Z_]{1,80}$
-        type: string
-    StorageTargetParameter:
-      name: storageTargetName
-      in: path
-      description: Name of Storage Target.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[-0-9a-zA-Z_]{1,80}$
+        pattern: ^[0-9a-zA-Z][-0-9a-zA-Z_]{0,78}[0-9a-zA-Z]$
+        minLength: 2
+        maxLength: 80
         type: string
 paths:
+  /providers/Microsoft.StorageCache/operations:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The list of available Resource Provider operations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiOperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      tags:
+        - Operations
+      description: Lists all of the available Resource Provider operations.
+      operationId: Operations_List
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/skus:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: A list of SKU descriptors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSkusResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - SKUs
+      description: Get the list of StorageCache.Cache SKUs available to this subscription.
+      operationId: Skus_List
+  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/usageModels:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: A list of UsageModel descriptors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageModelsResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - UsageModels
+      description: Get the list of cache usage models available to this subscription.
+      operationId: UsageModels_List
+  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/locations/{location}/ascOperations/{operationId}:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationParameter'
+        - $ref: '#/components/parameters/OperationIdParameter'
+      responses:
+        '200':
+          description: The asynchronous operation was returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AscOperation'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      tags:
+        - AscOperations
+      description: Gets the status of an asynchronous operation for the Azure HPC Cache
+      operationId: AscOperations_Get
+  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/locations/{location}/usages:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: location
+          in: path
+          description: The name of the region to query for usage information.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The usage information was returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceUsagesListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - AscUsages
+      description: Gets the quantity used and quota limit for resources
+      operationId: AscUsages_List
+  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/caches:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: A list of cache objects. Note that entity references might replace complete cache objects, as described in http://docs.oasis-open.org/odata/odata-json-format/v4.01/cs01/odata-json-format-v4.01-cs01.html#sec_EntityReference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CachesListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - Caches
+      description: Returns all caches the user has access to under a subscription.
+      operationId: Caches_List
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: A list of cache objects. Note that entity references might replace complete cache objects, as described in http://docs.oasis-open.org/odata/odata-json-format/v4.01/cs01/odata-json-format-v4.01-cs01.html#sec_EntityReference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CachesListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - Caches
+      description: Returns all caches the user has access to under a resource group.
+      operationId: Caches_ListByResourceGroup
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}:
+    x-api-version: '2024-03-01'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Cache deleted.
+        '202':
+          description: Started the cache's transition to Deleted state. Poll the cache to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Cache deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      tags:
+        - Caches
+      description: Schedules a cache for deletion.
+      operationId: Caches_Delete
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Returns the cache object corresponding to cache name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cache'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      tags:
+        - Caches
+      description: Returns a cache.
+      operationId: Caches_Get
+    put:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      requestBody:
+        description: Object containing the user-selectable properties of the new cache. If read-only properties are included, they must match the existing values of those properties.
+        required: true
+        x-ms-requestBody-name: cache
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cache'
+      responses:
+        '200':
+          description: Cache created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cache'
+        '201':
+          description: Cache creation or update has been initiated. Poll the cache's provisioningState property to monitor creation/update progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cache'
+        '202':
+          description: Cache creation or update has been initiated. Poll the cache's provisioningState property to monitor creation/update progress.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      tags:
+        - Caches
+      description: Create or update a cache.
+      operationId: Caches_CreateOrUpdate
+    patch:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      requestBody:
+        description: Object containing the user-selectable properties of the cache. If read-only properties are included, they must match the existing values of those properties.
+        x-ms-requestBody-name: cache
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cache'
+      responses:
+        '200':
+          description: Updated the cache.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cache'
+        '202':
+          description: Cache update has been initiated.  Poll the cache's provisioningState property to monitor update progress.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Update a cache instance.
+      operationId: Caches_Update
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/dnsRefresh:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: Cache has refreshed the storage target's DNS information.
+        '202':
+          description: Cache has started refreshing storage target DNS information.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - StorageTargets
+      description: Tells a storage target to refresh its DNS information.
+      operationId: StorageTargets_DnsRefresh
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/debugInfo:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '200':
+          description: Cache has started generating debug info.
+        '202':
+          description: Cache has started generating debug info.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Cache has started generating debug info.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Tells a cache to write generate debug info for support to process.
+      operationId: Caches_DebugInfo
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/flush:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '200':
+          description: All cached data has been flushed to the Storage Target(s).
+        '202':
+          description: Cache has started flushing to its Storage Target(s). Poll the cache's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Cache flush already in progress or has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Tells a cache to write all dirty data to the Storage Target(s). During the flush, clients will see errors returned until the flush is complete.
+      operationId: Caches_Flush
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/start:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '200':
+          description: Cache is Active.
+        '202':
+          description: Cache has started the transition to Active. Poll the cache's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Restarted VMs associated with the cache.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Tells a Stopped state cache to transition to Active state.
+      operationId: Caches_Start
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/stop:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '200':
+          description: Cache is stopped.
+        '202':
+          description: Cache has started the transition to Stopped. Poll the cache's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Stopped VMs associated with the cache.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Tells an Active cache to transition to Stopped state.
+      operationId: Caches_Stop
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '200':
+          description: Returns the list of Storage Targets defined by cache name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageTargetsResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - StorageTargets
+      description: Returns a list of Storage Targets for the specified cache.
+      operationId: StorageTargets_ListByCache
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}:
+    x-api-version: '2024-03-01'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+        - name: force
+          in: query
+          description: Boolean value requesting the force delete operation for a storage target. Force delete discards unwritten-data in the cache instead of flushing it to back-end storage.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Storage Target deleted.
+        '202':
+          description: Started the Storage Target's deletion. Poll the cache's Storage Targets to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Storage Target deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      tags:
+        - StorageTargets
+      description: Removes a Storage Target from a cache. This operation is allowed at any time, but if the cache is down or unhealthy, the actual removal of the Storage Target may be delayed until the cache is healthy again. Note that if the cache has data to flush to the Storage Target, the data will be flushed before the Storage Target will be deleted.
+      operationId: StorageTargets_Delete
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: Returns the Storage Target object corresponding to storageTargetName.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageTarget'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      tags:
+        - StorageTargets
+      description: Returns a Storage Target from a cache.
+      operationId: StorageTargets_Get
+    put:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      requestBody:
+        description: Object containing the definition of a Storage Target.
+        required: true
+        x-ms-requestBody-name: storagetarget
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageTarget'
+      responses:
+        '200':
+          description: Storage Target has been created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageTarget'
+        '201':
+          description: Storage Target creation or update has been initiated. Poll the Storage Target's provisioningState property to monitor creation/update progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageTarget'
+        '202':
+          description: Storage Target creation or update has been initiated. Poll the Storage Target's provisioningState property to monitor creation/update progress.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      tags:
+        - StorageTargets
+      description: Create or update a Storage Target. This operation is allowed at any time, but if the cache is down or unhealthy, the actual creation/modification of the Storage Target may be delayed until the cache is healthy again.
+      operationId: StorageTargets_CreateOrUpdate
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/flush:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: All data has been flushed to the storage target.
+        '202':
+          description: Cache has started flushing to the storage target. Poll the storage target's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Flush already in progress or has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - StorageTargets
+      description: Tells the cache to write all dirty data to the Storage Target's backend storage. Client requests to this storage target's namespace will return errors until the flush operation completes.
+      operationId: StorageTarget_Flush
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/suspend:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: Client access to the storage target has been suspended.
+        '202':
+          description: Storage target suspend has started. Poll the storage target's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The storage target is already suspended or suspend is in progress.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - StorageTargets
+      description: Suspends client access to a storage target.
+      operationId: StorageTarget_Suspend
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/resume:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: Client access to the storage target has been resumed.
+        '202':
+          description: Storage target resume has started. Poll the storage target's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The storage target has already resumed or resume is in progress.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - StorageTargets
+      description: Resumes client access to a previously suspended storage target.
+      operationId: StorageTarget_Resume
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/invalidate:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: All cached data for the storage target was invalidated
+        '202':
+          description: Storage target invalidation has started. Poll the storage target's state field to monitor progress.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The storage target already has been invalidated, or invalidate is in progress.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - StorageTargets
+      description: Invalidate all cached data for a storage target. Cached files are discarded and fetched from the back end on the next request.
+      operationId: StorageTarget_Invalidate
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/startPrimingJob:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      requestBody:
+        description: Object containing the definition of a priming job.
+        x-ms-requestBody-name: primingjob
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrimingJob'
+      responses:
+        '202':
+          description: The priming job is being created and will complete asynchronously.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Create a priming job. This operation is only allowed when the cache is healthy.
+      operationId: Caches_StartPrimingJob
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/stopPrimingJob:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Object containing the priming job ID.
+        x-ms-requestBody-name: primingJobId
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrimingJobIdParameter'
+      responses:
+        '202':
+          description: Started priming job deletion.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The priming job is being deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Schedule a priming job for deletion.
+      operationId: Caches_StopPrimingJob
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/pausePrimingJob:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Object containing the priming job ID.
+        x-ms-requestBody-name: primingJobId
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrimingJobIdParameter'
+      responses:
+        '202':
+          description: Priming job is being paused.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The priming job is paused.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Schedule a priming job to be paused.
+      operationId: Caches_PausePrimingJob
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/resumePrimingJob:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      requestBody:
+        description: Object containing the priming job ID.
+        x-ms-requestBody-name: primingJobId
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrimingJobIdParameter'
+      responses:
+        '202':
+          description: Priming job is being resumed.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: The priming job is running.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Resumes a paused priming job.
+      operationId: Caches_ResumePrimingJob
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/upgrade:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      responses:
+        '201':
+          description: Cache firmware is up to date.
+        '202':
+          description: Cache has started the upgrade. Poll the cache's state field to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Cache firmware is up to date.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Upgrade a cache's firmware if a new version is available. Otherwise, this operation has no effect.
+      operationId: Caches_UpgradeFirmware
+  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/spaceAllocation:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+      requestBody:
+        description: List containing storage target cache space percentage allocations.
+        x-ms-requestBody-name: spaceAllocation
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceAllocationParameter'
+      responses:
+        '202':
+          description: Error response describing why the operation failed.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - Caches
+      description: Update cache space allocation.
+      operationId: Caches_SpaceAllocation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/restoreDefaults:
+    x-api-version: '2024-03-01'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/CacheNameParameter'
+        - $ref: '#/components/parameters/StorageTargetParameter'
+      responses:
+        '200':
+          description: Cache has restored the storage target's settings to their default values.
+        '202':
+          description: Cache has started restoring the storage target's settings to their default values.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      tags:
+        - StorageTargets
+      description: Tells a storage target to restore its settings to their default values.
+      operationId: StorageTargets_RestoreDefaults
   /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/amlFilesystems:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     get:
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2229,7 +3542,7 @@ paths:
       description: Returns all AML file systems the user has access to under a subscription.
       operationId: amlFilesystems_List
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     get:
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -2255,7 +3568,7 @@ paths:
       description: Returns all AML file systems the user has access to under a resource group.
       operationId: amlFilesystems_ListByResourceGroup
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems/{amlFilesystemName}:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     delete:
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -2405,7 +3718,7 @@ paths:
       description: Update an AML file system instance.
       operationId: amlFilesystems_Update
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems/{amlFilesystemName}/archive:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     post:
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -2433,7 +3746,7 @@ paths:
       description: Archive data from the AML file system.
       operationId: amlFilesystems_Archive
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems/{amlFilesystemName}/cancelArchive:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     post:
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -2453,8 +3766,187 @@ paths:
         - amlFilesystems
       description: Cancel archiving data from the AML file system.
       operationId: amlFilesystems_CancelArchive
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems/{amlFilesystemName}/importJobs/{importJobName}:
+    x-api-version: '2024-03-01'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/AmlFilesystemNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ImportJobNameParameter'
+      responses:
+        '202':
+          description: Started the import job's transition to Deleted state. Poll the import job to monitor.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Location URI to poll for result
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        '204':
+          description: Import job deleted.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      tags:
+        - importJobs
+      description: Schedules an import job for deletion.
+      operationId: importJobs_Delete
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/AmlFilesystemNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ImportJobNameParameter'
+      responses:
+        '200':
+          description: Returns the import job object corresponding to amlFilesystemName.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - importJobs
+      description: Returns an import job.
+      operationId: importJobs_Get
+    put:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/AmlFilesystemNameParameter'
+        - $ref: '#/components/parameters/ImportJobNameParameter'
+      requestBody:
+        description: Object containing the user-selectable properties of the import job. If read-only properties are included, they must match the existing values of those properties.
+        required: true
+        x-ms-requestBody-name: importJob
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportJob'
+      responses:
+        '200':
+          description: The import job has been created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '201':
+          description: Import job creation has been initiated. Poll the import job's provisioningState property to monitor creation progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+          headers:
+            azure-async-operation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - importJobs
+      description: Create or update an import job. Import jobs are automatically deleted 72 hours after completion.
+      operationId: importJobs_CreateOrUpdate
+    patch:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/AmlFilesystemNameParameter'
+        - $ref: '#/components/parameters/ImportJobNameParameter'
+      requestBody:
+        description: Object containing the user-selectable properties of the import job. If read-only properties are included, they must match the existing values of those properties.
+        required: true
+        x-ms-requestBody-name: importJob
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportJobUpdate'
+      responses:
+        '200':
+          description: Updated the import job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '202':
+          description: Import job update has been initiated. Poll the import job's provisioningState property to monitor update progress.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+            azure-async-operation:
+              schema:
+                type: string
+              description: URI to poll for the operation status
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+      tags:
+        - importJobs
+      description: Update an import job instance.
+      operationId: importJobs_Update
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/amlFilesystems/{amlFilesystemName}/importJobs:
+    x-api-version: '2024-03-01'
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/AmlFilesystemNameParameter'
+      responses:
+        '200':
+          description: A list of import jobs. Note that entity references might replace complete AmlFilesystem objects, as described in http://docs.oasis-open.org/odata/odata-json-format/v4.01/cs01/odata-json-format-v4.01-cs01.html#sec_EntityReference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJobsListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+      tags:
+        - importJobs
+      description: Returns all import jobs the user has access to under an AML File System.
+      operationId: importJobs_ListByAmlFilesystem
   /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/checkAmlFSSubnets:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     post:
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2487,7 +3979,7 @@ paths:
       description: Check that subnets will be valid for AML file system create calls.
       operationId: checkAmlFSSubnets
   /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/getRequiredAmlFSSubnetsSize:
-    x-api-version: 2023-11-01-preview
+    x-api-version: '2024-03-01'
     post:
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -2516,1075 +4008,3 @@ paths:
         - amlFilesystems
       description: Get the number of available IP addresses needed for the AML file system information provided.
       operationId: getRequiredAmlFSSubnetsSize
-  /providers/Microsoft.StorageCache/operations:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The list of available Resource Provider operations.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiOperationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      tags:
-        - Operations
-      description: Lists all of the available Resource Provider operations.
-      operationId: Operations_List
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/skus:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: A list of SKU descriptors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourceSkusResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - SKUs
-      description: Get the list of StorageCache.Cache SKUs available to this subscription.
-      operationId: Skus_List
-  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/usageModels:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: A list of UsageModel descriptors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UsageModelsResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - UsageModels
-      description: Get the list of cache usage models available to this subscription.
-      operationId: UsageModels_List
-  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/locations/{location}/ascOperations/{operationId}:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationParameter'
-        - $ref: '#/components/parameters/OperationIdParameter'
-      responses:
-        '200':
-          description: The asynchronous operation was returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AscOperation'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      tags:
-        - AscOperations
-      description: Gets the status of an asynchronous operation for the Azure HPC Cache
-      operationId: AscOperations_Get
-  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/locations/{location}/usages:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - name: location
-          in: path
-          description: The name of the region to query for usage information.
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The usage information was returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourceUsagesListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - AscUsages
-      description: Gets the quantity used and quota limit for resources
-      operationId: AscUsages_List
-  /subscriptions/{subscriptionId}/providers/Microsoft.StorageCache/caches:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: A list of cache objects. Note that entity references might replace complete cache objects, as described in http://docs.oasis-open.org/odata/odata-json-format/v4.01/cs01/odata-json-format-v4.01-cs01.html#sec_EntityReference
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CachesListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - Caches
-      description: Returns all caches the user has access to under a subscription.
-      operationId: Caches_List
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: A list of cache objects. Note that entity references might replace complete cache objects, as described in http://docs.oasis-open.org/odata/odata-json-format/v4.01/cs01/odata-json-format-v4.01-cs01.html#sec_EntityReference
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CachesListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - Caches
-      description: Returns all caches the user has access to under a resource group.
-      operationId: Caches_ListByResourceGroup
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}:
-    x-api-version: 2023-11-01-preview
-    delete:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Cache deleted.
-        '202':
-          description: Started the cache's transition to Deleted state. Poll the cache to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Cache deleted.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      tags:
-        - Caches
-      description: Schedules a cache for deletion.
-      operationId: Caches_Delete
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Returns the cache object corresponding to cache name.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cache'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      tags:
-        - Caches
-      description: Returns a cache.
-      operationId: Caches_Get
-    put:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      requestBody:
-        description: Object containing the user-selectable properties of the new cache. If read-only properties are included, they must match the existing values of those properties.
-        required: true
-        x-ms-requestBody-name: cache
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Cache'
-      responses:
-        '200':
-          description: Cache created or updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cache'
-        '201':
-          description: Cache creation or update has been initiated. Poll the cache's provisioningState property to monitor creation/update progress.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cache'
-        '202':
-          description: Cache creation or update has been initiated. Poll the cache's provisioningState property to monitor creation/update progress.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      tags:
-        - Caches
-      description: Create or update a cache.
-      operationId: Caches_CreateOrUpdate
-    patch:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      requestBody:
-        description: Object containing the user-selectable properties of the cache. If read-only properties are included, they must match the existing values of those properties.
-        x-ms-requestBody-name: cache
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Cache'
-      responses:
-        '200':
-          description: Updated the cache.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cache'
-        '202':
-          description: Cache update has been initiated.  Poll the cache's provisioningState property to monitor update progress.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Update a cache instance.
-      operationId: Caches_Update
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/dnsRefresh:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: Cache has refreshed the storage target's DNS information.
-        '202':
-          description: Cache has started refreshing storage target DNS information.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - StorageTargets
-      description: Tells a storage target to refresh its DNS information.
-      operationId: StorageTargets_DnsRefresh
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/debugInfo:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '200':
-          description: Cache has started generating debug info.
-        '202':
-          description: Cache has started generating debug info.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Cache has started generating debug info.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Tells a cache to write generate debug info for support to process.
-      operationId: Caches_DebugInfo
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/flush:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '200':
-          description: All cached data has been flushed to the Storage Target(s).
-        '202':
-          description: Cache has started flushing to its Storage Target(s). Poll the cache's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Cache flush already in progress or has completed.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Tells a cache to write all dirty data to the Storage Target(s). During the flush, clients will see errors returned until the flush is complete.
-      operationId: Caches_Flush
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/start:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '200':
-          description: Cache is Active.
-        '202':
-          description: Cache has started the transition to Active. Poll the cache's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Restarted VMs associated with the cache.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Tells a Stopped state cache to transition to Active state.
-      operationId: Caches_Start
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/stop:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '200':
-          description: Cache is stopped.
-        '202':
-          description: Cache has started the transition to Stopped. Poll the cache's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Stopped VMs associated with the cache.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Tells an Active cache to transition to Stopped state.
-      operationId: Caches_Stop
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets:
-    x-api-version: 2023-11-01-preview
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '200':
-          description: Returns the list of Storage Targets defined by cache name.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageTargetsResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-      tags:
-        - StorageTargets
-      description: Returns a list of Storage Targets for the specified cache.
-      operationId: StorageTargets_ListByCache
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}:
-    x-api-version: 2023-11-01-preview
-    delete:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-        - name: force
-          in: query
-          description: Boolean value requesting the force delete operation for a storage target. Force delete discards unwritten-data in the cache instead of flushing it to back-end storage.
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Storage Target deleted.
-        '202':
-          description: Started the Storage Target's deletion. Poll the cache's Storage Targets to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Storage Target deleted.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      tags:
-        - StorageTargets
-      description: Removes a Storage Target from a cache. This operation is allowed at any time, but if the cache is down or unhealthy, the actual removal of the Storage Target may be delayed until the cache is healthy again. Note that if the cache has data to flush to the Storage Target, the data will be flushed before the Storage Target will be deleted.
-      operationId: StorageTargets_Delete
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: Returns the Storage Target object corresponding to storageTargetName.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageTarget'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      tags:
-        - StorageTargets
-      description: Returns a Storage Target from a cache.
-      operationId: StorageTargets_Get
-    put:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      requestBody:
-        description: Object containing the definition of a Storage Target.
-        required: true
-        x-ms-requestBody-name: storagetarget
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StorageTarget'
-      responses:
-        '200':
-          description: Storage Target has been created or updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageTarget'
-        '201':
-          description: Storage Target creation or update has been initiated. Poll the Storage Target's provisioningState property to monitor creation/update progress.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageTarget'
-        '202':
-          description: Storage Target creation or update has been initiated. Poll the Storage Target's provisioningState property to monitor creation/update progress.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      tags:
-        - StorageTargets
-      description: Create or update a Storage Target. This operation is allowed at any time, but if the cache is down or unhealthy, the actual creation/modification of the Storage Target may be delayed until the cache is healthy again.
-      operationId: StorageTargets_CreateOrUpdate
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/flush:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: All data has been flushed to the storage target.
-        '202':
-          description: Cache has started flushing to the storage target. Poll the storage target's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Flush already in progress or has completed.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - StorageTargets
-      description: Tells the cache to write all dirty data to the Storage Target's backend storage. Client requests to this storage target's namespace will return errors until the flush operation completes.
-      operationId: StorageTarget_Flush
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/suspend:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: Client access to the storage target has been suspended.
-        '202':
-          description: Storage target suspend has started. Poll the storage target's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The storage target is already suspended or suspend is in progress.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - StorageTargets
-      description: Suspends client access to a storage target.
-      operationId: StorageTarget_Suspend
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/resume:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: Client access to the storage target has been resumed.
-        '202':
-          description: Storage target resume has started. Poll the storage target's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The storage target has already resumed or resume is in progress.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - StorageTargets
-      description: Resumes client access to a previously suspended storage target.
-      operationId: StorageTarget_Resume
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/invalidate:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: All cached data for the storage target was invalidated
-        '202':
-          description: Storage target invalidation has started. Poll the storage target's state field to monitor progress.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The storage target already has been invalidated, or invalidate is in progress.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - StorageTargets
-      description: Invalidate all cached data for a storage target. Cached files are discarded and fetched from the back end on the next request.
-      operationId: StorageTarget_Invalidate
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/startPrimingJob:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      requestBody:
-        description: Object containing the definition of a priming job.
-        x-ms-requestBody-name: primingjob
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrimingJob'
-      responses:
-        '202':
-          description: The priming job is being created and will complete asynchronously.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Create a priming job. This operation is only allowed when the cache is healthy.
-      operationId: Caches_StartPrimingJob
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/stopPrimingJob:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Object containing the priming job ID.
-        x-ms-requestBody-name: primingJobId
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrimingJobIdParameter'
-      responses:
-        '202':
-          description: Started priming job deletion.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The priming job is being deleted.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Schedule a priming job for deletion.
-      operationId: Caches_StopPrimingJob
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/pausePrimingJob:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Object containing the priming job ID.
-        x-ms-requestBody-name: primingJobId
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrimingJobIdParameter'
-      responses:
-        '202':
-          description: Priming job is being paused.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The priming job is paused.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Schedule a priming job to be paused.
-      operationId: Caches_PausePrimingJob
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/resumePrimingJob:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: Object containing the priming job ID.
-        x-ms-requestBody-name: primingJobId
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrimingJobIdParameter'
-      responses:
-        '202':
-          description: Priming job is being resumed.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: The priming job is running.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Resumes a paused priming job.
-      operationId: Caches_ResumePrimingJob
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/upgrade:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      responses:
-        '201':
-          description: Cache firmware is up to date.
-        '202':
-          description: Cache has started the upgrade. Poll the cache's state field to monitor.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        '204':
-          description: Cache firmware is up to date.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Upgrade a cache's firmware if a new version is available. Otherwise, this operation has no effect.
-      operationId: Caches_UpgradeFirmware
-  /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/spaceAllocation:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-      requestBody:
-        description: List containing storage target cache space percentage allocations.
-        x-ms-requestBody-name: spaceAllocation
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SpaceAllocationParameter'
-      responses:
-        '202':
-          description: Error response describing why the operation failed.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-      tags:
-        - Caches
-      description: Update cache space allocation.
-      operationId: Caches_SpaceAllocation
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageCache/caches/{cacheName}/storageTargets/{storageTargetName}/restoreDefaults:
-    x-api-version: 2023-11-01-preview
-    post:
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/CacheNameParameter'
-        - $ref: '#/components/parameters/StorageTargetParameter'
-      responses:
-        '200':
-          description: Cache has restored the storage target's settings to their default values.
-        '202':
-          description: Cache has started restoring the storage target's settings to their default values.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Location URI to poll for result
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URI to poll for the operation status
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      tags:
-        - StorageTargets
-      description: Tells a storage target to restore its settings to their default values.
-      operationId: StorageTargets_RestoreDefaults

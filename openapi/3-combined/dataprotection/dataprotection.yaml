@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2023-12-01'
+  version: '2024-04-01'
   title: DataProtectionBackupClient
   x-ms-code-generation-settings:
     internalConstructors: false
@@ -465,6 +465,11 @@ components:
         sourceResourceId:
           description: Fully qualified Azure Resource Manager ID of the datasource which is being recovered.
           type: string
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
         identityDetails:
           $ref: '#/components/schemas/IdentityDetails'
           description: "Contains information of the Identity Details for the BI.\r\nIf it is null, default will be considered as System Assigned."
@@ -670,6 +675,11 @@ components:
         policyInfo:
           $ref: '#/components/schemas/PolicyInfo'
           description: Gets or sets the policy information.
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
         protectionStatus:
           $ref: '#/components/schemas/ProtectionStatusDetails'
           description: Specifies the protection status of the resource
@@ -854,6 +864,24 @@ components:
           x-ms-enum:
             name: SecureScoreLevel
             modelAsString: true
+        bcdrSecurityLevel:
+          description: Security Level of Backup Vault
+          enum:
+            - Poor
+            - Fair
+            - Good
+            - Excellent
+            - NotSupported
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: BCDRSecurityLevel
+            modelAsString: true
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
         replicatedRegions:
           description: List of replicated regions for Backup Vault
           items:
@@ -1081,6 +1109,29 @@ components:
           $ref: '#/components/schemas/Error'
       title: CloudError
       x-ms-external: true
+    CmkKeyVaultProperties:
+      type: object
+      description: The properties of the Key Vault which hosts CMK
+      properties:
+        keyUri:
+          description: The key uri of the Customer Managed Key
+          type: string
+    CmkKekIdentity:
+      type: object
+      description: The details of the managed identity used for CMK
+      properties:
+        identityType:
+          type: string
+          description: The identity type. 'SystemAssigned' and 'UserAssigned' are mutually exclusive. 'SystemAssigned' will use implicitly created managed identity.
+          enum:
+            - SystemAssigned
+            - UserAssigned
+          x-ms-enum:
+            name: IdentityType
+            modelAsString: true
+        identityId:
+          type: string
+          description: 'The managed identity to be used which has access permissions to the Key Vault. Provide a value here in case identity types: ''UserAssigned'' only.'
     CopyOnExpiryOption:
       allOf:
         - $ref: '#/components/schemas/CopyOption'
@@ -1532,6 +1583,40 @@ components:
             type: string
         httpMethod:
           type: string
+    encryptionSettings:
+      description: Customer Managed Key details of the resource.
+      type: object
+      properties:
+        state:
+          description: Encryption state of the Backup Vault.
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+            - Inconsistent
+          x-ms-enum:
+            name: EncryptionState
+            modelAsString: true
+            values:
+              - description: CMK encryption is enabled on the Backup Vault
+                value: Enabled
+              - description: CMK encryption is disabled on the Backup Vault. User can not set this state once Encryption State is 'Enabled'.
+                value: Disabled
+              - description: CMK encryption is in inconsistent state on the Backup Vault. This state indicates that user needs to retry the encryption settings operation immediately to correct the state.
+                value: Inconsistent
+        keyVaultProperties:
+          $ref: '#/components/schemas/CmkKeyVaultProperties'
+        kekIdentity:
+          $ref: '#/components/schemas/CmkKekIdentity'
+        infrastructureEncryption:
+          description: Enabling/Disabling the Double Encryption state
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: InfrastructureEncryptionState
+            modelAsString: true
     Error:
       description: The resource management error response.
       properties:
@@ -1928,6 +2013,11 @@ components:
         featureSettings:
           $ref: '#/components/schemas/FeatureSettings'
           description: Feature Settings
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
     PatchResourceRequestInput:
       description: Patch Request content for Microsoft.DataProtection resources
       properties:
@@ -2518,6 +2608,8 @@ components:
           $ref: '#/components/schemas/SoftDeleteSettings'
         immutabilitySettings:
           $ref: '#/components/schemas/ImmutabilitySettings'
+        encryptionSettings:
+          $ref: '#/components/schemas/encryptionSettings'
     SoftDeleteSettings:
       description: Soft delete related settings
       type: object
@@ -2623,6 +2715,24 @@ components:
           x-ms-enum:
             name: SyncType
             modelAsString: true
+    StopProtectionRequest:
+      description: Request body of Stop protection when MUA is Enabled
+      type: object
+      properties:
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
+    SuspendBackupRequest:
+      description: Request body of Suspend backup when MUA is Enabled
+      type: object
+      properties:
+        resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
+          type: array
+          items:
+            type: string
     TaggingCriteria:
       description: Tagging criteria
       properties:
@@ -2894,6 +3004,7 @@ components:
       type: object
       properties:
         resourceGuardOperationRequests:
+          description: ResourceGuardOperationRequests on which LAC check will be performed
           type: array
           items:
             type: string
@@ -2926,7 +3037,6 @@ components:
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         systemData:
           readOnly: true
-          type: object
           description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
           $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
@@ -3202,6 +3312,12 @@ components:
         id:
           description: Fully qualified ID for the async operation.
           type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
         name:
           description: Name of the async operation.
           type: string
@@ -3428,6 +3544,15 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ResourceId:
+      name: resourceId
+      in: path
+      description: ARM path of the resource to be protected using Microsoft.DataProtection
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -3473,7 +3598,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -3520,7 +3644,7 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/backupVaults:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupVaults
@@ -3545,7 +3669,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/locations/{location}/operationResults/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - GetOperationResult
@@ -3595,7 +3719,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       summary: Gets the operation status for a resource.
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/locations/{location}/operationStatus/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - OperationStatus
@@ -3628,7 +3752,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/operationStatus/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - OperationStatus
@@ -3658,7 +3782,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/operationStatus/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - OperationStatus
@@ -3687,7 +3811,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupVaults
@@ -3713,7 +3837,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupVaults
@@ -3747,6 +3871,10 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/VaultName'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       requestBody:
         description: Request body for operation
         required: true
@@ -3809,6 +3937,10 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/VaultName'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       requestBody:
         description: Request body for operation
         required: true
@@ -3834,7 +3966,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/operationResults/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Resources
@@ -3879,7 +4011,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/checkNameAvailability:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupVaults
@@ -3917,7 +4049,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/locations/{location}/checkFeatureSupport:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - DppFeatureSupport
@@ -3953,7 +4085,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /providers/Microsoft.DataProtection/operations:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - Operations
@@ -3978,7 +4110,7 @@ paths:
         nextLinkName: nextLink
         itemName: value
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupPolicies:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupPolicies
@@ -4005,7 +4137,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupPolicies/{backupPolicyName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupPolicies
@@ -4099,7 +4231,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupInstances
@@ -4126,7 +4258,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupInstances
@@ -4162,6 +4294,10 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/VaultName'
         - $ref: '#/components/parameters/BackupInstanceName'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       requestBody:
         description: Request body for operation
         required: true
@@ -4212,6 +4348,10 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/VaultName'
         - $ref: '#/components/parameters/BackupInstanceName'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       responses:
         '200':
           description: Ok
@@ -4241,7 +4381,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/backup:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4294,7 +4434,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/validateForBackup:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4346,7 +4486,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/operationResults/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - BackupInstances
@@ -4379,7 +4519,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/recoveryPoints:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - RecoveryPoint
@@ -4420,7 +4560,7 @@ paths:
         nextLinkName: nextLink
       x-ms-odata: '#/components/schemas/RecoveryPointsFilters'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/recoveryPoints/{recoveryPointId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - RecoveryPoint
@@ -4451,7 +4591,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/fetchSecondaryRecoveryPoints:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - FetchSecondaryRecoveryPoints
@@ -4499,7 +4639,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/crossRegionRestore:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4551,7 +4691,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/validateCrossRegionRestore:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4603,7 +4743,7 @@ paths:
         final-state-via: location
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/fetchCrossRegionRestoreJob:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - DppJob
@@ -4636,7 +4776,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/locations/{location}/fetchCrossRegionRestoreJobs:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - DppJob
@@ -4676,8 +4816,33 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /{resourceId}/providers/Microsoft.DataProtection/backupInstances:
+    x-api-version: '2024-04-01'
+    get:
+      tags:
+        - BackupInstancesExtensionRouting
+      description: Gets a list of backup instances associated with a tracked resource
+      operationId: BackupInstancesExtensionRouting_List
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupInstanceResourceList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/rehydrate:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       description: rehydrate recovery point for restore for a BackupInstance
       operationId: BackupInstances_TriggerRehydrate
@@ -4724,7 +4889,7 @@ paths:
         - BackupInstances
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/restore:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4736,6 +4901,10 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/VaultName'
         - $ref: '#/components/parameters/BackupInstanceName'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       requestBody:
         description: Request body for operation
         required: true
@@ -4777,7 +4946,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/resumeBackups:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4816,7 +4985,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/resumeProtection:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4855,7 +5024,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/stopProtection:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4867,6 +5036,18 @@ paths:
         - $ref: '#/components/parameters/VaultName'
         - $ref: '#/components/parameters/BackupInstanceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
+      requestBody:
+        description: Request body for operation
+        required: false
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopProtectionRequest'
       responses:
         '200':
           description: OK
@@ -4894,7 +5075,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/suspendBackups:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4906,6 +5087,18 @@ paths:
         - $ref: '#/components/parameters/VaultName'
         - $ref: '#/components/parameters/BackupInstanceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
+      requestBody:
+        description: Request body for operation
+        required: false
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuspendBackupRequest'
       responses:
         '200':
           description: OK
@@ -4933,7 +5126,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/sync:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -4980,7 +5173,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/validateRestore:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - BackupInstances
@@ -5033,7 +5226,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupJobs:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - AzureBackupJobs
@@ -5060,7 +5253,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupInstances/{backupInstanceName}/findRestorableTimeRanges:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - FindRestorableTimeRanges
@@ -5093,7 +5286,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupJobs/{jobId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - AzureBackupJob
@@ -5124,7 +5317,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/exportBackupJobs:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - AzureBackupJob
@@ -5160,7 +5353,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupJobs/operations/{operationId}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - AzureBackupJob
@@ -5193,7 +5386,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/deletedBackupInstances:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - DeletedBackupInstances
@@ -5220,7 +5413,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/deletedBackupInstances/{backupInstanceName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - DeletedBackupInstances
@@ -5251,7 +5444,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/deletedBackupInstances/{backupInstanceName}/undelete:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - DeletedBackupInstances
@@ -5280,7 +5473,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/providers/Microsoft.DataProtection/resourceGuards:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5305,7 +5498,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5331,7 +5524,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     put:
       tags:
         - ResourceGuards
@@ -5465,7 +5658,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/disableSoftDeleteRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5497,7 +5690,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/deleteResourceGuardProxyRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5529,7 +5722,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/getBackupSecurityPINRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5561,7 +5754,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/deleteProtectedItemRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5593,7 +5786,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/updateProtectionPolicyRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5625,7 +5818,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/updateProtectedItemRequests:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5657,7 +5850,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/disableSoftDeleteRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5692,7 +5885,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/deleteResourceGuardProxyRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5727,7 +5920,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/getBackupSecurityPINRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5762,7 +5955,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/deleteProtectedItemRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5797,7 +5990,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/updateProtectionPolicyRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5832,7 +6025,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/resourceGuards/{resourceGuardsName}/updateProtectedItemRequests/{requestName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - ResourceGuards
@@ -5867,7 +6060,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupResourceGuardProxies:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - DppResourceGuardProxies
@@ -5894,7 +6087,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupResourceGuardProxies/{resourceGuardProxyName}:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     get:
       tags:
         - DppResourceGuardProxies
@@ -5992,7 +6185,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DataProtection/backupVaults/{vaultName}/backupResourceGuardProxies/{resourceGuardProxyName}/unlockDelete:
-    x-api-version: '2023-12-01'
+    x-api-version: '2024-04-01'
     post:
       tags:
         - DppResourceGuardProxies
@@ -6010,6 +6203,10 @@ paths:
             pattern: ^[A-Za-z0-9]*$
             type: string
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - name: x-ms-authorization-auxiliary
+          in: header
+          schema:
+            type: string
       requestBody:
         description: Request body for operation
         required: true

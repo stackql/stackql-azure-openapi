@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: 2022-09-01-preview
+  version: 2023-06-01-preview
   title: Microsoft.Support
   description: Microsoft Azure Support Resource Provider.
 security:
@@ -498,6 +498,114 @@ components:
           type: array
           items:
             type: string
+        metadata:
+          description: Metadata about the service, only visible for 1P clients
+          readOnly: true
+          type: object
+          additionalProperties:
+            type: string
+    ProblemClassificationsClassificationResult:
+      description: ProblemClassification Classification result object.
+      type: object
+      properties:
+        problemId:
+          description: Identifier that may be used for solution discovery or some other purposes.
+          type: string
+          readOnly: true
+        title:
+          description: Title of the problem classification result.
+          type: string
+          readOnly: true
+        description:
+          description: Description of the problem classification result.
+          type: string
+          readOnly: true
+        serviceId:
+          description: Identifier of the service associated with this problem classification result.
+          type: string
+          readOnly: true
+        problemClassificationId:
+          description: Identifier that may be used for support ticket creation.
+          type: string
+          readOnly: true
+        relatedService:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ClassificationService'
+          description: Related service.
+    ServiceClassificationRequest:
+      description: Input to problem classification Classification API.
+      type: object
+      properties:
+        issueSummary:
+          description: Natural language description of the customer’s issue.
+          type: string
+        resourceId:
+          description: ARM resource Id of the resource that is having the issue.
+          type: string
+          format: arm-id
+        additionalContext:
+          description: Additional information in the form of a string.
+          type: string
+    ServiceClassificationOutput:
+      description: Output of the service classification API.
+      type: object
+      properties:
+        serviceClassificationResults:
+          description: Set of problem classification objects classified.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/ServiceClassificationAnswer'
+    ServiceClassificationAnswer:
+      description: Service Classification result object.
+      type: object
+      properties:
+        childService:
+          $ref: '#/components/schemas/ClassificationService'
+          description: Child service.
+      allOf:
+        - $ref: '#/components/schemas/ClassificationService'
+    ClassificationService:
+      description: Service Classification result object.
+      type: object
+      properties:
+        serviceId:
+          description: Azure resource Id of the service.
+          type: string
+          format: arm-id
+          readOnly: true
+        displayName:
+          description: Localized name of the azure service.
+          type: string
+          readOnly: true
+        resourceTypes:
+          description: List of applicable ARM resource types for this service.
+          type: array
+          items:
+            type: string
+    ProblemClassificationsClassificationInput:
+      description: Input to problem classification Classification API.
+      type: object
+      required:
+        - issueSummary
+      properties:
+        issueSummary:
+          description: Natural language description of the customer’s issue.
+          type: string
+        resourceId:
+          description: ARM resource Id of the resource that is having the issue.
+          type: string
+          format: arm-id
+    ProblemClassificationsClassificationOutput:
+      description: Output of the problem classification Classification API.
+      type: object
+      properties:
+        problemClassificationResults:
+          description: Set of problem classification objects classified.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/ProblemClassificationsClassificationResult'
     ProblemClassificationsListResult:
       description: Collection of ProblemClassification resources.
       type: object
@@ -540,6 +648,15 @@ components:
           items:
             $ref: '#/components/schemas/SecondaryConsentEnabled'
           x-ms-identifiers: []
+        metadata:
+          description: String-to-string dictionary for additional metadata.
+          readOnly: true
+          type: object
+          additionalProperties:
+            type: string
+        parentProblemClassification:
+          description: Reference to the parent problem classification which has same structure as problem classification
+          $ref: '#/components/schemas/ProblemClassification'
     SecondaryConsentEnabled:
       description: This property indicates whether secondary consent is present for problem classification.
       type: object
@@ -730,7 +847,6 @@ components:
         enrollmentId:
           description: Enrollment Id associated with the support ticket.
           type: string
-          readOnly: true
         require24X7Response:
           description: Indicates if this requires a 24x7 response from Azure.
           type: boolean
@@ -797,6 +913,16 @@ components:
         fileWorkspaceName:
           description: File workspace name.
           type: string
+        isTemporaryTicket:
+          description: This property indicates if support ticket is a temporary ticket.
+          enum:
+            - 'Yes'
+            - 'No'
+          type: string
+          x-ms-enum:
+            name: IsTemporaryTicket
+            modelAsString: true
+          readOnly: true
         technicalTicketDetails:
           $ref: '#/components/schemas/TechnicalTicketDetails'
           description: Additional ticket details associated with a technical support ticket request.
@@ -1145,13 +1271,16 @@ components:
           readOnly: true
         chunkSize:
           description: Size of each chunk
-          type: number
+          type: integer
+          format: int32
         fileSize:
           description: Size of the file to be uploaded
-          type: number
+          type: integer
+          format: int32
         numberOfChunks:
           description: Number of chunks to be uploaded
-          type: number
+          type: integer
+          format: int32
     UploadFile:
       description: File content associated with the file under a workspace.
       type: object
@@ -1161,7 +1290,30 @@ components:
           type: string
         chunkIndex:
           description: Index of the uploaded chunk (Index starts at 0)
-          type: number
+          type: integer
+          format: int32
+    LookUpResourceIdRequest:
+      description: The look up resource Id request body
+      type: object
+      properties:
+        identifier:
+          description: The System generated Id that is unique. Use supportTicketId property for Microsoft.Support/supportTickets resource type.
+          type: string
+        type:
+          type: string
+          enum:
+            - Microsoft.Support/supportTickets
+          x-ms-enum:
+            name: ResourceType
+            modelAsString: false
+          description: The type of resource.
+    LookUpResourceIdResponse:
+      description: The look up resource id response
+      type: object
+      properties:
+        resourceId:
+          description: The resource Id of support resource type.
+          type: string
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1173,9 +1325,10 @@ components:
     ApiVersionParameter:
       name: api-version
       in: query
-      description: API version.
+      description: The API version to use for this operation.
       required: true
       schema:
+        minLength: 1
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName
@@ -1206,7 +1359,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -1251,9 +1403,42 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    ProblemServiceNameParameter:
+      name: problemServiceName
+      in: path
+      description: Name of the Azure service for which the problem classifications need to be retrieved.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[0-9a-zA-Z_\-. ]+$
+        type: string
+    ServiceNameParameter:
+      name: serviceName
+      in: path
+      description: Name of the Azure service for which the problem classifications need to be retrieved.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ProblemClassificationNameParameter:
+      name: problemClassificationName
+      in: path
+      description: Name of problem classification.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    SupportTicketNameParameter:
+      name: supportTicketName
+      in: path
+      description: Support ticket name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
 paths:
   /providers/Microsoft.Support/operations:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Operations
@@ -1277,7 +1462,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /providers/Microsoft.Support/services:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Services
@@ -1301,19 +1486,14 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /providers/Microsoft.Support/services/{serviceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Services
       description: Gets a specific Azure service for support ticket creation.
       operationId: Services_Get
       parameters:
-        - name: serviceName
-          in: path
-          description: Name of the Azure service.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ServiceNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -1328,8 +1508,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Support/classifyServices:
+    x-api-version: 2023-06-01-preview
+    post:
+      tags:
+        - ServiceClassifications
+      description: Classify the list of right Azure services.
+      operationId: ServiceClassificationsNoSubscription_classifyServices
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Input to check.
+        required: true
+        x-ms-requestBody-name: serviceClassificationRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceClassificationRequest'
+      responses:
+        '200':
+          description: Successfully classified list of Azure services.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceClassificationOutput'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Support/classifyServices:
+    x-api-version: 2023-06-01-preview
+    post:
+      tags:
+        - ServiceClassifications
+      description: Classify the list of right Azure services.
+      operationId: ServiceClassifications_classifyServices
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Input to check.
+        required: true
+        x-ms-requestBody-name: serviceClassificationRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceClassificationRequest'
+      responses:
+        '200':
+          description: Successfully classified list of Azure services.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceClassificationOutput'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Support/services/{problemServiceName}/classifyProblems:
+    x-api-version: 2023-06-01-preview
+    post:
+      tags:
+        - ProblemClassifications
+      description: 'Classify the right problem classifications (categories) available for a specific Azure service. '
+      operationId: ProblemClassificationsNoSubscription_classifyProblems
+      parameters:
+        - $ref: '#/components/parameters/ProblemServiceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Input to check.
+        required: true
+        x-ms-requestBody-name: problemClassificationsClassificationInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemClassificationsClassificationInput'
+      responses:
+        '200':
+          description: Successfully classified list of problem classifications for the specified Azure service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemClassificationsClassificationOutput'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.Support/services/{problemServiceName}/classifyProblems:
+    x-api-version: 2023-06-01-preview
+    post:
+      tags:
+        - ProblemClassifications
+      description: 'Classify the right problem classifications (categories) available for a specific Azure service. '
+      operationId: ProblemClassifications_classifyProblems
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ProblemServiceNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Input to check.
+        required: true
+        x-ms-requestBody-name: problemClassificationsClassificationInput
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemClassificationsClassificationInput'
+      responses:
+        '200':
+          description: Successfully classified list of problem classifications for the specified Azure service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemClassificationsClassificationOutput'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/services/{serviceName}/problemClassifications:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - ProblemClassifications
@@ -1359,25 +1663,15 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /providers/Microsoft.Support/services/{serviceName}/problemClassifications/{problemClassificationName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - ProblemClassifications
       description: Get problem classification details for a specific Azure service.
       operationId: ProblemClassifications_Get
       parameters:
-        - name: serviceName
-          in: path
-          description: Name of the Azure service available for support.
-          required: true
-          schema:
-            type: string
-        - name: problemClassificationName
-          in: path
-          description: Name of problem classification.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ServiceNameParameter'
+        - $ref: '#/components/parameters/ProblemClassificationNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -1393,7 +1687,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/checkNameAvailability:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - SupportTickets
@@ -1424,7 +1718,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/checkNameAvailability:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - SupportTickets
@@ -1454,7 +1748,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - SupportTickets
@@ -1492,7 +1786,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Support/supportTickets:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - SupportTickets
@@ -1529,19 +1823,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - SupportTickets
       description: Get ticket details for an Azure subscription. Support ticket data is available for 18 months after ticket creation. If a ticket was created more than 18 months ago, a request for data might cause an error.
       operationId: SupportTickets_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -1563,12 +1852,7 @@ paths:
       description: 'This API allows you to update the severity level, ticket status, advanced diagnostic consent and your contact information in the support ticket.<br/><br/>Note: The severity levels cannot be changed if a support ticket is actively being worked upon by an Azure support engineer. In such a case, contact your support engineer to request severity update by adding a new communication using the Communications API.'
       operationId: SupportTickets_Update
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
@@ -1598,12 +1882,7 @@ paths:
       description: 'Creates a new support ticket for Subscription and Service limits (Quota), Technical, Billing, and Subscription Management issues for the specified subscription. Learn the [prerequisites](https://aka.ms/supportAPI) required to create a support ticket.<br/><br/>Always call the Services and ProblemClassifications API to get the most recent set of services and problem categories required for support ticket creation.<br/><br/>Adding attachments is not currently supported via the API. To add a file to an existing support ticket, visit the [Manage support ticket](https://portal.azure.com/#blade/Microsoft_Azure_Support/HelpAndSupportBlade/managesupportrequest) page in the Azure portal, select the support ticket, and use the file upload control to add a new file.<br/><br/>Providing consent to share diagnostic information with Azure support is currently not supported via the API. The Azure support engineer working on your ticket will reach out to you for consent if your issue requires gathering diagnostic information from your Azure resources.<br/><br/>**Creating a support ticket for on-behalf-of**: Include _x-ms-authorization-auxiliary_ header to provide an auxiliary token as per [documentation](https://docs.microsoft.com/azure/azure-resource-manager/management/authenticate-multi-tenant). The primary token will be from the tenant for whom a support ticket is being raised against the subscription, i.e. Cloud solution provider (CSP) customer tenant. The auxiliary token will be from the Cloud solution provider (CSP) partner tenant.'
       operationId: SupportTickets_Create
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
@@ -1633,19 +1912,14 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /providers/Microsoft.Support/supportTickets/{supportTicketName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - SupportTickets
       description: Gets details for a specific support ticket. Support ticket data is available for 18 months after ticket creation. If a ticket was created more than 18 months ago, a request for data might cause an error.
       operationId: SupportTicketsNoSubscription_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -1666,12 +1940,7 @@ paths:
       description: 'This API allows you to update the severity level, ticket status, and your contact information in the support ticket.<br/><br/>Note: The severity levels cannot be changed if a support ticket is actively being worked upon by an Azure support engineer. In such a case, contact your support engineer to request severity update by adding a new communication using the Communications API.'
       operationId: SupportTicketsNoSubscription_Update
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: UpdateSupportTicket object.
@@ -1700,12 +1969,7 @@ paths:
       description: Creates a new support ticket for Billing, and Subscription Management issues. Learn the [prerequisites](https://aka.ms/supportAPI) required to create a support ticket.<br/><br/>Always call the Services and ProblemClassifications API to get the most recent set of services and problem categories required for support ticket creation.<br/><br/>Adding attachments is not currently supported via the API. To add a file to an existing support ticket, visit the [Manage support ticket](https://portal.azure.com/#blade/Microsoft_Azure_Support/HelpAndSupportBlade/managesupportrequest) page in the Azure portal, select the support ticket, and use the file upload control to add a new file.<br/><br/>Providing consent to share diagnostic information with Azure support is currently not supported via the API. The Azure support engineer working on your ticket will reach out to you for consent if your issue requires gathering diagnostic information from your Azure resources.<br/><br/>
       operationId: SupportTicketsNoSubscription_Create
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Support ticket request payload.
@@ -1738,19 +2002,14 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}/checkNameAvailability:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - Communications
       description: Check the availability of a resource name. This API should be used to check the uniqueness of the name for adding a new communication to the support ticket.
       operationId: Communications_CheckNameAvailability
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
@@ -1775,19 +2034,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/supportTickets/{supportTicketName}/checkNameAvailability:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - Communications
       description: Check the availability of a resource name. This API should be used to check the uniqueness of the name for adding a new communication to the support ticket.
       operationId: CommunicationsNoSubscription_CheckNameAvailability
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       requestBody:
         description: Input to check.
@@ -1811,19 +2065,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}/communications:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Communications
       description: Lists all communications (attachments not included) for a support ticket. <br/></br> You can also filter support ticket communications by _CreatedDate_ or _CommunicationType_ using the $filter parameter. The only type of communication supported today is _Web_. Output will be a paged result with _nextLink_, using which you can retrieve the next set of Communication results. <br/><br/>Support ticket data is available for 18 months after ticket creation. If a ticket was created more than 18 months ago, a request for data might cause an error.
       operationId: Communications_List
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: $top
           in: query
           description: The number of values to return in the collection. Default is 10 and max is 10.
@@ -1855,19 +2104,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Support/supportTickets/{supportTicketName}/communications:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Communications
       description: Lists all communications (attachments not included) for a support ticket. <br/></br> You can also filter support ticket communications by _CreatedDate_ or _CommunicationType_ using the $filter parameter. The only type of communication supported today is _Web_. Output will be a paged result with _nextLink_, using which you can retrieve the next set of Communication results. <br/><br/>Support ticket data is available for 18 months after ticket creation. If a ticket was created more than 18 months ago, a request for data might cause an error.
-      operationId: SupportTicketCommunicationsNoSubscription_List
+      operationId: CommunicationsNoSubscription_List
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: $top
           in: query
           description: The number of values to return in the collection. Default is 10 and max is 10.
@@ -1898,19 +2142,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}/communications/{communicationName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Communications
       description: Returns communication details for a support ticket.
       operationId: Communications_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: communicationName
           in: path
           description: Communication name.
@@ -1938,12 +2177,7 @@ paths:
       description: Adds a new customer communication to an Azure support ticket.
       operationId: Communications_Create
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: communicationName
           in: path
           description: Communication name.
@@ -1979,19 +2213,14 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /providers/Microsoft.Support/supportTickets/{supportTicketName}/communications/{communicationName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Communications
       description: Returns communication details for a support ticket.
       operationId: CommunicationsNoSubscription_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: communicationName
           in: path
           description: Communication name.
@@ -2018,12 +2247,7 @@ paths:
       description: Adds a new customer communication to an Azure support ticket.
       operationId: CommunicationsNoSubscription_Create
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: communicationName
           in: path
           description: Communication name.
@@ -2062,19 +2286,14 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}/chatTranscripts:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - ChatTranscripts
       description: Lists all chat transcripts for a support ticket under subscription
       operationId: ChatTranscripts_List
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
@@ -2093,19 +2312,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Support/supportTickets/{supportTicketName}/chatTranscripts:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - ChatTranscripts
       description: Lists all chat transcripts for a support ticket
-      operationId: SupportTicketChatTranscriptsNoSubscription_List
+      operationId: ChatTranscriptsNoSubscription_List
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
@@ -2123,19 +2337,14 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/supportTickets/{supportTicketName}/chatTranscripts/{chatTranscriptName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - ChatTranscripts
       description: Returns chatTranscript details for a support ticket under a subscription.
       operationId: ChatTranscripts_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: chatTranscriptName
           in: path
           description: ChatTranscript name.
@@ -2158,19 +2367,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/supportTickets/{supportTicketName}/chatTranscripts/{chatTranscriptName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - chatTranscripts
       description: Returns chatTranscript details for a no subscription support ticket.
       operationId: ChatTranscriptsNoSubscription_Get
       parameters:
-        - name: supportTicketName
-          in: path
-          description: Support ticket name.
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SupportTicketNameParameter'
         - name: chatTranscriptName
           in: path
           description: ChatTranscript name.
@@ -2192,7 +2396,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - FileWorkspaces
@@ -2249,7 +2453,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - FileWorkspaces
@@ -2304,7 +2508,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Files
@@ -2335,7 +2539,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Files
@@ -2365,7 +2569,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files/{fileName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Files
@@ -2442,7 +2646,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files/{fileName}:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     get:
       tags:
         - Files
@@ -2517,7 +2721,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files/{fileName}/upload:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - Files
@@ -2556,7 +2760,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /providers/Microsoft.Support/fileWorkspaces/{fileWorkspaceName}/files/{fileName}/upload:
-    x-api-version: 2022-09-01-preview
+    x-api-version: 2023-06-01-preview
     post:
       tags:
         - Files
@@ -2593,3 +2797,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Support/lookUpResourceId:
+    x-api-version: 2023-06-01-preview
+    post:
+      tags:
+        - SupportTickets
+      summary: This operation fetches ARM resource id of support resource type.
+      operationId: LookUpResourceId_Post
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Look up resource id request body
+        required: true
+        x-ms-requestBody-name: lookUpResourceIdRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookUpResourceIdRequest'
+      responses:
+        '200':
+          description: OK. Successfully obtained resource id of support resource type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookUpResourceIdResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      deprecated: false

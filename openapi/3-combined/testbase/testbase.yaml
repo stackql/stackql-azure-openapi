@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: Test Base
-  description: Use these REST APIs for Test Base Credential controls.
+  description: Use these REST APIs for Test Base Custom Image controls.
   version: 2023-11-01-preview
 security:
   - azure_auth:
@@ -19,6 +19,856 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    CustomImageListResult:
+      description: A list of Test Base custom images.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomImageResource'
+          description: The list of Test Base custom images.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    CustomImageResource:
+      description: The test base custom image resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/CustomImageProperties'
+          x-ms-client-flatten: true
+          description: Test Base custom image properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    CustomImageProperties:
+      description: The properties of the test base custom image.
+      type: object
+      properties:
+        vhdId:
+          type: string
+          description: The Id of the associated VHD resource.
+        definitionName:
+          type: string
+          description: Image definition name.
+        versionName:
+          type: string
+          description: Image version name.
+        source:
+          type: string
+          description: Custom image source type.
+          default: VHD
+          enum:
+            - Unknown
+            - VHD
+          x-ms-enum:
+            name: ImageSource
+            modelAsString: true
+            values:
+              - value: Unknown
+                description: Unknown image source type.
+              - value: VHD
+                description: Specify image onboarding through VHD.
+        product:
+          type: string
+          description: Product of the custom image.
+          readOnly: true
+        release:
+          type: string
+          description: Release of the custom image OS.
+          readOnly: true
+        status:
+          type: string
+          description: Status of the custom image.
+          readOnly: true
+          enum:
+            - Unknown
+            - Ready
+            - Failed
+            - Validating
+          x-ms-enum:
+            name: ImageStatus
+            modelAsString: true
+            values:
+              - value: Unknown
+                description: Unknown image status.
+              - value: Ready
+                description: Completed validation and is ready for use.
+              - value: Failed
+                description: Failed to onboard or pass validation.
+              - value: Validating
+                description: Succeed to onboard but is in validation process.
+        creationTime:
+          type: string
+          format: date-time
+          description: The UTC timestamp when the custom image was published.
+          readOnly: true
+        validationResults:
+          $ref: '#/components/schemas/ImageValidationResults'
+          description: The validation result of the custom image.
+          readOnly: true
+        osDiskImageSizeInGB:
+          type: integer
+          format: int64
+          readOnly: true
+          description: This property indicates the size of the VHD to be created.
+        releaseVersionDate:
+          type: string
+          format: date-time
+          description: The release version date of the release of the custom image OS.
+          readOnly: true
+        vhdFileName:
+          type: string
+          description: The file name of the associated VHD resource.
+          readOnly: true
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+      required:
+        - definitionName
+        - versionName
+        - source
+    ImageDefinitionListResult:
+      description: A list of test base image definitions.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageDefinitionResource'
+          description: The list of test base image definitions.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    ImageDefinitionResource:
+      description: The test base image definition resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ImageDefinitionProperties'
+          x-ms-client-flatten: true
+          description: Test Base custom image properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    ImageDefinitionProperties:
+      description: The image properties under the image definition name.
+      type: object
+      properties:
+        architecture:
+          description: Custom image architecture.
+          type: string
+          enum:
+            - x64
+          x-ms-enum:
+            name: ImageArchitecture
+            modelAsString: true
+            values:
+              - value: x64
+                description: 64-bit architecture.
+        osState:
+          description: Custom image OS state.
+          type: string
+          enum:
+            - Generalized
+            - Specialized
+          x-ms-enum:
+            name: ImageOSState
+            modelAsString: true
+            values:
+              - value: Generalized
+                description: Sysprep generalization processed.
+              - value: Specialized
+                description: Fully kept with user specified settings.
+        securityType:
+          description: Custom image security type.
+          type: string
+          enum:
+            - Standard
+            - TrustedLaunch
+          x-ms-enum:
+            name: ImageSecurityType
+            modelAsString: true
+            values:
+              - value: Standard
+                description: Standard security type.
+              - value: TrustedLaunch
+                description: Specify higher security level compared to Standard.
+        provisioningState:
+          type: string
+          readOnly: true
+      required:
+        - architecture
+        - osState
+        - securityType
+    ImageValidationResults:
+      description: The image validation result.
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerificationResult'
+          x-ms-identifiers: []
+          description: The validation results of the image.
+    VerificationResult:
+      description: The detailed result of a validation or rule checking.
+      type: object
+      properties:
+        verificationName:
+          type: string
+          description: The name of the verification rule.
+        result:
+          type: string
+          enum:
+            - Passed
+            - Failed
+          description: Indicates if the validation or rule checking is passed.
+          x-ms-enum:
+            name: VerificationStatus
+            modelAsString: true
+            values:
+              - value: Passed
+                description: Validation or rule checking passed.
+              - value: Failed
+                description: Validation or rule checking failed.
+        message:
+          type: string
+          description: Message for clarification.
+      required:
+        - result
+    ImageNameCheckAvailabilityParameters:
+      description: Parameter body to request test base custom image availability.
+      type: object
+      properties:
+        definitionName:
+          type: string
+          description: Image definition name.
+        versionName:
+          type: string
+          description: Image version name.
+      required:
+        - definitionName
+        - versionName
+    CheckImageAvailabilityResult:
+      $ref: '#/components/schemas/VerificationResult'
+      description: The image availability result.
+    GetImageDefinitionParameters:
+      description: Parameters supplied to get the test base custom image Definition operation.
+      type: object
+      properties:
+        definitionName:
+          type: string
+          description: Image definition name.
+    ImageDefinitionsListResult:
+      description: The result of all available image definition under a test base account.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageDefinitionResource'
+          description: The list of image definitions.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    VHDListResult:
+      description: A list of VHD resource.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/VHDResource'
+          description: The list of Test Base VHDs.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    VHDResource:
+      description: The Test Base VHD resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/VHDProperties'
+          x-ms-client-flatten: true
+          description: The Test Base VHD validation result properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    VHDProperties:
+      description: The Test Base VHD properties
+      type: object
+      properties:
+        path:
+          type: string
+          readOnly: true
+          description: The relative path of the VHD file.
+        fileName:
+          type: string
+          readOnly: true
+          description: The VHD file name.
+        fileSize:
+          type: integer
+          format: int64
+          readOnly: true
+          description: The file size in bytes of the VHD file.
+        status:
+          type: string
+          description: The status of the VHD.
+          readOnly: true
+          enum:
+            - Unknown
+            - Ready
+            - Failed
+            - Verifying
+            - Occupied
+          x-ms-enum:
+            name: VHDStatus
+            modelAsString: true
+            values:
+              - value: Unknown
+                description: Unknown VHD status.
+              - value: Ready
+                description: Succeed to be upload and pass VHD verification.
+              - value: Failed
+                description: Failed to pass VHD verification.
+              - value: Verifying
+                description: Processing VHD file checking and malware scanning.
+              - value: Occupied
+                description: An image is onboarding with this VHD.
+        creationTime:
+          type: string
+          format: date-time
+          description: The UTC timestamp when the VHD was created.
+          readOnly: true
+        provisioningState:
+          type: string
+          readOnly: true
+    DraftPackageListResult:
+      description: A list of Test Base Draft Packages.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftPackageResource'
+          description: The list of Test Base Draft Packages.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    DraftPackageResource:
+      description: The Test Base Draft Package resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/DraftPackageProperties'
+          x-ms-client-flatten: true
+          description: Test Base Draft Package properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    DraftPackageProperties:
+      description: The properties of the Test Base Draft Package.
+      type: object
+      properties:
+        applicationName:
+          type: string
+          description: Application name
+        version:
+          type: string
+          description: Application version
+        draftPackagePath:
+          type: string
+          readOnly: true
+          description: The relative path of the folder hosting package files.
+        workingPath:
+          type: string
+          readOnly: true
+          description: The relative path for a temporarily folder for package creation work.
+        appFileName:
+          type: string
+          description: The name of the app file.
+        sourceType:
+          $ref: '#/components/schemas/DraftPackageSourceType'
+          description: The source type.
+          default: Native
+        useSample:
+          type: boolean
+          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
+        comments:
+          type: string
+          description: Comments added by user.
+        intuneMetadata:
+          type: object
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
+          description: Metadata used to generate draft package folder and scripts.
+        highlightedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/HighlightedFile'
+          x-ms-identifiers: []
+          description: The highlight files in the package.
+        packageTags:
+          description: Tags of the package to be created.
+          $ref: '#/components/schemas/Tags'
+        editPackage:
+          type: boolean
+          description: Specifies whether this draft package is used to edit a package.
+          default: false
+        packageId:
+          type: string
+          description: Specifies the package id from which the draft package copied.
+        useAutofill:
+          type: boolean
+          description: Indicates whether user choose to enable script auto-fill.
+        executableLaunchCommand:
+          type: string
+          description: The executable launch command for script auto-fill. Will be used to run the application.
+        processName:
+          type: string
+          description: The process name for script auto-fill. Will be used to identify the application process.
+        tabState:
+          type: object
+          $ref: '#/components/schemas/TabState'
+          description: Tab state.
+        testTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestType'
+          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+        targetOSList:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetOSInfo'
+          x-ms-identifiers: []
+          description: Specifies the target OSs of specific OS Update types.
+        inplaceUpgradeOSPair:
+          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
+          description: Specifies the baseline os and target os for inplace upgrade.
+        lastModifiedTime:
+          readOnly: true
+          type: string
+          format: date-time
+          description: The UTC timestamp when the package was last modified.
+        flightingRing:
+          type: string
+          description: The flighting ring for feature update.
+        firstPartyApps:
+          description: The list of first party applications to test along with user application.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/FirstPartyAppDefinition'
+        galleryApps:
+          description: The list of gallery apps to test along with user application.
+          type: array
+          x-ms-identifiers:
+            - skuId
+          items:
+            $ref: '#/components/schemas/GalleryAppDefinition'
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Test'
+          x-ms-identifiers: []
+          description: The detailed test information.
+        intuneEnrollmentMetadata:
+          description: The metadata of Intune enrollment.
+          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
+    DraftPackageUpdateParameters:
+      description: Parameters supplied to update a Test Base Draft Package.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/DraftPackageUpdateParameterProperties'
+          x-ms-client-flatten: true
+          description: Test Base Draft Package update parameters.
+    DraftPackageUpdateParameterProperties:
+      description: The properties of draft package update parameters.
+      type: object
+      properties:
+        applicationName:
+          type: string
+          description: Application name
+        version:
+          type: string
+          description: Application version
+        appFileName:
+          type: string
+          description: The name of the app file.
+        sourceType:
+          $ref: '#/components/schemas/DraftPackageSourceType'
+          description: The source type.
+          default: Native
+        useSample:
+          type: boolean
+          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
+        comments:
+          type: string
+          description: Comments added by user.
+        intuneMetadata:
+          type: object
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
+          description: Metadata used to generate draft package folder and scripts.
+        highlightedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/HighlightedFile'
+          x-ms-identifiers: []
+          description: The highlight files in the package.
+        packageTags:
+          description: Tags of the package to be created.
+          $ref: '#/components/schemas/Tags'
+        packageId:
+          type: string
+          description: Specifies the package id from which the draft package copied.
+        useAutofill:
+          type: boolean
+          description: Indicates whether user choose to enable script auto-fill.
+        executableLaunchCommand:
+          type: string
+          description: The executable launch command for script auto-fill. Will be used to run the application.
+        processName:
+          type: string
+          description: The process name for script auto-fill. Will be used to identify the application process.
+        tabState:
+          type: object
+          $ref: '#/components/schemas/TabState'
+          description: Tab state.
+        testTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestType'
+          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
+        targetOSList:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetOSInfo'
+          x-ms-identifiers: []
+          description: Specifies the target OSs of specific OS Update types.
+        inplaceUpgradeOSPair:
+          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
+          description: Specifies the baseline os and target os for in-place upgrade.
+        flightingRing:
+          type: string
+          description: The flighting ring for feature update.
+        firstPartyApps:
+          description: Specifies the list of first party applications to test along with user application.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/FirstPartyAppDefinition'
+        galleryApps:
+          description: The list of gallery apps to test along with user application.
+          type: array
+          items:
+            $ref: '#/components/schemas/GalleryAppDefinition'
+          x-ms-identifiers:
+            - skuId
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Test'
+          x-ms-identifiers: []
+          description: The detailed test information.
+        intuneEnrollmentMetadata:
+          description: The metadata of Intune enrollment.
+          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
+    DraftPackageSourceType:
+      type: string
+      description: The source type.
+      enum:
+        - Native
+        - IntuneWin
+        - TestBasePackage
+        - GalleryApp
+        - IntuneEnrollment
+      x-ms-enum:
+        name: draftPackageSourceType
+        modelAsString: true
+    DraftPackageIntuneAppMetadata:
+      description: The metadata of Intune app(s) used for generation.
+      type: object
+      properties:
+        intuneApp:
+          description: The Metadata of the Intune App through intunewin file uploading.
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
+        intuneAppDependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
+          x-ms-identifiers: []
+          description: The Metadata of dependencies of the Intune App through intunewin file uploading.
+    DraftPackageIntuneAppMetadataItem:
+      description: The Metadata of a single Intune App.
+      type: object
+      properties:
+        appName:
+          type: string
+          description: Intune app name.
+        version:
+          type: string
+          description: Intune app version.
+        appId:
+          type: string
+          description: Intune app id.
+        publisher:
+          type: string
+          description: Publisher of the app.
+        description:
+          type: string
+          description: Description of the app.
+        owner:
+          type: string
+          description: Owner of the app.
+        createDate:
+          type: string
+          format: date-time
+          description: Creation date of the app.
+        dependentAppCount:
+          type: integer
+          format: int32
+          description: Count of dependency apps.
+        installCommand:
+          type: string
+          description: Install command.
+        uninstallCommand:
+          type: string
+          description: Uninstall command.
+        lastProcessed:
+          type: integer
+          format: int64
+          description: last processed time tickets.
+        dependencyIds:
+          type: array
+          items:
+            type: string
+          description: Ids of dependency apps.
+        setupFile:
+          type: string
+          description: Setup file path.
+        minimumSupportedOS:
+          type: string
+          description: Minimum supported OS. The OS version must be greater than this version to run this app.
+        status:
+          enum:
+            - Ready
+            - Uploading
+            - UploadFailed
+            - ExtractFailed
+            - NoDependencyApp
+          type: string
+          x-ms-enum:
+            name: intuneExtractStatus
+            modelAsString: true
+          description: Extract status.
+        expectedExitCodes:
+          type: array
+          items:
+            type: string
+          description: Expected exit codes returned from Intune App.
+    HighlightedFile:
+      description: The information of a highlighted file that user should pay attention to.
+      type: object
+      properties:
+        path:
+          type: string
+          description: The path of the highlighted file.
+        visited:
+          type: boolean
+          description: A flag to save whether this file is viewed by user.
+          default: false
+        sections:
+          type: array
+          items:
+            type: string
+          description: The name of sections to highlight.
+      required:
+        - path
+    Tabs:
+      description: Specifies the tabs when creating / cloning / editing a package.
+      type: string
+      enum:
+        - Unspecified
+        - BasicsTab
+        - ConfigureTestTab
+        - EditPackageTab
+        - TestMatrixTab
+        - TagsTab
+        - ReviewAndCreateTab
+      x-ms-enum:
+        name: packageStudioTabs
+        modelAsString: true
+    TabState:
+      description: Specifies current state of tabs.
+      type: object
+      properties:
+        currentTab:
+          description: Current tab.
+          $ref: '#/components/schemas/Tabs'
+        visitedTabs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tabs'
+          description: visited tabs.
+    DraftPackageGetPathResponse:
+      description: The response of getting a download URL.
+      type: object
+      properties:
+        baseUrl:
+          type: string
+          readOnly: true
+          description: The base URL of the storage account.
+        draftPackagePath:
+          type: string
+          readOnly: true
+          description: The relative path of the folder hosting package files.
+        workingPath:
+          type: string
+          readOnly: true
+          description: The relative path for a temporary folder for package creation work.
+        sasToken:
+          type: string
+          readOnly: true
+          x-ms-secret: true
+          description: A SAS token for the storage account to access workspace.
+        expirationTime:
+          type: string
+          readOnly: true
+          format: date-time
+          description: Expiry date of the SAS token.
+    ExtractFileOperationParameters:
+      description: Parameters body to pass to extract file operation of Draft Package.
+      type: object
+      properties:
+        fileType:
+          $ref: '#/components/schemas/ExtractFileType'
+          description: The type of file to extract.
+          default: IntuneWinPackage
+        sourceFile:
+          description: Relative path of the file to be extracted, the path must under working path of this draft package.
+          type: string
+        intuneAppId:
+          description: Intune application id.
+          type: string
+      required:
+        - sourceFile
+    ExtractFileType:
+      type: string
+      description: The type of file to extract.
+      enum:
+        - TestBasePackage
+        - IntuneWinPackage
+      x-ms-enum:
+        name: extractFileType
+        modelAsString: true
+    GenerateOperationParameters:
+      description: Parameters body to pass to generate operation of Draft Package.
+      type: object
+      properties:
+        forceGenerate:
+          type: boolean
+          description: Force to generate package files even if no metadata changed.
+          default: false
+    CopyFromPackageOperationParameters:
+      description: Parameters body to pass to copy-from-package operation of Draft Package.
+      type: object
+      properties:
+        packageId:
+          description: The id of the package to copy from.
+          type: string
+      required:
+        - packageId
+    ActionRequests:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionRequest'
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    ActionRequest:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ActionRequestProperties'
+          x-ms-client-flatten: true
+          description: Test Base Draft Package properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    ActionRequestProperties:
+      type: object
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+        requestType:
+          $ref: '#/components/schemas/RequestTypes'
+        preReleaseAccessRequestSpec:
+          $ref: '#/components/schemas/PreReleaseAccessRequestSpec'
+        creationDate:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          type: string
+          enum:
+            - InReview
+            - Approved
+            - Declined
+          x-ms-enum:
+            name: requestStatus
+            modelAsString: true
+          readOnly: true
+      required:
+        - requestType
+    RequestTypes:
+      type: string
+      enum:
+        - PreReleaseAccess
+      x-ms-enum:
+        name: requestTypes
+        modelAsString: true
+    PreReleaseAccessRequestSpec:
+      type: object
+      properties:
+        organizationName:
+          type: string
+        email:
+          type: string
+        engagements:
+          type: array
+          items:
+            type: string
+            enum:
+              - MVI
+              - MVP
+              - SUVP
+              - MAPP
+              - Other
+            x-ms-enum:
+              name: engagements
+              modelAsString: true
+        streetAddress:
+          type: string
+        city:
+          type: string
+        stateOrProvince:
+          type: string
+        zipCode:
+          type: string
+        countryAndRegion:
+          type: string
+        companyWebsite:
+          type: string
     CredentialListResult:
       description: A list of credential resources.
       type: object
@@ -78,6 +928,99 @@ components:
           description: The key vault secret path of password.
       allOf:
         - $ref: '#/components/schemas/CredentialProperties'
+    ChatSessionResourceListResult:
+      description: A list of chat session.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatSessionResource'
+          description: The list of chat session.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    ChatSessionResource:
+      type: object
+      description: The chat session resource.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ChatSessionProperties'
+          description: The properties of chat session.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    ChatSessionProperties:
+      type: object
+      description: The chat session properties.
+      properties:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+    ChatRequest:
+      type: object
+      description: The chat request payload.
+      properties:
+        question:
+          type: string
+          description: The question of the chat turn
+      required:
+        - question
+    ChatResponse:
+      type: object
+      description: The chat response payload.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ChatResponseProperties'
+          description: The properties of chat response.
+      required:
+        - properties
+    ChatResponseProperties:
+      type: object
+      description: The chat response properties.
+      properties:
+        question:
+          type: string
+          description: The question from the request
+        answer:
+          type: string
+          description: The answer from the system
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitation'
+          x-ms-identifiers: []
+        usage:
+          type: integer
+          format: int32
+          description: The usage of questions within the chat session
+          readOnly: true
+        limit:
+          type: integer
+          format: int32
+          description: The limit of questions within the chat session
+          readOnly: true
+      required:
+        - question
+        - answer
+        - usage
+        - limit
+    AnswerCitation:
+      type: object
+      description: The answer citation.
+      properties:
+        title:
+          type: string
+          description: The title of the citation.
+        url:
+          type: string
+          description: The url of the citation.
+        chunkIndex:
+          type: integer
+          description: The chunk index of the content.
+          format: int32
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -532,91 +1475,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    ActionRequests:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ActionRequest'
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    ActionRequest:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ActionRequestProperties'
-          x-ms-client-flatten: true
-          description: Test Base Draft Package properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    ActionRequestProperties:
-      type: object
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-        requestType:
-          $ref: '#/components/schemas/RequestTypes'
-        preReleaseAccessRequestSpec:
-          $ref: '#/components/schemas/PreReleaseAccessRequestSpec'
-        creationDate:
-          type: string
-          format: date-time
-          readOnly: true
-        status:
-          type: string
-          enum:
-            - InReview
-            - Approved
-            - Declined
-          x-ms-enum:
-            name: requestStatus
-            modelAsString: true
-          readOnly: true
-      required:
-        - requestType
-    RequestTypes:
-      type: string
-      enum:
-        - PreReleaseAccess
-      x-ms-enum:
-        name: requestTypes
-        modelAsString: true
-    PreReleaseAccessRequestSpec:
-      type: object
-      properties:
-        organizationName:
-          type: string
-        email:
-          type: string
-        engagements:
-          type: array
-          items:
-            type: string
-            enum:
-              - MVI
-              - MVP
-              - SUVP
-              - MAPP
-              - Other
-            x-ms-enum:
-              name: engagements
-              modelAsString: true
-        streetAddress:
-          type: string
-        city:
-          type: string
-        stateOrProvince:
-          type: string
-        zipCode:
-          type: string
-        countryAndRegion:
-          type: string
-        companyWebsite:
-          type: string
     UserAssignedIdentities:
       title: User-Assigned Identities
       description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
@@ -697,333 +1555,6 @@ components:
           $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
       required:
         - type
-    CustomImageListResult:
-      description: A list of Test Base custom images.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/CustomImageResource'
-          description: The list of Test Base custom images.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    CustomImageResource:
-      description: The test base custom image resource.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/CustomImageProperties'
-          x-ms-client-flatten: true
-          description: Test Base custom image properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    CustomImageProperties:
-      description: The properties of the test base custom image.
-      type: object
-      properties:
-        vhdId:
-          type: string
-          description: The Id of the associated VHD resource.
-        definitionName:
-          type: string
-          description: Image definition name.
-        versionName:
-          type: string
-          description: Image version name.
-        source:
-          type: string
-          description: Custom image source type.
-          default: VHD
-          enum:
-            - Unknown
-            - VHD
-          x-ms-enum:
-            name: ImageSource
-            modelAsString: true
-            values:
-              - value: Unknown
-                description: Unknown image source type.
-              - value: VHD
-                description: Specify image onboarding through VHD.
-        product:
-          type: string
-          description: Product of the custom image.
-          readOnly: true
-        release:
-          type: string
-          description: Release of the custom image OS.
-          readOnly: true
-        status:
-          type: string
-          description: Status of the custom image.
-          readOnly: true
-          enum:
-            - Unknown
-            - Ready
-            - Failed
-            - Validating
-          x-ms-enum:
-            name: ImageStatus
-            modelAsString: true
-            values:
-              - value: Unknown
-                description: Unknown image status.
-              - value: Ready
-                description: Completed validation and is ready for use.
-              - value: Failed
-                description: Failed to onboard or pass validation.
-              - value: Validating
-                description: Succeed to onboard but is in validation process.
-        creationTime:
-          type: string
-          format: date-time
-          description: The UTC timestamp when the custom image was published.
-          readOnly: true
-        validationResults:
-          $ref: '#/components/schemas/ImageValidationResults'
-          description: The validation result of the custom image.
-          readOnly: true
-        osDiskImageSizeInGB:
-          type: integer
-          format: int64
-          readOnly: true
-          description: This property indicates the size of the VHD to be created.
-        releaseVersionDate:
-          type: string
-          format: date-time
-          description: The release version date of the release of the custom image OS.
-          readOnly: true
-        vhdFileName:
-          type: string
-          description: The file name of the associated VHD resource.
-          readOnly: true
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-      required:
-        - definitionName
-        - versionName
-        - source
-    ImageDefinitionListResult:
-      description: A list of test base image definitions.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImageDefinitionResource'
-          description: The list of test base image definitions.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    ImageDefinitionResource:
-      description: The test base image definition resource.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ImageDefinitionProperties'
-          x-ms-client-flatten: true
-          description: Test Base custom image properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    ImageDefinitionProperties:
-      description: The image properties under the image definition name.
-      type: object
-      properties:
-        architecture:
-          description: Custom image architecture.
-          type: string
-          enum:
-            - x64
-          x-ms-enum:
-            name: ImageArchitecture
-            modelAsString: true
-            values:
-              - value: x64
-                description: 64-bit architecture.
-        osState:
-          description: Custom image OS state.
-          type: string
-          enum:
-            - Generalized
-            - Specialized
-          x-ms-enum:
-            name: ImageOSState
-            modelAsString: true
-            values:
-              - value: Generalized
-                description: Sysprep generalization processed.
-              - value: Specialized
-                description: Fully kept with user specified settings.
-        securityType:
-          description: Custom image security type.
-          type: string
-          enum:
-            - Standard
-            - TrustedLaunch
-          x-ms-enum:
-            name: ImageSecurityType
-            modelAsString: true
-            values:
-              - value: Standard
-                description: Standard security type.
-              - value: TrustedLaunch
-                description: Specify higher security level compared to Standard.
-        provisioningState:
-          type: string
-          readOnly: true
-      required:
-        - architecture
-        - osState
-        - securityType
-    ImageValidationResults:
-      description: The image validation result.
-      type: object
-      properties:
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/VerificationResult'
-          x-ms-identifiers: []
-          description: The validation results of the image.
-    VerificationResult:
-      description: The detailed result of a validation or rule checking.
-      type: object
-      properties:
-        verificationName:
-          type: string
-          description: The name of the verification rule.
-        result:
-          type: string
-          enum:
-            - Passed
-            - Failed
-          description: Indicates if the validation or rule checking is passed.
-          x-ms-enum:
-            name: VerificationStatus
-            modelAsString: true
-            values:
-              - value: Passed
-                description: Validation or rule checking passed.
-              - value: Failed
-                description: Validation or rule checking failed.
-        message:
-          type: string
-          description: Message for clarification.
-      required:
-        - result
-    ImageNameCheckAvailabilityParameters:
-      description: Parameter body to request test base custom image availability.
-      type: object
-      properties:
-        definitionName:
-          type: string
-          description: Image definition name.
-        versionName:
-          type: string
-          description: Image version name.
-      required:
-        - definitionName
-        - versionName
-    CheckImageAvailabilityResult:
-      $ref: '#/components/schemas/VerificationResult'
-      description: The image availability result.
-    GetImageDefinitionParameters:
-      description: Parameters supplied to get the test base custom image Definition operation.
-      type: object
-      properties:
-        definitionName:
-          type: string
-          description: Image definition name.
-    ImageDefinitionsListResult:
-      description: The result of all available image definition under a test base account.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImageDefinitionResource'
-          description: The list of image definitions.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    VHDListResult:
-      description: A list of VHD resource.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/VHDResource'
-          description: The list of Test Base VHDs.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    VHDResource:
-      description: The Test Base VHD resource.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/VHDProperties'
-          x-ms-client-flatten: true
-          description: The Test Base VHD validation result properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    VHDProperties:
-      description: The Test Base VHD properties
-      type: object
-      properties:
-        path:
-          type: string
-          readOnly: true
-          description: The relative path of the VHD file.
-        fileName:
-          type: string
-          readOnly: true
-          description: The VHD file name.
-        fileSize:
-          type: integer
-          format: int64
-          readOnly: true
-          description: The file size in bytes of the VHD file.
-        status:
-          type: string
-          description: The status of the VHD.
-          readOnly: true
-          enum:
-            - Unknown
-            - Ready
-            - Failed
-            - Verifying
-            - Occupied
-          x-ms-enum:
-            name: VHDStatus
-            modelAsString: true
-            values:
-              - value: Unknown
-                description: Unknown VHD status.
-              - value: Ready
-                description: Succeed to be upload and pass VHD verification.
-              - value: Failed
-                description: Failed to pass VHD verification.
-              - value: Verifying
-                description: Processing VHD file checking and malware scanning.
-              - value: Occupied
-                description: An image is onboarding with this VHD.
-        creationTime:
-          type: string
-          format: date-time
-          description: The UTC timestamp when the VHD was created.
-          readOnly: true
-        provisioningState:
-          type: string
-          readOnly: true
     Tags:
       type: object
       additionalProperties:
@@ -3335,542 +3866,86 @@ components:
         - appName
         - appId
         - expectedInstallationPath
-    ChatSessionResourceListResult:
-      description: A list of chat session.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ChatSessionResource'
-          description: The list of chat session.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    ChatSessionResource:
-      type: object
-      description: The chat session resource.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ChatSessionProperties'
-          description: The properties of chat session.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    ChatSessionProperties:
-      type: object
-      description: The chat session properties.
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-    ChatRequest:
-      type: object
-      description: The chat request payload.
-      properties:
-        question:
-          type: string
-          description: The question of the chat turn
-      required:
-        - question
-    ChatResponse:
-      type: object
-      description: The chat response payload.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ChatResponseProperties'
-          description: The properties of chat response.
-      required:
-        - properties
-    ChatResponseProperties:
-      type: object
-      description: The chat response properties.
-      properties:
-        question:
-          type: string
-          description: The question from the request
-        answer:
-          type: string
-          description: The answer from the system
-        citations:
-          type: array
-          items:
-            $ref: '#/components/schemas/AnswerCitation'
-          x-ms-identifiers: []
-        usage:
-          type: integer
-          format: int32
-          description: The usage of questions within the chat session
-          readOnly: true
-        limit:
-          type: integer
-          format: int32
-          description: The limit of questions within the chat session
-          readOnly: true
-      required:
-        - question
-        - answer
-        - usage
-        - limit
-    AnswerCitation:
-      type: object
-      description: The answer citation.
-      properties:
-        title:
-          type: string
-          description: The title of the citation.
-        url:
-          type: string
-          description: The url of the citation.
-        chunkIndex:
-          type: integer
-          description: The chunk index of the content.
-          format: int32
-    DraftPackageListResult:
-      description: A list of Test Base Draft Packages.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/DraftPackageResource'
-          description: The list of Test Base Draft Packages.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    DraftPackageResource:
-      description: The Test Base Draft Package resource.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DraftPackageProperties'
-          x-ms-client-flatten: true
-          description: Test Base Draft Package properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    DraftPackageProperties:
-      description: The properties of the Test Base Draft Package.
-      type: object
-      properties:
-        applicationName:
-          type: string
-          description: Application name
-        version:
-          type: string
-          description: Application version
-        draftPackagePath:
-          type: string
-          readOnly: true
-          description: The relative path of the folder hosting package files.
-        workingPath:
-          type: string
-          readOnly: true
-          description: The relative path for a temporarily folder for package creation work.
-        appFileName:
-          type: string
-          description: The name of the app file.
-        sourceType:
-          $ref: '#/components/schemas/DraftPackageSourceType'
-          description: The source type.
-          default: Native
-        useSample:
-          type: boolean
-          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
-        comments:
-          type: string
-          description: Comments added by user.
-        intuneMetadata:
-          type: object
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
-          description: Metadata used to generate draft package folder and scripts.
-        highlightedFiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/HighlightedFile'
-          x-ms-identifiers: []
-          description: The highlight files in the package.
-        packageTags:
-          description: Tags of the package to be created.
-          $ref: '#/components/schemas/Tags'
-        editPackage:
-          type: boolean
-          description: Specifies whether this draft package is used to edit a package.
-          default: false
-        packageId:
-          type: string
-          description: Specifies the package id from which the draft package copied.
-        useAutofill:
-          type: boolean
-          description: Indicates whether user choose to enable script auto-fill.
-        executableLaunchCommand:
-          type: string
-          description: The executable launch command for script auto-fill. Will be used to run the application.
-        processName:
-          type: string
-          description: The process name for script auto-fill. Will be used to identify the application process.
-        tabState:
-          type: object
-          $ref: '#/components/schemas/TabState'
-          description: Tab state.
-        testTypes:
-          type: array
-          items:
-            $ref: '#/components/schemas/TestType'
-          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-        targetOSList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TargetOSInfo'
-          x-ms-identifiers: []
-          description: Specifies the target OSs of specific OS Update types.
-        inplaceUpgradeOSPair:
-          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
-          description: Specifies the baseline os and target os for inplace upgrade.
-        lastModifiedTime:
-          readOnly: true
-          type: string
-          format: date-time
-          description: The UTC timestamp when the package was last modified.
-        flightingRing:
-          type: string
-          description: The flighting ring for feature update.
-        firstPartyApps:
-          description: The list of first party applications to test along with user application.
-          type: array
-          x-ms-identifiers: []
-          items:
-            $ref: '#/components/schemas/FirstPartyAppDefinition'
-        galleryApps:
-          description: The list of gallery apps to test along with user application.
-          type: array
-          x-ms-identifiers:
-            - skuId
-          items:
-            $ref: '#/components/schemas/GalleryAppDefinition'
-        tests:
-          type: array
-          items:
-            $ref: '#/components/schemas/Test'
-          x-ms-identifiers: []
-          description: The detailed test information.
-        intuneEnrollmentMetadata:
-          description: The metadata of Intune enrollment.
-          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
-    DraftPackageUpdateParameters:
-      description: Parameters supplied to update a Test Base Draft Package.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DraftPackageUpdateParameterProperties'
-          x-ms-client-flatten: true
-          description: Test Base Draft Package update parameters.
-    DraftPackageUpdateParameterProperties:
-      description: The properties of draft package update parameters.
-      type: object
-      properties:
-        applicationName:
-          type: string
-          description: Application name
-        version:
-          type: string
-          description: Application version
-        appFileName:
-          type: string
-          description: The name of the app file.
-        sourceType:
-          $ref: '#/components/schemas/DraftPackageSourceType'
-          description: The source type.
-          default: Native
-        useSample:
-          type: boolean
-          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
-        comments:
-          type: string
-          description: Comments added by user.
-        intuneMetadata:
-          type: object
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
-          description: Metadata used to generate draft package folder and scripts.
-        highlightedFiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/HighlightedFile'
-          x-ms-identifiers: []
-          description: The highlight files in the package.
-        packageTags:
-          description: Tags of the package to be created.
-          $ref: '#/components/schemas/Tags'
-        packageId:
-          type: string
-          description: Specifies the package id from which the draft package copied.
-        useAutofill:
-          type: boolean
-          description: Indicates whether user choose to enable script auto-fill.
-        executableLaunchCommand:
-          type: string
-          description: The executable launch command for script auto-fill. Will be used to run the application.
-        processName:
-          type: string
-          description: The process name for script auto-fill. Will be used to identify the application process.
-        tabState:
-          type: object
-          $ref: '#/components/schemas/TabState'
-          description: Tab state.
-        testTypes:
-          type: array
-          items:
-            $ref: '#/components/schemas/TestType'
-          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
-        targetOSList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TargetOSInfo'
-          x-ms-identifiers: []
-          description: Specifies the target OSs of specific OS Update types.
-        inplaceUpgradeOSPair:
-          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
-          description: Specifies the baseline os and target os for in-place upgrade.
-        flightingRing:
-          type: string
-          description: The flighting ring for feature update.
-        firstPartyApps:
-          description: Specifies the list of first party applications to test along with user application.
-          type: array
-          x-ms-identifiers: []
-          items:
-            $ref: '#/components/schemas/FirstPartyAppDefinition'
-        galleryApps:
-          description: The list of gallery apps to test along with user application.
-          type: array
-          items:
-            $ref: '#/components/schemas/GalleryAppDefinition'
-          x-ms-identifiers:
-            - skuId
-        tests:
-          type: array
-          items:
-            $ref: '#/components/schemas/Test'
-          x-ms-identifiers: []
-          description: The detailed test information.
-        intuneEnrollmentMetadata:
-          description: The metadata of Intune enrollment.
-          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
-    DraftPackageSourceType:
-      type: string
-      description: The source type.
-      enum:
-        - Native
-        - IntuneWin
-        - TestBasePackage
-        - GalleryApp
-        - IntuneEnrollment
-      x-ms-enum:
-        name: draftPackageSourceType
-        modelAsString: true
-    DraftPackageIntuneAppMetadata:
-      description: The metadata of Intune app(s) used for generation.
-      type: object
-      properties:
-        intuneApp:
-          description: The Metadata of the Intune App through intunewin file uploading.
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
-        intuneAppDependencies:
-          type: array
-          items:
-            $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
-          x-ms-identifiers: []
-          description: The Metadata of dependencies of the Intune App through intunewin file uploading.
-    DraftPackageIntuneAppMetadataItem:
-      description: The Metadata of a single Intune App.
-      type: object
-      properties:
-        appName:
-          type: string
-          description: Intune app name.
-        version:
-          type: string
-          description: Intune app version.
-        appId:
-          type: string
-          description: Intune app id.
-        publisher:
-          type: string
-          description: Publisher of the app.
-        description:
-          type: string
-          description: Description of the app.
-        owner:
-          type: string
-          description: Owner of the app.
-        createDate:
-          type: string
-          format: date-time
-          description: Creation date of the app.
-        dependentAppCount:
-          type: integer
-          format: int32
-          description: Count of dependency apps.
-        installCommand:
-          type: string
-          description: Install command.
-        uninstallCommand:
-          type: string
-          description: Uninstall command.
-        lastProcessed:
-          type: integer
-          format: int64
-          description: last processed time tickets.
-        dependencyIds:
-          type: array
-          items:
-            type: string
-          description: Ids of dependency apps.
-        setupFile:
-          type: string
-          description: Setup file path.
-        minimumSupportedOS:
-          type: string
-          description: Minimum supported OS. The OS version must be greater than this version to run this app.
-        status:
-          enum:
-            - Ready
-            - Uploading
-            - UploadFailed
-            - ExtractFailed
-            - NoDependencyApp
-          type: string
-          x-ms-enum:
-            name: intuneExtractStatus
-            modelAsString: true
-          description: Extract status.
-        expectedExitCodes:
-          type: array
-          items:
-            type: string
-          description: Expected exit codes returned from Intune App.
-    HighlightedFile:
-      description: The information of a highlighted file that user should pay attention to.
-      type: object
-      properties:
-        path:
-          type: string
-          description: The path of the highlighted file.
-        visited:
-          type: boolean
-          description: A flag to save whether this file is viewed by user.
-          default: false
-        sections:
-          type: array
-          items:
-            type: string
-          description: The name of sections to highlight.
-      required:
-        - path
-    Tabs:
-      description: Specifies the tabs when creating / cloning / editing a package.
-      type: string
-      enum:
-        - Unspecified
-        - BasicsTab
-        - ConfigureTestTab
-        - EditPackageTab
-        - TestMatrixTab
-        - TagsTab
-        - ReviewAndCreateTab
-      x-ms-enum:
-        name: packageStudioTabs
-        modelAsString: true
-    TabState:
-      description: Specifies current state of tabs.
-      type: object
-      properties:
-        currentTab:
-          description: Current tab.
-          $ref: '#/components/schemas/Tabs'
-        visitedTabs:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tabs'
-          description: visited tabs.
-    DraftPackageGetPathResponse:
-      description: The response of getting a download URL.
-      type: object
-      properties:
-        baseUrl:
-          type: string
-          readOnly: true
-          description: The base URL of the storage account.
-        draftPackagePath:
-          type: string
-          readOnly: true
-          description: The relative path of the folder hosting package files.
-        workingPath:
-          type: string
-          readOnly: true
-          description: The relative path for a temporary folder for package creation work.
-        sasToken:
-          type: string
-          readOnly: true
-          x-ms-secret: true
-          description: A SAS token for the storage account to access workspace.
-        expirationTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: Expiry date of the SAS token.
-    ExtractFileOperationParameters:
-      description: Parameters body to pass to extract file operation of Draft Package.
-      type: object
-      properties:
-        fileType:
-          $ref: '#/components/schemas/ExtractFileType'
-          description: The type of file to extract.
-          default: IntuneWinPackage
-        sourceFile:
-          description: Relative path of the file to be extracted, the path must under working path of this draft package.
-          type: string
-        intuneAppId:
-          description: Intune application id.
-          type: string
-      required:
-        - sourceFile
-    ExtractFileType:
-      type: string
-      description: The type of file to extract.
-      enum:
-        - TestBasePackage
-        - IntuneWinPackage
-      x-ms-enum:
-        name: extractFileType
-        modelAsString: true
-    GenerateOperationParameters:
-      description: Parameters body to pass to generate operation of Draft Package.
-      type: object
-      properties:
-        forceGenerate:
-          type: boolean
-          description: Force to generate package files even if no metadata changed.
-          default: false
-    CopyFromPackageOperationParameters:
-      description: Parameters body to pass to copy-from-package operation of Draft Package.
-      type: object
-      properties:
-        packageId:
-          description: The id of the package to copy from.
-          type: string
-      required:
-        - packageId
   parameters:
+    CustomImageNameParameter:
+      name: customImageName
+      in: path
+      description: The resource name of the test base custom image.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    ImageDefinitionNameParameter:
+      name: imageDefinitionName
+      in: path
+      description: The resource name of the test base image definition.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    VhdNameParameter:
+      name: vhdName
+      in: path
+      description: The resource name of the Test Base VHD.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9_.-]+$
+        type: string
+    DraftPackageNameParameter:
+      name: draftPackageName
+      in: path
+      description: The resource name of the Test Base Draft Package.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    PackageNameQueryParameter:
+      name: packageName
+      in: query
+      description: Parameter used to filter draft packages by linked Test Base Package.
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    DraftPackageEditPackageParameter:
+      name: editPackage
+      in: query
+      description: Parameter used to filter draft packages by editPackage property.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: boolean
+    ActionRequestName:
+      name: actionRequestName
+      in: path
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    RequestTypeFilter:
+      name: requestType
+      in: query
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: string
     CredentialNameParameter:
       name: credentialName
       in: path
       description: The credential resource name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    ChatSessionNameParameter:
+      name: chatSessionName
+      in: path
+      description: The chat session name.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -3921,7 +3996,6 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
-        maxLength: 90
         type: string
     TenantIdParameter:
       name: tenantId
@@ -3965,48 +4039,6 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
-        type: string
-    ActionRequestName:
-      name: actionRequestName
-      in: path
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    RequestTypeFilter:
-      name: requestType
-      in: query
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    CustomImageNameParameter:
-      name: customImageName
-      in: path
-      description: The resource name of the test base custom image.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    ImageDefinitionNameParameter:
-      name: imageDefinitionName
-      in: path
-      description: The resource name of the test base image definition.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    VhdNameParameter:
-      name: vhdName
-      in: path
-      description: The resource name of the Test Base VHD.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9_.-]+$
         type: string
     TestBaseAccountNameParameter:
       name: testBaseAccountName
@@ -4175,298 +4207,7 @@ components:
           modelAsString: true
         pattern: ^[A-Za-z]+$
         type: string
-    ChatSessionNameParameter:
-      name: chatSessionName
-      in: path
-      description: The chat session name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    DraftPackageNameParameter:
-      name: draftPackageName
-      in: path
-      description: The resource name of the Test Base Draft Package.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    PackageNameQueryParameter:
-      name: packageName
-      in: query
-      description: Parameter used to filter draft packages by linked Test Base Package.
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    DraftPackageEditPackageParameter:
-      name: editPackage
-      in: query
-      description: Parameter used to filter draft packages by editPackage property.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: boolean
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Test Base Credential
-      operationId: Credential_ListByTestBaseAccount
-      description: Lists all the Credentials under a Test Base Account.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The operation is completed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials/{credentialName}:
-    x-api-version: 2023-11-01-preview
-    put:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Create
-      description: Creates or replaces a Test Base Credential.
-      requestBody:
-        description: Parameters supplied to create a Test Base Credential.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CredentialResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The test base credential was successfully created or updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        '201':
-          description: Create a test base credential Resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Update
-      description: Updates an existing test base credential.
-      requestBody:
-        description: Parameters supplied to create a test base credential.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CredentialResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Get the test base credential.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Delete
-      description: Deletes an existing test base credential.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The test base credential was deleted successfully.
-        '204':
-          description: The test base credential was deleted successfully.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - Test Base Credential
-      operationId: Credential_Get
-      description: Gets a test base credential Resource
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Get the test base Credential.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/actionRequests/{actionRequestName}:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Test Base Action Requests
-      operationId: ActionRequests_Get
-      description: Get the action request under the specified test base account.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/ActionRequestName'
-      responses:
-        '200':
-          description: Succeeded to get the action request under the specified test base account.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActionRequest'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - Test Base Action Requests
-      operationId: ActionRequests_Put
-      description: Create (submit) an action request.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ActionRequestName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        x-ms-requestBody-name: actionRequest
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActionRequest'
-      responses:
-        '200':
-          description: Succeeded to update an action request.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActionRequest'
-        '201':
-          description: Succeeded to create (submit) an action request.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActionRequest'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Test Base Action Requests
-      operationId: ActionRequests_Delete
-      description: Delete (revoke) an action request. Only requests in review can be deleted.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ActionRequestName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Succeeded to delete the specified action request.
-        '204':
-          description: Succeeded to delete the specified action request.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/actionRequests:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Test Base Action Requests
-      operationId: ActionRequests_List
-      description: List all action requests under the specified test base account.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/RequestTypeFilter'
-        - $ref: '#/components/parameters/TopFilter'
-      responses:
-        '200':
-          description: Succeeded to list all action requests under the specified test base account.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActionRequests'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/customImages:
     x-api-version: 2023-11-01-preview
     get:
@@ -4815,6 +4556,664 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VHDResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_ListByTestBaseAccount
+      description: Lists all the draft packages under a test base account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/PackageNameQueryParameter'
+        - $ref: '#/components/parameters/DraftPackageEditPackageParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The operation is completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}:
+    x-api-version: 2023-11-01-preview
+    put:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Create
+      description: Creates or replaces a Test Base Draft Package.
+      requestBody:
+        description: Parameters supplied to create a Test Base Draft Package.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftPackageResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package was successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        '201':
+          description: The Test Base Draft Package was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Update
+      description: Updates an existing Test Base Draft Package.
+      requestBody:
+        description: Parameters supplied to update a Test Base Draft Package.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftPackageUpdateParameters'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The existing Test Base Draft Package was successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Delete
+      description: Deletes a Test Base Draft Package.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package 'delete' operation was completed successfully.
+        '204':
+          description: The Test Base Draft Package 'delete' operation was completed successfully.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Get
+      description: Gets a Test Base Draft Package.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package was successfully found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/getPath:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_GetPath
+      description: Gets draft package path and temp working path with SAS.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The paths with access token is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageGetPathResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/copyFromPackage:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_CopyFromPackage
+      description: Copy package file and metadata from a package to this draft package
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package CopyFromPackage operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyFromPackageOperationParameters'
+      responses:
+        '202':
+          description: The operation was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/extractFile:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_ExtractFile
+      description: Performs extracting file operation for a Test Base Draft Package
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package ExtractFile operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractFileOperationParameters'
+      responses:
+        '202':
+          description: The 'ExtractFile' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/generateFoldersAndScripts:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_GenerateFoldersAndScripts
+      description: Generates folders and scripts
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package Generate operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateOperationParameters'
+      responses:
+        '202':
+          description: The 'Generate' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/actionRequests/{actionRequestName}:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Action Requests
+      operationId: ActionRequests_Get
+      description: Get the action request under the specified test base account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ActionRequestName'
+      responses:
+        '200':
+          description: Succeeded to get the action request under the specified test base account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionRequest'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Test Base Action Requests
+      operationId: ActionRequests_Put
+      description: Create (submit) an action request.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ActionRequestName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        x-ms-requestBody-name: actionRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Succeeded to update an action request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionRequest'
+        '201':
+          description: Succeeded to create (submit) an action request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionRequest'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Test Base Action Requests
+      operationId: ActionRequests_Delete
+      description: Delete (revoke) an action request. Only requests in review can be deleted.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ActionRequestName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Succeeded to delete the specified action request.
+        '204':
+          description: Succeeded to delete the specified action request.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/actionRequests:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Action Requests
+      operationId: ActionRequests_List
+      description: List all action requests under the specified test base account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/RequestTypeFilter'
+        - $ref: '#/components/parameters/TopFilter'
+      responses:
+        '200':
+          description: Succeeded to list all action requests under the specified test base account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionRequests'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Credential
+      operationId: Credential_ListByTestBaseAccount
+      description: Lists all the Credentials under a Test Base Account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The operation is completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials/{credentialName}:
+    x-api-version: 2023-11-01-preview
+    put:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Create
+      description: Creates or replaces a Test Base Credential.
+      requestBody:
+        description: Parameters supplied to create a Test Base Credential.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The test base credential was successfully created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        '201':
+          description: Create a test base credential Resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Update
+      description: Updates an existing test base credential.
+      requestBody:
+        description: Parameters supplied to create a test base credential.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Get the test base credential.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Delete
+      description: Deletes an existing test base credential.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The test base credential was deleted successfully.
+        '204':
+          description: The test base credential was deleted successfully.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Test Base Credential
+      operationId: Credential_Get
+      description: Gets a test base credential Resource
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Get the test base Credential.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Chat
+      operationId: ChatSessions_List
+      description: List all chat sessions
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The chat session was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionResourceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Chat
+      operationId: ChatSessions_Get
+      description: Get a chat session
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ChatSessionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The chat session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}/chat:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Chat
+      operationId: ChatSession_Chat
+      description: Start a new chat turn. Ask a question and see the answer in response.
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ChatSessionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Payload to ask a question.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: The question was answered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '202':
+          description: The chat operation was successfully enqueued. Waiting for the answer.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
         default:
           description: Error response describing why the operation failed.
           content:
@@ -6715,406 +7114,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AvailableInplaceUpgradeOSResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Chat
-      operationId: ChatSessions_List
-      description: List all chat sessions
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The chat session was successfully created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatSessionResourceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Chat
-      operationId: ChatSessions_Get
-      description: Get a chat session
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ChatSessionNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The chat session.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatSessionResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}/chat:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Chat
-      operationId: ChatSession_Chat
-      description: Start a new chat turn. Ask a question and see the answer in response.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ChatSessionNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Payload to ask a question.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatRequest'
-      responses:
-        '200':
-          description: The question was answered.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatResponse'
-        '202':
-          description: The chat operation was successfully enqueued. Waiting for the answer.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_ListByTestBaseAccount
-      description: Lists all the draft packages under a test base account.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/PackageNameQueryParameter'
-        - $ref: '#/components/parameters/DraftPackageEditPackageParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The operation is completed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}:
-    x-api-version: 2023-11-01-preview
-    put:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Create
-      description: Creates or replaces a Test Base Draft Package.
-      requestBody:
-        description: Parameters supplied to create a Test Base Draft Package.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DraftPackageResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package was successfully updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        '201':
-          description: The Test Base Draft Package was successfully created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Update
-      description: Updates an existing Test Base Draft Package.
-      requestBody:
-        description: Parameters supplied to update a Test Base Draft Package.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DraftPackageUpdateParameters'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The existing Test Base Draft Package was successfully updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Delete
-      description: Deletes a Test Base Draft Package.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package 'delete' operation was completed successfully.
-        '204':
-          description: The Test Base Draft Package 'delete' operation was completed successfully.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Get
-      description: Gets a Test Base Draft Package.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package was successfully found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/getPath:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_GetPath
-      description: Gets draft package path and temp working path with SAS.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The paths with access token is returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageGetPathResponse'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/copyFromPackage:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_CopyFromPackage
-      description: Copy package file and metadata from a package to this draft package
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package CopyFromPackage operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CopyFromPackageOperationParameters'
-      responses:
-        '202':
-          description: The operation was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/extractFile:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_ExtractFile
-      description: Performs extracting file operation for a Test Base Draft Package
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package ExtractFile operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExtractFileOperationParameters'
-      responses:
-        '202':
-          description: The 'ExtractFile' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/generateFoldersAndScripts:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_GenerateFoldersAndScripts
-      description: Generates folders and scripts
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package Generate operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateOperationParameters'
-      responses:
-        '202':
-          description: The 'Generate' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
         default:
           description: Error response describing why the operation failed.
           content:

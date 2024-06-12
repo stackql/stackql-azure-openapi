@@ -3,8 +3,8 @@ servers:
   - url: https://management.azure.com/
 info:
   title: PostgreSQLServerManagementClient
-  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure PostgreSQL resources including servers, databases, firewall rules, administrators, log files, configurations, migrations, advanced threat protection settings with new business model.
-  version: 2023-06-01-preview
+  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure PostgreSQL resources including servers, databases, firewall rules, VNET rules, security alert policies, log files and configurations with new business model.
+  version: 2023-12-01-preview
 security:
   - azure_auth:
       - user_impersonation
@@ -19,45 +19,132 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
-    ServerThreatProtectionProperties:
-      description: Properties of server Threat Protection state.
-      required:
-        - state
+    PrivateEndpoint:
       type: object
       properties:
-        state:
-          description: Specifies the state of the Threat Protection, whether it is enabled or disabled or a state has not been applied yet on the specific server.
-          enum:
-            - Enabled
-            - Disabled
-          type: string
-          x-ms-enum:
-            name: ThreatProtectionState
-            modelAsString: false
-        creationTime:
-          format: date-time
-          description: Specifies the UTC creation time of the policy.
-          type: string
+        id:
           readOnly: true
-    ServerThreatProtectionSettingsModel:
-      description: Server's Advanced Threat Protection settings.
+          type: string
+          description: The ARM identifier for private endpoint.
+      description: The private endpoint resource.
+    PrivateEndpointConnection:
+      description: A private endpoint connection
       type: object
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
       properties:
         properties:
-          $ref: '#/components/schemas/ServerThreatProtectionProperties'
-          description: Advanced Threat Protection properties.
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          description: Resource properties.
           x-ms-client-flatten: true
-    ServerThreatProtectionListResult:
-      description: A list of the server's Advanced Threat Protection settings.
+    PrivateEndpointConnectionProperties:
+      description: Properties of a private endpoint connection.
+      type: object
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection state of the private endpoint connection.
+        provisioningState:
+          description: The provisioning state of the private endpoint connection. Can be Succeeded, Updating, Deleting, Deleted or Failed.
+          type: string
+          readOnly: true
+        groupIds:
+          type: array
+          items:
+            type: string
+          description: The ID(s) of the group(s) obtained from the remote resource that this private endpoint should connect to.
+    PrivateLinkServiceConnectionState:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
+          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        description:
+          type: string
+          description: The reason for approval/rejection of the connection.
+        actionsRequired:
+          type: string
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+      description: A collection of information about the state of the connection between service consumer and provider.
+    PrivateEndpointServiceConnectionStatus:
+      type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Rejected
+      x-ms-enum:
+        name: PrivateEndpointServiceConnectionStatus
+        modelAsString: true
+    PrivateEndpointConnectionProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Creating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PrivateEndpointConnectionProvisioningState
+        modelAsString: true
+    PrivateLinkResource:
+      description: A private link resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: The private link resource group id.
+          readOnly: true
+    PrivateLinkResourceProperties:
+      description: Properties of a private link resource.
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          description: The private link resource required zone names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+    PrivateEndpointConnectionListResult:
+      description: A list of private endpoint connections.
       type: object
       properties:
         value:
           description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+        nextLink:
+          description: The URL to get the next set of results.
+          type: string
+          format: uri
+          readOnly: true
+    PrivateLinkResourceListResult:
+      description: A list of private link resources
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
@@ -98,33 +185,668 @@ components:
           type: string
           format: uri
       description: A List of databases.
-    PrivateEndpointConnectionListResult:
+    MigrationResource:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/MigrationResourceProperties'
+          description: Migration resource properties.
+          x-ms-client-flatten: true
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: Represents a migration resource.
+    MigrationResourceProperties:
+      type: object
+      properties:
+        migrationId:
+          type: string
+          readOnly: true
+          description: ID for migration, a GUID.
+        currentStatus:
+          $ref: '#/components/schemas/MigrationStatus'
+          readOnly: true
+          description: Current status of migration
+        migrationInstanceResourceId:
+          type: string
+          format: arm-id
+          description: ResourceId of the private endpoint migration instance
+        migrationMode:
+          $ref: '#/components/schemas/MigrationMode'
+          description: There are two types of migration modes Online and Offline
+        migrationOption:
+          $ref: '#/components/schemas/MigrationOption'
+          description: This indicates the supported Migration option for the migration
+        sourceType:
+          $ref: '#/components/schemas/SourceType'
+          description: 'migration source server type : OnPremises, AWS, GCP, AzureVM, PostgreSQLSingleServer, AWS_RDS, AWS_AURORA, AWS_EC2, GCP_CloudSQL, GCP_AlloyDB, GCP_Compute, or EDB'
+        sslMode:
+          $ref: '#/components/schemas/SslMode'
+          description: SSL modes for migration. Default SSL mode for PostgreSQLSingleServer is VerifyFull and Prefer for other source types
+        sourceDbServerMetadata:
+          $ref: '#/components/schemas/DbServerMetadata'
+          readOnly: true
+          description: Metadata of the source database server
+        targetDbServerMetadata:
+          $ref: '#/components/schemas/DbServerMetadata'
+          readOnly: true
+          description: Metadata of the target database server
+        sourceDbServerResourceId:
+          type: string
+          description: ResourceId of the source database server in case the sourceType is PostgreSQLSingleServer. For other source types this should be ipaddress:port@username or hostname:port@username
+        sourceDbServerFullyQualifiedDomainName:
+          type: string
+          description: Source server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
+        targetDbServerResourceId:
+          type: string
+          readOnly: true
+          description: ResourceId of the source database server
+        targetDbServerFullyQualifiedDomainName:
+          type: string
+          description: Target server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
+        secretParameters:
+          $ref: '#/components/schemas/MigrationSecretParameters'
+          description: Migration secret parameters
+        dbsToMigrate:
+          maxItems: 50
+          type: array
+          items:
+            type: string
+          description: Number of databases to migrate
+          x-ms-identifiers: []
+        setupLogicalReplicationOnSourceDbIfNeeded:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: LogicalReplicationOnSourceDbEnum
+            modelAsString: true
+          description: Indicates whether to setup LogicalReplicationOnSourceDb, if needed
+        overwriteDbsInTarget:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: OverwriteDbsInTargetEnum
+            modelAsString: true
+          description: Indicates whether the databases on the target server can be overwritten, if already present. If set to False, the migration workflow will wait for a confirmation, if it detects that the database already exists.
+        migrationWindowStartTimeInUtc:
+          format: date-time
+          type: string
+          description: Start time in UTC for migration window
+        migrationWindowEndTimeInUtc:
+          format: date-time
+          type: string
+          description: End time in UTC for migration window
+        migrateRoles:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: MigrateRolesEnum
+            modelAsString: true
+          description: To migrate roles and permissions we need to send this flag as True
+        startDataMigration:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: StartDataMigrationEnum
+            modelAsString: true
+          description: Indicates whether the data migration should start right away
+        triggerCutover:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: TriggerCutoverEnum
+            modelAsString: true
+          description: To trigger cutover for entire migration we need to send this flag as True
+        dbsToTriggerCutoverOn:
+          type: array
+          items:
+            type: string
+          description: When you want to trigger cutover for specific databases send triggerCutover flag as True and database names in this array
+          x-ms-identifiers: []
+        cancel:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: CancelEnum
+            modelAsString: true
+          description: To trigger cancel for entire migration we need to send this flag as True
+        dbsToCancelMigrationOn:
+          type: array
+          items:
+            type: string
+          description: When you want to trigger cancel for specific databases send cancel flag as True and database names in this array
+          x-ms-identifiers: []
+      description: Migration resource properties.
+    MigrationResourceListResult:
       type: object
       properties:
         value:
           type: array
-          description: Array of private endpoint connections.
           items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-      description: List of private endpoint connections associated with the specified resource.
-    RestartParameter:
+            $ref: '#/components/schemas/MigrationResource'
+          readOnly: true
+          description: A list of migration resources.
+          x-ms-identifiers: []
+        nextLink:
+          description: The link used to get the next page of migrations.
+          type: string
+          readOnly: true
+      description: A list of migration resources.
+    MigrationResourceForPatch:
       type: object
       properties:
-        restartWithFailover:
-          type: boolean
-          description: Indicates whether to restart the server with failover.
-        failoverMode:
+        properties:
+          $ref: '#/components/schemas/MigrationResourcePropertiesForPatch'
+          description: Migration resource properties.
+          x-ms-client-flatten: true
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Application-specific metadata in the form of key-value pairs.
+      description: Represents a migration resource for patch.
+    MigrationResourcePropertiesForPatch:
+      type: object
+      properties:
+        sourceDbServerResourceId:
           type: string
-          description: Failover mode.
+          description: ResourceId of the source database server
+        sourceDbServerFullyQualifiedDomainName:
+          type: string
+          description: Source server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
+        targetDbServerFullyQualifiedDomainName:
+          type: string
+          description: Target server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
+        secretParameters:
+          $ref: '#/components/schemas/MigrationSecretParameters'
+          description: Migration secret parameters
+        dbsToMigrate:
+          maxItems: 50
+          type: array
+          items:
+            type: string
+          description: Number of databases to migrate
+          x-ms-identifiers: []
+        setupLogicalReplicationOnSourceDbIfNeeded:
+          type: string
           enum:
-            - PlannedFailover
-            - ForcedFailover
-            - PlannedSwitchover
-            - ForcedSwitchover
+            - 'True'
+            - 'False'
           x-ms-enum:
-            name: FailoverMode
+            name: LogicalReplicationOnSourceDbEnum
             modelAsString: true
-      description: Represents server restart parameters.
+          description: Indicates whether to setup LogicalReplicationOnSourceDb, if needed
+        overwriteDbsInTarget:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: OverwriteDbsInTargetEnum
+            modelAsString: true
+          description: Indicates whether the databases on the target server can be overwritten, if already present. If set to False, the migration workflow will wait for a confirmation, if it detects that the database already exists.
+        migrationWindowStartTimeInUtc:
+          format: date-time
+          type: string
+          description: Start time in UTC for migration window
+        migrateRoles:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: MigrateRolesEnum
+            modelAsString: true
+          description: To migrate roles and permissions we need to send this flag as True
+        startDataMigration:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: StartDataMigrationEnum
+            modelAsString: true
+          description: Indicates whether the data migration should start right away
+        triggerCutover:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: TriggerCutoverEnum
+            modelAsString: true
+          description: To trigger cutover for entire migration we need to send this flag as True
+        dbsToTriggerCutoverOn:
+          type: array
+          items:
+            type: string
+          description: When you want to trigger cutover for specific databases send triggerCutover flag as True and database names in this array
+          x-ms-identifiers: []
+        cancel:
+          type: string
+          enum:
+            - 'True'
+            - 'False'
+          x-ms-enum:
+            name: CancelEnum
+            modelAsString: true
+          description: To trigger cancel for entire migration we need to send this flag as True
+        dbsToCancelMigrationOn:
+          type: array
+          items:
+            type: string
+          description: When you want to trigger cancel for specific databases send cancel flag as True and database names in this array
+          x-ms-identifiers: []
+        migrationMode:
+          $ref: '#/components/schemas/MigrationMode'
+          description: There are two types of migration modes Online and Offline
+      description: Migration resource properties for patch.
+    MigrationSecretParameters:
+      required:
+        - adminCredentials
+      type: object
+      properties:
+        adminCredentials:
+          x-ms-secret: true
+          x-ms-external: true
+          $ref: '#/components/schemas/AdminCredentials'
+          description: Admin credentials for source and target servers
+        sourceServerUsername:
+          type: string
+          x-ms-mutability:
+            - create
+            - update
+          description: Gets or sets the username for the source server. This user need not be an admin.
+        targetServerUsername:
+          type: string
+          x-ms-mutability:
+            - create
+            - update
+          description: Gets or sets the username for the target server. This user need not be an admin.
+      description: Migration secret parameters.
+    AdminCredentials:
+      type: object
+      required:
+        - sourceServerPassword
+        - targetServerPassword
+      properties:
+        sourceServerPassword:
+          type: string
+          x-ms-secret: true
+          x-ms-external: true
+          x-ms-mutability:
+            - create
+            - update
+          description: Password for source server.
+        targetServerPassword:
+          type: string
+          x-ms-secret: true
+          x-ms-external: true
+          x-ms-mutability:
+            - create
+            - update
+          description: Password for target server.
+      description: Server admin credentials.
+    DbServerMetadata:
+      type: object
+      properties:
+        location:
+          type: string
+          description: Location of database server
+          x-ms-mutability:
+            - read
+          readOnly: true
+        version:
+          type: string
+          description: Version for database engine
+        storageMb:
+          format: int32
+          type: integer
+          description: Storage size in MB for database server
+        sku:
+          $ref: '#/components/schemas/ServerSku'
+          description: SKU for the database server. This object is empty for PG single server
+      description: Database server metadata.
+    MigrationDetailsLevel:
+      enum:
+        - Default
+        - Summary
+        - Full
+      type: string
+      description: Migration details level.
+      x-ms-enum:
+        name: MigrationDetailsLevel
+        modelAsString: true
+    MigrationMode:
+      enum:
+        - Offline
+        - Online
+      type: string
+      description: There are two types of migration modes Online and Offline
+      x-ms-enum:
+        name: MigrationMode
+        modelAsString: true
+    MigrationOption:
+      enum:
+        - Validate
+        - Migrate
+        - ValidateAndMigrate
+      type: string
+      description: Supported types of migration request include Validate, Migrate and ValidateAndMigrate
+      x-ms-enum:
+        name: MigrationOption
+        modelAsString: true
+    MigrationState:
+      enum:
+        - InProgress
+        - WaitingForUserAction
+        - Canceled
+        - Failed
+        - Succeeded
+        - ValidationFailed
+        - CleaningUp
+      type: string
+      description: Migration state.
+      x-ms-enum:
+        name: MigrationState
+        modelAsString: true
+    MigrationStatus:
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/MigrationState'
+          readOnly: true
+          description: State of migration
+        error:
+          type: string
+          readOnly: true
+          description: Error message, if any, for the migration state
+        currentSubStateDetails:
+          $ref: '#/components/schemas/MigrationSubStateDetails'
+          readOnly: true
+          description: Current Migration sub state details.
+      description: Migration status.
+    MigrationSubState:
+      enum:
+        - PerformingPreRequisiteSteps
+        - WaitingForLogicalReplicationSetupRequestOnSourceDB
+        - WaitingForDBsToMigrateSpecification
+        - WaitingForTargetDBOverwriteConfirmation
+        - WaitingForDataMigrationScheduling
+        - WaitingForDataMigrationWindow
+        - MigratingData
+        - WaitingForCutoverTrigger
+        - CompletingMigration
+        - Completed
+        - CancelingRequestedDBMigrations
+        - ValidationInProgress
+      type: string
+      description: Migration sub state.
+      x-ms-enum:
+        name: MigrationSubState
+        modelAsString: true
+    MigrationSubStateDetails:
+      type: object
+      properties:
+        currentSubState:
+          $ref: '#/components/schemas/MigrationSubState'
+          readOnly: true
+        dbDetails:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DbMigrationStatus'
+        validationDetails:
+          $ref: '#/components/schemas/ValidationDetails'
+      description: Migration sub state details.
+    DbMigrationStatus:
+      type: object
+      description: Migration status of an individual database
+      properties:
+        databaseName:
+          type: string
+          description: Name of the database
+        migrationState:
+          type: string
+          description: Migration db state of an individual database
+          enum:
+            - InProgress
+            - WaitingForCutoverTrigger
+            - Failed
+            - Canceled
+            - Succeeded
+            - Canceling
+          x-ms-enum:
+            name: MigrationDbState
+            modelAsString: true
+        migrationOperation:
+          type: string
+          description: Migration operation of an individual database
+        startedOn:
+          type: string
+          format: date-time
+          description: Start date-time of a migration state
+        endedOn:
+          type: string
+          format: date-time
+          description: End date-time of a migration state
+        fullLoadQueuedTables:
+          format: int32
+          type: integer
+          description: Number of tables queued for the migration of a DB
+        fullLoadErroredTables:
+          format: int32
+          type: integer
+          description: Number of tables errored out during the migration of a DB
+        fullLoadLoadingTables:
+          format: int32
+          type: integer
+          description: Number of tables loading during the migration of a DB
+        fullLoadCompletedTables:
+          format: int32
+          type: integer
+          description: Number of tables loaded during the migration of a DB
+        cdcUpdateCounter:
+          format: int32
+          type: integer
+          description: CDC update counter
+        cdcDeleteCounter:
+          format: int32
+          type: integer
+          description: CDC delete counter
+        cdcInsertCounter:
+          format: int32
+          type: integer
+          description: CDC insert counter
+        appliedChanges:
+          format: int32
+          type: integer
+          description: CDC applied changes counter
+        incomingChanges:
+          format: int32
+          type: integer
+          description: CDC incoming changes counter
+        latency:
+          format: int32
+          type: integer
+          description: Lag in seconds between source and target during online phase
+        message:
+          type: string
+          description: Error message, if any, for the migration state
+    ValidationDetails:
+      type: object
+      description: Details for the validation for migration
+      properties:
+        status:
+          $ref: '#/components/schemas/ValidationState'
+        validationStartTimeInUtc:
+          type: string
+          format: date-time
+          description: Validation Start date-time in UTC
+        validationEndTimeInUtc:
+          type: string
+          format: date-time
+          description: Validation End date-time in UTC
+        serverLevelValidationDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationSummaryItem'
+          description: Details of server level validations
+          x-ms-identifiers: []
+        dbLevelValidationDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/DbLevelValidationStatus'
+          description: Details of server level validations
+          x-ms-identifiers:
+            - databaseName
+    DbLevelValidationStatus:
+      type: object
+      description: Validation status summary for an individual database
+      properties:
+        databaseName:
+          type: string
+          description: Name of the database
+        startedOn:
+          type: string
+          format: date-time
+          description: Start date-time of a database level validation
+        endedOn:
+          type: string
+          format: date-time
+          description: End date-time of a database level validation
+        summary:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationSummaryItem'
+          description: Summary of database level validations
+          x-ms-identifiers: []
+    ValidationSummaryItem:
+      type: object
+      description: Validation summary object
+      properties:
+        type:
+          type: string
+          description: Validation type
+        state:
+          $ref: '#/components/schemas/ValidationState'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationMessage'
+          description: Validation messages
+          x-ms-identifiers: []
+    ValidationMessage:
+      type: object
+      description: Validation message object
+      properties:
+        state:
+          $ref: '#/components/schemas/ValidationState'
+          description: Severity of validation message
+        message:
+          type: string
+          description: Validation message string
+    ValidationState:
+      type: string
+      description: Validation status for migration
+      enum:
+        - Failed
+        - Succeeded
+        - Warning
+      x-ms-enum:
+        name: ValidationState
+        modelAsString: true
+    SourceType:
+      enum:
+        - OnPremises
+        - AWS
+        - GCP
+        - AzureVM
+        - PostgreSQLSingleServer
+        - AWS_RDS
+        - AWS_AURORA
+        - AWS_EC2
+        - GCP_CloudSQL
+        - GCP_AlloyDB
+        - GCP_Compute
+        - EDB
+      type: string
+      description: 'Migration source server type : OnPremises, AWS, GCP, AzureVM, PostgreSQLSingleServer, AWS_RDS, AWS_AURORA, AWS_EC2, GCP_CloudSQL, GCP_AlloyDB, GCP_Compute, or EDB'
+      x-ms-enum:
+        name: SourceType
+        modelAsString: true
+    SslMode:
+      enum:
+        - Prefer
+        - Require
+        - VerifyCA
+        - VerifyFull
+      type: string
+      description: Supported SSL modes for migration. VerifyFull is the recommended SSL mode for Single server migration. Prefer, Require are recommended SSL modes for other source types
+      x-ms-enum:
+        name: SslMode
+        modelAsString: true
+    ServerSku:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the sku, typically, tier + family + cores, e.g. Standard_D4s_v3.
+        tier:
+          type: string
+          description: The tier of the particular SKU, e.g. Burstable.
+          enum:
+            - Burstable
+            - GeneralPurpose
+            - MemoryOptimized
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: true
+      description: Sku information related properties of a server.
+    MigrationNameAvailabilityReason:
+      enum:
+        - Invalid
+        - AlreadyExists
+      type: string
+      description: Migration name availability reason.
+      x-ms-enum:
+        name: MigrationNameAvailabilityReason
+        modelAsString: true
+    MigrationNameAvailabilityResource:
+      required:
+        - name
+        - type
+      type: object
+      properties:
+        name:
+          type: string
+          description: The resource name to verify.
+        type:
+          type: string
+          description: The type of the resource.
+        nameAvailable:
+          type: boolean
+          description: Indicates whether the resource name is available.
+          readOnly: true
+        reason:
+          $ref: '#/components/schemas/MigrationNameAvailabilityReason'
+          description: Migration name availability reason
+          readOnly: true
+        message:
+          type: string
+          description: Migration name availability message.
+          readOnly: true
+      description: Represents a migration name's availability.
     VirtualEndpointResourceProperties:
       type: object
       properties:
@@ -176,47 +898,110 @@ components:
           description: The link used to get the next page of operations.
           type: string
       description: A list of virtual endpoints.
-    ServerBackupProperties:
-      type: object
-      properties:
-        backupType:
-          type: string
-          description: Backup type.
-          enum:
-            - Full
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        completedTime:
-          type: string
-          format: date-time
-          description: Backup completed time (ISO8601 format).
-        source:
-          type: string
-          description: Backup source
-      description: The properties of a server backup.
-    ServerBackup:
+    ActiveDirectoryAdministratorAdd:
       type: object
       properties:
         properties:
-          $ref: '#/components/schemas/ServerBackupProperties'
+          $ref: '#/components/schemas/AdministratorPropertiesForAdd'
           x-ms-client-flatten: true
-          description: The properties of a server backup.
+          description: Properties of the active directory administrator.
+      description: Represents an Active Directory administrator.
+    AdministratorPropertiesForAdd:
+      type: object
+      properties:
+        principalType:
+          type: string
+          description: The principal type used to represent the type of Active Directory Administrator.
+          enum:
+            - Unknown
+            - User
+            - Group
+            - ServicePrincipal
+          x-ms-enum:
+            name: PrincipalType
+            modelAsString: true
+          x-ms-mutability:
+            - create
+            - update
+            - read
+        principalName:
+          type: string
+          description: Active Directory administrator principal name.
+          x-ms-mutability:
+            - create
+            - update
+            - read
+        tenantId:
+          type: string
+          description: The tenantId of the Active Directory administrator.
+          x-ms-mutability:
+            - create
+            - update
+      description: The properties of an Active Directory administrator.
+    AdministratorProperties:
+      type: object
+      properties:
+        principalType:
+          type: string
+          description: The principal type used to represent the type of Active Directory Administrator.
+          enum:
+            - Unknown
+            - User
+            - Group
+            - ServicePrincipal
+          x-ms-enum:
+            name: PrincipalType
+            modelAsString: true
+          x-ms-mutability:
+            - create
+            - update
+            - read
+        principalName:
+          type: string
+          description: Active Directory administrator principal name.
+          x-ms-mutability:
+            - create
+            - update
+            - read
+        objectId:
+          type: string
+          description: The objectId of the Active Directory administrator.
+          x-ms-mutability:
+            - create
+            - update
+            - read
+        tenantId:
+          type: string
+          description: The tenantId of the Active Directory administrator.
+          x-ms-mutability:
+            - create
+            - update
+            - read
+      description: The properties of an Active Directory administrator.
+    ActiveDirectoryAdministrator:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/AdministratorProperties'
+          x-ms-client-flatten: true
+          description: Properties of the active directory administrator.
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
-      description: Server backup properties
-    ServerBackupListResult:
+      required:
+        - properties
+      description: Represents an Active Directory administrator.
+    AdministratorListResult:
       type: object
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/ServerBackup'
-          description: The list of backups of a server.
+            $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+          description: The list of active directory administrators
         nextLink:
-          description: The link used to get the next page of operations.
+          description: The link used to get the next page of active directory.
           type: string
-      description: A list of server backups.
+      description: A list of active directory administrators.
     QuotaUsage:
       type: object
       properties:
@@ -265,225 +1050,45 @@ components:
           type: string
           readOnly: true
       description: Capability for the PostgreSQL server
-    CapabilityBase:
-      type: object
-      description: Base object for representing capability
-      properties:
-        status:
-          description: The status of the capability.
-          enum:
-            - Visible
-            - Available
-            - Default
-            - Disabled
-          type: string
-          readOnly: true
-          x-ms-mutability:
-            - read
-          x-ms-enum:
-            name: CapabilityStatus
-            modelAsString: false
-        reason:
-          description: The reason for the capability not being available.
-          type: string
-          readOnly: true
-          x-ms-mutability:
-            - read
-    PrivateEndpointConnectionProperties:
+    VirtualNetworkSubnetUsageParameter:
       type: object
       properties:
-        groupIds:
-          description: The group ids for the private endpoint resource.
+        virtualNetworkArmResourceId:
+          type: string
+          description: Virtual network resource id.
+      description: Virtual network subnet usage parameter
+    VirtualNetworkSubnetUsageResult:
+      type: object
+      properties:
+        delegatedSubnetsUsage:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/DelegatedSubnetUsage'
           readOnly: true
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The private endpoint resource.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
-      required:
-        - privateLinkServiceConnectionState
-      description: Properties of the private endpoint connection.
-    PrivateEndpointProperty:
+          x-ms-identifiers:
+            - subnetName
+        location:
+          type: string
+          readOnly: true
+          description: location of the delegated subnet usage
+        subscriptionId:
+          type: string
+          readOnly: true
+          description: subscriptionId of the delegated subnet usage
+      description: Virtual network subnet usage data.
+    DelegatedSubnetUsage:
       type: object
       properties:
-        id:
-          description: Resource id of the private endpoint.
-          type: string
-          format: arm-id
-      x-ms-azure-resource: true
-    PrivateLinkServiceConnectionStateProperty:
-      required:
-        - status
-        - description
-      type: object
-      properties:
-        status:
-          description: The private link service connection status. Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
-          type: string
-        description:
-          description: The private link service connection description. The reason for approval/rejection of the connection.
-          type: string
-        actionsRequired:
-          description: The actions required for private link service connection. A message indicating if changes on the service provider require any updates on the consumer.
+        subnetName:
           type: string
           readOnly: true
-      description: A collection of information about the state of the private endpoint connection.
-    PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          x-ms-client-flatten: true
-          description: Resource properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: The private endpoint connection resource.
-    PrivateLinkResourceProperties:
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
+          description: Name of the delegated subnet for which IP addresses are in use
+        usage:
+          type: integer
+          format: int64
           readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource private link DNS zone name.
-      description: Properties of a private link resource.
-    PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: A private link resource.
-    PrivateDnsZoneSuffix:
-      type: string
-      description: Represents a resource name availability.
-    NameAvailability:
-      type: object
-      properties:
-        name:
-          type: string
-          description: name of the PostgreSQL server.
-          readOnly: true
-        type:
-          type: string
-          description: type of the server
-          readOnly: true
-      description: Represents a resource name availability.
-      allOf:
-        - $ref: '#/components/schemas/CheckNameAvailabilityResponse'
-    ConfigurationProperties:
-      type: object
-      properties:
-        value:
-          type: string
-          description: Value of the configuration.
-        description:
-          type: string
-          readOnly: true
-          description: Description of the configuration.
-        defaultValue:
-          type: string
-          readOnly: true
-          description: Default value of the configuration.
-        dataType:
-          type: string
-          readOnly: true
-          description: Data type of the configuration.
-          enum:
-            - Boolean
-            - Numeric
-            - Integer
-            - Enumeration
-          x-ms-enum:
-            name: ConfigurationDataType
-            modelAsString: true
-        allowedValues:
-          type: string
-          readOnly: true
-          description: Allowed values of the configuration.
-        source:
-          type: string
-          description: Source of the configuration.
-        isDynamicConfig:
-          type: boolean
-          readOnly: true
-          description: Configuration dynamic or static.
-        isReadOnly:
-          type: boolean
-          readOnly: true
-          description: Configuration read-only or not.
-        isConfigPendingRestart:
-          type: boolean
-          readOnly: true
-          description: Configuration is pending restart or not.
-        unit:
-          type: string
-          readOnly: true
-          description: Configuration unit.
-        documentationLink:
-          type: string
-          readOnly: true
-          description: Configuration documentation link.
-      description: The properties of a configuration.
-    Configuration:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ConfigurationProperties'
-          x-ms-client-flatten: true
-          description: The properties of a configuration.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Configuration.
-    ConfigurationForUpdate:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/ConfigurationProperties'
-          x-ms-client-flatten: true
-          description: The properties of a configuration.
-      description: Represents a Configuration.
-    ConfigurationListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Configuration'
-          description: The list of server configurations.
-        nextLink:
-          description: The link used to get the next page of operations.
-          type: string
-      description: A list of server configurations.
-    PrivateLinkResourceListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private link resources
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-      description: A list of private link resources.
+          description: Number of IP addresses used by the delegated subnet
+      description: Delegated subnet usage data.
     StorageTierCapability:
       type: object
       description: Represents capability of a storage tier
@@ -820,88 +1425,6 @@ components:
           type: string
           readOnly: true
       description: Capability for the PostgreSQL server
-    PrivateEndpoint:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ARM identifier for private endpoint.
-      description: The private endpoint resource.
-    PrivateLinkServiceConnectionState:
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
-          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
-        description:
-          type: string
-          description: The reason for approval/rejection of the connection.
-        actionsRequired:
-          type: string
-          description: A message indicating if changes on the service provider require any updates on the consumer.
-      description: A collection of information about the state of the connection between service consumer and provider.
-    PrivateEndpointServiceConnectionStatus:
-      type: string
-      description: The private endpoint connection status.
-      enum:
-        - Pending
-        - Approved
-        - Rejected
-      x-ms-enum:
-        name: PrivateEndpointServiceConnectionStatus
-        modelAsString: true
-    PrivateEndpointConnectionProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Creating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PrivateEndpointConnectionProvisioningState
-        modelAsString: true
-    FirewallRuleProperties:
-      type: object
-      properties:
-        startIpAddress:
-          type: string
-          pattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
-          description: The start IP address of the server firewall rule. Must be IPv4 format.
-        endIpAddress:
-          type: string
-          pattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
-          description: The end IP address of the server firewall rule. Must be IPv4 format.
-      required:
-        - startIpAddress
-        - endIpAddress
-      description: The properties of a server firewall rule.
-    FirewallRule:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/FirewallRuleProperties'
-          x-ms-client-flatten: true
-          description: The properties of a firewall rule.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      required:
-        - properties
-      description: Represents a server firewall rule.
-    FirewallRuleListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/FirewallRule'
-          description: The list of firewall rules in a server.
-        nextLink:
-          description: The link used to get the next page of operations.
-          type: string
-      description: A list of firewall rules.
     Replica:
       type: object
       description: Replica properties of a server
@@ -1501,110 +2024,134 @@ components:
           format: int32
           default: 0
           description: day of week for maintenance window
-    ActiveDirectoryAdministratorAdd:
+    ConfigurationProperties:
+      type: object
+      properties:
+        value:
+          type: string
+          description: Value of the configuration.
+        description:
+          type: string
+          readOnly: true
+          description: Description of the configuration.
+        defaultValue:
+          type: string
+          readOnly: true
+          description: Default value of the configuration.
+        dataType:
+          type: string
+          readOnly: true
+          description: Data type of the configuration.
+          enum:
+            - Boolean
+            - Numeric
+            - Integer
+            - Enumeration
+          x-ms-enum:
+            name: ConfigurationDataType
+            modelAsString: true
+        allowedValues:
+          type: string
+          readOnly: true
+          description: Allowed values of the configuration.
+        source:
+          type: string
+          description: Source of the configuration.
+        isDynamicConfig:
+          type: boolean
+          readOnly: true
+          description: Configuration dynamic or static.
+        isReadOnly:
+          type: boolean
+          readOnly: true
+          description: Configuration read-only or not.
+        isConfigPendingRestart:
+          type: boolean
+          readOnly: true
+          description: Configuration is pending restart or not.
+        unit:
+          type: string
+          readOnly: true
+          description: Configuration unit.
+        documentationLink:
+          type: string
+          readOnly: true
+          description: Configuration documentation link.
+      description: The properties of a configuration.
+    Configuration:
       type: object
       properties:
         properties:
-          $ref: '#/components/schemas/AdministratorPropertiesForAdd'
+          $ref: '#/components/schemas/ConfigurationProperties'
           x-ms-client-flatten: true
-          description: Properties of the active directory administrator.
-      description: Represents an Active Directory administrator.
-    AdministratorPropertiesForAdd:
-      type: object
-      properties:
-        principalType:
-          type: string
-          description: The principal type used to represent the type of Active Directory Administrator.
-          enum:
-            - Unknown
-            - User
-            - Group
-            - ServicePrincipal
-          x-ms-enum:
-            name: PrincipalType
-            modelAsString: true
-          x-ms-mutability:
-            - create
-            - update
-            - read
-        principalName:
-          type: string
-          description: Active Directory administrator principal name.
-          x-ms-mutability:
-            - create
-            - update
-            - read
-        tenantId:
-          type: string
-          description: The tenantId of the Active Directory administrator.
-          x-ms-mutability:
-            - create
-            - update
-      description: The properties of an Active Directory administrator.
-    AdministratorProperties:
-      type: object
-      properties:
-        principalType:
-          type: string
-          description: The principal type used to represent the type of Active Directory Administrator.
-          enum:
-            - Unknown
-            - User
-            - Group
-            - ServicePrincipal
-          x-ms-enum:
-            name: PrincipalType
-            modelAsString: true
-          x-ms-mutability:
-            - create
-            - update
-            - read
-        principalName:
-          type: string
-          description: Active Directory administrator principal name.
-          x-ms-mutability:
-            - create
-            - update
-            - read
-        objectId:
-          type: string
-          description: The objectId of the Active Directory administrator.
-          x-ms-mutability:
-            - create
-            - update
-            - read
-        tenantId:
-          type: string
-          description: The tenantId of the Active Directory administrator.
-          x-ms-mutability:
-            - create
-            - update
-            - read
-      description: The properties of an Active Directory administrator.
-    ActiveDirectoryAdministrator:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/AdministratorProperties'
-          x-ms-client-flatten: true
-          description: Properties of the active directory administrator.
+          description: The properties of a configuration.
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
-      required:
-        - properties
-      description: Represents an Active Directory administrator.
-    AdministratorListResult:
+      description: Represents a Configuration.
+    ConfigurationForUpdate:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ConfigurationProperties'
+          x-ms-client-flatten: true
+          description: The properties of a configuration.
+      description: Represents a Configuration.
+    ConfigurationListResult:
       type: object
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/ActiveDirectoryAdministrator'
-          description: The list of active directory administrators
+            $ref: '#/components/schemas/Configuration'
+          description: The list of server configurations.
         nextLink:
-          description: The link used to get the next page of active directory.
+          description: The link used to get the next page of operations.
           type: string
-      description: A list of active directory administrators.
+      description: A list of server configurations.
+    ServerThreatProtectionProperties:
+      description: Properties of server Threat Protection state.
+      required:
+        - state
+      type: object
+      properties:
+        state:
+          description: Specifies the state of the Threat Protection, whether it is enabled or disabled or a state has not been applied yet on the specific server.
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: ThreatProtectionState
+            modelAsString: false
+        creationTime:
+          format: date-time
+          description: Specifies the UTC creation time of the policy.
+          type: string
+          readOnly: true
+    ServerThreatProtectionSettingsModel:
+      description: Server's Advanced Threat Protection settings.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/ServerThreatProtectionProperties'
+          description: Advanced Threat Protection properties.
+          x-ms-client-flatten: true
+    ServerThreatProtectionListResult:
+      description: A list of the server's Advanced Threat Protection settings.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
     LogFileProperties:
       type: object
       properties:
@@ -1649,6 +2196,137 @@ components:
           description: The link used to get the next page of operations.
           type: string
       description: A List of logFiles.
+    ServerBackupProperties:
+      type: object
+      properties:
+        backupType:
+          type: string
+          description: Backup type.
+          enum:
+            - Full
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        completedTime:
+          type: string
+          format: date-time
+          description: Backup completed time (ISO8601 format).
+        source:
+          type: string
+          description: Backup source
+      description: The properties of a server backup.
+    ServerBackup:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/ServerBackupProperties'
+          x-ms-client-flatten: true
+          description: The properties of a server backup.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Server backup properties
+    ServerBackupListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerBackup'
+          description: The list of backups of a server.
+        nextLink:
+          description: The link used to get the next page of operations.
+          type: string
+      description: A list of server backups.
+    OperationDisplay:
+      type: object
+      properties:
+        provider:
+          type: string
+          readOnly: true
+          description: Operation resource provider name.
+        resource:
+          type: string
+          readOnly: true
+          description: Resource on which the operation is performed.
+        operation:
+          type: string
+          readOnly: true
+          description: Localized friendly name for the operation.
+        description:
+          type: string
+          readOnly: true
+          description: Operation description.
+      description: Display metadata associated with the operation.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1856,54 +2534,6 @@ components:
           type: object
           description: The additional info.
       description: The resource management error additional info.
-    Operation:
-      type: object
-      properties:
-        name:
-          type: string
-          readOnly: true
-          description: The name of the operation being performed on this particular object.
-        display:
-          $ref: '#/components/schemas/OperationDisplay'
-          readOnly: true
-          description: The localized display information for this particular operation or action.
-        isDataAction:
-          description: Indicates whether the operation is a data action
-          type: boolean
-        origin:
-          type: string
-          readOnly: true
-          description: The intended executor of the operation.
-          enum:
-            - NotSpecified
-            - user
-            - system
-          x-ms-enum:
-            name: OperationOrigin
-            modelAsString: true
-        properties:
-          type: object
-          additionalProperties:
-            type: object
-          readOnly: true
-          x-ms-client-flatten: false
-          description: Additional descriptions for the operation.
-      description: REST API operation definition.
-    OperationListResult:
-      description: A list of resource provider operations.
-      type: object
-      properties:
-        value:
-          description: Collection of available operation details
-          uniqueItems: false
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-        nextLink:
-          description: "URL client should use to fetch the next page (per server side paging).\r\nIt's null for now, added for future use."
-          type: string
     OperationStatusResult:
       description: The current status of an async operation.
       type: object
@@ -2060,6 +2690,73 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    CapabilityBase:
+      type: object
+      description: Base object for representing capability
+      properties:
+        status:
+          description: The status of the capability.
+          enum:
+            - Visible
+            - Available
+            - Default
+            - Disabled
+          type: string
+          readOnly: true
+          x-ms-mutability:
+            - read
+          x-ms-enum:
+            name: CapabilityStatus
+            modelAsString: false
+        reason:
+          description: The reason for the capability not being available.
+          type: string
+          readOnly: true
+          x-ms-mutability:
+            - read
+    PrivateEndpointProperty:
+      type: object
+      properties:
+        id:
+          description: Resource id of the private endpoint.
+          type: string
+          format: arm-id
+      x-ms-azure-resource: true
+    PrivateLinkServiceConnectionStateProperty:
+      required:
+        - status
+        - description
+      type: object
+      properties:
+        status:
+          description: The private link service connection status. Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+          type: string
+        description:
+          description: The private link service connection description. The reason for approval/rejection of the connection.
+          type: string
+        actionsRequired:
+          description: The actions required for private link service connection. A message indicating if changes on the service provider require any updates on the consumer.
+          type: string
+          readOnly: true
+      description: A collection of information about the state of the private endpoint connection.
+    RestartParameter:
+      type: object
+      properties:
+        restartWithFailover:
+          type: boolean
+          description: Indicates whether to restart the server with failover.
+        failoverMode:
+          type: string
+          description: Failover mode.
+          enum:
+            - PlannedFailover
+            - ForcedFailover
+            - PlannedSwitchover
+            - ForcedSwitchover
+          x-ms-enum:
+            name: FailoverMode
+            modelAsString: true
+      description: Represents server restart parameters.
     BackupRequestBase:
       description: BackupRequestBase is the base for all backup request.
       required:
@@ -2214,712 +2911,70 @@ components:
           description: Additional Properties for the pre backup response
           x-ms-client-flatten: true
           $ref: '#/components/schemas/LtrPreBackupResponseProperties'
-    VirtualNetworkSubnetUsageParameter:
+    PrivateDnsZoneSuffix:
+      type: string
+      description: Represents a resource name availability.
+    FirewallRuleProperties:
       type: object
       properties:
-        virtualNetworkArmResourceId:
+        startIpAddress:
           type: string
-          description: Virtual network resource id.
-      description: Virtual network subnet usage parameter
-    VirtualNetworkSubnetUsageResult:
-      type: object
-      properties:
-        delegatedSubnetsUsage:
-          type: array
-          items:
-            $ref: '#/components/schemas/DelegatedSubnetUsage'
-          readOnly: true
-          x-ms-identifiers:
-            - subnetName
-        location:
+          pattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
+          description: The start IP address of the server firewall rule. Must be IPv4 format.
+        endIpAddress:
           type: string
-          readOnly: true
-          description: location of the delegated subnet usage
-        subscriptionId:
-          type: string
-          readOnly: true
-          description: subscriptionId of the delegated subnet usage
-      description: Virtual network subnet usage data.
-    DelegatedSubnetUsage:
-      type: object
-      properties:
-        subnetName:
-          type: string
-          readOnly: true
-          description: Name of the delegated subnet for which IP addresses are in use
-        usage:
-          type: integer
-          format: int64
-          readOnly: true
-          description: Number of IP addresses used by the delegated subnet
-      description: Delegated subnet usage data.
-    OperationDisplay:
-      type: object
-      properties:
-        provider:
-          type: string
-          readOnly: true
-          description: Operation resource provider name.
-        resource:
-          type: string
-          readOnly: true
-          description: Resource on which the operation is performed.
-        operation:
-          type: string
-          readOnly: true
-          description: Localized friendly name for the operation.
-        description:
-          type: string
-          readOnly: true
-          description: Operation description.
-      description: Display metadata associated with the operation.
-    MigrationResource:
+          pattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
+          description: The end IP address of the server firewall rule. Must be IPv4 format.
+      required:
+        - startIpAddress
+        - endIpAddress
+      description: The properties of a server firewall rule.
+    FirewallRule:
       type: object
       properties:
         properties:
-          $ref: '#/components/schemas/MigrationResourceProperties'
-          description: Migration resource properties.
+          $ref: '#/components/schemas/FirewallRuleProperties'
           x-ms-client-flatten: true
+          description: The properties of a firewall rule.
       allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Represents a migration resource.
-    MigrationResourceProperties:
-      type: object
-      properties:
-        migrationId:
-          type: string
-          readOnly: true
-          description: ID for migration, a GUID.
-        currentStatus:
-          $ref: '#/components/schemas/MigrationStatus'
-          readOnly: true
-          description: Current status of migration
-        migrationMode:
-          $ref: '#/components/schemas/MigrationMode'
-          description: There are two types of migration modes Online and Offline
-        migrationOption:
-          $ref: '#/components/schemas/MigrationOption'
-          description: This indicates the supported Migration option for the migration
-        sourceType:
-          $ref: '#/components/schemas/SourceType'
-          description: 'migration source server type : OnPremises, AWS, GCP, AzureVM or PostgreSQLSingleServer'
-        sslMode:
-          $ref: '#/components/schemas/SslMode'
-          description: SSL modes for migration. Default SSL mode for PostgreSQLSingleServer is VerifyFull and Prefer for other source types
-        sourceDbServerMetadata:
-          $ref: '#/components/schemas/DbServerMetadata'
-          readOnly: true
-          description: Metadata of the source database server
-        targetDbServerMetadata:
-          $ref: '#/components/schemas/DbServerMetadata'
-          readOnly: true
-          description: Metadata of the target database server
-        sourceDbServerResourceId:
-          type: string
-          description: ResourceId of the source database server in case the sourceType is PostgreSQLSingleServer. For other source types this should be ipaddress:port@username or hostname:port@username
-        sourceDbServerFullyQualifiedDomainName:
-          type: string
-          description: Source server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
-        targetDbServerResourceId:
-          type: string
-          readOnly: true
-          description: ResourceId of the source database server
-        targetDbServerFullyQualifiedDomainName:
-          type: string
-          description: Target server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
-        secretParameters:
-          $ref: '#/components/schemas/MigrationSecretParameters'
-          description: Migration secret parameters
-        dbsToMigrate:
-          maxItems: 50
-          type: array
-          items:
-            type: string
-          description: Number of databases to migrate
-          x-ms-identifiers: []
-        setupLogicalReplicationOnSourceDbIfNeeded:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: LogicalReplicationOnSourceDbEnum
-            modelAsString: true
-          description: Indicates whether to setup LogicalReplicationOnSourceDb, if needed
-        overwriteDbsInTarget:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: OverwriteDbsInTargetEnum
-            modelAsString: true
-          description: Indicates whether the databases on the target server can be overwritten, if already present. If set to False, the migration workflow will wait for a confirmation, if it detects that the database already exists.
-        migrationWindowStartTimeInUtc:
-          format: date-time
-          type: string
-          description: Start time in UTC for migration window
-        migrationWindowEndTimeInUtc:
-          format: date-time
-          type: string
-          description: End time in UTC for migration window
-        startDataMigration:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: StartDataMigrationEnum
-            modelAsString: true
-          description: Indicates whether the data migration should start right away
-        triggerCutover:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: TriggerCutoverEnum
-            modelAsString: true
-          description: To trigger cutover for entire migration we need to send this flag as True
-        dbsToTriggerCutoverOn:
-          type: array
-          items:
-            type: string
-          description: When you want to trigger cutover for specific databases send triggerCutover flag as True and database names in this array
-          x-ms-identifiers: []
-        cancel:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: CancelEnum
-            modelAsString: true
-          description: To trigger cancel for entire migration we need to send this flag as True
-        dbsToCancelMigrationOn:
-          type: array
-          items:
-            type: string
-          description: When you want to trigger cancel for specific databases send cancel flag as True and database names in this array
-          x-ms-identifiers: []
-      description: Migration resource properties.
-    MigrationResourceListResult:
+        - $ref: '#/components/schemas/ProxyResource'
+      required:
+        - properties
+      description: Represents a server firewall rule.
+    FirewallRuleListResult:
       type: object
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/MigrationResource'
-          readOnly: true
-          description: A list of migration resources.
-          x-ms-identifiers: []
+            $ref: '#/components/schemas/FirewallRule'
+          description: The list of firewall rules in a server.
         nextLink:
-          description: The link used to get the next page of migrations.
+          description: The link used to get the next page of operations.
           type: string
-          readOnly: true
-      description: A list of migration resources.
-    MigrationResourceForPatch:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/MigrationResourcePropertiesForPatch'
-          description: Migration resource properties.
-          x-ms-client-flatten: true
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Application-specific metadata in the form of key-value pairs.
-      description: Represents a migration resource for patch.
-    MigrationResourcePropertiesForPatch:
-      type: object
-      properties:
-        sourceDbServerResourceId:
-          type: string
-          description: ResourceId of the source database server
-        sourceDbServerFullyQualifiedDomainName:
-          type: string
-          description: Source server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
-        targetDbServerFullyQualifiedDomainName:
-          type: string
-          description: Target server fully qualified domain name or ip. It is a optional value, if customer provide it, dms will always use it for connection
-        secretParameters:
-          $ref: '#/components/schemas/MigrationSecretParameters'
-          description: Migration secret parameters
-        dbsToMigrate:
-          maxItems: 50
-          type: array
-          items:
-            type: string
-          description: Number of databases to migrate
-          x-ms-identifiers: []
-        setupLogicalReplicationOnSourceDbIfNeeded:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: LogicalReplicationOnSourceDbEnum
-            modelAsString: true
-          description: Indicates whether to setup LogicalReplicationOnSourceDb, if needed
-        overwriteDbsInTarget:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: OverwriteDbsInTargetEnum
-            modelAsString: true
-          description: Indicates whether the databases on the target server can be overwritten, if already present. If set to False, the migration workflow will wait for a confirmation, if it detects that the database already exists.
-        migrationWindowStartTimeInUtc:
-          format: date-time
-          type: string
-          description: Start time in UTC for migration window
-        startDataMigration:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: StartDataMigrationEnum
-            modelAsString: true
-          description: Indicates whether the data migration should start right away
-        triggerCutover:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: TriggerCutoverEnum
-            modelAsString: true
-          description: To trigger cutover for entire migration we need to send this flag as True
-        dbsToTriggerCutoverOn:
-          type: array
-          items:
-            type: string
-          description: When you want to trigger cutover for specific databases send triggerCutover flag as True and database names in this array
-          x-ms-identifiers: []
-        cancel:
-          type: string
-          enum:
-            - 'True'
-            - 'False'
-          x-ms-enum:
-            name: CancelEnum
-            modelAsString: true
-          description: To trigger cancel for entire migration we need to send this flag as True
-        dbsToCancelMigrationOn:
-          type: array
-          items:
-            type: string
-          description: When you want to trigger cancel for specific databases send cancel flag as True and database names in this array
-          x-ms-identifiers: []
-        migrationMode:
-          $ref: '#/components/schemas/MigrationMode'
-          description: There are two types of migration modes Online and Offline
-      description: Migration resource properties for patch.
-    MigrationSecretParameters:
-      required:
-        - adminCredentials
-      type: object
-      properties:
-        adminCredentials:
-          x-ms-secret: true
-          x-ms-external: true
-          $ref: '#/components/schemas/AdminCredentials'
-          description: Admin credentials for source and target servers
-        sourceServerUsername:
-          type: string
-          x-ms-mutability:
-            - create
-            - update
-          description: Gets or sets the username for the source server. This user need not be an admin.
-        targetServerUsername:
-          type: string
-          x-ms-mutability:
-            - create
-            - update
-          description: Gets or sets the username for the target server. This user need not be an admin.
-      description: Migration secret parameters.
-    AdminCredentials:
-      type: object
-      required:
-        - sourceServerPassword
-        - targetServerPassword
-      properties:
-        sourceServerPassword:
-          type: string
-          x-ms-secret: true
-          x-ms-external: true
-          x-ms-mutability:
-            - create
-            - update
-          description: Password for source server.
-        targetServerPassword:
-          type: string
-          x-ms-secret: true
-          x-ms-external: true
-          x-ms-mutability:
-            - create
-            - update
-          description: Password for target server.
-      description: Server admin credentials.
-    DbServerMetadata:
-      type: object
-      properties:
-        location:
-          type: string
-          description: Location of database server
-          x-ms-mutability:
-            - read
-          readOnly: true
-        version:
-          type: string
-          description: Version for database engine
-        storageMb:
-          format: int32
-          type: integer
-          description: Storage size in MB for database server
-        sku:
-          $ref: '#/components/schemas/ServerSku'
-          description: SKU for the database server. This object is empty for PG single server
-      description: Database server metadata.
-    MigrationDetailsLevel:
-      enum:
-        - Default
-        - Summary
-        - Full
-      type: string
-      description: Migration details level.
-      x-ms-enum:
-        name: MigrationDetailsLevel
-        modelAsString: true
-    MigrationMode:
-      enum:
-        - Offline
-        - Online
-      type: string
-      description: There are two types of migration modes Online and Offline
-      x-ms-enum:
-        name: MigrationMode
-        modelAsString: true
-    MigrationOption:
-      enum:
-        - Validate
-        - Migrate
-        - ValidateAndMigrate
-      type: string
-      description: Supported types of migration request include Validate, Migrate and ValidateAndMigrate
-      x-ms-enum:
-        name: MigrationOption
-        modelAsString: true
-    MigrationState:
-      enum:
-        - InProgress
-        - WaitingForUserAction
-        - Canceled
-        - Failed
-        - Succeeded
-        - ValidationFailed
-        - CleaningUp
-      type: string
-      description: Migration state.
-      x-ms-enum:
-        name: MigrationState
-        modelAsString: true
-    MigrationStatus:
-      type: object
-      properties:
-        state:
-          $ref: '#/components/schemas/MigrationState'
-          readOnly: true
-          description: State of migration
-        error:
-          type: string
-          readOnly: true
-          description: Error message, if any, for the migration state
-        currentSubStateDetails:
-          $ref: '#/components/schemas/MigrationSubStateDetails'
-          readOnly: true
-          description: Current Migration sub state details.
-      description: Migration status.
-    MigrationSubState:
-      enum:
-        - PerformingPreRequisiteSteps
-        - WaitingForLogicalReplicationSetupRequestOnSourceDB
-        - WaitingForDBsToMigrateSpecification
-        - WaitingForTargetDBOverwriteConfirmation
-        - WaitingForDataMigrationScheduling
-        - WaitingForDataMigrationWindow
-        - MigratingData
-        - WaitingForCutoverTrigger
-        - CompletingMigration
-        - Completed
-        - CancelingRequestedDBMigrations
-        - ValidationInProgress
-      type: string
-      description: Migration sub state.
-      x-ms-enum:
-        name: MigrationSubState
-        modelAsString: true
-    MigrationSubStateDetails:
-      type: object
-      properties:
-        currentSubState:
-          $ref: '#/components/schemas/MigrationSubState'
-          readOnly: true
-        dbDetails:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/DbMigrationStatus'
-        validationDetails:
-          $ref: '#/components/schemas/ValidationDetails'
-      description: Migration sub state details.
-    DbMigrationStatus:
-      type: object
-      description: Migration status of an individual database
-      properties:
-        databaseName:
-          type: string
-          description: Name of the database
-        migrationState:
-          type: string
-          description: Migration db state of an individual database
-          enum:
-            - InProgress
-            - WaitingForCutoverTrigger
-            - Failed
-            - Canceled
-            - Succeeded
-            - Canceling
-          x-ms-enum:
-            name: MigrationDbState
-            modelAsString: true
-        migrationOperation:
-          type: string
-          description: Migration operation of an individual database
-        startedOn:
-          type: string
-          format: date-time
-          description: Start date-time of a migration state
-        endedOn:
-          type: string
-          format: date-time
-          description: End date-time of a migration state
-        fullLoadQueuedTables:
-          format: int32
-          type: integer
-          description: Number of tables queued for the migration of a DB
-        fullLoadErroredTables:
-          format: int32
-          type: integer
-          description: Number of tables errored out during the migration of a DB
-        fullLoadLoadingTables:
-          format: int32
-          type: integer
-          description: Number of tables loading during the migration of a DB
-        fullLoadCompletedTables:
-          format: int32
-          type: integer
-          description: Number of tables loaded during the migration of a DB
-        cdcUpdateCounter:
-          format: int32
-          type: integer
-          description: CDC update counter
-        cdcDeleteCounter:
-          format: int32
-          type: integer
-          description: CDC delete counter
-        cdcInsertCounter:
-          format: int32
-          type: integer
-          description: CDC insert counter
-        appliedChanges:
-          format: int32
-          type: integer
-          description: CDC applied changes counter
-        incomingChanges:
-          format: int32
-          type: integer
-          description: CDC incoming changes counter
-        latency:
-          format: int32
-          type: integer
-          description: Lag in seconds between source and target during online phase
-        message:
-          type: string
-          description: Error message, if any, for the migration state
-    ValidationDetails:
-      type: object
-      description: Details for the validation for migration
-      properties:
-        status:
-          $ref: '#/components/schemas/ValidationState'
-        validationStartTimeInUtc:
-          type: string
-          format: date-time
-          description: Validation Start date-time in UTC
-        validationEndTimeInUtc:
-          type: string
-          format: date-time
-          description: Validation End date-time in UTC
-        serverLevelValidationDetails:
-          type: array
-          items:
-            $ref: '#/components/schemas/ValidationSummaryItem'
-          description: Details of server level validations
-          x-ms-identifiers: []
-        dbLevelValidationDetails:
-          type: array
-          items:
-            $ref: '#/components/schemas/DbLevelValidationStatus'
-          description: Details of server level validations
-          x-ms-identifiers:
-            - databaseName
-    DbLevelValidationStatus:
-      type: object
-      description: Validation status summary for an individual database
-      properties:
-        databaseName:
-          type: string
-          description: Name of the database
-        startedOn:
-          type: string
-          format: date-time
-          description: Start date-time of a database level validation
-        endedOn:
-          type: string
-          format: date-time
-          description: End date-time of a database level validation
-        summary:
-          type: array
-          items:
-            $ref: '#/components/schemas/ValidationSummaryItem'
-          description: Summary of database level validations
-          x-ms-identifiers: []
-    ValidationSummaryItem:
-      type: object
-      description: Validation summary object
-      properties:
-        type:
-          type: string
-          description: Validation type
-        state:
-          $ref: '#/components/schemas/ValidationState'
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/ValidationMessage'
-          description: Validation messages
-          x-ms-identifiers: []
-    ValidationMessage:
-      type: object
-      description: Validation message object
-      properties:
-        state:
-          $ref: '#/components/schemas/ValidationState'
-          description: Severity of validation message
-        message:
-          type: string
-          description: Validation message string
-    ValidationState:
-      type: string
-      description: Validation status for migration
-      enum:
-        - Failed
-        - Succeeded
-        - Warning
-      x-ms-enum:
-        name: ValidationState
-        modelAsString: true
-    SourceType:
-      enum:
-        - OnPremises
-        - AWS
-        - GCP
-        - AzureVM
-        - PostgreSQLSingleServer
-      type: string
-      description: 'Migration source server type : OnPremises, AWS, GCP, AzureVM or PostgreSQLSingleServer'
-      x-ms-enum:
-        name: SourceType
-        modelAsString: true
-    SslMode:
-      enum:
-        - Prefer
-        - Require
-        - VerifyCA
-        - VerifyFull
-      type: string
-      description: Supported SSL modes for migration. VerifyFull is the recommended SSL mode for Single server migration. Prefer, Require are recommended SSL modes for other source types
-      x-ms-enum:
-        name: SslMode
-        modelAsString: true
-    ServerSku:
+      description: A list of firewall rules.
+    NameAvailability:
       type: object
       properties:
         name:
           type: string
-          description: The name of the sku, typically, tier + family + cores, e.g. Standard_D4s_v3.
-        tier:
-          type: string
-          description: The tier of the particular SKU, e.g. Burstable.
-          enum:
-            - Burstable
-            - GeneralPurpose
-            - MemoryOptimized
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: true
-      description: Sku information related properties of a server.
-    MigrationNameAvailabilityReason:
-      enum:
-        - Invalid
-        - AlreadyExists
-      type: string
-      description: Migration name availability reason.
-      x-ms-enum:
-        name: MigrationNameAvailabilityReason
-        modelAsString: true
-    MigrationNameAvailabilityResource:
-      required:
-        - name
-        - type
-      type: object
-      properties:
-        name:
-          type: string
-          description: The resource name to verify.
+          description: name of the PostgreSQL server.
+          readOnly: true
         type:
           type: string
-          description: The type of the resource.
-        nameAvailable:
-          type: boolean
-          description: Indicates whether the resource name is available.
+          description: type of the server
           readOnly: true
-        reason:
-          $ref: '#/components/schemas/MigrationNameAvailabilityReason'
-          description: Migration name availability reason
-          readOnly: true
-        message:
-          type: string
-          description: Migration name availability message.
-          readOnly: true
-      description: Represents a migration name's availability.
+      description: Represents a resource name availability.
+      allOf:
+        - $ref: '#/components/schemas/CheckNameAvailabilityResponse'
   parameters:
-    ThreatProtectionNameParameter:
-      name: threatProtectionName
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
       in: path
-      description: The name of the Threat Protection state.
+      description: The name of the private endpoint connection associated with the Azure resource.
       required: true
       x-ms-parameter-location: method
       schema:
-        enum:
-          - Default
-        x-ms-enum:
-          name: ThreatProtectionName
-          modelAsString: true
-        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
         type: string
     DatabaseNameParameter:
       name: databaseName
@@ -2930,182 +2985,6 @@ components:
       schema:
         minLength: 1
         pattern: ^[-\w\._]+$
-        type: string
-    VirtualEndpointNameParameter:
-      name: virtualEndpointName
-      in: path
-      description: The name of the virtual endpoint.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9][A-Za-z0-9-]{0,62}(?<!-)$
-        minLength: 3
-        maxLength: 63
-        type: string
-    BackupNameParameter:
-      name: backupName
-      in: path
-      description: The name of the backup.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
-        type: string
-    ServerNameParameter:
-      name: serverName
-      in: path
-      description: The name of the server.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
-        minLength: 3
-        maxLength: 63
-        type: string
-    LocationNameParameter:
-      name: locationName
-      in: path
-      description: The name of the location.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        pattern: ^[-\w\._]+$
-        type: string
-    PrivateEndpointConnectionNameParameter:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[a-zA-Z][a-zA-Z0-9-]*\.[a-fA-F0-9\-]+$
-        type: string
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The name of the server configuration.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        pattern: ^[-\w\._]+$
-        type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    FirewallRuleNameParameter:
-      name: firewallRuleName
-      in: path
-      description: The name of the server firewall rule.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        pattern: ^[-\w\._]+$
-        type: string
-    ObjectIdParameter:
-      name: objectId
-      in: path
-      description: Guid of the objectId for the administrator.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription. The value must be an UUID.
-      required: true
-      schema:
-        format: uuid
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    ManagementGroupNameParameter:
-      name: managementGroupName
-      in: path
-      description: The name of the management group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    ScopeParameter:
-      name: scope
-      in: path
-      description: The scope at which the operation is performed.
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    TenantIdParameter:
-      name: tenantId
-      in: path
-      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        format: uuid
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of the Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    If-Match:
-      name: ifMatch
-      in: header
-      description: The If-Match header that makes a request conditional.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    If-None-Match:
-      name: ifNoneMatch
-      in: header
-      description: The If-None-Match header that makes a request conditional.
-      required: true
-      x-ms-parameter-location: method
-      schema:
         type: string
     TargetDbServerSubscriptionIdParameter:
       name: subscriptionId
@@ -3157,109 +3036,190 @@ components:
           name: MigrationListFilter
           modelAsString: true
         type: string
+    VirtualEndpointNameParameter:
+      name: virtualEndpointName
+      in: path
+      description: The name of the virtual endpoint.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9][A-Za-z0-9-]{0,62}(?<!-)$
+        minLength: 3
+        maxLength: 63
+        type: string
+    ObjectIdParameter:
+      name: objectId
+      in: path
+      description: Guid of the objectId for the administrator.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The name of the server configuration.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        pattern: ^[-\w\._]+$
+        type: string
+    ThreatProtectionNameParameter:
+      name: threatProtectionName
+      in: path
+      description: The name of the Threat Protection state.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - Default
+        x-ms-enum:
+          name: ThreatProtectionName
+          modelAsString: true
+        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
+        type: string
+    BackupNameParameter:
+      name: backupName
+      in: path
+      description: The name of the backup.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription. The value must be an UUID.
+      required: true
+      schema:
+        format: uuid
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ServerNameParameter:
+      name: serverName
+      in: path
+      description: The name of the server.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*
+        minLength: 3
+        maxLength: 63
+        type: string
+    LocationNameParameter:
+      name: locationName
+      in: path
+      description: The name of the location.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        pattern: ^[-\w\._]+$
+        type: string
+    PrivateEndpointConnectionNameParameter:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[a-zA-Z][a-zA-Z0-9-]*\.[a-fA-F0-9\-]+$
+        type: string
+    FirewallRuleNameParameter:
+      name: firewallRuleName
+      in: path
+      description: The name of the server firewall rule.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        pattern: ^[-\w\._]+$
+        type: string
 paths:
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/advancedThreatProtectionSettings:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - AdvancedThreatProtectionSettings
-      description: Get a list of server's Threat Protection state.
-      operationId: ServerThreatProtectionSettings_ListByServer
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server threat detection policy.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerThreatProtectionListResult'
-        default:
-          description: Error response describing why the operation of advanced threat protection on the flexible server failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/advancedThreatProtectionSettings/{threatProtectionName}:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - AdvancedThreatProtectionSettings
-      description: Get a server's Advanced Threat Protection settings.
-      operationId: ServerThreatProtectionSettings_Get
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ThreatProtectionNameParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server advanced threat protection settings.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
-        default:
-          description: Error response describing why the operation of threat protection on the flexible server failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - AdvancedThreatProtectionSettings
-      description: Creates or updates a server's Advanced Threat Protection settings.
-      operationId: ServerThreatProtectionSettings_CreateOrUpdate
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ThreatProtectionNameParameter'
-      requestBody:
-        description: The Advanced Threat Protection state for the flexible server.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
-      responses:
-        '200':
-          description: Successfully set or update the server Threat Protection settings.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
-        '201':
-          description: Successfully created the server Threat Protection settings.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation of setting Threat Protection failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/databases/{databaseName}:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     put:
       tags:
         - Databases
@@ -3363,7 +3323,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/databases:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - Databases
@@ -3389,8 +3349,275 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/migrations/{migrationName}:
+    x-api-version: 2023-12-01-preview
+    put:
+      tags:
+        - Migrations
+      operationId: Migrations_Create
+      description: Creates a new migration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/MigrationNameParameter'
+      requestBody:
+        description: The required parameters for creating a migration.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationResource'
+      responses:
+        '200':
+          description: Successfully set or update the Migration for a server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResource'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Migrations
+      operationId: Migrations_Get
+      description: Gets details of a migration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/MigrationNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Migrations
+      operationId: Migrations_Update
+      description: Updates an existing migration. The request body can contain one to many of the mutable properties present in the migration definition. Certain property updates initiate migration state transitions.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/MigrationNameParameter'
+      requestBody:
+        description: The required parameters for updating a migration.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationResourceForPatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Migrations
+      operationId: Migrations_Delete
+      description: Deletes a migration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/MigrationNameParameter'
+      responses:
+        '200':
+          description: OK
+        '204':
+          description: NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/migrations:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Migrations
+      operationId: Migrations_ListByTargetServer
+      description: List all the migrations on a given target server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/MigrationListFilter'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResourceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/checkMigrationNameAvailability:
+    x-api-version: 2023-12-01-preview
+    post:
+      summary: Check migration name validity and availability
+      description: This method checks whether a proposed migration name is valid and available.
+      tags:
+        - Custom operation
+        - POST
+      operationId: CheckMigrationNameAvailability
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
+        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+      requestBody:
+        description: The required parameters for checking if a migration name is available.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationNameAvailabilityResource'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationNameAvailabilityResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateLinkResources:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets the private link resources for PostgreSQL server.
+      operationId: PrivateLinkResources_ListByServer
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResourceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateLinkResources/{groupName}:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets a private link resource for PostgreSQL server.
+      operationId: PrivateLinkResources_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: groupName
+          in: path
+          description: The name of the private link resource.
+          required: true
+          schema:
+            pattern: ^.*$
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/replicas:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Replicas
+      operationId: Replicas_ListByServer
+      description: List all the replicas for a given server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -3490,7 +3717,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateEndpointConnections:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - PrivateEndpointConnections
@@ -3516,105 +3743,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/restart:
-    x-api-version: 2023-06-01-preview
-    post:
-      tags:
-        - ServerRestart
-      operationId: Servers_Restart
-      description: Restarts a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      requestBody:
-        description: The parameters for restarting a server.
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RestartParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/start:
-    x-api-version: 2023-06-01-preview
-    post:
-      tags:
-        - ServerStart
-      operationId: Servers_Start
-      description: Starts a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/stop:
-    x-api-version: 2023-06-01-preview
-    post:
-      tags:
-        - ServerStop
-      operationId: Servers_Stop
-      description: Stops a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/virtualendpoints/{virtualEndpointName}:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     put:
       tags:
         - VirtualEndpoints
@@ -3757,7 +3887,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/virtualendpoints:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - VirtualEndpoints
@@ -3783,39 +3913,117 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/backups/{backupName}:
-    x-api-version: 2023-06-01-preview
-    get:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/administrators/{objectId}:
+    x-api-version: 2023-12-01-preview
+    put:
       tags:
-        - Backups
-      operationId: Backups_Get
-      description: Get specific backup for a given server.
+        - Administrators
+      operationId: Administrators_Create
+      description: Creates a new server.
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/BackupNameParameter'
+        - $ref: '#/components/parameters/ObjectIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The required parameters for adding an active directory administrator for a server.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActiveDirectoryAdministratorAdd'
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServerBackup'
+                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/backups:
-    x-api-version: 2023-06-01-preview
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+    delete:
+      tags:
+        - Administrators
+      operationId: Administrators_Delete
+      description: Deletes an Active Directory Administrator associated with the server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ObjectIdParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        '204':
+          description: NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
     get:
       tags:
-        - Backups
-      operationId: Backups_ListByServer
-      description: List all the backups for a given server.
+        - Administrators
+      operationId: Administrators_Get
+      description: Gets information about a server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ObjectIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/administrators:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Administrators
+      operationId: Administrators_ListByServer
+      description: List all the AAD administrators for a given server.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -3827,7 +4035,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServerBackupListResult'
+                $ref: '#/components/schemas/AdministratorListResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -3837,7 +4045,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/resourceType/flexibleServers/usages:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - QuotaUsagesForFlexibleServers
@@ -3862,291 +4070,32 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /providers/Microsoft.DBforPostgreSQL/getPrivateDnsZoneSuffix:
-    x-api-version: 2023-06-01-preview
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/checkVirtualNetworkSubnetUsage:
+    x-api-version: 2023-12-01-preview
     post:
       tags:
-        - GetPrivateDnsZoneSuffix
-      operationId: GetPrivateDnsZoneSuffix_Execute
-      description: Get private DNS zone suffix in the cloud
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateDnsZoneSuffix'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/checkNameAvailability:
-    x-api-version: 2023-06-01-preview
-    post:
-      tags:
-        - CheckNameAvailability
-      operationId: CheckNameAvailability_Execute
-      description: Check the availability of name for resource
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      requestBody:
-        description: The required parameters for checking if resource name is available.
-        required: true
-        x-ms-requestBody-name: nameAvailabilityRequest
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CheckNameAvailabilityRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NameAvailability'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/checkNameAvailability:
-    x-api-version: 2023-06-01-preview
-    post:
-      tags:
-        - CheckNameAvailability
-      operationId: CheckNameAvailabilityWithLocation_Execute
-      description: Check the availability of name for resource
+        - VirtualNetworkSubnetUsage
+      operationId: VirtualNetworkSubnetUsage_Execute
+      description: Get virtual network subnet usage for a given vNet resource id.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/LocationNameParameter'
       requestBody:
-        description: The required parameters for checking if resource name is available.
-        required: true
-        x-ms-requestBody-name: nameAvailabilityRequest
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CheckNameAvailabilityRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NameAvailability'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/configurations:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - Configurations
-      operationId: Configurations_ListByServer
-      description: List all the configurations in a given server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfigurationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/configurations/{configurationName}:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - Configurations
-      operationId: Configurations_Get
-      description: Gets information about a configuration of server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Configurations
-      operationId: Configurations_Update
-      description: Updates a configuration of a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-      requestBody:
-        description: The required parameters for updating a server configuration.
+        description: The required parameters for creating or updating a server.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConfigurationForUpdate'
+              $ref: '#/components/schemas/VirtualNetworkSubnetUsageParameter'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Configuration'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-    put:
-      tags:
-        - Configurations
-      operationId: Configurations_Put
-      description: Updates a configuration of a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-      requestBody:
-        description: The required parameters for updating a server configuration.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Configuration'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateLinkResources:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - PrivateLinkResources
-      description: Gets the private link resources for PostgreSQL server.
-      operationId: PrivateLinkResources_ListByServer
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: Successfully retrieved private link resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateLinkResourceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/privateLinkResources/{groupName}:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - PrivateLinkResources
-      description: Gets a private link resource for PostgreSQL server.
-      operationId: PrivateLinkResources_Get
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: groupName
-          in: path
-          description: The name of the private link resource.
-          required: true
-          schema:
-            pattern: ^.*$
-            type: string
-      responses:
-        '200':
-          description: Successfully retrieved private link resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateLinkResource'
+                $ref: '#/components/schemas/VirtualNetworkSubnetUsageResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -4154,7 +4103,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/capabilities:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - LocationBasedCapabilities
@@ -4180,7 +4129,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/capabilities:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - FlexibleServerCapabilities
@@ -4206,166 +4155,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/firewallRules/{firewallRuleName}:
-    x-api-version: 2023-06-01-preview
-    put:
-      tags:
-        - FirewallRules
-      operationId: FirewallRules_CreateOrUpdate
-      description: Creates a new firewall rule or updates an existing firewall rule.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/FirewallRuleNameParameter'
-      requestBody:
-        description: The required parameters for creating or updating a firewall rule.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FirewallRule'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FirewallRule'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FirewallRule'
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-    delete:
-      tags:
-        - FirewallRules
-      operationId: FirewallRules_Delete
-      description: Deletes a PostgreSQL server firewall rule.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/FirewallRuleNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-          headers:
-            Location:
-              schema:
-                type: string
-        '204':
-          description: NoContent
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-    get:
-      tags:
-        - FirewallRules
-      operationId: FirewallRules_Get
-      description: List all the firewall rules in a given server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/FirewallRuleNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FirewallRule'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/firewallRules:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - FirewallRules
-      operationId: FirewallRules_ListByServer
-      description: List all the firewall rules in a given PostgreSQL server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FirewallRuleListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/replicas:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - Replicas
-      operationId: Replicas_ListByServer
-      description: List all the replicas for a given server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     put:
       tags:
         - Servers
@@ -4506,7 +4297,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - Servers
@@ -4532,7 +4323,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/flexibleServers:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - Servers
@@ -4556,40 +4347,91 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/administrators/{objectId}:
-    x-api-version: 2023-06-01-preview
-    put:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/configurations:
+    x-api-version: 2023-12-01-preview
+    get:
       tags:
-        - Administrators
-      operationId: Administrators_Create
-      description: Creates a new server.
+        - Configurations
+      operationId: Configurations_ListByServer
+      description: List all the configurations in a given server.
       parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ObjectIdParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/configurations/{configurationName}:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Configurations
+      operationId: Configurations_Get
+      description: Gets information about a configuration of server.
+      parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Configurations
+      operationId: Configurations_Update
+      description: Updates a configuration of a server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
       requestBody:
-        description: The required parameters for adding an active directory administrator for a server.
+        description: The required parameters for updating a server configuration.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ActiveDirectoryAdministratorAdd'
+              $ref: '#/components/schemas/ConfigurationForUpdate'
       responses:
         '200':
-          description: Success
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+                $ref: '#/components/schemas/Configuration'
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
+                $ref: '#/components/schemas/Configuration'
         '202':
           description: Accepted
           headers:
@@ -4605,28 +4447,44 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: azure-async-operation
-    delete:
+    put:
       tags:
-        - Administrators
-      operationId: Administrators_Delete
-      description: Deletes an Active Directory Administrator associated with the server.
+        - Configurations
+      operationId: Configurations_Put
+      description: Updates a configuration of a server.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ObjectIdParameter'
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
+      requestBody:
+        description: The required parameters for updating a server configuration.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Configuration'
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
         '202':
           description: Accepted
           headers:
             Location:
               schema:
                 type: string
-        '204':
-          description: NoContent
         default:
           description: Error response describing why the operation failed.
           content:
@@ -4636,37 +4494,13 @@ paths:
       x-ms-long-running-operation: true
       x-ms-long-running-operation-options:
         final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/advancedThreatProtectionSettings:
+    x-api-version: 2023-12-01-preview
     get:
       tags:
-        - Administrators
-      operationId: Administrators_Get
-      description: Gets information about a server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/ObjectIdParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActiveDirectoryAdministrator'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/administrators:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - Administrators
-      operationId: Administrators_ListByServer
-      description: List all the AAD administrators for a given server.
+        - AdvancedThreatProtectionSettings
+      description: Get a list of server's Threat Protection state.
+      operationId: ServerThreatProtectionSettings_ListByServer
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -4674,21 +4508,94 @@ paths:
         - $ref: '#/components/parameters/ServerNameParameter'
       responses:
         '200':
-          description: OK
+          description: Successfully retrieved the server threat detection policy.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdministratorListResult'
+                $ref: '#/components/schemas/ServerThreatProtectionListResult'
         default:
-          description: Error response describing why the operation failed.
+          description: Error response describing why the operation of advanced threat protection on the flexible server failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/advancedThreatProtectionSettings/{threatProtectionName}:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - AdvancedThreatProtectionSettings
+      description: Get a server's Advanced Threat Protection settings.
+      operationId: ServerThreatProtectionSettings_Get
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ThreatProtectionNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved the server advanced threat protection settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+        default:
+          description: Error response describing why the operation of threat protection on the flexible server failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - AdvancedThreatProtectionSettings
+      description: Creates or updates a server's Advanced Threat Protection settings.
+      operationId: ServerThreatProtectionSettings_CreateOrUpdate
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/ThreatProtectionNameParameter'
+      requestBody:
+        description: The Advanced Threat Protection state for the flexible server.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+      responses:
+        '200':
+          description: Successfully set or update the server Threat Protection settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+        '201':
+          description: Successfully created the server Threat Protection settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerThreatProtectionSettingsModel'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation of setting Threat Protection failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/logFiles:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - LogFiles
@@ -4714,8 +4621,180 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/backups/{backupName}:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Backups
+      operationId: Backups_Get
+      description: Get specific backup for a given server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/BackupNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerBackup'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/backups:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Backups
+      operationId: Backups_ListByServer
+      description: List all the backups for a given server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerBackupListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /providers/Microsoft.DBforPostgreSQL/operations:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - Operations
+      operationId: Operations_List
+      description: Lists all of the available REST API operations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/restart:
+    x-api-version: 2023-12-01-preview
+    post:
+      tags:
+        - ServerRestart
+      operationId: Servers_Restart
+      description: Restarts a server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      requestBody:
+        description: The parameters for restarting a server.
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestartParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/start:
+    x-api-version: 2023-12-01-preview
+    post:
+      tags:
+        - ServerStart
+      operationId: Servers_Start
+      description: Starts a server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/stop:
+    x-api-version: 2023-12-01-preview
+    post:
+      tags:
+        - ServerStop
+      operationId: Servers_Stop
+      description: Stops a server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/ltrPreBackup:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     post:
       description: PreBackup operation performs all the checks that are needed for the subsequent long term retention backup operation to succeed.
       tags:
@@ -4763,7 +4842,7 @@ paths:
               description: A unique ID for the current operation, service generated. All the resource providers must return this value in the response headers to facilitate debugging.
       deprecated: false
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/startLtrBackup:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     post:
       description: Start the Long Term Retention Backup operation
       tags:
@@ -4833,7 +4912,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/ltrBackupOperations/{backupName}:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - LongTermRetentionBackup
@@ -4859,7 +4938,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/ltrBackupOperations:
-    x-api-version: 2023-06-01-preview
+    x-api-version: 2023-12-01-preview
     get:
       tags:
         - LongTermRetentionBackup
@@ -4885,170 +4964,97 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/checkVirtualNetworkSubnetUsage:
-    x-api-version: 2023-06-01-preview
+  /providers/Microsoft.DBforPostgreSQL/getPrivateDnsZoneSuffix:
+    x-api-version: 2023-12-01-preview
     post:
       tags:
-        - VirtualNetworkSubnetUsage
-      operationId: VirtualNetworkSubnetUsage_Execute
-      description: Get virtual network subnet usage for a given vNet resource id.
+        - GetPrivateDnsZoneSuffix
+      operationId: GetPrivateDnsZoneSuffix_Execute
+      description: Get private DNS zone suffix in the cloud
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateDnsZoneSuffix'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/firewallRules/{firewallRuleName}:
+    x-api-version: 2023-12-01-preview
+    put:
+      tags:
+        - FirewallRules
+      operationId: FirewallRules_CreateOrUpdate
+      description: Creates a new firewall rule or updates an existing firewall rule.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationNameParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/FirewallRuleNameParameter'
       requestBody:
-        description: The required parameters for creating or updating a server.
+        description: The required parameters for creating or updating a firewall rule.
         required: true
         x-ms-requestBody-name: parameters
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VirtualNetworkSubnetUsageParameter'
+              $ref: '#/components/schemas/FirewallRule'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VirtualNetworkSubnetUsageResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /providers/Microsoft.DBforPostgreSQL/operations:
-    x-api-version: 2023-06-01-preview
-    get:
-      tags:
-        - Operations
-      operationId: Operations_List
-      description: Lists all of the available REST API operations.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OperationListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/migrations/{migrationName}:
-    x-api-version: 2023-06-01-preview
-    put:
-      tags:
-        - Migrations
-      operationId: Migrations_Create
-      description: Creates a new migration.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
-        - $ref: '#/components/parameters/MigrationNameParameter'
-      requestBody:
-        description: The required parameters for creating a migration.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MigrationResource'
-      responses:
-        '200':
-          description: Successfully set or update the Migration for a server
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MigrationResource'
+                $ref: '#/components/schemas/FirewallRule'
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MigrationResource'
+                $ref: '#/components/schemas/FirewallRule'
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - Migrations
-      operationId: Migrations_Get
-      description: Gets details of a migration.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
-        - $ref: '#/components/parameters/MigrationNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MigrationResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Migrations
-      operationId: Migrations_Update
-      description: Updates an existing migration. The request body can contain one to many of the mutable properties present in the migration definition. Certain property updates initiate migration state transitions.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
-        - $ref: '#/components/parameters/MigrationNameParameter'
-      requestBody:
-        description: The required parameters for updating a migration.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MigrationResourceForPatch'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MigrationResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
     delete:
       tags:
-        - Migrations
-      operationId: Migrations_Delete
-      description: Deletes a migration.
+        - FirewallRules
+      operationId: FirewallRules_Delete
+      description: Deletes a PostgreSQL server firewall rule.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
-        - $ref: '#/components/parameters/MigrationNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/FirewallRuleNameParameter'
       responses:
         '200':
           description: OK
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
         '204':
           description: NoContent
         default:
@@ -5057,26 +5063,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/migrations:
-    x-api-version: 2023-06-01-preview
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
     get:
       tags:
-        - Migrations
-      operationId: Migrations_ListByTargetServer
-      description: List all the migrations on a given target server.
+        - FirewallRules
+      operationId: FirewallRules_Get
+      description: List all the firewall rules in a given server.
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
-        - $ref: '#/components/parameters/MigrationListFilter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/FirewallRuleNameParameter'
       responses:
         '200':
-          description: Success
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MigrationResourceListResult'
+                $ref: '#/components/schemas/FirewallRule'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{serverName}/firewallRules:
+    x-api-version: 2023-12-01-preview
+    get:
+      tags:
+        - FirewallRules
+      operationId: FirewallRules_ListByServer
+      description: List all the firewall rules in a given PostgreSQL server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirewallRuleListResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -5085,35 +5117,63 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforPostgreSQL/flexibleServers/{targetDbServerName}/checkMigrationNameAvailability:
-    x-api-version: 2023-06-01-preview
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/checkNameAvailability:
+    x-api-version: 2023-12-01-preview
     post:
-      summary: Check migration name validity and availability
-      description: This method checks whether a proposed migration name is valid and available.
       tags:
-        - Custom operation
-        - POST
-      operationId: CheckMigrationNameAvailability
+        - CheckNameAvailability
+      operationId: CheckNameAvailability_Execute
+      description: Check the availability of name for resource
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/TargetDbServerSubscriptionIdParameter'
-        - $ref: '#/components/parameters/TargetDbServerResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TargetDbServerNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
       requestBody:
-        description: The required parameters for checking if a migration name is available.
+        description: The required parameters for checking if resource name is available.
         required: true
-        x-ms-requestBody-name: parameters
+        x-ms-requestBody-name: nameAvailabilityRequest
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MigrationNameAvailabilityResource'
+              $ref: '#/components/schemas/CheckNameAvailabilityRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MigrationNameAvailabilityResource'
+                $ref: '#/components/schemas/NameAvailability'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforPostgreSQL/locations/{locationName}/checkNameAvailability:
+    x-api-version: 2023-12-01-preview
+    post:
+      tags:
+        - CheckNameAvailability
+      operationId: CheckNameAvailabilityWithLocation_Execute
+      description: Check the availability of name for resource
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationNameParameter'
+      requestBody:
+        description: The required parameters for checking if resource name is available.
+        required: true
+        x-ms-requestBody-name: nameAvailabilityRequest
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckNameAvailabilityRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NameAvailability'
         default:
           description: Error response describing why the operation failed.
           content:

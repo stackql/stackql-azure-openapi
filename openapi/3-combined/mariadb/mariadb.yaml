@@ -4,7 +4,7 @@ servers:
 info:
   version: '2018-06-01'
   title: MariaDBManagementClient
-  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure MariaDB resources including servers, databases, firewall rules, VNET rules, security alert policies, log files, encryption keys, active directory administrator and configurations.
+  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure MariaDB resources including servers, databases, firewall rules, VNET rules, security alert policies, log files and configurations with new business model.
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,50 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    PrivateLinkResourceListResult:
+      description: A list of private link resources
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    PrivateLinkResourceProperties:
+      description: Properties of a private link resource.
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+    PrivateLinkResource:
+      description: A private link resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: The private link resource group id.
+          readOnly: true
+    CloudError:
+      x-ms-external: true
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+      description: An error response from the Batch service.
     SecurityAlertPolicyProperties:
       description: Properties of a security alert policy.
       required:
@@ -81,81 +125,370 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    PrivateEndpointConnectionProperties:
-      description: Properties of a private endpoint connection.
-      type: object
-      properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpointProperty'
-          description: Private endpoint which the connection belongs to.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
-          description: Connection state of the private endpoint connection.
-        provisioningState:
-          description: State of the private endpoint connection.
-          type: string
-          readOnly: true
-    PrivateEndpointProperty:
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
       type: object
       properties:
         id:
-          description: Resource id of the private endpoint.
+          readOnly: true
           type: string
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
       x-ms-azure-resource: true
-    PrivateLinkServiceConnectionStateProperty:
-      required:
-        - status
-        - description
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
       type: object
       properties:
-        status:
-          description: The private link service connection status.
-          type: string
-        description:
-          description: The private link service connection description.
-          type: string
-        actionsRequired:
-          description: The actions required for private link service connection.
+        etag:
           type: string
           readOnly: true
-    PrivateEndpointConnection:
-      description: A private endpoint connection
-      type: object
+          description: Resource Etag.
       allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-    PrivateEndpointConnectionListResult:
-      description: A list of private endpoint connections.
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
       type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    CloudError:
-      x-ms-external: true
-      properties:
-        error:
-          $ref: '#/components/schemas/ErrorResponse'
-      description: An error response from the Batch service.
-    TagsObject:
       properties:
         tags:
           type: object
           additionalProperties:
             type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
           description: Resource tags.
-      description: Tags object for patch operations.
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+        managedBy:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
+          readOnly: true
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      x-ms-azure-resource: true
+    Sku:
+      properties:
+        name:
+          type: string
+          description: The name of the sku, typically, tier + family + cores, e.g. B_Gen4_1, GP_Gen5_8.
+        tier:
+          type: string
+          description: The tier of the particular SKU, e.g. Basic.
+          enum:
+            - Basic
+            - GeneralPurpose
+            - MemoryOptimized
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: true
+        capacity:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The scale up/out capacity, representing server's compute units.
+        size:
+          type: string
+          description: The size code, to be interpreted by resource as appropriate.
+        family:
+          type: string
+          description: The family of hardware.
+      required:
+        - name
+      description: Billing information related properties of a server.
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          description: The principal ID of resource identity.
+        tenantId:
+          readOnly: true
+          type: string
+          description: The tenant ID of resource.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
+          type: string
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
+      required:
+        - name
+        - publisher
+        - product
+    ErrorResponse:
+      title: Error Response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      properties:
+        name:
+          type: string
+          readOnly: true
+          description: The name of the operation being performed on this particular object.
+        display:
+          $ref: '#/components/schemas/OperationDisplay'
+          readOnly: true
+          description: The localized display information for this particular operation or action.
+        origin:
+          type: string
+          readOnly: true
+          description: The intended executor of the operation.
+          enum:
+            - NotSpecified
+            - user
+            - system
+          x-ms-enum:
+            name: OperationOrigin
+            modelAsString: true
+        properties:
+          type: object
+          additionalProperties:
+            type: object
+          readOnly: true
+          x-ms-client-flatten: false
+          description: Additional descriptions for the operation.
+      description: REST API operation definition.
+    OperationListResult:
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: The list of resource provider operations.
+      description: A list of resource provider operations.
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
     ServerVersion:
       type: string
       description: The version of a server.
@@ -229,6 +562,13 @@ components:
           x-ms-enum:
             name: PrivateEndpointProvisioningState
             modelAsString: true
+    PrivateEndpointProperty:
+      type: object
+      properties:
+        id:
+          description: Resource id of the private endpoint.
+          type: string
+      x-ms-azure-resource: true
     ServerPrivateLinkServiceConnectionStateProperty:
       required:
         - status
@@ -430,36 +770,6 @@ components:
       required:
         - sourceServerId
       description: The properties to create a new replica.
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. Ex - P3. It is typically a letter+number code
-        tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
     Server:
       properties:
         sku:
@@ -708,75 +1018,6 @@ components:
           description: Operation description.
       readOnly: true
       description: Display metadata associated with the operation.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
     LogFileProperties:
       properties:
         sizeInKB:
@@ -958,434 +1199,68 @@ components:
           $ref: '#/components/schemas/RecoverableServerProperties'
           description: Resource properties.
           x-ms-client-flatten: true
-    PrivateLinkResourceListResult:
-      description: A list of private link resources
+    PrivateEndpointConnectionProperties:
+      description: Properties of a private endpoint connection.
+      type: object
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection state of the private endpoint connection.
+        provisioningState:
+          description: State of the private endpoint connection.
+          type: string
+          readOnly: true
+    PrivateLinkServiceConnectionStateProperty:
+      required:
+        - status
+        - description
+      type: object
+      properties:
+        status:
+          description: The private link service connection status.
+          type: string
+        description:
+          description: The private link service connection description.
+          type: string
+        actionsRequired:
+          description: The actions required for private link service connection.
+          type: string
+          readOnly: true
+    PrivateEndpointConnection:
+      description: A private endpoint connection
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+    PrivateEndpointConnectionListResult:
+      description: A list of private endpoint connections.
       type: object
       properties:
         value:
           description: Array of results.
           type: array
           items:
-            $ref: '#/components/schemas/PrivateLinkResource'
+            $ref: '#/components/schemas/PrivateEndpointConnection'
           readOnly: true
         nextLink:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    PrivateLinkResourceProperties:
-      description: Properties of a private link resource.
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-    PrivateLinkResource:
-      description: A private link resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: The private link resource group id.
-          readOnly: true
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
+    TagsObject:
       properties:
         tags:
           type: object
           additionalProperties:
             type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
           description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      x-ms-azure-resource: true
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          description: The principal ID of resource identity.
-        tenantId:
-          readOnly: true
-          type: string
-          description: The tenant ID of resource.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorResponse:
-      title: Error Response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.)
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    AdvisorProperties:
-      properties: {}
-      description: The properties of a recommendation action advisor.
-    Advisor:
-      properties:
-        properties:
-          $ref: '#/components/schemas/AdvisorProperties'
-          x-ms-client-flatten: true
-          description: The properties of a recommendation action advisor.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a recommendation action advisor.
-    AdvisorsResultList:
-      description: A list of query statistics.
-      type: object
-      properties:
-        value:
-          description: The list of recommendation action advisors.
-          type: array
-          items:
-            $ref: '#/components/schemas/Advisor'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    RecommendationActionProperties:
-      properties:
-        advisorName:
-          type: string
-          description: Advisor name.
-        sessionId:
-          type: string
-          description: Recommendation action session identifier.
-        actionId:
-          type: integer
-          format: int32
-          description: Recommendation action identifier.
-        createdTime:
-          type: string
-          format: date-time
-          description: Recommendation action creation time.
-        expirationTime:
-          type: string
-          format: date-time
-          description: Recommendation action expiration time.
-        reason:
-          type: string
-          description: Recommendation action reason.
-        recommendationType:
-          type: string
-          description: Recommendation action type.
-        details:
-          type: object
-          additionalProperties:
-            type: string
-          description: Recommendation action details.
-      description: The properties of a recommendation action.
-    RecommendationAction:
-      properties:
-        properties:
-          $ref: '#/components/schemas/RecommendationActionProperties'
-          x-ms-client-flatten: true
-          description: The properties of a recommendation action.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Recommendation Action.
-    RecommendationActionsResultList:
-      description: A list of recommendation actions.
-      type: object
-      properties:
-        value:
-          description: The list of recommendation action advisors.
-          type: array
-          items:
-            $ref: '#/components/schemas/RecommendationAction'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    RecommendedActionSessionsOperationStatus:
-      properties:
-        name:
-          type: string
-          description: Operation identifier.
-        startTime:
-          type: string
-          format: date-time
-          description: Operation start time.
-        status:
-          type: string
-          description: Operation status.
-      description: Recommendation action session operation status.
+      description: Tags object for patch operations.
     QueryTextProperties:
       properties:
         queryId:
@@ -1622,6 +1497,100 @@ components:
         message:
           type: string
           description: operation message.
+    AdvisorProperties:
+      properties: {}
+      description: The properties of a recommendation action advisor.
+    Advisor:
+      properties:
+        properties:
+          $ref: '#/components/schemas/AdvisorProperties'
+          x-ms-client-flatten: true
+          description: The properties of a recommendation action advisor.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a recommendation action advisor.
+    AdvisorsResultList:
+      description: A list of query statistics.
+      type: object
+      properties:
+        value:
+          description: The list of recommendation action advisors.
+          type: array
+          items:
+            $ref: '#/components/schemas/Advisor'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    RecommendationActionProperties:
+      properties:
+        advisorName:
+          type: string
+          description: Advisor name.
+        sessionId:
+          type: string
+          description: Recommendation action session identifier.
+        actionId:
+          type: integer
+          format: int32
+          description: Recommendation action identifier.
+        createdTime:
+          type: string
+          format: date-time
+          description: Recommendation action creation time.
+        expirationTime:
+          type: string
+          format: date-time
+          description: Recommendation action expiration time.
+        reason:
+          type: string
+          description: Recommendation action reason.
+        recommendationType:
+          type: string
+          description: Recommendation action type.
+        details:
+          type: object
+          additionalProperties:
+            type: string
+          description: Recommendation action details.
+      description: The properties of a recommendation action.
+    RecommendationAction:
+      properties:
+        properties:
+          $ref: '#/components/schemas/RecommendationActionProperties'
+          x-ms-client-flatten: true
+          description: The properties of a recommendation action.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a Recommendation Action.
+    RecommendationActionsResultList:
+      description: A list of recommendation actions.
+      type: object
+      properties:
+        value:
+          description: The list of recommendation action advisors.
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationAction'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    RecommendedActionSessionsOperationStatus:
+      properties:
+        name:
+          type: string
+          description: Operation identifier.
+        startTime:
+          type: string
+          format: date-time
+          description: Operation start time.
+        status:
+          type: string
+          description: Operation status.
+      description: Recommendation action session operation status.
   parameters:
     ServerNameParameter:
       name: serverName
@@ -1630,6 +1599,32 @@ components:
       required: true
       x-ms-parameter-location: method
       schema:
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
         type: string
     FirewallRuleNameParameter:
       name: firewallRuleName
@@ -1671,31 +1666,29 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
+    QueryIdParameter:
+      name: queryId
       in: path
-      description: The ID of the target subscription.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
+      description: The Query-Store query identifier.
       required: true
       x-ms-parameter-location: method
       schema:
-        minLength: 1
-        maxLength: 90
+        type: string
+    QueryStatisticIdParameter:
+      name: queryStatisticId
+      in: path
+      description: The Query Statistic identifier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    WaitStatisticsIdParameter:
+      name: waitStatisticsId
+      in: path
+      description: The Wait Statistic identifier.
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     AdvisorNameParameter:
       name: advisorName
@@ -1721,31 +1714,113 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    QueryIdParameter:
-      name: queryId
-      in: path
-      description: The Query-Store query identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    QueryStatisticIdParameter:
-      name: queryStatisticId
-      in: path
-      description: The Query Statistic identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    WaitStatisticsIdParameter:
-      name: waitStatisticsId
-      in: path
-      description: The Wait Statistic identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets the private link resources for MariaDB server.
+      operationId: PrivateLinkResources_ListByServer
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResourceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources/{groupName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets a private link resource for MariaDB server.
+      operationId: PrivateLinkResources_Get
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: groupName
+          in: path
+          description: The name of the private link resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/start:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStart
+      operationId: Servers_Start
+      description: Starts a stopped server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/stop:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStop
+      operationId: Servers_Stop
+      description: Stops a running server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/securityAlertPolicies/{securityAlertPolicyName}:
     x-api-version: '2018-06-01'
     get:
@@ -1867,169 +1942,6 @@ paths:
              * 500 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
 
              * 500 GetServerSecurityAlertPolicyFailed - Failed to get Threat Detection settings
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - PrivateEndpointConnections
-      description: Gets a private endpoint connection.
-      operationId: PrivateEndpointConnections_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: privateEndpointConnectionName
-          in: path
-          description: The name of the private endpoint connection.
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved a specified private endpoint connection.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateEndpointConnection'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-    put:
-      tags:
-        - PrivateEndpointConnections
-      description: Approve or reject a private endpoint connection with a given name.
-      operationId: PrivateEndpointConnections_CreateOrUpdate
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: privateEndpointConnectionName
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrivateEndpointConnection'
-      responses:
-        '200':
-          description: Successfully approved or rejected private endpoint connection.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateEndpointConnection'
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-    delete:
-      tags:
-        - PrivateEndpointConnections
-      description: Deletes a private endpoint connection with a given name.
-      operationId: PrivateEndpointConnections_Delete
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: privateEndpointConnectionName
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully deleted private endpoint connection.
-        '202':
-          description: Accepted
-        '204':
-          description: Private endpoint connection does not exist.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-    patch:
-      tags:
-        - PrivateEndpointConnections
-      operationId: PrivateEndpointConnections_UpdateTags
-      summary: Updates tags on private endpoint connection.
-      description: Updates private endpoint connection with the specified tags.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: privateEndpointConnectionName
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        description: Parameters supplied to the Update private endpoint connection Tags operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TagsObject'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateEndpointConnection'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateEndpointConnections:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - PrivateEndpointConnections
-      description: Gets all private endpoint connections on a server.
-      operationId: PrivateEndpointConnections_ListByServer
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved private endpoint connections.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateEndpointConnectionListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}:
@@ -2942,94 +2854,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/start:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStart
-      operationId: Servers_Start
-      description: Starts a stopped server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/stop:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStop
-      operationId: Servers_Stop
-      description: Stops a running server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateEndpointConnections/{privateEndpointConnectionName}:
     x-api-version: '2018-06-01'
     get:
       tags:
-        - PrivateLinkResources
-      description: Gets the private link resources for MariaDB server.
-      operationId: PrivateLinkResources_ListByServer
+        - PrivateEndpointConnections
+      description: Gets a private endpoint connection.
+      operationId: PrivateEndpointConnections_Get
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved private link resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateLinkResourceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources/{groupName}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - PrivateLinkResources
-      description: Gets a private link resource for MariaDB server.
-      operationId: PrivateLinkResources_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: groupName
+        - name: privateEndpointConnectionName
           in: path
-          description: The name of the private link resource.
+          description: The name of the private endpoint connection.
           required: true
           schema:
             type: string
@@ -3037,176 +2874,147 @@ paths:
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: Successfully retrieved private link resources.
+          description: Successfully retrieved a specified private endpoint connection.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrivateLinkResource'
+                $ref: '#/components/schemas/PrivateEndpointConnection'
         default:
           description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}:
-    x-api-version: '2018-06-01'
-    get:
+    put:
       tags:
-        - Advisors
-      operationId: Advisors_Get
-      description: Get a recommendation action advisor.
+        - PrivateEndpointConnections
+      description: Approve or reject a private endpoint connection with a given name.
+      operationId: PrivateEndpointConnections_CreateOrUpdate
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Advisor'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - Advisors
-      operationId: Advisors_ListByServer
-      description: List recommendation action advisors.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdvisorsResultList'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/createRecommendedActionSession:
-    x-api-version: '2018-06-01'
-    post:
-      tags:
-        - RecommendedActionSessions
-      operationId: CreateRecommendedActionSession
-      description: Create recommendation action session for the advisor.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - name: databaseName
-          in: query
-          description: The name of the database.
+        - name: privateEndpointConnectionName
+          in: path
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivateEndpointConnection'
       responses:
         '200':
-          description: OK
+          description: Successfully approved or rejected private endpoint connection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
         '202':
           description: Accepted
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions/{recommendedActionName}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - RecommendedActions
-      operationId: RecommendedActions_Get
-      description: Retrieve recommended actions from the advisor.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - $ref: '#/components/parameters/RecommendedActionNameParameter'
-      responses:
-        '200':
-          description: OK
+        default:
+          description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendationAction'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions:
-    x-api-version: '2018-06-01'
-    get:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    delete:
       tags:
-        - RecommendedActions
-      operationId: RecommendedActions_ListByServer
-      description: Retrieve recommended actions from the advisor.
+        - PrivateEndpointConnections
+      description: Deletes a private endpoint connection with a given name.
+      operationId: PrivateEndpointConnections_Delete
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - name: sessionId
-          in: query
-          description: The recommendation action session identifier.
-          required: false
+        - name: privateEndpointConnectionName
+          in: path
+          required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully deleted private endpoint connection.
+        '202':
+          description: Accepted
+        '204':
+          description: Private endpoint connection does not exist.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+    patch:
+      tags:
+        - PrivateEndpointConnections
+      operationId: PrivateEndpointConnections_UpdateTags
+      summary: Updates tags on private endpoint connection.
+      description: Updates private endpoint connection with the specified tags.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: privateEndpointConnectionName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Parameters supplied to the Update private endpoint connection Tags operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagsObject'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsAzureAsyncOperation/{operationId}:
+                $ref: '#/components/schemas/PrivateEndpointConnection'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateEndpointConnections:
     x-api-version: '2018-06-01'
     get:
       tags:
-        - LocationBasedRecommendedActionSessionsOperationStatus
-      operationId: LocationBasedRecommendedActionSessionsOperationStatus_Get
-      description: Recommendation action session operation status.
+        - PrivateEndpointConnections
+      description: Gets all private endpoint connections on a server.
+      operationId: PrivateEndpointConnections_ListByServer
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationNameParameter'
-        - $ref: '#/components/parameters/OperationIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: OK.
+          description: Successfully retrieved private endpoint connections.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendedActionSessionsOperationStatus'
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsOperationResults/{operationId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - LocationBasedRecommendedActionSessionsResult
-      operationId: LocationBasedRecommendedActionSessionsResult_List
-      description: Recommendation action session operation result.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationNameParameter'
-        - $ref: '#/components/parameters/OperationIdParameter'
-      responses:
-        '200':
-          description: Created
+                $ref: '#/components/schemas/PrivateEndpointConnectionListResult'
+        default:
+          description: Error response describing why the operation failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
+                $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/queryTexts/{queryId}:
@@ -3419,3 +3227,164 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - Advisors
+      operationId: Advisors_Get
+      description: Get a recommendation action advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisor'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - Advisors
+      operationId: Advisors_ListByServer
+      description: List recommendation action advisors.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvisorsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/createRecommendedActionSession:
+    x-api-version: '2018-06-01'
+    post:
+      tags:
+        - RecommendedActionSessions
+      operationId: CreateRecommendedActionSession
+      description: Create recommendation action session for the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - name: databaseName
+          in: query
+          description: The name of the database.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions/{recommendedActionName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - RecommendedActions
+      operationId: RecommendedActions_Get
+      description: Retrieve recommended actions from the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - $ref: '#/components/parameters/RecommendedActionNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationAction'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - RecommendedActions
+      operationId: RecommendedActions_ListByServer
+      description: Retrieve recommended actions from the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - name: sessionId
+          in: query
+          description: The recommendation action session identifier.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsAzureAsyncOperation/{operationId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - LocationBasedRecommendedActionSessionsOperationStatus
+      operationId: LocationBasedRecommendedActionSessionsOperationStatus_Get
+      description: Recommendation action session operation status.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationNameParameter'
+        - $ref: '#/components/parameters/OperationIdParameter'
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedActionSessionsOperationStatus'
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsOperationResults/{operationId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - LocationBasedRecommendedActionSessionsResult
+      operationId: LocationBasedRecommendedActionSessionsResult_List
+      description: Recommendation action session operation result.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationNameParameter'
+        - $ref: '#/components/parameters/OperationIdParameter'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink

@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2023-11-01'
+  version: '2024-03-31'
   title: HealthcareApisClient
   description: Use this API to manage Microsoft HealthcareApis services in your Azure subscription.
 security:
@@ -19,6 +19,121 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    PrivateEndpoint:
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          description: The ARM identifier for Private Endpoint
+      description: The Private Endpoint resource.
+    PrivateEndpointConnection:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          x-ms-client-flatten: true
+          description: Resource properties.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: The Private Endpoint Connection resource.
+    PrivateEndpointConnectionProperties:
+      type: object
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+          description: The resource of private end point.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+          description: A collection of information about the state of the connection between service consumer and provider.
+        provisioningState:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
+          description: The provisioning state of the private endpoint connection resource.
+      required:
+        - privateLinkServiceConnectionState
+      description: Properties of the PrivateEndpointConnectProperties.
+    PrivateLinkServiceConnectionState:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
+          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        description:
+          type: string
+          description: The reason for approval/rejection of the connection.
+        actionsRequired:
+          type: string
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+      description: A collection of information about the state of the connection between service consumer and provider.
+    PrivateEndpointServiceConnectionStatus:
+      type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Rejected
+      x-ms-enum:
+        name: PrivateEndpointServiceConnectionStatus
+        modelAsString: true
+    PrivateEndpointConnectionProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Creating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PrivateEndpointConnectionProvisioningState
+        modelAsString: true
+    PrivateLinkResource:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      description: A private link resource
+    PrivateLinkResourceProperties:
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+        requiredZoneNames:
+          type: array
+          items:
+            type: string
+          description: The private link resource Private link DNS zone name.
+      description: Properties of a private link resource.
+    PrivateEndpointConnectionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private endpoint connections
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+      description: List of private endpoint connection associated with the specified storage account
+    PrivateLinkResourceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private link resources
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+      description: A list of private link resources
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1366,6 +1481,12 @@ components:
         encryption:
           description: The encryption settings of the DICOM service
           $ref: '#/components/schemas/Encryption'
+        storageConfiguration:
+          description: The configuration of external storage account
+          $ref: '#/components/schemas/StorageConfiguration'
+        enableDataPartitions:
+          description: If data partitions is enabled or not.
+          $ref: '#/components/schemas/EnableDataPartitions'
     DicomServiceAuthenticationConfiguration:
       description: Authentication configuration information
       type: object
@@ -1693,6 +1814,50 @@ components:
           type: boolean
           description: If the SMART on FHIR proxy is enabled
           readOnly: false
+        smartIdentityProviders:
+          type: array
+          description: The array of identity provider configurations for SMART on FHIR authentication.
+          readOnly: false
+          items:
+            $ref: '#/components/schemas/SmartIdentityProviderConfiguration'
+          x-ms-identifiers: []
+    SmartIdentityProviderConfiguration:
+      description: An object to configure an identity provider for use with SMART on FHIR authentication.
+      type: object
+      properties:
+        authority:
+          description: The identity provider token authority also known as the token issuing authority.
+          type: string
+        applications:
+          type: array
+          description: The array of identity provider applications for SMART on FHIR authentication.
+          readOnly: false
+          items:
+            $ref: '#/components/schemas/SmartIdentityProviderApplication'
+          x-ms-identifiers: []
+    SmartIdentityProviderApplication:
+      description: An Application configured in the Identity Provider used to access FHIR resources.
+      type: object
+      properties:
+        clientId:
+          description: The application client id defined in the identity provider. This value will be used to validate bearer tokens against the given authority.
+          type: string
+        audience:
+          description: The audience that will be used to validate bearer tokens against the given authority.
+          type: string
+        allowedDataActions:
+          description: The actions that are permitted to be performed on FHIR resources for the application.
+          type: array
+          items:
+            $ref: '#/components/schemas/SmartDataActions'
+    SmartDataActions:
+      type: string
+      description: The Data Actions that can be enabled for a Smart Identity Provider Application.
+      enum:
+        - Read
+      x-ms-enum:
+        name: SmartDataActions
+        modelAsString: true
     FhirServiceCorsConfiguration:
       description: The settings for the CORS configuration of the service instance.
       type: object
@@ -1796,15 +1961,21 @@ components:
               type: string
               description: The URL of the key to use for encryption
               readOnly: false
-    PrivateEndpointConnectionListResult:
+    StorageConfiguration:
+      description: The configuration of connected storage
       type: object
       properties:
-        value:
-          type: array
-          description: Array of private endpoint connections
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-      description: List of private endpoint connection associated with the specified storage account
+        storageResourceId:
+          type: string
+          description: The resource id of connected storage account.
+          readOnly: false
+        fileSystemName:
+          type: string
+          description: The filesystem name of connected storage account.
+          readOnly: false
+    EnableDataPartitions:
+      description: Boolean to indicate if data partitions is enabled or not.
+      type: boolean
     ResourceEventState:
       type: string
       description: Indicates the current status of event support for the resource.
@@ -1816,113 +1987,15 @@ components:
         name: ServiceEventState
         modelAsString: true
       readOnly: true
-    PrivateEndpoint:
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          description: The ARM identifier for Private Endpoint
-      description: The Private Endpoint resource.
-    PrivateEndpointConnection:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          x-ms-client-flatten: true
-          description: Resource properties.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: The Private Endpoint Connection resource.
-    PrivateEndpointConnectionProperties:
-      type: object
-      properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-          description: The resource of private end point.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-          description: A collection of information about the state of the connection between service consumer and provider.
-        provisioningState:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProvisioningState'
-          description: The provisioning state of the private endpoint connection resource.
-      required:
-        - privateLinkServiceConnectionState
-      description: Properties of the PrivateEndpointConnectProperties.
-    PrivateLinkServiceConnectionState:
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/PrivateEndpointServiceConnectionStatus'
-          description: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
-        description:
-          type: string
-          description: The reason for approval/rejection of the connection.
-        actionsRequired:
-          type: string
-          description: A message indicating if changes on the service provider require any updates on the consumer.
-      description: A collection of information about the state of the connection between service consumer and provider.
-    PrivateEndpointServiceConnectionStatus:
-      type: string
-      description: The private endpoint connection status.
-      enum:
-        - Pending
-        - Approved
-        - Rejected
-      x-ms-enum:
-        name: PrivateEndpointServiceConnectionStatus
-        modelAsString: true
-    PrivateEndpointConnectionProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Creating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PrivateEndpointConnectionProvisioningState
-        modelAsString: true
-    PrivateLinkResource:
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-      description: A private link resource
-    PrivateLinkResourceProperties:
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-        requiredZoneNames:
-          type: array
-          items:
-            type: string
-          description: The private link resource Private link DNS zone name.
-      description: Properties of a private link resource.
-    PrivateLinkResourceListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private link resources
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-      description: A list of private link resources
   parameters:
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -2054,17 +2127,9 @@ components:
         minLength: 3
         maxLength: 24
         type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Resource
@@ -2181,7 +2246,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/services:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Collection
@@ -2206,7 +2271,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Collection
@@ -2232,7 +2297,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/checkNameAvailability:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     post:
       tags:
         - Proxy
@@ -2263,7 +2328,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateEndpointConnections:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - PrivateEndpointConnections
@@ -2290,7 +2355,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - PrivateEndpointConnections
@@ -2374,7 +2439,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateLinkResources:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - PrivateLinkResources
@@ -2399,7 +2464,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/services/{resourceName}/privateLinkResources/{groupName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - PrivateLinkResources
@@ -2430,7 +2495,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/workspaces:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Workspaces
@@ -2455,7 +2520,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Workspaces
@@ -2481,7 +2546,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Workspaces
@@ -2612,7 +2677,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/dicomservices:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - DicomServices
@@ -2639,7 +2704,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/dicomservices/{dicomServiceName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - DicomServices
@@ -2774,7 +2839,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - IotConnectors
@@ -2801,7 +2866,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - IotConnectors
@@ -2936,7 +3001,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/fhirdestinations:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - IotConnectors
@@ -2964,7 +3029,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/iotconnectors/{iotConnectorName}/fhirdestinations/{fhirDestinationName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - IotConnectors
@@ -3063,7 +3128,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/fhirservices:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - FhirServices
@@ -3090,7 +3155,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/fhirservices/{fhirServiceName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - FhirServices
@@ -3225,7 +3290,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateEndpointConnections:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - WorkspacePrivateEndpointConnections
@@ -3252,7 +3317,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - WorkspacePrivateEndpointConnections
@@ -3336,7 +3401,7 @@ paths:
                 $ref: '#/components/schemas/ErrorDetails'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateLinkResources:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - WorkspacePrivateLinkResources
@@ -3363,7 +3428,7 @@ paths:
       x-ms-pageable:
         nextLinkName: null
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.HealthcareApis/workspaces/{workspaceName}/privateLinkResources/{groupName}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - WorkspacePrivateLinkResources
@@ -3394,7 +3459,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /providers/Microsoft.HealthcareApis/operations:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Proxy
@@ -3418,7 +3483,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorDetails'
   /subscriptions/{subscriptionId}/providers/Microsoft.HealthcareApis/locations/{locationName}/operationresults/{operationResultId}:
-    x-api-version: '2023-11-01'
+    x-api-version: '2024-03-31'
     get:
       tags:
         - Proxy

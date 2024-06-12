@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: AzureDatabricksManagementClient
-  version: '2023-02-01'
+  version: '2024-05-01'
   description: These APIs allow end users to operate on Azure Databricks Workspace resources.
 security:
   - azure_auth:
@@ -36,6 +36,11 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          type: object
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -83,28 +88,6 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
-        id:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          x-ms-mutability:
-            - read
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -123,15 +106,6 @@ components:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -141,6 +115,8 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
     SkuTier:
       type: string
@@ -161,16 +137,7 @@ components:
           type: string
           description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          type: string
-          enum:
-            - Free
-            - Basic
-            - Standard
-            - Premium
-          x-ms-enum:
-            name: SkuTier
-            modelAsString: false
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+          $ref: '#/components/schemas/SkuTier'
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -227,45 +194,31 @@ components:
         - publisher
         - product
     ErrorDetail:
-      description: The error detail.
+      title: Error details.
       type: object
       properties:
         code:
-          readOnly: true
+          description: The error's code.
           type: string
-          description: The error code.
         message:
-          readOnly: true
+          description: A human readable error message.
           type: string
-          description: The error message.
         target:
-          readOnly: true
+          description: Indicates which property in the request is responsible for the error.
           type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
+      required:
+        - code
+        - message
     ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      title: Error response.
+      description: Contains details when the response code indicates an error.
       type: object
       properties:
         error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
+          description: The error details.
+          $ref: '#/components/schemas/ErrorInfo'
+      required:
+        - error
     ErrorAdditionalInfo:
       type: object
       properties:
@@ -573,6 +526,9 @@ components:
               description: Encryption entities definition for the workspace.
           required:
             - entities
+        enhancedSecurityCompliance:
+          description: Contains settings related to the Enhanced Security and Compliance Add-On.
+          $ref: '#/components/schemas/EnhancedSecurityComplianceDefinition'
         privateEndpointConnections:
           readOnly: true
           description: Private endpoint connections created on the workspace
@@ -598,6 +554,52 @@ components:
           x-ms-enum:
             modelAsString: true
             name: RequiredNsgRules
+        defaultCatalog:
+          description: Properties for Default Catalog configuration during workspace creation.
+          $ref: '#/components/schemas/DefaultCatalogProperties'
+        isUcEnabled:
+          readOnly: true
+          description: Indicates whether unity catalog enabled for the workspace or not.
+          type: boolean
+        accessConnector:
+          description: Access Connector Resource that is going to be associated with Databricks Workspace
+          type: object
+          properties:
+            id:
+              type: string
+              format: arm-id
+              description: The resource ID of Azure Databricks Access Connector Resource.
+              x-ms-arm-id-details:
+                allowedResources:
+                  - type: Microsoft.Databricks/accessConnectors
+            identityType:
+              type: string
+              description: The identity type of the Access Connector Resource.
+              enum:
+                - SystemAssigned
+                - UserAssigned
+              x-ms-enum:
+                modelAsString: true
+                name: IdentityType
+            userAssignedIdentityId:
+              type: string
+              format: arm-id
+              description: The resource ID of the User Assigned Identity associated with the Access Connector Resource. This is required for type 'UserAssigned' and not valid for type 'SystemAssigned'.
+              x-ms-arm-id-details:
+                allowedResources:
+                  - type: Microsoft.ManagedIdentity/userAssignedIdentities
+          required:
+            - id
+            - identityType
+        defaultStorageFirewall:
+          description: Gets or Sets Default Storage Firewall configuration information
+          enum:
+            - Disabled
+            - Enabled
+          type: string
+          x-ms-enum:
+            modelAsString: true
+            name: defaultStorageFirewall
       required:
         - managedResourceGroupId
       description: The workspace properties.
@@ -708,8 +710,8 @@ components:
           $ref: '#/components/schemas/WorkspaceCustomStringParameter'
           description: The name of the Private Subnet within the Virtual Network
         enableNoPublicIp:
-          $ref: '#/components/schemas/WorkspaceCustomBooleanParameter'
-          description: Should the Public IP be Disabled?
+          $ref: '#/components/schemas/WorkspaceNoPublicIPBooleanParameter'
+          description: Boolean indicating whether the public IP should be disabled. Default value is true
         loadBalancerBackendPoolName:
           $ref: '#/components/schemas/WorkspaceCustomStringParameter'
           description: Name of the outbound Load Balancer Backend Pool for Secure Cluster Connectivity (No Public IP).
@@ -1136,6 +1138,102 @@ components:
       x-ms-identifiers: []
       items:
         $ref: '#/components/schemas/OutboundEnvironmentEndpoint'
+    EnhancedSecurityComplianceDefinition:
+      type: object
+      description: Status of settings related to the Enhanced Security and Compliance Add-On.
+      properties:
+        automaticClusterUpdate:
+          type: string
+          description: Status of automated cluster updates feature.
+          $ref: '#/components/schemas/AutomaticClusterUpdateDefinition'
+        complianceSecurityProfile:
+          type: object
+          description: Status of Compliance Security Profile feature.
+          $ref: '#/components/schemas/ComplianceSecurityProfileDefinition'
+        enhancedSecurityMonitoring:
+          type: object
+          description: Status of Enhanced Security Monitoring feature.
+          $ref: '#/components/schemas/EnhancedSecurityMonitoringDefinition'
+    AutomaticClusterUpdateDefinition:
+      type: object
+      description: Status of automated cluster updates feature.
+      properties:
+        value:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            modelAsString: true
+            name: AutomaticClusterUpdateValue
+    EnhancedSecurityMonitoringDefinition:
+      type: object
+      description: Status of Enhanced Security Monitoring feature.
+      properties:
+        value:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            modelAsString: true
+            name: EnhancedSecurityMonitoringValue
+    ComplianceSecurityProfileDefinition:
+      type: object
+      description: Status of Compliance Security Profile feature.
+      properties:
+        complianceStandards:
+          description: Compliance standards associated with the workspace.
+          type: array
+          items:
+            $ref: '#/components/schemas/ComplianceStandardDefinition'
+        value:
+          type: string
+          enum:
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            modelAsString: true
+            name: ComplianceSecurityProfileValue
+    ComplianceStandardDefinition:
+      description: Compliance standard that can be associated with a workspace.
+      type: string
+      enum:
+        - NONE
+        - HIPAA
+        - PCI_DSS
+      x-ms-enum:
+        modelAsString: true
+        name: ComplianceStandard
+    WorkspaceNoPublicIPBooleanParameter:
+      properties:
+        type:
+          $ref: '#/components/schemas/WorkspaceCustomParameterType'
+          description: The type of variable that this is
+        value:
+          type: boolean
+          description: The value which should be used for this field.
+      type: object
+      required:
+        - value
+      description: The value which should be used for this field.
+    DefaultCatalogProperties:
+      type: object
+      properties:
+        initialType:
+          type: string
+          description: 'Defines the initial type of the default catalog. Possible values (case-insensitive):  HiveMetastore, UnityCatalog'
+          enum:
+            - HiveMetastore
+            - UnityCatalog
+          x-ms-enum:
+            name: initialType
+            modelAsString: true
+          default: HiveMetastore
+        initialName:
+          type: string
+          description: Specifies the initial Name of default catalog. If not specified, the name of the workspace will be used.
+      description: These properties lets user specify default catalog properties during workspace creation.
     UserAssignedIdentities:
       title: User-Assigned Identities
       description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
@@ -1214,6 +1312,63 @@ components:
           $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
       required:
         - type
+    AccessConnector:
+      type: object
+      properties:
+        identity:
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+        systemData:
+          description: The system metadata relating to this resource
+          $ref: '#/components/schemas/systemData'
+        properties:
+          description: Azure Databricks Access Connector properties
+          $ref: '#/components/schemas/AccessConnectorProperties'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      description: Information about Azure Databricks Access Connector.
+    AccessConnectorProperties:
+      type: object
+      properties:
+        provisioningState:
+          description: Provisioning status of the Access Connector.
+          readOnly: true
+          enum:
+            - Deleted
+            - Failed
+            - Succeeded
+          type: string
+          x-ms-enum:
+            name: ProvisioningState
+            modelAsString: true
+        referedBy:
+          description: List of workspaces referring this Access Connector.
+          readOnly: true
+          type: array
+          items:
+            type: string
+    AccessConnectorUpdate:
+      description: An update to an Azure Databricks Access Connector.
+      type: object
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        identity:
+          $ref: '#/components/schemas/ManagedServiceIdentity'
+    AccessConnectorListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessConnector'
+          description: The array of Azure Databricks Access Connector.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of Azure Databricks Access Connector.
     VirtualNetworkPeeringList:
       properties:
         value:
@@ -1305,57 +1460,6 @@ components:
             type: string
           description: A list of address blocks reserved for this virtual network in CIDR notation.
       description: AddressSpace contains an array of IP address ranges that can be used by subnets of the virtual network.
-    AccessConnector:
-      type: object
-      properties:
-        identity:
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-        systemData:
-          description: The system metadata relating to this resource
-          $ref: '#/components/schemas/systemData'
-        properties:
-          description: Azure Databricks accessConnector properties
-          $ref: '#/components/schemas/AccessConnectorProperties'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      description: Information about azure databricks accessConnector.
-    AccessConnectorProperties:
-      type: object
-      properties:
-        provisioningState:
-          description: Provisioning status of the accessConnector.
-          readOnly: true
-          enum:
-            - Deleted
-            - Failed
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
-    AccessConnectorUpdate:
-      description: An update to an azure databricks accessConnector.
-      type: object
-      properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        identity:
-          $ref: '#/components/schemas/ManagedServiceIdentity'
-    AccessConnectorListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccessConnector'
-          description: The array of azure databricks accessConnector.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of azure databricks accessConnector.
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -1363,6 +1467,7 @@ components:
       description: The ID of the target subscription.
       required: true
       schema:
+        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
@@ -1370,6 +1475,7 @@ components:
       description: The API version to use for this operation.
       required: true
       schema:
+        minLength: 1
         type: string
     ResourceGroupNameParameter:
       name: resourceGroupName
@@ -1380,6 +1486,35 @@ components:
       schema:
         minLength: 1
         maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
         type: string
     OperationIdParameter:
       name: operationId
@@ -1398,6 +1533,22 @@ components:
       x-ms-parameter-location: method
       schema:
         minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     ResourceGroupName:
       name: resourceGroupName
@@ -1447,7 +1598,7 @@ components:
     ConnectorName:
       name: connectorName
       in: path
-      description: The name of the azure databricks accessConnector.
+      description: The name of the Azure Databricks Access Connector.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -1456,14 +1607,14 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - Workspaces
       operationId: Workspaces_Get
       description: Gets the workspace.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1486,10 +1637,17 @@ paths:
       operationId: Workspaces_Delete
       description: Deletes the workspace.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - name: forceDeletion
+          in: query
+          description: Optional parameter to retain default unity catalog data. By default the data will retained if Uc is enabled on the workspace.
+          required: false
+          schema:
+            default: false
+            type: boolean
       responses:
         '200':
           description: OK. The request has succeeded.
@@ -1518,7 +1676,7 @@ paths:
             schema:
               $ref: '#/components/schemas/Workspace'
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1556,7 +1714,7 @@ paths:
             schema:
               $ref: '#/components/schemas/WorkspaceUpdate'
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1577,14 +1735,14 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - Workspaces
       operationId: Workspaces_ListByResourceGroup
       description: Gets all the workspaces within a resource group.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
       responses:
@@ -1603,7 +1761,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Databricks/workspaces:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - Workspaces
@@ -1628,7 +1786,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Databricks/operations:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - Operations
@@ -1652,7 +1810,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/privateLinkResources:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - PrivateLinkResources
@@ -1660,7 +1818,7 @@ paths:
       description: List private link resources for a given workspace
       operationId: PrivateLinkResources_List
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1680,7 +1838,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/privateLinkResources/{groupId}:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - PrivateLinkResources
@@ -1688,7 +1846,7 @@ paths:
       description: Get the specified private link resource for the given group id (sub-resource)
       operationId: PrivateLinkResources_Get
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1707,7 +1865,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/privateEndpointConnections:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - PrivateEndpointConnections
@@ -1715,7 +1873,7 @@ paths:
       description: List private endpoint connections of the workspace
       operationId: PrivateEndpointConnections_List
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1735,7 +1893,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - PrivateEndpointConnections
@@ -1743,7 +1901,7 @@ paths:
       description: Get a private endpoint connection properties for a workspace
       operationId: PrivateEndpointConnections_Get
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1770,7 +1928,7 @@ paths:
       operationId: PrivateEndpointConnections_Create
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1811,7 +1969,7 @@ paths:
       operationId: PrivateEndpointConnections_Delete
       x-ms-long-running-operation: true
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1830,7 +1988,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/outboundNetworkDependenciesEndpoints:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - OutboundNetworkDependenciesEndpoints
@@ -1838,7 +1996,7 @@ paths:
       description: Gets the list of endpoints that VNET Injected Workspace calls Azure Databricks Control Plane. You must configure outbound access with these endpoints. For more information, see https://docs.microsoft.com/en-us/azure/databricks/administration-guide/cloud-configurations/azure/udr
       operationId: OutboundNetworkDependenciesEndpoints_List
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1855,15 +2013,187 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors/{connectorName}:
+    x-api-version: '2024-05-01'
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Get
+      description: Gets an Azure Databricks Access Connector.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns the Access Connector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Delete
+      description: Deletes the Azure Databricks Access Connector.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK. The request has succeeded.
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        '204':
+          description: NoContent
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    put:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_CreateOrUpdate
+      description: Creates or updates Azure Databricks Access Connector.
+      requestBody:
+        description: Parameters supplied to the create or update an Azure Databricks Access Connector.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessConnector'
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Updated - Returns information about the Azure Databricks Access Connector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        '201':
+          description: Created - Returns information about the Azure Databricks Access Connector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    patch:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_Update
+      description: Updates an Azure Databricks Access Connector.
+      requestBody:
+        description: The update to the Azure Databricks Access Connector.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessConnectorUpdate'
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ConnectorName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: Successfully updated the Azure Databricks Access Connector.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnector'
+        '202':
+          description: Accepted - Returns this status until the asynchronous operation has completed.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors:
+    x-api-version: '2024-05-01'
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_ListByResourceGroup
+      description: Gets all the Azure Databricks Access Connectors within a resource group.
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns an array of Azure Databricks Access Connectors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnectorListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.Databricks/accessConnectors:
+    x-api-version: '2024-05-01'
+    get:
+      tags:
+        - AccessConnector
+      operationId: AccessConnectors_ListBySubscription
+      description: Gets all the Azure Databricks Access Connectors within a subscription.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+      responses:
+        '200':
+          description: OK - Returns an array of Azure Databricks Access Connectors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessConnectorListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings/{peeringName}:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - vNetPeering
       operationId: vNetPeering_Get
       description: Gets the workspace vNet Peering.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1889,7 +2219,7 @@ paths:
       operationId: vNetPeering_Delete
       description: Deletes the workspace vNetPeering.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1922,7 +2252,7 @@ paths:
             schema:
               $ref: '#/components/schemas/VirtualNetworkPeering'
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1948,14 +2278,14 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}/virtualNetworkPeerings:
-    x-api-version: '2023-02-01'
+    x-api-version: '2024-05-01'
     get:
       tags:
         - vNetPeering
       operationId: vNetPeering_ListByWorkspace
       description: Lists the workspace vNet Peerings.
       parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/WorkspaceName'
         - $ref: '#/components/parameters/ApiVersionParameter'
         - $ref: '#/components/parameters/SubscriptionIdParameter'
@@ -1966,178 +2296,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VirtualNetworkPeeringList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors/{connectorName}:
-    x-api-version: '2023-05-01'
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Get
-      description: Gets an azure databricks accessConnector.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns the accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Delete
-      description: Deletes the azure databricks accessConnector.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK. The request has succeeded.
-        '202':
-          description: Accepted - Returns this status until the asynchronous operation has completed.
-        '204':
-          description: NoContent
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    put:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_CreateOrUpdate
-      description: Creates or updates azure databricks accessConnector.
-      requestBody:
-        description: Parameters supplied to the create or update an azure databricks accessConnector.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessConnector'
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Updated - Returns information about the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        '201':
-          description: Created - Returns information about the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    patch:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_Update
-      description: Updates an azure databricks accessConnector.
-      requestBody:
-        description: The update to the azure databricks accessConnector.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessConnectorUpdate'
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ConnectorName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: Successfully updated the azure databricks accessConnector.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnector'
-        '202':
-          description: Accepted - Returns this status until the asynchronous operation has completed.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/accessConnectors:
-    x-api-version: '2023-05-01'
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_ListByResourceGroup
-      description: Gets all the azure databricks accessConnectors within a resource group.
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns an array of azure databricks accessConnectors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnectorListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.Databricks/accessConnectors:
-    x-api-version: '2023-05-01'
-    get:
-      tags:
-        - AccessConnector
-      operationId: AccessConnectors_ListBySubscription
-      description: Gets all the azure databricks accessConnectors within a subscription.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-      responses:
-        '200':
-          description: OK - Returns an array of azure databricks accessConnectors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessConnectorListResult'
         default:
           description: Error response describing why the operation failed.
           content:

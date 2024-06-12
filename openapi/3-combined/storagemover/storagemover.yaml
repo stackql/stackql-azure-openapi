@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2023-10-01'
+  version: '2024-07-01'
   title: StorageMoverClient
   description: The Azure Storage Mover REST API.
 security:
@@ -79,6 +79,13 @@ components:
           format: int64
           description: Uptime of the Agent in seconds.
           readOnly: true
+        timeZone:
+          description: The agent's local time zone represented in Windows format.
+          type: string
+          readOnly: true
+        uploadLimitSchedule:
+          description: The WAN-link upload limit schedule that applies to any Job Run the agent executes. Data plane operations (migrating files) are affected. Control plane operations ensure seamless migration functionality and are not limited by this schedule. The schedule is interpreted with the agent's local time.
+          $ref: '#/components/schemas/UploadLimitSchedule'
         errorDetails:
           type: object
           properties:
@@ -91,12 +98,7 @@ components:
           readOnly: true
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
       required:
         - arcResourceId
@@ -121,6 +123,9 @@ components:
         description:
           type: string
           description: A description for the Agent.
+        uploadLimitSchedule:
+          description: The WAN-link upload limit schedule that applies to any Job Run the agent executes. Data plane operations (migrating files) are affected. Control plane operations ensure seamless migration functionality and are not limited by this schedule. The schedule is interpreted with the agent's local time.
+          $ref: '#/components/schemas/UploadLimitSchedule'
     AgentUpdateParameters:
       description: The Agent resource.
       type: object
@@ -141,6 +146,97 @@ components:
           type: string
           description: Request URL that can be used to query next page of containers. Returned when total number of requested containers exceed maximum page size.
           readOnly: true
+    UploadLimitSchedule:
+      description: The WAN-link upload limit schedule. Overlapping recurrences are not allowed.
+      type: object
+      properties:
+        weeklyRecurrences:
+          description: The set of weekly repeating recurrences of the WAN-link upload limit schedule.
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadLimitWeeklyRecurrence'
+          x-ms-identifiers: []
+    Recurrence:
+      description: The schedule recurrence.
+      type: object
+      properties:
+        startTime:
+          description: The start time of the schedule recurrence. Full hour and 30-minute intervals are supported.
+          $ref: '#/components/schemas/Time'
+        endTime:
+          description: The end time of the schedule recurrence. Full hour and 30-minute intervals are supported.
+          $ref: '#/components/schemas/Time'
+      required:
+        - startTime
+        - endTime
+    WeeklyRecurrence:
+      type: object
+      description: The weekly recurrence of the schedule.
+      properties:
+        days:
+          description: The set of days of week for the schedule recurrence. A day must not be specified more than once in a recurrence.
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+      required:
+        - days
+      allOf:
+        - $ref: '#/components/schemas/Recurrence'
+    DayOfWeek:
+      description: The day of week.
+      enum:
+        - Monday
+        - Tuesday
+        - Wednesday
+        - Thursday
+        - Friday
+        - Saturday
+        - Sunday
+      type: string
+      x-ms-enum:
+        name: DayOfWeek
+        modelAsString: false
+    UploadLimit:
+      description: The WAN-link upload limit.
+      type: object
+      properties:
+        limitInMbps:
+          description: The WAN-link upload bandwidth (maximum data transfer rate) in megabits per second. Value of 0 indicates no throughput is allowed and any running migration job is effectively paused for the duration of this recurrence. Only data plane operations are governed by this limit. Control plane operations ensure seamless functionality. The agent may exceed this limit with control messages, if necessary.
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 2147483647
+      required:
+        - limitInMbps
+    UploadLimitWeeklyRecurrence:
+      description: The weekly recurrence of the WAN-link upload limit schedule. The start time must be earlier in the day than the end time. The recurrence must not span across multiple days.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/WeeklyRecurrence'
+        - $ref: '#/components/schemas/UploadLimit'
+    Time:
+      description: The time of day.
+      type: object
+      properties:
+        hour:
+          description: The hour element of the time. Allowed values range from 0 (start of the selected day) to 24 (end of the selected day). Hour value 24 cannot be combined with any other minute value but 0.
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 24
+        minute:
+          description: The minute element of the time. Allowed values are 0 and 30. If not specified, its value defaults to 0.
+          type: integer
+          format: int32
+          enum:
+            - 0
+            - 30
+          default: 0
+          x-ms-enum:
+            name: Minute
+            modelAsString: true
+      required:
+        - hour
     StorageMoverProperties:
       description: The resource specific properties for the Storage Mover resource.
       type: object
@@ -150,12 +246,7 @@ components:
           description: A description for the Storage Mover.
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
     StorageMover:
       description: The Storage Mover resource, which is a container for a group of Agents, Projects, and Endpoints.
@@ -218,12 +309,7 @@ components:
           description: A description for the Endpoint.
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
       required:
         - endpointType
@@ -288,6 +374,9 @@ components:
           x-ms-arm-id-details:
             allowedResources:
               - type: Microsoft.Storage/storageAccounts
+          x-ms-mutability:
+            - read
+            - create
         blobContainerName:
           description: The name of the Storage blob container that is the target destination.
           type: string
@@ -538,12 +627,7 @@ components:
           readOnly: true
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
       required:
         - copyMode
@@ -630,6 +714,7 @@ components:
             - Canceled
             - Failed
             - Succeeded
+            - PausedByBandwidthManagement
           type: string
           x-ms-enum:
             name: JobRunStatus
@@ -763,12 +848,7 @@ components:
           description: Error details.
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
     JobRun:
       description: The Job Run resource.
@@ -812,12 +892,7 @@ components:
           description: A description for the Project.
         provisioningState:
           description: The provisioning state of this resource.
-          enum:
-            - Succeeded
-          type: string
-          x-ms-enum:
-            name: ProvisioningState
-            modelAsString: true
+          $ref: '#/components/schemas/ProvisioningState'
           readOnly: true
     Project:
       description: The Project resource.
@@ -858,6 +933,18 @@ components:
           type: string
           description: Request URL that can be used to query next page of containers. Returned when total number of requested containers exceed maximum page size.
           readOnly: true
+    ProvisioningState:
+      description: The provisioning state of a resource.
+      enum:
+        - Succeeded
+        - Canceled
+        - Failed
+        - Deleting
+      type: string
+      x-ms-enum:
+        name: ProvisioningState
+        modelAsString: true
+      readOnly: true
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1398,7 +1485,7 @@ components:
         type: string
 paths:
   /providers/Microsoft.StorageMover/operations:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Operations
@@ -1422,7 +1509,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.StorageMover/storageMovers:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - StorageMovers
@@ -1447,7 +1534,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - StorageMovers
@@ -1473,7 +1560,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - StorageMovers
@@ -1584,7 +1671,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/agents:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Agents
@@ -1611,7 +1698,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/agents/{agentName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Agents
@@ -1726,7 +1813,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/endpoints:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Endpoints
@@ -1753,7 +1840,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/endpoints/{endpointName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Endpoints
@@ -1868,7 +1955,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Projects
@@ -1895,7 +1982,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - Projects
@@ -2010,7 +2097,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - JobDefinitions
@@ -2038,7 +2125,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions/{jobDefinitionName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - JobDefinitions
@@ -2157,12 +2244,12 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions/{jobDefinitionName}/startJob:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     post:
       tags:
         - JobDefinitions
       operationId: JobDefinitions_StartJob
-      description: Requests an Agent to start a new instance of this Job Definition, generating a new Job Run resource.
+      description: Creates a new Job Run resource for the specified Job Definition and passes it to the Agent for execution.
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -2184,7 +2271,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions/{jobDefinitionName}/stopJob:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     post:
       tags:
         - JobDefinitions
@@ -2211,7 +2298,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions/{jobDefinitionName}/jobRuns:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - JobRuns
@@ -2240,7 +2327,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.StorageMover/storageMovers/{storageMoverName}/projects/{projectName}/jobDefinitions/{jobDefinitionName}/jobRuns/{jobRunName}:
-    x-api-version: '2023-10-01'
+    x-api-version: '2024-07-01'
     get:
       tags:
         - JobRuns
