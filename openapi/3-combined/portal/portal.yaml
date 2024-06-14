@@ -4,7 +4,7 @@ servers:
 info:
   version: 2020-09-01-preview
   title: portal
-  description: Allows creation and deletion of Azure Shared Dashboards.
+  description: Manage tenant configuration.
   x-ms-code-generation-settings:
     name: portalClient
 security:
@@ -21,6 +21,64 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    ConfigurationList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Configuration'
+          description: The array of tenant configurations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of tenant configurations.
+    Configuration:
+      type: object
+      description: Tenant configuration.
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ConfigurationProperties'
+          description: Tenant configuration properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    ConfigurationProperties:
+      type: object
+      description: Tenant configuration properties.
+      x-ms-azure-resource: true
+      properties:
+        enforcePrivateMarkdownStorage:
+          type: boolean
+          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
+    ViolationsList:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+          description: The array of violations.
+        nextLink:
+          type: string
+          description: The URL to use for getting the next set of results.
+      description: List of list of items that violate tenant's configuration.
+    Violation:
+      type: object
+      description: Violation information.
+      properties:
+        id:
+          description: Id of the item that violates tenant configuration.
+          type: string
+          readOnly: true
+        userId:
+          description: Id of the user who owns violated item.
+          type: string
+          readOnly: true
+        errorMessage:
+          description: Error message.
+          type: string
+          readOnly: true
     DashboardListResult:
       type: object
       properties:
@@ -742,65 +800,20 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    ConfigurationList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Configuration'
-          description: The array of tenant configurations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of tenant configurations.
-    Configuration:
-      type: object
-      description: Tenant configuration.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ConfigurationProperties'
-          description: Tenant configuration properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    ConfigurationProperties:
-      type: object
-      description: Tenant configuration properties.
-      x-ms-azure-resource: true
-      properties:
-        enforcePrivateMarkdownStorage:
-          type: boolean
-          description: When flag is set to true Markdown tile will require external storage configuration (URI). The inline content configuration will be prohibited.
-    ViolationsList:
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Violation'
-          description: The array of violations.
-        nextLink:
-          type: string
-          description: The URL to use for getting the next set of results.
-      description: List of list of items that violate tenant's configuration.
-    Violation:
-      type: object
-      description: Violation information.
-      properties:
-        id:
-          description: Id of the item that violates tenant configuration.
-          type: string
-          readOnly: true
-        userId:
-          description: Id of the user who owns violated item.
-          type: string
-          readOnly: true
-        errorMessage:
-          description: Error message.
-          type: string
-          readOnly: true
   parameters:
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The configuration name. Value must be 'default'
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        enum:
+          - default
+        x-ms-enum:
+          name: configurationName
+          modelAsString: true
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -855,20 +868,134 @@ components:
       schema:
         minLength: 1
         type: string
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The configuration name. Value must be 'default'
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        enum:
-          - default
-        x-ms-enum:
-          name: configurationName
-          modelAsString: true
-        type: string
 paths:
+  /providers/Microsoft.Portal/tenantConfigurations:
+    x-api-version: 2020-09-01-preview
+    get:
+      tags:
+        - tenantConfiguration
+      operationId: TenantConfigurations_List
+      description: Gets list of the tenant configurations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the list of tenant configurations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /providers/Microsoft.Portal/tenantConfigurations/{configurationName}:
+    x-api-version: 2020-09-01-preview
+    get:
+      tags:
+        - tenantConfiguration
+      operationId: TenantConfigurations_Get
+      description: Gets the tenant configuration.
+      parameters:
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the tenant configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        '404':
+          description: Not found. Tenant configuration wasn't created yet.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - tenantConfiguration
+      operationId: TenantConfigurations_Create
+      description: Create the tenant configuration. If configuration already exists - update it. User has to be a Tenant Admin for this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The parameters required to create or update tenant configuration.
+        required: true
+        x-ms-requestBody-name: tenantConfiguration
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Configuration'
+      responses:
+        '200':
+          description: OK. Existing configuration updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        '201':
+          description: Created. New configuration was created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - tenantConfiguration
+      operationId: TenantConfigurations_Delete
+      description: Delete the tenant configuration. User has to be a Tenant Admin for this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfigurationNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Configuration was deleted.
+        '204':
+          description: No content. Configuration was not found.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /providers/Microsoft.Portal/listTenantConfigurationViolations:
+    x-api-version: 2020-09-01-preview
+    post:
+      tags:
+        - listTenantConfigurationViolations
+      operationId: ListTenantConfigurationViolations_List
+      description: Gets list of items that violate tenant's configuration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK. Returns the list of items that violate tenant's configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViolationsList'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /providers/Microsoft.Portal/operations:
     x-api-version: 2020-09-01-preview
     get:
@@ -1062,130 +1189,3 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /providers/Microsoft.Portal/tenantConfigurations:
-    x-api-version: 2020-09-01-preview
-    get:
-      tags:
-        - tenantConfiguration
-      operationId: TenantConfigurations_List
-      description: Gets list of the tenant configurations.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. Returns the list of tenant configurations.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfigurationList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /providers/Microsoft.Portal/tenantConfigurations/{configurationName}:
-    x-api-version: 2020-09-01-preview
-    get:
-      tags:
-        - tenantConfiguration
-      operationId: TenantConfigurations_Get
-      description: Gets the tenant configuration.
-      parameters:
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. Returns the tenant configuration.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        '404':
-          description: Not found. Tenant configuration wasn't created yet.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      tags:
-        - tenantConfiguration
-      operationId: TenantConfigurations_Create
-      description: Create the tenant configuration. If configuration already exists - update it. User has to be a Tenant Admin for this operation.
-      parameters:
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The parameters required to create or update tenant configuration.
-        required: true
-        x-ms-requestBody-name: tenantConfiguration
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Configuration'
-      responses:
-        '200':
-          description: OK. Existing configuration updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        '201':
-          description: Created. New configuration was created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Configuration'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - tenantConfiguration
-      operationId: TenantConfigurations_Delete
-      description: Delete the tenant configuration. User has to be a Tenant Admin for this operation.
-      parameters:
-        - $ref: '#/components/parameters/ConfigurationNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. Configuration was deleted.
-        '204':
-          description: No content. Configuration was not found.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /providers/Microsoft.Portal/listTenantConfigurationViolations:
-    x-api-version: 2020-09-01-preview
-    post:
-      tags:
-        - listTenantConfigurationViolations
-      operationId: ListTenantConfigurationViolations_List
-      description: Gets list of items that violate tenant's configuration.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK. Returns the list of items that violate tenant's configuration.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ViolationsList'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink

@@ -12,6 +12,9 @@ import {
     getResourceNameFromOpId,
     checkForOpIdUpdates,
 } from './stackql-azure-descriptors';
+import { 
+    servicesToSkip 
+} from './shared-functions';
 
 const logger = new ConsoleLogger();
 
@@ -139,8 +142,7 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
     }
 
     // Add references to sqlVerbs
-    const methodRef = `#/components/x-stackQL-resources/${stackqlResName}/methods/${stackqlMethodName}`;
-    const nakedMethodRef = `#/components/x-stackQL-resources/${stackqlResName}/methods/_${stackqlMethodName}`;
+    const methodRef = { $ref: `#/components/x-stackQL-resources/${stackqlResName}/methods/${stackqlMethodName}` };
 
     switch (stackqlSqlVerb.toLowerCase()) {
         case 'select':
@@ -158,16 +160,21 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
     }
 }
 
-function sortSQLVerbs(outputDoc) {
+function sortSQLVerbs(outputDoc, debug) {
     if (!outputDoc.components || !outputDoc.components['x-stackQL-resources']) {
+        debug ? logger.debug('No resources found in the document.') : null;
         return;
     }
 
     for (const resourceName in outputDoc.components['x-stackQL-resources']) {
         const resource = outputDoc.components['x-stackQL-resources'][resourceName];
 
+        debug ? logger.debug(`processing sqlVerbs for ${resource.id}`) : null;
+
+        // Iterate through sqlVerbs and sort
         for (const sqlVerb in resource.sqlVerbs) {
-            resource.sqlVerbs[sqlVerb].sort((a, b) => {
+            debug ? logger.debug(`sorting ${sqlVerb}`) : null;
+            outputDoc.components['x-stackQL-resources'][resourceName].sqlVerbs[sqlVerb].sort((a, b) => {
                 const aPath = getPathFromRef(a, outputDoc);
                 const bPath = getPathFromRef(b, outputDoc);
                 const aPathParams = countCurlyBraces(aPath);
@@ -179,7 +186,7 @@ function sortSQLVerbs(outputDoc) {
 }
 
 function getPathFromRef(ref, outputDoc) {
-    const refPath = ref.split('#/')[1];
+    const refPath = ref.$ref.split('#/')[1];
     const pathObject = getPathObjectFromRef(outputDoc, refPath.replace(/~1/g, '/').replace(/~0/g, '~'));
     return pathObject ? pathObject.operation.$ref : '';
 }
@@ -205,10 +212,6 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
     logger.info(`tagging ${specificationDir}...`);
 
-    const servicesToSkip = [
-        'iotspaces'
-    ];
-
     if(servicesToSkip.includes(specificationDir)){
         logger.info(`skipping ${specificationDir}...`);
         return;
@@ -220,9 +223,8 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     const serviceName = serviceInfo[specificationDir].service;
     const title = serviceInfo[specificationDir].title;
     const description = serviceInfo[specificationDir].description;
-        
     const outputDir = `${taggedDir}/${providerName}/v00.00.00000/services`;
-
+        
     const files = fs.readdirSync(inputDir);
     let outputDoc = {};
     let inputDoc = {};
@@ -476,7 +478,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
     // sort the sqlverbs from most specific (highest number of path params) to least specific (lowest number of path params)
     debug ? logger.debug(`sorting sqlVerbs...`): null;
-    sortSQLVerbs(outputDoc);
+    sortSQLVerbs(outputDoc, debug);
     
     // clean up all free text descriptions
     debug ? logger.debug(`cleaning up markdown in description fields...`): null;

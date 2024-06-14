@@ -38,7 +38,7 @@ export async function dereference(generatedDir, derefedDir, serviceName, debug, 
     const inputDir = `${generatedDir}/${serviceName}`;
     const outputDir = `${derefedDir}/${serviceName}`;
     
-    createOrCleanDir(outputDir, debug);
+    createOrCleanDir(outputDir, false, debug);
 
     debug ? logger.debug(`dereferencing ${inputDir}`) : null;
 

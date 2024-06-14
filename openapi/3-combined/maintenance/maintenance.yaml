@@ -27,8 +27,7 @@ components:
         id:
           readOnly: true
           type: string
-          format: arm-id
-          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
         name:
           readOnly: true
           type: string
@@ -37,10 +36,6 @@ components:
           readOnly: true
           type: string
           description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
       x-ms-azure-resource: true
     AzureEntityResource:
       x-ms-client-name: AzureEntityResource
@@ -88,6 +83,28 @@ components:
       description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
       type: object
       properties:
+        id:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          x-ms-mutability:
+            - read
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        location:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
         managedBy:
           type: string
           x-ms-mutability:
@@ -100,12 +117,21 @@ components:
           x-ms-mutability:
             - read
             - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type; e.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
           pattern: ^[-\w\._,\(\)]+$
         etag:
           readOnly: true
           type: string
           description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
         identity:
           allOf:
             - $ref: '#/components/schemas/Identity'
@@ -115,18 +141,36 @@ components:
         plan:
           allOf:
             - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       x-ms-azure-resource: true
+    SkuTier:
+      type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
+      x-ms-enum:
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
       description: The resource model definition representing SKU
       type: object
       properties:
         name:
           type: string
-          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+          description: The name of the SKU. Ex - P3. It is typically a letter+number code
         tier:
-          $ref: '#/components/schemas/SkuTier'
+          type: string
+          enum:
+            - Free
+            - Basic
+            - Standard
+            - Premium
+          x-ms-enum:
+            name: SkuTier
+            modelAsString: false
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
         size:
           type: string
           description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
@@ -146,13 +190,11 @@ components:
         principalId:
           readOnly: true
           type: string
-          format: uuid
-          description: The principal ID of resource identity. The value must be an UUID.
+          description: The principal ID of resource identity.
         tenantId:
           readOnly: true
           type: string
-          format: uuid
-          description: The tenant ID of resource. The value must be an UUID.
+          description: The tenant ID of resource.
         type:
           type: string
           description: The identity type.
@@ -303,7 +345,6 @@ components:
           readOnly: true
         nextLink:
           type: string
-          format: uri
           description: URL to get the next set of operation list results (if there are any).
           readOnly: true
     OperationStatusResult:
@@ -315,12 +356,6 @@ components:
         id:
           description: Fully qualified ID for the async operation.
           type: string
-          format: arm-id
-        resourceId:
-          description: Fully qualified ID of the resource against which the original async operation was started.
-          type: string
-          format: arm-id
-          readOnly: true
         name:
           description: Name of the async operation.
           type: string
@@ -947,25 +982,14 @@ components:
         resourceId:
           description: The resourceId
           type: string
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
-      description: The ID of the target subscription. The value must be an UUID.
+      description: The ID of the target subscription.
       required: true
       schema:
-        format: uuid
+        minLength: 1
         type: string
     ApiVersionParameter:
       name: api-version
@@ -984,24 +1008,6 @@ components:
       schema:
         minLength: 1
         maxLength: 90
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of the Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
         type: string
     ManagementGroupNameParameter:
       name: managementGroupName
@@ -1031,6 +1037,24 @@ components:
       x-ms-parameter-location: method
       schema:
         format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
         type: string
     If-Match:
       name: ifMatch

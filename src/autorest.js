@@ -7,6 +7,10 @@ import { resolveUri,
          createFolderUri,
 } from '@azure-tools/uri';
 import { ArtifactWriter } from "./lib/artifact-writer";
+import { 
+    createOrCleanDir,
+    servicesToSkip 
+} from './shared-functions';
 
 const logger = new ConsoleLogger();
 
@@ -79,6 +83,8 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     
     logger.info(`processing ${serviceName}...`);
 
+    createOrCleanDir(outputFolder, true, debug);
+
     const AppRoot = resolveAppRoot();
     const f = new RealFileSystem();
     const autorest = new AutoRest(
@@ -102,12 +108,6 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     if (serviceName === 'machinelearning'){
         autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
     }
-
-    const servicesToSkip = [
-        'chaos',
-        'policyinsights', 
-        'resourcehealth'
-    ];
     
     // Skip processing for specified services
     if (servicesToSkip.includes(serviceName)) {

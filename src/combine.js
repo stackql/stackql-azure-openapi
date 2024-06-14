@@ -18,7 +18,7 @@ export async function combine(derefedDir, combinedDir, specificationDir, debug, 
         let outputDoc = {};
         let inputDoc = {};
     
-        createOrCleanDir(outputDir, debug);
+        createOrCleanDir(outputDir, false, debug);
     
         // statically defined properties, shouldn't change between services
         const openapi = '3.0.0';

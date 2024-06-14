@@ -248,74 +248,53 @@ components:
           description: The additional info.
       description: The resource management error additional info.
     Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      description: Azure Data Services on Azure Arc operation definition.
       type: object
       properties:
         name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          description: The name of the operation being performed on this particular object.
           type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
         display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
+          $ref: '#/components/schemas/OperationDisplay'
+          description: The localized display information for this particular operation / action.
         origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
+          description: The intended executor of the operation.
           enum:
             - user
             - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
           type: string
           readOnly: true
-          enum:
-            - Internal
           x-ms-enum:
-            name: ActionType
+            name: OperationOrigin
             modelAsString: true
+        isDataAction:
+          description: Indicates whether the operation is a data action
+          type: boolean
+        properties:
+          description: Additional descriptions for the operation.
+          type: object
+          additionalProperties: {}
+          readOnly: true
+          x-ms-client-flatten: false
+      required:
+        - name
+        - display
+        - isDataAction
     OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      description: Result of the request to list Azure Data Services on Azure Arc operations.
       type: object
       properties:
         value:
+          description: Array of results.
           type: array
           items:
             $ref: '#/components/schemas/Operation'
           x-ms-identifiers:
             - name
-          description: List of operations supported by the resource provider
           readOnly: true
         nextLink:
+          description: Link to retrieve next page of results.
           type: string
-          format: uri
-          description: URL to get the next set of operation list results (if there are any).
           readOnly: true
     OperationStatusResult:
       description: The current status of an async operation.
@@ -473,61 +452,421 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    CommonSku:
-      description: The resource model definition representing SKU for ARM resources
+    FailoverGroupListResult:
+      description: A list of failover groups.
       type: object
       properties:
-        name:
+        value:
+          description: Array of failover group results.
+          type: array
+          items:
+            $ref: '#/components/schemas/FailoverGroupResource'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
           type: string
-          description: The name of the SKU.  It is typically a letter+number code
-        dev:
-          type: boolean
-          default: true
-          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+          readOnly: true
+    FailoverGroupResource:
+      type: object
+      description: A failover group resource.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/FailoverGroupProperties'
+          description: 'null'
+          x-ms-client-flatten: false
       required:
-        - name
-    ExtendedLocation:
+        - properties
+    FailoverGroupProperties:
       type: object
-      description: The complex type of the extended location.
+      description: The properties of a failover group resource.
       properties:
-        name:
+        provisioningState:
           type: string
-          description: The name of the extended location.
-        type:
-          $ref: '#/components/schemas/ExtendedLocationType'
-          description: The type of the extended location.
-    ExtendedLocationType:
-      type: string
-      description: The type of extendedLocation.
-      enum:
-        - CustomLocation
-      x-ms-enum:
-        name: ExtendedLocationTypes
-        modelAsString: true
-    BasicLoginInformation:
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Accepted
+          x-ms-enum:
+            name: provisioningState
+            modelAsString: true
+          description: The provisioning state of the failover group resource.
+          readOnly: true
+        partnerManagedInstanceId:
+          type: string
+          description: The resource ID of the partner SQL managed instance.
+        spec:
+          $ref: '#/components/schemas/FailoverGroupSpec'
+          description: The specifications of the failover group resource.
+          x-ms-client-flatten: false
+        status:
+          type: object
+          description: The status of the failover group custom resource.
+      additionalProperties: {}
+      required:
+        - partnerManagedInstanceId
+        - spec
+    FailoverGroupSpec:
+      description: The specifications of the failover group resource.
       type: object
-      description: Username and password for basic login authentication.
       properties:
-        username:
+        sharedName:
           type: string
-          description: Login username.
-        password:
+          description: The shared name of the failover group for this SQL managed instance. Both SQL managed instance and its partner have to use the same shared name.
+        sourceMI:
           type: string
-          description: Login password.
-          x-ms-mutability:
-            - create
-            - update
-          x-ms-secret: true
+          description: The name of the SQL managed instance with this failover group role.
+        partnerMI:
+          type: string
+          description: The name of the partner SQL managed instance.
+        partnerMirroringURL:
+          type: string
+          description: The mirroring endpoint URL of the partner SQL managed instance.
+        partnerMirroringCert:
+          type: string
+          description: The mirroring endpoint public certificate for the partner SQL managed instance. Only PEM format is supported.
+        partnerSyncMode:
+          type: string
+          enum:
+            - async
+            - sync
+          x-ms-enum:
+            name: failoverGroupPartnerSyncMode
+            modelAsString: true
+          default: async
+          description: The partner sync mode of the SQL managed instance.
+        role:
+          type: string
+          enum:
+            - primary
+            - secondary
+            - force-primary-allow-data-loss
+            - force-secondary
+          x-ms-enum:
+            name: instanceFailoverGroupRole
+            modelAsString: true
+          default: primary
+          description: The role of the SQL managed instance in this failover group.
+      additionalProperties: {}
+      required:
+        - role
+    AvailabilityGroupConfigure:
+      description: The specifications of the availability group replica configuration
+      type: object
+      properties:
+        endpointUrl:
+          type: string
+          description: Mirroring endpoint URL of availability group replica
+        availabilityModeDescription:
+          type: string
+          description: The Availability Synchronization mode of the availability group replica.
+          readOnly: true
+        failoverModeDescription:
+          type: string
+          description: The failover mode of the availability group replica.
+          readOnly: true
+        sessionTimeout:
+          type: integer
+          description: The time-out period of availability group session replica, in seconds.
+          format: int32
+        primaryRoleAllowConnectionsDescription:
+          type: string
+          description: Whether the availability allows all connections or only read-write connections.
+          readOnly: true
+        secondaryRoleAllowConnectionsDescription:
+          type: string
+          description: Whether an availability replica that is performing the secondary role (that is, a secondary replica) can accept connections from clients.
+          readOnly: true
+        replicaCreateDate:
+          type: string
+          description: Date that the replica was created.
+          format: date-time
+          readOnly: true
+        replicaModifyDate:
+          type: string
+          description: Date that the replica was modified.
+          format: date-time
+          readOnly: true
+        backupPriority:
+          type: integer
+          description: Represents the user-specified priority for performing backups on this replica relative to the other replicas in the same availability group.
+          format: int32
+        readOnlyRoutingUrl:
+          type: string
+          description: Connectivity endpoint (URL) of the read only availability replica.
+        readWriteRoutingUrl:
+          type: string
+          description: Connectivity endpoint (URL) of the read write availability replica.
+        seedingModeDescription:
+          type: string
+          description: Describes seeding mode.
+          readOnly: true
+    AvailabilityGroupState:
+      description: The specifications of the availability group state
+      type: object
+      properties:
+        availabilityGroupReplicaRole:
+          type: string
+          description: Current Always On availability groups role of the availability group replica.
+          readOnly: true
+        operationalStateDescription:
+          type: string
+          description: Current operational state of the availability group replica
+          readOnly: true
+        recoveryHealthDescription:
+          type: string
+          description: Recovery health of the availability group replica.
+          readOnly: true
+        synchronizationHealthDescription:
+          type: string
+          description: Reflects a rollup of the database synchronization state (synchronization_state) of all joined availability databases (also known as replicas) and the availability mode of the replica (synchronous-commit or asynchronous-commit mode). The rollup will reflect the least healthy accumulated state the databases on the replica.
+          readOnly: true
+        connectedStateDescription:
+          type: string
+          description: Whether a secondary replica is currently connected to the primary replica.
+          readOnly: true
+        lastConnectErrorDescription:
+          type: string
+          description: Text description of the last connection error of the availability group replica.
+          readOnly: true
+        lastConnectErrorTimestamp:
+          type: string
+          description: Date and time timestamp indicating when the last connect error occurred.
+          format: date-time
+          readOnly: true
+    AvailabilityGroupInfo:
+      description: The specifications of the availability group state
+      type: object
+      properties:
+        failureConditionLevel:
+          type: integer
+          description: User-defined failure condition level under which an automatic failover must be triggered.
+          format: int32
+        healthCheckTimeout:
+          type: integer
+          description: Wait time (in milliseconds) for the sp_server_diagnostics system stored procedure to return server-health information, before the server instance is assumed to be slow or not responding.
+          format: int32
+        automatedBackupPreferenceDescription:
+          type: string
+          description: Preferred location for performing backups on the availability databases in this availability group.
+          readOnly: true
+        version:
+          type: integer
+          description: SQL Server availability group current version.
+          format: int32
+          readOnly: true
+        basicFeatures:
+          type: boolean
+          description: Specifies whether this is a basic availability group.
+        dtcSupport:
+          type: boolean
+          description: Specifies whether DTC support has been enabled for this availability group.
+        dbFailover:
+          type: boolean
+          description: Specifies whether the availability group supports failover for database health conditions.
+        isDistributed:
+          type: boolean
+          description: Specifies whether this is a distributed availability group.
+        clusterTypeDescription:
+          type: string
+          description: SQL Server availability group cluster type description
+          readOnly: true
+        requiredSynchronizedSecondariesToCommit:
+          type: integer
+          description: The number of secondary replicas that must be in a synchronized state for a commit to complete.
+          format: int32
+        isContained:
+          type: boolean
+          description: SQL Server availability group contained system databases.
+        primaryReplica:
+          type: string
+          description: Name of the server instance that is hosting the current primary replica.
+          readOnly: true
+        primaryRecoveryHealthDescription:
+          type: string
+          description: Indicates the recovery health of the primary replica.
+          readOnly: true
+        secondaryRecoveryHealthDescription:
+          type: string
+          description: Indicates the recovery health of a secondary replica.
+          readOnly: true
+        synchronizationHealthDescription:
+          type: string
+          description: Reflects a roll-up of the synchronization health of all availability replicas in the availability group.
+          readOnly: true
+        replicationPartnerType:
+          type: string
+          enum:
+            - SQLServer
+            - AzureSQLVM
+            - AzureSQLManagedInstance
+            - Unknown
+          x-ms-enum:
+            name: replicationPartnerType
+            modelAsString: false
+          readOnly: true
+    ArcSqlServerAvailabilityGroupListResult:
+      description: A list of Arc Sql Server Availability Groups.
+      type: object
+      properties:
+        value:
+          description: Array of Arc Sql Server Availability Groups.
+          type: array
+          items:
+            $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    SqlServerAvailabilityGroupResource:
+      type: object
+      description: Arc Sql Server Availability Group
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/SqlServerAvailabilityGroupResourceProperties'
+          description: Properties of Arc Sql Server availability group
+          x-ms-client-flatten: false
+      required:
+        - properties
+    SqlServerAvailabilityGroupResourceProperties:
+      type: object
+      description: The properties of Arc Sql Server availability group resource
+      properties:
+        availabilityGroupId:
+          type: string
+          description: ID GUID of the availability group.
+          pattern: ^[A-Za-z0-9]{8}-([A-Za-z0-9]{4}-){3}[A-Za-z0-9]{12}$
+          readOnly: true
+        serverName:
+          type: string
+          description: the SQL server name.
+          readOnly: true
+        instanceName:
+          type: string
+          description: the SQL Server Instance name.
+          readOnly: true
+        collectionTimestamp:
+          description: Timestamp for when the data was collected from the client machine.
+          type: string
+          format: date-time
+          readOnly: true
+        info:
+          $ref: '#/components/schemas/AvailabilityGroupInfo'
+          description: Availability Group Info
+          x-ms-client-flatten: false
+        replicas:
+          description: A list of Availability Group Replicas.
+          type: object
+          properties:
+            value:
+              description: Array of Availability Group Replicas.
+              type: array
+              items:
+                $ref: '#/components/schemas/SqlAvailabilityGroupReplicaResourceProperties'
+              x-ms-identifiers: []
+            nextLink:
+              description: Link to retrieve next page of results.
+              type: string
+              readOnly: true
+        databases:
+          description: A list of Availability Group Database Replicas.
+          type: object
+          properties:
+            value:
+              description: Array of Availability Group Database Replicas.
+              type: array
+              items:
+                $ref: '#/components/schemas/SqlAvailabilityGroupDatabaseReplicaResourceProperties'
+              x-ms-identifiers: []
+            nextLink:
+              description: Link to retrieve next page of results.
+              type: string
+              readOnly: true
+        provisioningState:
+          type: string
+          description: The provisioning state of the Arc-enabled SQL Server availability group resource.
+          readOnly: true
+    SqlServerAvailabilityGroupUpdate:
+      description: An update to availability group resource.
+      type: object
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        properties:
+          $ref: '#/components/schemas/SqlServerAvailabilityGroupResourceProperties'
+          description: The Server Availability Group's properties
+          x-ms-client-flatten: false
+    SqlAvailabilityGroupReplicaResourceProperties:
+      type: object
+      description: The properties of Arc Sql availability group replica resource
+      properties:
+        replicaId:
+          type: string
+          description: ID GUID of the availability group.
+          pattern: ^[A-Za-z0-9]{8}-([A-Za-z0-9]{4}-){3}[A-Za-z0-9]{12}$
+          readOnly: true
+        replicaName:
+          type: string
+          description: the replica name.
+        configure:
+          $ref: '#/components/schemas/AvailabilityGroupConfigure'
+          description: 'null'
+          x-ms-client-flatten: false
+        state:
+          $ref: '#/components/schemas/AvailabilityGroupState'
+          description: 'null'
+          x-ms-client-flatten: false
+    SqlAvailabilityGroupDatabaseReplicaResourceProperties:
+      type: object
+      description: The properties of Arc Sql availability group database replica resource
+      properties:
+        databaseName:
+          type: string
+          description: the database name.
+        replicaName:
+          type: string
+          description: the database replica name.
+          readOnly: true
+        isLocal:
+          type: boolean
+          description: Whether the availability database is local.
+          readOnly: true
+        isPrimaryReplica:
+          type: boolean
+          description: Returns 1 if the replica is primary, or 0 if it is a secondary replica.
+          readOnly: true
+        synchronizationStateDescription:
+          type: string
+          description: Description of the data-movement state.
+          readOnly: true
+        isCommitParticipant:
+          type: boolean
+          description: Whether this replica is transaction committer.
+          readOnly: true
+        synchronizationHealthDescription:
+          type: string
+          description: Description of the health of database.
+          readOnly: true
+        databaseStateDescription:
+          type: string
+          description: Description of the database state of the availability replica.
+          readOnly: true
+        isSuspended:
+          type: boolean
+          description: Whether this data movement is suspended.
+          readOnly: true
+        suspendReasonDescription:
+          type: string
+          description: Description of the database suspended state reason.
+          readOnly: true
     ActiveDirectoryConnectorListResult:
       description: A list of active directory connectors
       type: object
@@ -688,27 +1027,6 @@ components:
           type: string
           description: The state of the AD connector custom resource.
       additionalProperties: {}
-    OperationDisplay:
-      description: Display metadata associated with the operation.
-      type: object
-      properties:
-        provider:
-          description: The localized friendly form of the resource provider name.
-          type: string
-        resource:
-          description: The localized friendly form of the resource type related to this action/operation.
-          type: string
-        operation:
-          description: The localized friendly name for the operation.
-          type: string
-        description:
-          description: The localized friendly description for the operation.
-          type: string
-      required:
-        - provider
-        - resource
-        - operation
-        - description
     SqlServerInstance:
       description: A SqlServerInstance.
       type: object
@@ -1253,6 +1571,169 @@ components:
       required:
         - columns
         - rows
+    DataControllerResource:
+      description: Data controller resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The extendedLocation of the resource.
+        properties:
+          $ref: '#/components/schemas/DataControllerProperties'
+          description: The data controller's properties
+          x-ms-client-flatten: false
+      required:
+        - properties
+    PageOfDataControllerResource:
+      type: object
+      description: A list of data controllers.
+      properties:
+        value:
+          items:
+            $ref: '#/components/schemas/DataControllerResource'
+          type: array
+          description: Array of results.
+        nextLink:
+          type: string
+          description: Link to retrieve next page of results.
+    DataControllerUpdate:
+      type: object
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags
+        properties:
+          $ref: '#/components/schemas/DataControllerProperties'
+          description: The data controller's properties
+          x-ms-client-flatten: false
+      description: Used for updating a data controller resource.
+    DataControllerProperties:
+      description: The data controller properties.
+      type: object
+      properties:
+        infrastructure:
+          type: string
+          enum:
+            - azure
+            - gcp
+            - aws
+            - alibaba
+            - onpremises
+            - other
+          x-ms-enum:
+            name: infrastructure
+            modelAsString: false
+          default: other
+          description: The infrastructure the data controller is running on.
+        onPremiseProperty:
+          $ref: '#/components/schemas/OnPremiseProperty'
+        k8sRaw:
+          type: object
+          description: The raw kubernetes information
+        uploadWatermark:
+          $ref: '#/components/schemas/UploadWatermark'
+        lastUploadedDate:
+          type: string
+          format: date-time
+          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
+        basicLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Deprecated. Azure Arc Data Services data controller no longer expose any endpoint. All traffic are exposed through Kubernetes native API.
+        metricsDashboardCredential:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Login credential for metrics dashboard on the Kubernetes cluster.
+        logsDashboardCredential:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Login credential for logs dashboard on the Kubernetes cluster.
+        logAnalyticsWorkspaceConfig:
+          $ref: '#/components/schemas/LogAnalyticsWorkspaceConfig'
+        uploadServicePrincipal:
+          $ref: '#/components/schemas/UploadServicePrincipal'
+          description: Deprecated. Service principal is deprecated in favor of Arc Kubernetes service extension managed identity.
+        provisioningState:
+          type: string
+          description: The provisioning state of the Arc Data Controller resource.
+          readOnly: true
+        clusterId:
+          type: string
+          description: If a CustomLocation is provided, this contains the ARM id of the connected cluster the custom location belongs to.
+        extensionId:
+          type: string
+          description: If a CustomLocation is provided, this contains the ARM id of the extension the custom location belongs to.
+    UploadWatermark:
+      description: Properties on upload watermark.  Mostly timestamp for each upload data type
+      type: object
+      properties:
+        metrics:
+          type: string
+          format: date-time
+          description: Last uploaded date for metrics from kubernetes cluster. Defaults to current date time
+        logs:
+          type: string
+          format: date-time
+          description: Last uploaded date for logs from kubernetes cluster. Defaults to current date time
+        usages:
+          type: string
+          format: date-time
+          description: Last uploaded date for usages from kubernetes cluster. Defaults to current date time
+    OnPremiseProperty:
+      description: Properties from the Kubernetes data controller
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: A globally unique ID identifying the associated Kubernetes cluster
+        publicSigningKey:
+          type: string
+          description: Certificate that contains the Kubernetes cluster public key used to verify signing
+        signingCertificateThumbprint:
+          type: string
+          description: Unique thumbprint returned to customer to verify the certificate being uploaded
+      required:
+        - id
+        - publicSigningKey
+    LogAnalyticsWorkspaceConfig:
+      type: object
+      description: Log analytics workspace id and primary key
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+          description: Azure Log Analytics workspace ID
+        primaryKey:
+          type: string
+          description: Primary key of the workspace
+          x-ms-mutability:
+            - create
+            - update
+          x-ms-secret: true
+    UploadServicePrincipal:
+      type: object
+      description: Service principal for uploading billing, metrics and logs.
+      properties:
+        clientId:
+          type: string
+          format: uuid
+          description: Client ID of the service principal for uploading data.
+        tenantId:
+          type: string
+          format: uuid
+          description: Tenant ID of the service principal.
+        authority:
+          type: string
+          description: 'Authority for the service principal. Example: https://login.microsoftonline.com/'
+        clientSecret:
+          type: string
+          description: Secret of the service principal
+          x-ms-mutability:
+            - create
+            - update
+          x-ms-secret: true
     SqlManagedInstance:
       description: A SqlManagedInstance.
       type: object
@@ -1521,667 +2002,27 @@ components:
           description: Link to retrieve next page of results.
           type: string
           readOnly: true
-    DataControllerResource:
-      description: Data controller resource
+    OperationDisplay:
+      description: Display metadata associated with the operation.
       type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
       properties:
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extendedLocation of the resource.
-        properties:
-          $ref: '#/components/schemas/DataControllerProperties'
-          description: The data controller's properties
-          x-ms-client-flatten: false
+        provider:
+          description: The localized friendly form of the resource provider name.
+          type: string
+        resource:
+          description: The localized friendly form of the resource type related to this action/operation.
+          type: string
+        operation:
+          description: The localized friendly name for the operation.
+          type: string
+        description:
+          description: The localized friendly description for the operation.
+          type: string
       required:
-        - properties
-    PageOfDataControllerResource:
-      type: object
-      description: A list of data controllers.
-      properties:
-        value:
-          items:
-            $ref: '#/components/schemas/DataControllerResource'
-          type: array
-          description: Array of results.
-        nextLink:
-          type: string
-          description: Link to retrieve next page of results.
-    DataControllerUpdate:
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags
-        properties:
-          $ref: '#/components/schemas/DataControllerProperties'
-          description: The data controller's properties
-          x-ms-client-flatten: false
-      description: Used for updating a data controller resource.
-    DataControllerProperties:
-      description: The data controller properties.
-      type: object
-      properties:
-        infrastructure:
-          type: string
-          enum:
-            - azure
-            - gcp
-            - aws
-            - alibaba
-            - onpremises
-            - other
-          x-ms-enum:
-            name: infrastructure
-            modelAsString: false
-          default: other
-          description: The infrastructure the data controller is running on.
-        onPremiseProperty:
-          $ref: '#/components/schemas/OnPremiseProperty'
-        k8sRaw:
-          type: object
-          description: The raw kubernetes information
-        uploadWatermark:
-          $ref: '#/components/schemas/UploadWatermark'
-        lastUploadedDate:
-          type: string
-          format: date-time
-          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
-        basicLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Deprecated. Azure Arc Data Services data controller no longer expose any endpoint. All traffic are exposed through Kubernetes native API.
-        metricsDashboardCredential:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Login credential for metrics dashboard on the Kubernetes cluster.
-        logsDashboardCredential:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Login credential for logs dashboard on the Kubernetes cluster.
-        logAnalyticsWorkspaceConfig:
-          $ref: '#/components/schemas/LogAnalyticsWorkspaceConfig'
-        uploadServicePrincipal:
-          $ref: '#/components/schemas/UploadServicePrincipal'
-          description: Deprecated. Service principal is deprecated in favor of Arc Kubernetes service extension managed identity.
-        provisioningState:
-          type: string
-          description: The provisioning state of the Arc Data Controller resource.
-          readOnly: true
-        clusterId:
-          type: string
-          description: If a CustomLocation is provided, this contains the ARM id of the connected cluster the custom location belongs to.
-        extensionId:
-          type: string
-          description: If a CustomLocation is provided, this contains the ARM id of the extension the custom location belongs to.
-    UploadWatermark:
-      description: Properties on upload watermark.  Mostly timestamp for each upload data type
-      type: object
-      properties:
-        metrics:
-          type: string
-          format: date-time
-          description: Last uploaded date for metrics from kubernetes cluster. Defaults to current date time
-        logs:
-          type: string
-          format: date-time
-          description: Last uploaded date for logs from kubernetes cluster. Defaults to current date time
-        usages:
-          type: string
-          format: date-time
-          description: Last uploaded date for usages from kubernetes cluster. Defaults to current date time
-    OnPremiseProperty:
-      description: Properties from the Kubernetes data controller
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: A globally unique ID identifying the associated Kubernetes cluster
-        publicSigningKey:
-          type: string
-          description: Certificate that contains the Kubernetes cluster public key used to verify signing
-        signingCertificateThumbprint:
-          type: string
-          description: Unique thumbprint returned to customer to verify the certificate being uploaded
-      required:
-        - id
-        - publicSigningKey
-    LogAnalyticsWorkspaceConfig:
-      type: object
-      description: Log analytics workspace id and primary key
-      properties:
-        workspaceId:
-          type: string
-          format: uuid
-          description: Azure Log Analytics workspace ID
-        primaryKey:
-          type: string
-          description: Primary key of the workspace
-          x-ms-mutability:
-            - create
-            - update
-          x-ms-secret: true
-    UploadServicePrincipal:
-      type: object
-      description: Service principal for uploading billing, metrics and logs.
-      properties:
-        clientId:
-          type: string
-          format: uuid
-          description: Client ID of the service principal for uploading data.
-        tenantId:
-          type: string
-          format: uuid
-          description: Tenant ID of the service principal.
-        authority:
-          type: string
-          description: 'Authority for the service principal. Example: https://login.microsoftonline.com/'
-        clientSecret:
-          type: string
-          description: Secret of the service principal
-          x-ms-mutability:
-            - create
-            - update
-          x-ms-secret: true
-    PostgresInstanceSku:
-      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
-      type: object
-      properties:
-        tier:
-          type: string
-          enum:
-            - Hyperscale
-          x-ms-enum:
-            name: PostgresInstanceSkuTier
-            modelAsString: false
-          default: Hyperscale
-          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
-      allOf:
-        - $ref: '#/components/schemas/CommonSku'
-    PostgresInstanceProperties:
-      description: Postgres Instance properties.
-      type: object
-      properties:
-        dataControllerId:
-          type: string
-          description: The data controller id
-        admin:
-          type: string
-          description: The instance admin
-        basicLoginInformation:
-          $ref: '#/components/schemas/BasicLoginInformation'
-          description: Username and password for basic authentication.
-        k8sRaw:
-          type: object
-          description: The raw kubernetes information
-        lastUploadedDate:
-          type: string
-          format: date-time
-          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
-        provisioningState:
-          type: string
-          readOnly: true
-          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
-    PostgresInstance:
-      description: A Postgres Instance.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        extendedLocation:
-          $ref: '#/components/schemas/ExtendedLocation'
-          description: The extendedLocation of the resource.
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-          description: 'null'
-        sku:
-          $ref: '#/components/schemas/PostgresInstanceSku'
-          description: Resource sku.
-      required:
-        - properties
-    PostgresInstanceUpdate:
-      description: An update to a Postgres Instance.
-      type: object
-      properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/PostgresInstanceProperties'
-          x-ms-client-flatten: false
-    PostgresInstanceListResult:
-      description: A list of PostgresInstance.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/PostgresInstance'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    AvailabilityGroupConfigure:
-      description: The specifications of the availability group replica configuration
-      type: object
-      properties:
-        endpointUrl:
-          type: string
-          description: Mirroring endpoint URL of availability group replica
-        availabilityModeDescription:
-          type: string
-          description: The Availability Synchronization mode of the availability group replica.
-          readOnly: true
-        failoverModeDescription:
-          type: string
-          description: The failover mode of the availability group replica.
-          readOnly: true
-        sessionTimeout:
-          type: integer
-          description: The time-out period of availability group session replica, in seconds.
-          format: int32
-        primaryRoleAllowConnectionsDescription:
-          type: string
-          description: Whether the availability allows all connections or only read-write connections.
-          readOnly: true
-        secondaryRoleAllowConnectionsDescription:
-          type: string
-          description: Whether an availability replica that is performing the secondary role (that is, a secondary replica) can accept connections from clients.
-          readOnly: true
-        replicaCreateDate:
-          type: string
-          description: Date that the replica was created.
-          format: date-time
-          readOnly: true
-        replicaModifyDate:
-          type: string
-          description: Date that the replica was modified.
-          format: date-time
-          readOnly: true
-        backupPriority:
-          type: integer
-          description: Represents the user-specified priority for performing backups on this replica relative to the other replicas in the same availability group.
-          format: int32
-        readOnlyRoutingUrl:
-          type: string
-          description: Connectivity endpoint (URL) of the read only availability replica.
-        readWriteRoutingUrl:
-          type: string
-          description: Connectivity endpoint (URL) of the read write availability replica.
-        seedingModeDescription:
-          type: string
-          description: Describes seeding mode.
-          readOnly: true
-    AvailabilityGroupState:
-      description: The specifications of the availability group state
-      type: object
-      properties:
-        availabilityGroupReplicaRole:
-          type: string
-          description: Current Always On availability groups role of the availability group replica.
-          readOnly: true
-        operationalStateDescription:
-          type: string
-          description: Current operational state of the availability group replica
-          readOnly: true
-        recoveryHealthDescription:
-          type: string
-          description: Recovery health of the availability group replica.
-          readOnly: true
-        synchronizationHealthDescription:
-          type: string
-          description: Reflects a rollup of the database synchronization state (synchronization_state) of all joined availability databases (also known as replicas) and the availability mode of the replica (synchronous-commit or asynchronous-commit mode). The rollup will reflect the least healthy accumulated state the databases on the replica.
-          readOnly: true
-        connectedStateDescription:
-          type: string
-          description: Whether a secondary replica is currently connected to the primary replica.
-          readOnly: true
-        lastConnectErrorDescription:
-          type: string
-          description: Text description of the last connection error of the availability group replica.
-          readOnly: true
-        lastConnectErrorTimestamp:
-          type: string
-          description: Date and time timestamp indicating when the last connect error occurred.
-          format: date-time
-          readOnly: true
-    AvailabilityGroupInfo:
-      description: The specifications of the availability group state
-      type: object
-      properties:
-        failureConditionLevel:
-          type: integer
-          description: User-defined failure condition level under which an automatic failover must be triggered.
-          format: int32
-        healthCheckTimeout:
-          type: integer
-          description: Wait time (in milliseconds) for the sp_server_diagnostics system stored procedure to return server-health information, before the server instance is assumed to be slow or not responding.
-          format: int32
-        automatedBackupPreferenceDescription:
-          type: string
-          description: Preferred location for performing backups on the availability databases in this availability group.
-          readOnly: true
-        version:
-          type: integer
-          description: SQL Server availability group current version.
-          format: int32
-          readOnly: true
-        basicFeatures:
-          type: boolean
-          description: Specifies whether this is a basic availability group.
-        dtcSupport:
-          type: boolean
-          description: Specifies whether DTC support has been enabled for this availability group.
-        dbFailover:
-          type: boolean
-          description: Specifies whether the availability group supports failover for database health conditions.
-        isDistributed:
-          type: boolean
-          description: Specifies whether this is a distributed availability group.
-        clusterTypeDescription:
-          type: string
-          description: SQL Server availability group cluster type description
-          readOnly: true
-        requiredSynchronizedSecondariesToCommit:
-          type: integer
-          description: The number of secondary replicas that must be in a synchronized state for a commit to complete.
-          format: int32
-        isContained:
-          type: boolean
-          description: SQL Server availability group contained system databases.
-        primaryReplica:
-          type: string
-          description: Name of the server instance that is hosting the current primary replica.
-          readOnly: true
-        primaryRecoveryHealthDescription:
-          type: string
-          description: Indicates the recovery health of the primary replica.
-          readOnly: true
-        secondaryRecoveryHealthDescription:
-          type: string
-          description: Indicates the recovery health of a secondary replica.
-          readOnly: true
-        synchronizationHealthDescription:
-          type: string
-          description: Reflects a roll-up of the synchronization health of all availability replicas in the availability group.
-          readOnly: true
-        replicationPartnerType:
-          type: string
-          enum:
-            - SQLServer
-            - AzureSQLVM
-            - AzureSQLManagedInstance
-            - Unknown
-          x-ms-enum:
-            name: replicationPartnerType
-            modelAsString: false
-          readOnly: true
-    ArcSqlServerAvailabilityGroupListResult:
-      description: A list of Arc Sql Server Availability Groups.
-      type: object
-      properties:
-        value:
-          description: Array of Arc Sql Server Availability Groups.
-          type: array
-          items:
-            $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    SqlServerAvailabilityGroupResource:
-      type: object
-      description: Arc Sql Server Availability Group
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/SqlServerAvailabilityGroupResourceProperties'
-          description: Properties of Arc Sql Server availability group
-          x-ms-client-flatten: false
-      required:
-        - properties
-    SqlServerAvailabilityGroupResourceProperties:
-      type: object
-      description: The properties of Arc Sql Server availability group resource
-      properties:
-        availabilityGroupId:
-          type: string
-          description: ID GUID of the availability group.
-          pattern: ^[A-Za-z0-9]{8}-([A-Za-z0-9]{4}-){3}[A-Za-z0-9]{12}$
-          readOnly: true
-        serverName:
-          type: string
-          description: the SQL server name.
-          readOnly: true
-        instanceName:
-          type: string
-          description: the SQL Server Instance name.
-          readOnly: true
-        collectionTimestamp:
-          description: Timestamp for when the data was collected from the client machine.
-          type: string
-          format: date-time
-          readOnly: true
-        info:
-          $ref: '#/components/schemas/AvailabilityGroupInfo'
-          description: Availability Group Info
-          x-ms-client-flatten: false
-        replicas:
-          description: A list of Availability Group Replicas.
-          type: object
-          properties:
-            value:
-              description: Array of Availability Group Replicas.
-              type: array
-              items:
-                $ref: '#/components/schemas/SqlAvailabilityGroupReplicaResourceProperties'
-              x-ms-identifiers: []
-            nextLink:
-              description: Link to retrieve next page of results.
-              type: string
-              readOnly: true
-        databases:
-          description: A list of Availability Group Database Replicas.
-          type: object
-          properties:
-            value:
-              description: Array of Availability Group Database Replicas.
-              type: array
-              items:
-                $ref: '#/components/schemas/SqlAvailabilityGroupDatabaseReplicaResourceProperties'
-              x-ms-identifiers: []
-            nextLink:
-              description: Link to retrieve next page of results.
-              type: string
-              readOnly: true
-        provisioningState:
-          type: string
-          description: The provisioning state of the Arc-enabled SQL Server availability group resource.
-          readOnly: true
-    SqlServerAvailabilityGroupUpdate:
-      description: An update to availability group resource.
-      type: object
-      properties:
-        tags:
-          description: Resource tags.
-          type: object
-          additionalProperties:
-            type: string
-        properties:
-          $ref: '#/components/schemas/SqlServerAvailabilityGroupResourceProperties'
-          description: The Server Availability Group's properties
-          x-ms-client-flatten: false
-    SqlAvailabilityGroupReplicaResourceProperties:
-      type: object
-      description: The properties of Arc Sql availability group replica resource
-      properties:
-        replicaId:
-          type: string
-          description: ID GUID of the availability group.
-          pattern: ^[A-Za-z0-9]{8}-([A-Za-z0-9]{4}-){3}[A-Za-z0-9]{12}$
-          readOnly: true
-        replicaName:
-          type: string
-          description: the replica name.
-        configure:
-          $ref: '#/components/schemas/AvailabilityGroupConfigure'
-          description: 'null'
-          x-ms-client-flatten: false
-        state:
-          $ref: '#/components/schemas/AvailabilityGroupState'
-          description: 'null'
-          x-ms-client-flatten: false
-    SqlAvailabilityGroupDatabaseReplicaResourceProperties:
-      type: object
-      description: The properties of Arc Sql availability group database replica resource
-      properties:
-        databaseName:
-          type: string
-          description: the database name.
-        replicaName:
-          type: string
-          description: the database replica name.
-          readOnly: true
-        isLocal:
-          type: boolean
-          description: Whether the availability database is local.
-          readOnly: true
-        isPrimaryReplica:
-          type: boolean
-          description: Returns 1 if the replica is primary, or 0 if it is a secondary replica.
-          readOnly: true
-        synchronizationStateDescription:
-          type: string
-          description: Description of the data-movement state.
-          readOnly: true
-        isCommitParticipant:
-          type: boolean
-          description: Whether this replica is transaction committer.
-          readOnly: true
-        synchronizationHealthDescription:
-          type: string
-          description: Description of the health of database.
-          readOnly: true
-        databaseStateDescription:
-          type: string
-          description: Description of the database state of the availability replica.
-          readOnly: true
-        isSuspended:
-          type: boolean
-          description: Whether this data movement is suspended.
-          readOnly: true
-        suspendReasonDescription:
-          type: string
-          description: Description of the database suspended state reason.
-          readOnly: true
-    FailoverGroupListResult:
-      description: A list of failover groups.
-      type: object
-      properties:
-        value:
-          description: Array of failover group results.
-          type: array
-          items:
-            $ref: '#/components/schemas/FailoverGroupResource'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    FailoverGroupResource:
-      type: object
-      description: A failover group resource.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/FailoverGroupProperties'
-          description: 'null'
-          x-ms-client-flatten: false
-      required:
-        - properties
-    FailoverGroupProperties:
-      type: object
-      description: The properties of a failover group resource.
-      properties:
-        provisioningState:
-          type: string
-          enum:
-            - Succeeded
-            - Failed
-            - Canceled
-            - Accepted
-          x-ms-enum:
-            name: provisioningState
-            modelAsString: true
-          description: The provisioning state of the failover group resource.
-          readOnly: true
-        partnerManagedInstanceId:
-          type: string
-          description: The resource ID of the partner SQL managed instance.
-        spec:
-          $ref: '#/components/schemas/FailoverGroupSpec'
-          description: The specifications of the failover group resource.
-          x-ms-client-flatten: false
-        status:
-          type: object
-          description: The status of the failover group custom resource.
-      additionalProperties: {}
-      required:
-        - partnerManagedInstanceId
-        - spec
-    FailoverGroupSpec:
-      description: The specifications of the failover group resource.
-      type: object
-      properties:
-        sharedName:
-          type: string
-          description: The shared name of the failover group for this SQL managed instance. Both SQL managed instance and its partner have to use the same shared name.
-        sourceMI:
-          type: string
-          description: The name of the SQL managed instance with this failover group role.
-        partnerMI:
-          type: string
-          description: The name of the partner SQL managed instance.
-        partnerMirroringURL:
-          type: string
-          description: The mirroring endpoint URL of the partner SQL managed instance.
-        partnerMirroringCert:
-          type: string
-          description: The mirroring endpoint public certificate for the partner SQL managed instance. Only PEM format is supported.
-        partnerSyncMode:
-          type: string
-          enum:
-            - async
-            - sync
-          x-ms-enum:
-            name: failoverGroupPartnerSyncMode
-            modelAsString: true
-          default: async
-          description: The partner sync mode of the SQL managed instance.
-        role:
-          type: string
-          enum:
-            - primary
-            - secondary
-            - force-primary-allow-data-loss
-            - force-secondary
-          x-ms-enum:
-            name: instanceFailoverGroupRole
-            modelAsString: true
-          default: primary
-          description: The role of the SQL managed instance in this failover group.
-      additionalProperties: {}
-      required:
-        - role
+        - provider
+        - resource
+        - operation
+        - description
     ArcSqlServerDatabaseListResult:
       description: A list of Arc Sql Server database.
       type: object
@@ -2343,6 +2184,144 @@ components:
           $ref: '#/components/schemas/SqlServerDatabaseResourceProperties'
           description: The data controller's properties
           x-ms-client-flatten: false
+    CommonSku:
+      description: The resource model definition representing SKU for ARM resources
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU.  It is typically a letter+number code
+        dev:
+          type: boolean
+          default: true
+          description: 'Whether dev/test is enabled. When the dev field is set to true, the resource is used for dev/test purpose. '
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    ExtendedLocation:
+      type: object
+      description: The complex type of the extended location.
+      properties:
+        name:
+          type: string
+          description: The name of the extended location.
+        type:
+          $ref: '#/components/schemas/ExtendedLocationType'
+          description: The type of the extended location.
+    ExtendedLocationType:
+      type: string
+      description: The type of extendedLocation.
+      enum:
+        - CustomLocation
+      x-ms-enum:
+        name: ExtendedLocationTypes
+        modelAsString: true
+    BasicLoginInformation:
+      type: object
+      description: Username and password for basic login authentication.
+      properties:
+        username:
+          type: string
+          description: Login username.
+        password:
+          type: string
+          description: Login password.
+          x-ms-mutability:
+            - create
+            - update
+          x-ms-secret: true
+    PostgresInstanceSku:
+      description: The resource model definition representing SKU for Azure Database for PostgresSQL - Azure Arc
+      type: object
+      properties:
+        tier:
+          type: string
+          enum:
+            - Hyperscale
+          x-ms-enum:
+            name: PostgresInstanceSkuTier
+            modelAsString: false
+          default: Hyperscale
+          description: This field is required to be implemented by the Resource Provider if the service has more than one tier.
+      allOf:
+        - $ref: '#/components/schemas/CommonSku'
+    PostgresInstanceProperties:
+      description: Postgres Instance properties.
+      type: object
+      properties:
+        dataControllerId:
+          type: string
+          description: The data controller id
+        admin:
+          type: string
+          description: The instance admin
+        basicLoginInformation:
+          $ref: '#/components/schemas/BasicLoginInformation'
+          description: Username and password for basic authentication.
+        k8sRaw:
+          type: object
+          description: The raw kubernetes information
+        lastUploadedDate:
+          type: string
+          format: date-time
+          description: Last uploaded date from Kubernetes cluster. Defaults to current date time
+        provisioningState:
+          type: string
+          readOnly: true
+          description: The provisioning state of the Azure Arc-enabled PostgreSQL instance.
+    PostgresInstance:
+      description: A Postgres Instance.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      properties:
+        extendedLocation:
+          $ref: '#/components/schemas/ExtendedLocation'
+          description: The extendedLocation of the resource.
+        properties:
+          $ref: '#/components/schemas/PostgresInstanceProperties'
+          x-ms-client-flatten: false
+          description: 'null'
+        sku:
+          $ref: '#/components/schemas/PostgresInstanceSku'
+          description: Resource sku.
+      required:
+        - properties
+    PostgresInstanceUpdate:
+      description: An update to a Postgres Instance.
+      type: object
+      properties:
+        tags:
+          description: Resource tags.
+          type: object
+          additionalProperties:
+            type: string
+        properties:
+          $ref: '#/components/schemas/PostgresInstanceProperties'
+          x-ms-client-flatten: false
+    PostgresInstanceListResult:
+      description: A list of PostgresInstance.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PostgresInstance'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
   parameters:
     SubscriptionIdParameter:
       name: subscriptionId
@@ -2388,12 +2367,28 @@ components:
       schema:
         minLength: 1
         type: string
-    apiVersion:
-      name: api-version
-      in: query
-      description: The API version to use for the request
+    resourceGroupName:
+      name: resourceGroupName
+      in: path
+      description: The name of the Azure resource group
       required: true
-      x-ms-parameter-location: client
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    sqlServerInstanceName:
+      name: sqlServerInstanceName
+      in: path
+      description: Name of SQL Server Instance
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    availabilityGroupName:
+      name: availabilityGroupName
+      in: path
+      description: Name of SQL Availability Group
+      required: true
+      x-ms-parameter-location: method
       schema:
         type: string
     subscriptionId:
@@ -2404,20 +2399,20 @@ components:
       x-ms-parameter-location: client
       schema:
         type: string
-    resourceGroupName:
-      name: resourceGroupName
-      in: path
-      description: The name of the Azure resource group
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
     location:
       name: location
       in: path
       description: The Azure region to use for the request
       required: true
       x-ms-parameter-location: method
+      schema:
+        type: string
+    apiVersion:
+      name: api-version
+      in: query
+      description: The API version to use for the request
+      required: true
+      x-ms-parameter-location: client
       schema:
         type: string
     dataControllerName:
@@ -2448,14 +2443,6 @@ components:
       name: failoverGroupName
       in: path
       description: The name of the Failover Group
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    sqlServerInstanceName:
-      name: sqlServerInstanceName
-      in: path
-      description: Name of SQL Server Instance
       required: true
       x-ms-parameter-location: method
       schema:
@@ -2513,14 +2500,6 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    availabilityGroupName:
-      name: availabilityGroupName
-      in: path
-      description: Name of SQL Availability Group
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
     databaseName:
       name: databaseName
       in: path
@@ -2530,6 +2509,245 @@ components:
       schema:
         type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}:
+    x-api-version: '2024-01-01'
+    put:
+      tags:
+        - SqlServerAvailabilityGroups
+      operationId: SqlServerAvailabilityGroups_Create
+      description: Creates or replaces an Arc Sql Server Availability Group.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The request body for availability group resource.
+        required: true
+        x-ms-requestBody-name: sqlServerAvailabilityGroupResource
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - SqlServerAvailabilityGroups
+      operationId: SqlServerAvailabilityGroups_Delete
+      description: Deletes an Arc Sql Server availability group resource.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '202':
+          description: Resource deletion is in progress.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+        '204':
+          description: The specified availability group does not exist.
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+    get:
+      tags:
+        - SqlServerAvailabilityGroups
+      operationId: SqlServerAvailabilityGroups_Get
+      description: Retrieves an Arc Sql Server availability group.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - SqlServerAvailabilityGroups
+      description: Updates an existing Availability Group.
+      operationId: SqlServerAvailabilityGroups_Update
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The requested server availability group resource state.
+        required: true
+        x-ms-requestBody-name: sqlServerAvailabilityGroupUpdate
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SqlServerAvailabilityGroupUpdate'
+      responses:
+        '200':
+          description: Successfully updated the Availability Group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        '202':
+          description: Resource update is in progress.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/getDetailView:
+    x-api-version: '2024-01-01'
+    post:
+      tags:
+        - SqlServerAvailabilityGroups
+      description: Retrieves detailed properties of the Availability Group.
+      operationId: SqlServerAvailabilityGroups_DetailView
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully retrieved the Run-time detailed properties of the Availability Group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/failover:
+    x-api-version: '2024-01-01'
+    post:
+      tags:
+        - SqlServerAvailabilityGroups
+      description: Request manual failover of the availability group to this server.
+      operationId: SqlServerAvailabilityGroups_Failover
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully requested failover of the Availability Group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/forceFailoverAllowDataLoss:
+    x-api-version: '2024-01-01'
+    post:
+      tags:
+        - SqlServerAvailabilityGroups
+      description: Request forced failover of the availability group to this server.
+      operationId: SqlServerAvailabilityGroups_ForceFailoverAllowDataLoss
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/availabilityGroupName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully requested forced failover of the Availability Group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups:
+    x-api-version: '2024-01-01'
+    get:
+      tags:
+        - SqlServerAvailabilityGroups
+      operationId: SqlServerAvailabilityGroups_List
+      summary: List the availability group associated with the given Arc Sql Server.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/resourceGroupName'
+        - $ref: '#/components/parameters/sqlServerInstanceName'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArcSqlServerAvailabilityGroupListResult'
+        default:
+          description: '*** Error Responses: ***'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /providers/Microsoft.AzureArcData/operations:
     x-api-version: '2024-01-01'
     get:
@@ -3612,245 +3830,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}:
-    x-api-version: '2024-01-01'
-    put:
-      tags:
-        - SqlServerAvailabilityGroups
-      operationId: SqlServerAvailabilityGroups_Create
-      description: Creates or replaces an Arc Sql Server Availability Group.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The request body for availability group resource.
-        required: true
-        x-ms-requestBody-name: sqlServerAvailabilityGroupResource
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - SqlServerAvailabilityGroups
-      operationId: SqlServerAvailabilityGroups_Delete
-      description: Deletes an Arc Sql Server availability group resource.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '202':
-          description: Resource deletion is in progress.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: The URL of the resource used to check the status of the asynchronous operation.
-        '204':
-          description: The specified availability group does not exist.
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-    get:
-      tags:
-        - SqlServerAvailabilityGroups
-      operationId: SqlServerAvailabilityGroups_Get
-      description: Retrieves an Arc Sql Server availability group.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - SqlServerAvailabilityGroups
-      description: Updates an existing Availability Group.
-      operationId: SqlServerAvailabilityGroups_Update
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The requested server availability group resource state.
-        required: true
-        x-ms-requestBody-name: sqlServerAvailabilityGroupUpdate
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SqlServerAvailabilityGroupUpdate'
-      responses:
-        '200':
-          description: Successfully updated the Availability Group.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        '202':
-          description: Resource update is in progress.
-          headers:
-            Location:
-              schema:
-                type: string
-              description: The URL of the resource used to check the status of the asynchronous operation.
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: azure-async-operation
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/getDetailView:
-    x-api-version: '2024-01-01'
-    post:
-      tags:
-        - SqlServerAvailabilityGroups
-      description: Retrieves detailed properties of the Availability Group.
-      operationId: SqlServerAvailabilityGroups_DetailView
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the Run-time detailed properties of the Availability Group.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/failover:
-    x-api-version: '2024-01-01'
-    post:
-      tags:
-        - SqlServerAvailabilityGroups
-      description: Request manual failover of the availability group to this server.
-      operationId: SqlServerAvailabilityGroups_Failover
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully requested failover of the Availability Group.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups/{availabilityGroupName}/forceFailoverAllowDataLoss:
-    x-api-version: '2024-01-01'
-    post:
-      tags:
-        - SqlServerAvailabilityGroups
-      description: Request forced failover of the availability group to this server.
-      operationId: SqlServerAvailabilityGroups_ForceFailoverAllowDataLoss
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/availabilityGroupName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully requested forced failover of the Availability Group.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SqlServerAvailabilityGroupResource'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/availabilityGroups:
-    x-api-version: '2024-01-01'
-    get:
-      tags:
-        - SqlServerAvailabilityGroups
-      operationId: SqlServerAvailabilityGroups_List
-      summary: List the availability group associated with the given Arc Sql Server.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/resourceGroupName'
-        - $ref: '#/components/parameters/sqlServerInstanceName'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ArcSqlServerAvailabilityGroupListResult'
-        default:
-          description: '*** Error Responses: ***'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.AzureArcData/sqlServerInstances/{sqlServerInstanceName}/databases/{databaseName}:
     x-api-version: '2024-01-01'
     put:

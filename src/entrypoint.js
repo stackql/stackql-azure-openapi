@@ -8,6 +8,7 @@ import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
 import yaml from 'js-yaml';
 import * as fs from 'fs';
+import { createOrCleanDir } from './shared-functions';
 
 const logger = new ConsoleLogger();
 
@@ -92,38 +93,43 @@ async function openapiCombine(options) {
 }
 
 async function openapiTag(options) {
-  
-  // if (options.specificationDir){
-  //   await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
-  //     logger.info(`finished tagging!`);
-  //   });
-  // } else {
-  //   // interate through all combined subdirs
-   
-  //   const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });
-  //   const subdirs = allFilesAndDirs.filter(dirent => dirent.isDirectory());
 
-  //   for (const subdir of subdirs){
-  //     logger.info(`Processing ${subdir.name}`);
-  //     try {
-  //       await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
-  //         logger.info(`finished tagging!`);
-  //       });
-  //     } catch (err) {
-  //       logger.error(err);
-  //       continue;
-  //     }
-  //   }
-  // }
-
-  // generate provider.yaml files
   const providers = [
     'azure',
     'azure_extras',
     'azure_stack',
     'azure_isv'
   ];
-  
+
+  if (options.specificationDir){
+    await tag(combinedDir, taggedDir, options.specificationDir, options.debug, options.dryrun).finally(() => {
+      logger.info(`finished tagging!`);
+    });
+  } else {
+    // interate through all combined subdirs
+
+    providers.forEach(provider => {
+      createOrCleanDir(`${taggedDir}/${provider}/v00.00.00000/services`, false, options.debug);
+      fs.unlinkSync(`${taggedDir}/${provider}/v00.00.00000/provider.yaml`);
+    });
+
+    const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });
+    const subdirs = allFilesAndDirs.filter(dirent => dirent.isDirectory());
+
+    for (const subdir of subdirs){
+      logger.info(`Processing ${subdir.name}`);
+      try {
+        await tag(combinedDir, taggedDir, subdir.name, options.debug, options.dryrun).finally(() => {
+          logger.info(`finished tagging!`);
+        });
+      } catch (err) {
+        logger.error(err);
+        continue;
+      }
+    }
+  }
+
+  // generate provider.yaml files
   for (const provider of providers){
     logger.info(`Processing ${provider}`);
     const providerServices = await readdir(`${taggedDir}/${provider}/v00.00.00000/services`, { withFileTypes: true });
@@ -168,7 +174,6 @@ async function openapiTag(options) {
 
   return true;    
 }
-
 
 export async function main(args) {
 

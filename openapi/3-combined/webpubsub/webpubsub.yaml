@@ -19,6 +19,126 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    PrivateEndpoint:
+      description: Private endpoint
+      type: object
+      properties:
+        id:
+          description: Full qualified Id of the private endpoint
+          type: string
+    PrivateEndpointConnection:
+      description: A private endpoint connection to an azure resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+    PrivateEndpointConnectionProperties:
+      description: Private endpoint connection properties
+      type: object
+      properties:
+        provisioningState:
+          readOnly: true
+          $ref: '#/components/schemas/ProvisioningState'
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpoint'
+        groupIds:
+          description: Group IDs
+          type: array
+          items:
+            type: string
+          readOnly: true
+          x-ms-identifiers: []
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
+    PrivateLinkServiceConnectionState:
+      description: Connection state of the private endpoint connection
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStatus'
+        description:
+          description: The reason for approval/rejection of the connection.
+          type: string
+        actionsRequired:
+          description: A message indicating if changes on the service provider require any updates on the consumer.
+          type: string
+    PrivateEndpointServiceConnectionStatus:
+      type: string
+      description: The private endpoint connection status.
+      enum:
+        - Pending
+        - Approved
+        - Rejected
+      x-ms-enum:
+        name: PrivateEndpointServiceConnectionStatus
+        modelAsString: true
+    PrivateEndpointConnectionProvisioningState:
+      type: string
+      readOnly: true
+      description: The current provisioning state.
+      enum:
+        - Succeeded
+        - Creating
+        - Deleting
+        - Failed
+      x-ms-enum:
+        name: PrivateEndpointConnectionProvisioningState
+        modelAsString: true
+    PrivateLinkResource:
+      description: Private link resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+    PrivateLinkResourceProperties:
+      description: Private link resource properties
+      type: object
+      properties:
+        groupId:
+          description: Group Id of the private link resource
+          type: string
+        requiredMembers:
+          description: Required members of the private link resource
+          type: array
+          items:
+            type: string
+          x-ms-identifiers: []
+        requiredZoneNames:
+          description: Required private DNS zone names
+          type: array
+          items:
+            type: string
+          x-ms-identifiers: []
+        shareablePrivateLinkResourceTypes:
+          description: The list of resources that are onboarded to private link service
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareablePrivateLinkResourceType'
+          x-ms-identifiers: []
+    PrivateEndpointConnectionListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private endpoint connections.
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+      description: List of private endpoint connections associated with the specified resource.
+    PrivateLinkResourceListResult:
+      type: object
+      properties:
+        value:
+          type: array
+          description: Array of private link resources
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+      description: A list of private link resources.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -131,26 +251,19 @@ components:
         modelAsString: false
       description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
     Sku:
-      description: The resource model definition representing SKU
+      description: Describes an available sku."
       type: object
       properties:
-        name:
+        resourceType:
+          description: The resource type that this object applies to
           type: string
-          description: The name of the SKU. E.g. P3. It is typically a letter+number code
-        tier:
-          $ref: '#/components/schemas/SkuTier'
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+          readOnly: true
+        sku:
+          readOnly: true
+          $ref: '#/components/schemas/ResourceSku'
         capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
+          readOnly: true
+          $ref: '#/components/schemas/SkuCapacity'
     Identity:
       description: Identity for the resource.
       type: object
@@ -249,58 +362,23 @@ components:
           description: The additional info.
       description: The resource management error additional info.
     Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      description: REST API operation supported by resource provider.
       type: object
       properties:
         name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          description: 'Name of the operation with format: {provider}/{resource}/{operation}'
           type: string
-          readOnly: true
         isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          description: If the operation is a data action. (for data plane rbac)
           type: boolean
-          readOnly: true
         display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
+          $ref: '#/components/schemas/OperationDisplay'
         origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          description: Optional. The intended executor of the operation; governs the display of the operation in the RBAC UX and the audit logs UX.
           type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
+        properties:
+          x-ms-client-flatten: false
+          $ref: '#/components/schemas/OperationProperties'
     OperationListResult:
       description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
       type: object
@@ -468,126 +546,6 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
-    PrivateEndpoint:
-      description: Private endpoint
-      type: object
-      properties:
-        id:
-          description: Full qualified Id of the private endpoint
-          type: string
-    PrivateEndpointConnection:
-      description: A private endpoint connection to an azure resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-    PrivateEndpointConnectionProperties:
-      description: Private endpoint connection properties
-      type: object
-      properties:
-        provisioningState:
-          readOnly: true
-          $ref: '#/components/schemas/ProvisioningState'
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpoint'
-        groupIds:
-          description: Group IDs
-          type: array
-          items:
-            type: string
-          readOnly: true
-          x-ms-identifiers: []
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionState'
-    PrivateLinkServiceConnectionState:
-      description: Connection state of the private endpoint connection
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionStatus'
-        description:
-          description: The reason for approval/rejection of the connection.
-          type: string
-        actionsRequired:
-          description: A message indicating if changes on the service provider require any updates on the consumer.
-          type: string
-    PrivateEndpointServiceConnectionStatus:
-      type: string
-      description: The private endpoint connection status.
-      enum:
-        - Pending
-        - Approved
-        - Rejected
-      x-ms-enum:
-        name: PrivateEndpointServiceConnectionStatus
-        modelAsString: true
-    PrivateEndpointConnectionProvisioningState:
-      type: string
-      readOnly: true
-      description: The current provisioning state.
-      enum:
-        - Succeeded
-        - Creating
-        - Deleting
-        - Failed
-      x-ms-enum:
-        name: PrivateEndpointConnectionProvisioningState
-        modelAsString: true
-    PrivateLinkResource:
-      description: Private link resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-    PrivateLinkResourceProperties:
-      description: Private link resource properties
-      type: object
-      properties:
-        groupId:
-          description: Group Id of the private link resource
-          type: string
-        requiredMembers:
-          description: Required members of the private link resource
-          type: array
-          items:
-            type: string
-          x-ms-identifiers: []
-        requiredZoneNames:
-          description: Required private DNS zone names
-          type: array
-          items:
-            type: string
-          x-ms-identifiers: []
-        shareablePrivateLinkResourceTypes:
-          description: The list of resources that are onboarded to private link service
-          type: array
-          items:
-            $ref: '#/components/schemas/ShareablePrivateLinkResourceType'
-          x-ms-identifiers: []
-    PrivateEndpointConnectionListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private endpoint connections.
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-      description: List of private endpoint connections associated with the specified resource.
-    PrivateLinkResourceListResult:
-      type: object
-      properties:
-        value:
-          type: array
-          description: Array of private link resources
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-      description: A list of private link resources.
     ACLAction:
       description: Azure Networking ACL Action.
       enum:
@@ -1630,6 +1588,14 @@ components:
           default: false
           type: boolean
   parameters:
+    PrivateEndpointConnectionName:
+      name: privateEndpointConnectionName
+      in: path
+      description: The name of the private endpoint connection associated with the Azure resource.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -1715,14 +1681,6 @@ components:
       name: ifNoneMatch
       in: header
       description: The If-None-Match header that makes a request conditional.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    PrivateEndpointConnectionName:
-      name: privateEndpointConnectionName
-      in: path
-      description: The name of the private endpoint connection associated with the Azure resource.
       required: true
       x-ms-parameter-location: method
       schema:
