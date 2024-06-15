@@ -95,7 +95,11 @@ function processOperationId(operationId, debug) {
     return { initResName, initMethod };
 }
 
-function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey) {
+function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey, debug) {
+    debug ? logger.debug(`adding ${stackqlMethodName} to ${providerName}.${serviceName}.${stackqlResName}...`) : null;
+    debug ? logger.debug(`sqlVerb : ${stackqlSqlVerb}`) : null;
+    debug ? logger.debug(`stackqlObjectKey : ${stackqlObjectKey}`) : null;
+    
     if (!outputDoc.components) {
         outputDoc.components = {};
     }
@@ -128,18 +132,18 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
     };
 
     if (stackqlObjectKey !== 'none' && stackqlSqlVerb === 'select') {
-        methodObj.response.objectKey = stackqlObjectKey;
+        methodObj.response['objectKey'] = stackqlObjectKey;
     }
 
     outputDoc.components['x-stackQL-resources'][stackqlResName].methods[stackqlMethodName] = methodObj;
 
     // Add "naked" method if objectKey is present
-    if (stackqlObjectKey !== 'none') {
-        const nakedMethodName = `_${stackqlMethodName}`;
-        const nakedMethodObj = { ...methodObj };
-        delete nakedMethodObj.response.objectKey;
-        outputDoc.components['x-stackQL-resources'][stackqlResName].methods[nakedMethodName] = nakedMethodObj;
-    }
+    // if (stackqlObjectKey !== 'none') {
+    //     const nakedMethodName = `_${stackqlMethodName}`;
+    //     const nakedMethodObj = { ...methodObj };
+    //     delete nakedMethodObj.response.objectKey;
+    //     outputDoc.components['x-stackQL-resources'][stackqlResName].methods[nakedMethodName] = nakedMethodObj;
+    // }
 
     // Add references to sqlVerbs
     const methodRef = { $ref: `#/components/x-stackQL-resources/${stackqlResName}/methods/${stackqlMethodName}` };
@@ -458,7 +462,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }                            
 
                         // get object key
-                        stackqlObjectKey = determineObjectKey(serviceName, operationId, operationObj, inputDoc);
+                        stackqlObjectKey = determineObjectKey(serviceName, operationId, operationObj, inputDoc, debug);
                         // stackqlObjectKey = getObjectKey(serviceName, stackqlResName, verbKey, stackqlMethodName);
 
                         debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
@@ -472,7 +476,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         // outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
                         // stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;   
                         
-                        stackqlResName != 'skip_this_resource' && stackQLHttpOps.includes(verbKey) ? addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey): null;
+                        stackqlResName != 'skip_this_resource' && stackQLHttpOps.includes(verbKey) ? addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey, debug): null;
 
                     } catch (e) {
                         console.log(e);

@@ -1,3 +1,7 @@
+import { ConsoleLogger } from '@autorest/common';
+
+const logger = new ConsoleLogger();
+
 /* --------------------------------------------- */
 /* needed to avoid unreachable routes in stackQL */
 /* --------------------------------------------- */
@@ -949,7 +953,7 @@ function resolveRef(ref, inputDoc) {
     return schema;
 }
 
-export function determineObjectKey(serviceName, operationId, operationObj, inputDoc) {
+export function determineObjectKey(serviceName, operationId, operationObj, inputDoc, debug) {
     
     // look for specific overrides
     switch (serviceName) {
@@ -1001,13 +1005,10 @@ export function determineObjectKey(serviceName, operationId, operationObj, input
                 // Let's assume you have such a function implemented
                 schema = resolveRef(schema.$ref, inputDoc); // Assuming 'inputDoc' is accessible here
             }
-
-            if(serviceName === 'compute'){
-                console.info(schema);
-            }
             
             // Check if the schema has a 'value' property of type 'array'
             if (schema.properties && schema.properties.value && schema.properties.value.type === 'array') {
+                debug ? logger.debug(`Returning '$.value' for objectKey for ${operationId}`) : null;
                 return '$.value';
             }
         }
