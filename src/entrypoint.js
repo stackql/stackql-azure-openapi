@@ -108,9 +108,11 @@ async function openapiTag(options) {
   } else {
     // interate through all combined subdirs
 
-    providers.forEach(provider => {
-      createOrCleanDir(`${taggedDir}/${provider}/v00.00.00000/services`, false, options.debug);
-      fs.unlinkSync(`${taggedDir}/${provider}/v00.00.00000/provider.yaml`);
+    providers.forEach(async provider => {
+      await createOrCleanDir(`${taggedDir}/${provider}/v00.00.00000/services`, false, options.debug);
+      if (fs.existsSync(`${taggedDir}/${provider}/v00.00.00000/provider.yaml`)) {
+        fs.unlinkSync(`${taggedDir}/${provider}/v00.00.00000/provider.yaml`);
+      }
     });
 
     const allFilesAndDirs = await readdir(`${combinedDir}`, { withFileTypes: true });

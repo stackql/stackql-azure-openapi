@@ -2,9 +2,9 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  title: MariaDBManagementClient
-  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure MariaDB resources including servers, databases, firewall rules, VNET rules, log files and configurations with new business model.
   version: '2018-06-01'
+  title: MariaDBManagementClient
+  description: The Microsoft Azure management API provides create, read, update, and delete functionality for Azure MariaDB resources including servers, databases, firewall rules, VNET rules, security alert policies, log files and configurations with new business model.
 security:
   - azure_auth:
       - user_impersonation
@@ -19,6 +19,50 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    PrivateLinkResourceListResult:
+      description: A list of private link resources
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateLinkResource'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    PrivateLinkResourceProperties:
+      description: Properties of a private link resource.
+      type: object
+      properties:
+        groupId:
+          description: The private link resource group id.
+          type: string
+          readOnly: true
+        requiredMembers:
+          description: The private link resource required member names.
+          type: array
+          items:
+            type: string
+          readOnly: true
+    PrivateLinkResource:
+      description: A private link resource
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateLinkResourceProperties'
+          description: The private link resource group id.
+          readOnly: true
+    CloudError:
+      x-ms-external: true
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+      description: An error response from the Batch service.
     QueryTextProperties:
       properties:
         queryId:
@@ -255,13 +299,100 @@ components:
         message:
           type: string
           description: operation message.
-    CloudError:
-      x-ms-external: true
+    AdvisorProperties:
+      properties: {}
+      description: The properties of a recommendation action advisor.
+    Advisor:
       properties:
-        error:
-          $ref: '#/components/schemas/ErrorResponse'
-          description: Error message
-      description: An error response from the Batch service.
+        properties:
+          $ref: '#/components/schemas/AdvisorProperties'
+          x-ms-client-flatten: true
+          description: The properties of a recommendation action advisor.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a recommendation action advisor.
+    AdvisorsResultList:
+      description: A list of query statistics.
+      type: object
+      properties:
+        value:
+          description: The list of recommendation action advisors.
+          type: array
+          items:
+            $ref: '#/components/schemas/Advisor'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    RecommendationActionProperties:
+      properties:
+        advisorName:
+          type: string
+          description: Advisor name.
+        sessionId:
+          type: string
+          description: Recommendation action session identifier.
+        actionId:
+          type: integer
+          format: int32
+          description: Recommendation action identifier.
+        createdTime:
+          type: string
+          format: date-time
+          description: Recommendation action creation time.
+        expirationTime:
+          type: string
+          format: date-time
+          description: Recommendation action expiration time.
+        reason:
+          type: string
+          description: Recommendation action reason.
+        recommendationType:
+          type: string
+          description: Recommendation action type.
+        details:
+          type: object
+          additionalProperties:
+            type: string
+          description: Recommendation action details.
+      description: The properties of a recommendation action.
+    RecommendationAction:
+      properties:
+        properties:
+          $ref: '#/components/schemas/RecommendationActionProperties'
+          x-ms-client-flatten: true
+          description: The properties of a recommendation action.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      description: Represents a Recommendation Action.
+    RecommendationActionsResultList:
+      description: A list of recommendation actions.
+      type: object
+      properties:
+        value:
+          description: The list of recommendation action advisors.
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationAction'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    RecommendedActionSessionsOperationStatus:
+      properties:
+        name:
+          type: string
+          description: Operation identifier.
+        startTime:
+          type: string
+          format: date-time
+          description: Operation start time.
+        status:
+          type: string
+          description: Operation status.
+      description: Recommendation action session operation status.
     ServerVersion:
       type: string
       description: The version of a server.
@@ -1071,262 +1202,6 @@ components:
           $ref: '#/components/schemas/RecoverableServerProperties'
           description: Resource properties.
           x-ms-client-flatten: true
-    SecurityAlertPolicyProperties:
-      description: Properties of a security alert policy.
-      required:
-        - state
-      type: object
-      properties:
-        state:
-          description: Specifies the state of the policy, whether it is enabled or disabled.
-          enum:
-            - Enabled
-            - Disabled
-          type: string
-          x-ms-enum:
-            name: ServerSecurityAlertPolicyState
-            modelAsString: false
-        disabledAlerts:
-          description: 'Specifies an array of alerts that are disabled. Allowed values are: Sql_Injection, Sql_Injection_Vulnerability, Access_Anomaly'
-          type: array
-          items:
-            type: string
-        emailAddresses:
-          description: Specifies an array of e-mail addresses to which the alert is sent.
-          type: array
-          items:
-            type: string
-        emailAccountAdmins:
-          description: Specifies that the alert is sent to the account administrators.
-          type: boolean
-        storageEndpoint:
-          description: Specifies the blob storage endpoint (e.g. https://MyAccount.blob.core.windows.net). This blob storage will hold all Threat Detection audit logs.
-          type: string
-        storageAccountAccessKey:
-          description: Specifies the identifier key of the Threat Detection audit storage account.
-          type: string
-        retentionDays:
-          format: int32
-          description: Specifies the number of days to keep in the Threat Detection audit logs.
-          type: integer
-    ServerSecurityAlertPolicy:
-      description: A server security alert policy.
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/SecurityAlertPolicyProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-    ServerSecurityAlertPolicyListResult:
-      description: A list of the server's security alert policies.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    PrivateEndpointConnectionProperties:
-      description: Properties of a private endpoint connection.
-      type: object
-      properties:
-        privateEndpoint:
-          $ref: '#/components/schemas/PrivateEndpointProperty'
-          description: Private endpoint which the connection belongs to.
-        privateLinkServiceConnectionState:
-          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
-          description: Connection state of the private endpoint connection.
-        provisioningState:
-          description: State of the private endpoint connection.
-          type: string
-          readOnly: true
-    PrivateLinkServiceConnectionStateProperty:
-      required:
-        - status
-        - description
-      type: object
-      properties:
-        status:
-          description: The private link service connection status.
-          type: string
-        description:
-          description: The private link service connection description.
-          type: string
-        actionsRequired:
-          description: The actions required for private link service connection.
-          type: string
-          readOnly: true
-    PrivateEndpointConnection:
-      description: A private endpoint connection
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
-          description: Resource properties.
-          x-ms-client-flatten: true
-    PrivateEndpointConnectionListResult:
-      description: A list of private endpoint connections.
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateEndpointConnection'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    TagsObject:
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          description: Resource tags.
-      description: Tags object for patch operations.
-    PrivateLinkResourceListResult:
-      description: A list of private link resources
-      type: object
-      properties:
-        value:
-          description: Array of results.
-          type: array
-          items:
-            $ref: '#/components/schemas/PrivateLinkResource'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    PrivateLinkResourceProperties:
-      description: Properties of a private link resource.
-      type: object
-      properties:
-        groupId:
-          description: The private link resource group id.
-          type: string
-          readOnly: true
-        requiredMembers:
-          description: The private link resource required member names.
-          type: array
-          items:
-            type: string
-          readOnly: true
-    PrivateLinkResource:
-      description: A private link resource
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      properties:
-        properties:
-          $ref: '#/components/schemas/PrivateLinkResourceProperties'
-          description: The private link resource group id.
-          readOnly: true
-    AdvisorProperties:
-      properties: {}
-      description: The properties of a recommendation action advisor.
-    Advisor:
-      properties:
-        properties:
-          $ref: '#/components/schemas/AdvisorProperties'
-          x-ms-client-flatten: true
-          description: The properties of a recommendation action advisor.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a recommendation action advisor.
-    AdvisorsResultList:
-      description: A list of query statistics.
-      type: object
-      properties:
-        value:
-          description: The list of recommendation action advisors.
-          type: array
-          items:
-            $ref: '#/components/schemas/Advisor'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    RecommendationActionProperties:
-      properties:
-        advisorName:
-          type: string
-          description: Advisor name.
-        sessionId:
-          type: string
-          description: Recommendation action session identifier.
-        actionId:
-          type: integer
-          format: int32
-          description: Recommendation action identifier.
-        createdTime:
-          type: string
-          format: date-time
-          description: Recommendation action creation time.
-        expirationTime:
-          type: string
-          format: date-time
-          description: Recommendation action expiration time.
-        reason:
-          type: string
-          description: Recommendation action reason.
-        recommendationType:
-          type: string
-          description: Recommendation action type.
-        details:
-          type: object
-          additionalProperties:
-            type: string
-          description: Recommendation action details.
-      description: The properties of a recommendation action.
-    RecommendationAction:
-      properties:
-        properties:
-          $ref: '#/components/schemas/RecommendationActionProperties'
-          x-ms-client-flatten: true
-          description: The properties of a recommendation action.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-      description: Represents a Recommendation Action.
-    RecommendationActionsResultList:
-      description: A list of recommendation actions.
-      type: object
-      properties:
-        value:
-          description: The list of recommendation action advisors.
-          type: array
-          items:
-            $ref: '#/components/schemas/RecommendationAction'
-          readOnly: true
-        nextLink:
-          description: Link to retrieve next page of results.
-          type: string
-          readOnly: true
-    RecommendedActionSessionsOperationStatus:
-      properties:
-        name:
-          type: string
-          description: Operation identifier.
-        startTime:
-          type: string
-          format: date-time
-          description: Operation start time.
-        status:
-          type: string
-          description: Operation status.
-      description: Recommendation action session operation status.
     Resource:
       title: Resource
       description: Common fields that are returned in the response for all Azure Resource Manager resources
@@ -1623,6 +1498,130 @@ components:
         identity:
           description: The client ID of the identity which will be used to access key vault.
           type: string
+    PrivateEndpointConnectionProperties:
+      description: Properties of a private endpoint connection.
+      type: object
+      properties:
+        privateEndpoint:
+          $ref: '#/components/schemas/PrivateEndpointProperty'
+          description: Private endpoint which the connection belongs to.
+        privateLinkServiceConnectionState:
+          $ref: '#/components/schemas/PrivateLinkServiceConnectionStateProperty'
+          description: Connection state of the private endpoint connection.
+        provisioningState:
+          description: State of the private endpoint connection.
+          type: string
+          readOnly: true
+    PrivateLinkServiceConnectionStateProperty:
+      required:
+        - status
+        - description
+      type: object
+      properties:
+        status:
+          description: The private link service connection status.
+          type: string
+        description:
+          description: The private link service connection description.
+          type: string
+        actionsRequired:
+          description: The actions required for private link service connection.
+          type: string
+          readOnly: true
+    PrivateEndpointConnection:
+      description: A private endpoint connection
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/PrivateEndpointConnectionProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+    PrivateEndpointConnectionListResult:
+      description: A list of private endpoint connections.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateEndpointConnection'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
+    TagsObject:
+      properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Resource tags.
+      description: Tags object for patch operations.
+    SecurityAlertPolicyProperties:
+      description: Properties of a security alert policy.
+      required:
+        - state
+      type: object
+      properties:
+        state:
+          description: Specifies the state of the policy, whether it is enabled or disabled.
+          enum:
+            - Enabled
+            - Disabled
+          type: string
+          x-ms-enum:
+            name: ServerSecurityAlertPolicyState
+            modelAsString: false
+        disabledAlerts:
+          description: 'Specifies an array of alerts that are disabled. Allowed values are: Sql_Injection, Sql_Injection_Vulnerability, Access_Anomaly'
+          type: array
+          items:
+            type: string
+        emailAddresses:
+          description: Specifies an array of e-mail addresses to which the alert is sent.
+          type: array
+          items:
+            type: string
+        emailAccountAdmins:
+          description: Specifies that the alert is sent to the account administrators.
+          type: boolean
+        storageEndpoint:
+          description: Specifies the blob storage endpoint (e.g. https://MyAccount.blob.core.windows.net). This blob storage will hold all Threat Detection audit logs.
+          type: string
+        storageAccountAccessKey:
+          description: Specifies the identifier key of the Threat Detection audit storage account.
+          type: string
+        retentionDays:
+          format: int32
+          description: Specifies the number of days to keep in the Threat Detection audit logs.
+          type: integer
+    ServerSecurityAlertPolicy:
+      description: A server security alert policy.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      properties:
+        properties:
+          $ref: '#/components/schemas/SecurityAlertPolicyProperties'
+          description: Resource properties.
+          x-ms-client-flatten: true
+    ServerSecurityAlertPolicyListResult:
+      description: A list of the server's security alert policies.
+      type: object
+      properties:
+        value:
+          description: Array of results.
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerSecurityAlertPolicy'
+          readOnly: true
+        nextLink:
+          description: Link to retrieve next page of results.
+          type: string
+          readOnly: true
   parameters:
     ServerNameParameter:
       name: serverName
@@ -1652,38 +1651,6 @@ components:
       name: waitStatisticsId
       in: path
       description: The Wait Statistic identifier.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    FirewallRuleNameParameter:
-      name: firewallRuleName
-      in: path
-      description: The name of the server firewall rule.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    virtualNetworkRuleNameParameter:
-      name: virtualNetworkRuleName
-      in: path
-      description: The name of the virtual network rule.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    DatabaseNameParameter:
-      name: databaseName
-      in: path
-      description: The name of the database.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    ConfigurationNameParameter:
-      name: configurationName
-      in: path
-      description: The name of the server configuration.
       required: true
       x-ms-parameter-location: method
       schema:
@@ -1720,6 +1687,38 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
+    FirewallRuleNameParameter:
+      name: firewallRuleName
+      in: path
+      description: The name of the server firewall rule.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    virtualNetworkRuleNameParameter:
+      name: virtualNetworkRuleName
+      in: path
+      description: The name of the virtual network rule.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    DatabaseNameParameter:
+      name: databaseName
+      in: path
+      description: The name of the database.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    ConfigurationNameParameter:
+      name: configurationName
+      in: path
+      description: The name of the server configuration.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
     SubscriptionIdParameter:
       name: subscriptionId
       in: path
@@ -1747,6 +1746,64 @@ components:
         maxLength: 90
         type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets the private link resources for MariaDB server.
+      operationId: PrivateLinkResources_ListByServer
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResourceListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources/{groupName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - PrivateLinkResources
+      description: Gets a private link resource for MariaDB server.
+      operationId: PrivateLinkResources_Get
+      parameters:
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - name: groupName
+          in: path
+          description: The name of the private link resource.
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Successfully retrieved private link resources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateLinkResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/queryTexts/{queryId}:
     x-api-version: '2018-06-01'
     get:
@@ -1957,6 +2014,215 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - Advisors
+      operationId: Advisors_Get
+      description: Get a recommendation action advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisor'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - Advisors
+      operationId: Advisors_ListByServer
+      description: List recommendation action advisors.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvisorsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/createRecommendedActionSession:
+    x-api-version: '2018-06-01'
+    post:
+      tags:
+        - RecommendedActionSessions
+      operationId: CreateRecommendedActionSession
+      description: Create recommendation action session for the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - name: databaseName
+          in: query
+          description: The name of the database.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions/{recommendedActionName}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - RecommendedActions
+      operationId: RecommendedActions_Get
+      description: Retrieve recommended actions from the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - $ref: '#/components/parameters/RecommendedActionNameParameter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationAction'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - RecommendedActions
+      operationId: RecommendedActions_ListByServer
+      description: Retrieve recommended actions from the advisor.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+        - $ref: '#/components/parameters/AdvisorNameParameter'
+        - name: sessionId
+          in: query
+          description: The recommendation action session identifier.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsAzureAsyncOperation/{operationId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - LocationBasedRecommendedActionSessionsOperationStatus
+      operationId: LocationBasedRecommendedActionSessionsOperationStatus_Get
+      description: Recommendation action session operation status.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationNameParameter'
+        - $ref: '#/components/parameters/OperationIdParameter'
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedActionSessionsOperationStatus'
+  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsOperationResults/{operationId}:
+    x-api-version: '2018-06-01'
+    get:
+      tags:
+        - LocationBasedRecommendedActionSessionsResult
+      operationId: LocationBasedRecommendedActionSessionsResult_List
+      description: Recommendation action session operation result.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/LocationNameParameter'
+        - $ref: '#/components/parameters/OperationIdParameter'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationActionsResultList'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/start:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStart
+      operationId: Servers_Start
+      description: Starts a stopped server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/stop:
+    x-api-version: '2020-01-01'
+    post:
+      tags:
+        - ServerStop
+      operationId: Servers_Stop
+      description: Stops a running server.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/ServerNameParameter'
+      responses:
+        '200':
+          description: OK
+        '202':
+          description: Accepted
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-long-running-operation: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}:
     x-api-version: '2018-06-01'
     put:
@@ -2867,129 +3133,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/securityAlertPolicies/{securityAlertPolicyName}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Get a server's security alert policy.
-      operationId: ServerSecurityAlertPolicies_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: securityAlertPolicyName
-          in: path
-          description: The name of the security alert policy.
-          required: true
-          schema:
-            enum:
-              - Default
-            x-ms-enum:
-              name: SecurityAlertPolicyName
-              modelAsString: true
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server threat detection policy.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-        default:
-          description: Error response describing why the operation of getting security alert policies failed.
-    put:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Creates or updates a threat detection policy.
-      operationId: ServerSecurityAlertPolicies_CreateOrUpdate
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: securityAlertPolicyName
-          in: path
-          description: The name of the threat detection policy.
-          required: true
-          schema:
-            enum:
-              - Default
-            x-ms-enum:
-              name: SecurityAlertPolicyName
-              modelAsString: true
-            type: string
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: The server security alert policy.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-      responses:
-        '200':
-          description: Successfully updated the threat detection policy.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
-        '202':
-          description: Created request to set the server threat detection policy.
-        default:
-          description: Error response describing why the operation of setting security alert policies failed.
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/securityAlertPolicies:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - ServerSecurityAlertPolicies
-      description: Get the server's threat detection policies.
-      operationId: ServerSecurityAlertPolicies_ListByServer
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved the server threat detection policies.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerSecurityAlertPolicyListResult'
-        default:
-          description: |-
-            *** Error Responses: ***
-
-             * 400 SecurityAlertPoliciesInvalidStorageAccountName - The provided storage account is not valid or does not exist.
-
-             * 400 SecurityAlertPoliciesInvalidStorageAccountCredentials - The provided storage account access key is not valid.
-
-             * 400 InvalidServerSecurityAlertPolicyCreateRequest - The create server Threat Detection security alert policy request does not exist or has no properties object.
-
-             * 400 DataSecurityInvalidUserSuppliedParameter - An invalid parameter value was provided by the client.
-
-             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 404 SubscriptionDoesNotHaveServer - The requested server was not found
-
-             * 404 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 409 ServerSecurityAlertPolicyInProgress - Set server security alert policy is already in progress
-
-             * 409 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 500 DatabaseIsUnavailable - Loading failed. Please try again later.
-
-             * 500 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
-
-             * 500 GetServerSecurityAlertPolicyFailed - Failed to get Threat Detection settings
-      x-ms-pageable:
-        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateEndpointConnections/{privateEndpointConnectionName}:
     x-api-version: '2018-06-01'
     get:
@@ -3153,270 +3296,126 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/securityAlertPolicies/{securityAlertPolicyName}:
     x-api-version: '2018-06-01'
     get:
       tags:
-        - PrivateLinkResources
-      description: Gets the private link resources for MariaDB server.
-      operationId: PrivateLinkResources_ListByServer
+        - ServerSecurityAlertPolicies
+      description: Get a server's security alert policy.
+      operationId: ServerSecurityAlertPolicies_Get
       parameters:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Successfully retrieved private link resources.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PrivateLinkResourceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/privateLinkResources/{groupName}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - PrivateLinkResources
-      description: Gets a private link resource for MariaDB server.
-      operationId: PrivateLinkResources_Get
-      parameters:
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - name: groupName
+        - name: securityAlertPolicyName
           in: path
-          description: The name of the private link resource.
+          description: The name of the security alert policy.
           required: true
           schema:
+            enum:
+              - Default
+            x-ms-enum:
+              name: SecurityAlertPolicyName
+              modelAsString: true
             type: string
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: Successfully retrieved private link resources.
+          description: Successfully retrieved the server threat detection policy.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrivateLinkResource'
+                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
         default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}:
-    x-api-version: '2018-06-01'
-    get:
+          description: Error response describing why the operation of getting security alert policies failed.
+    put:
       tags:
-        - Advisors
-      operationId: Advisors_Get
-      description: Get a recommendation action advisor.
+        - ServerSecurityAlertPolicies
+      description: Creates or updates a threat detection policy.
+      operationId: ServerSecurityAlertPolicies_CreateOrUpdate
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Advisor'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - Advisors
-      operationId: Advisors_ListByServer
-      description: List recommendation action advisors.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdvisorsResultList'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/createRecommendedActionSession:
-    x-api-version: '2018-06-01'
-    post:
-      tags:
-        - RecommendedActionSessions
-      operationId: CreateRecommendedActionSession
-      description: Create recommendation action session for the advisor.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - name: databaseName
-          in: query
-          description: The name of the database.
+        - name: securityAlertPolicyName
+          in: path
+          description: The name of the threat detection policy.
           required: true
           schema:
+            enum:
+              - Default
+            x-ms-enum:
+              name: SecurityAlertPolicyName
+              modelAsString: true
             type: string
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: The server security alert policy.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerSecurityAlertPolicy'
       responses:
         '200':
-          description: OK
+          description: Successfully updated the threat detection policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerSecurityAlertPolicy'
         '202':
-          description: Accepted
+          description: Created request to set the server threat detection policy.
+        default:
+          description: Error response describing why the operation of setting security alert policies failed.
       x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions/{recommendedActionName}:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/securityAlertPolicies:
     x-api-version: '2018-06-01'
     get:
       tags:
-        - RecommendedActions
-      operationId: RecommendedActions_Get
-      description: Retrieve recommended actions from the advisor.
+        - ServerSecurityAlertPolicies
+      description: Get the server's threat detection policies.
+      operationId: ServerSecurityAlertPolicies_ListByServer
       parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - $ref: '#/components/parameters/RecommendedActionNameParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: OK
+          description: Successfully retrieved the server threat detection policies.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendationAction'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/advisors/{advisorName}/recommendedActions:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - RecommendedActions
-      operationId: RecommendedActions_ListByServer
-      description: Retrieve recommended actions from the advisor.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-        - $ref: '#/components/parameters/AdvisorNameParameter'
-        - name: sessionId
-          in: query
-          description: The recommendation action session identifier.
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
+                $ref: '#/components/schemas/ServerSecurityAlertPolicyListResult'
+        default:
+          description: |-
+            *** Error Responses: ***
+
+             * 400 SecurityAlertPoliciesInvalidStorageAccountName - The provided storage account is not valid or does not exist.
+
+             * 400 SecurityAlertPoliciesInvalidStorageAccountCredentials - The provided storage account access key is not valid.
+
+             * 400 InvalidServerSecurityAlertPolicyCreateRequest - The create server Threat Detection security alert policy request does not exist or has no properties object.
+
+             * 400 DataSecurityInvalidUserSuppliedParameter - An invalid parameter value was provided by the client.
+
+             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 400 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 404 SubscriptionDoesNotHaveServer - The requested server was not found
+
+             * 404 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 409 ServerSecurityAlertPolicyInProgress - Set server security alert policy is already in progress
+
+             * 409 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 500 DatabaseIsUnavailable - Loading failed. Please try again later.
+
+             * 500 UpsertServerSecurityAlertPolicyFailed - An error has occurred while saving Threat detection settings, please try again later
+
+             * 500 GetServerSecurityAlertPolicyFailed - Failed to get Threat Detection settings
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsAzureAsyncOperation/{operationId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - LocationBasedRecommendedActionSessionsOperationStatus
-      operationId: LocationBasedRecommendedActionSessionsOperationStatus_Get
-      description: Recommendation action session operation status.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationNameParameter'
-        - $ref: '#/components/parameters/OperationIdParameter'
-      responses:
-        '200':
-          description: OK.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecommendedActionSessionsOperationStatus'
-  /subscriptions/{subscriptionId}/providers/Microsoft.DBforMariaDB/locations/{locationName}/recommendedActionSessionsOperationResults/{operationId}:
-    x-api-version: '2018-06-01'
-    get:
-      tags:
-        - LocationBasedRecommendedActionSessionsResult
-      operationId: LocationBasedRecommendedActionSessionsResult_List
-      description: Recommendation action session operation result.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/LocationNameParameter'
-        - $ref: '#/components/parameters/OperationIdParameter'
-      responses:
-        '200':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecommendationActionsResultList'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/start:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStart
-      operationId: Servers_Start
-      description: Starts a stopped server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DBforMariaDB/servers/{serverName}/stop:
-    x-api-version: '2020-01-01'
-    post:
-      tags:
-        - ServerStop
-      operationId: Servers_Stop
-      description: Stops a running server.
-      parameters:
-        - $ref: '#/components/parameters/ApiVersionParameter'
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/ServerNameParameter'
-      responses:
-        '200':
-          description: OK
-        '202':
-          description: Accepted
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CloudError'
-      x-ms-long-running-operation: true

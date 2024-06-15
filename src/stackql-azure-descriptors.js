@@ -1002,6 +1002,10 @@ export function determineObjectKey(serviceName, operationId, operationObj, input
                 schema = resolveRef(schema.$ref, inputDoc); // Assuming 'inputDoc' is accessible here
             }
 
+            if(serviceName === 'compute'){
+                console.info(schema);
+            }
+            
             // Check if the schema has a 'value' property of type 'array'
             if (schema.properties && schema.properties.value && schema.properties.value.type === 'array') {
                 return '$.value';

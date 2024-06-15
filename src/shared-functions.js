@@ -3,7 +3,7 @@ import { ConsoleLogger } from '@autorest/common';
 
 const logger = new ConsoleLogger();
 
-export function createOrCleanDir(dir, cleanOnly, debug) {
+export async function createOrCleanDir(dir, cleanOnly, debug) {
 
     function cleanDir(dir, debug){
         debug ? logger.debug(`${dir} exists, cleaning...`): null;

@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: https://management.azure.com/
 info:
-  version: '2024-04-03'
+  version: 2024-04-08-preview
   title: Desktop Virtualization API Client
 security:
   - azure_auth:
@@ -149,28 +149,6 @@ components:
           description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
       required:
         - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          format: uuid
-          description: The principal ID of resource identity. The value must be an UUID.
-        tenantId:
-          readOnly: true
-          type: string
-          format: uuid
-          description: The tenant ID of resource. The value must be an UUID.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
     Plan:
       type: object
       properties:
@@ -472,6 +450,105 @@ components:
         message:
           description: Detailed reason why the given name is available.
           type: string
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UserAssignedIdentity'
+            nullable: true
+            x-nullable: true
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
+    Identity:
+      description: Identity for the resource.
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
+        tenantId:
+          readOnly: true
+          type: string
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
+        type:
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
     CloudError:
       description: Cloud error object.
       type: object
@@ -567,9 +644,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/ResourceModelWithAllowedPropertySet'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for Workspace
           x-ms-client-flatten: true
@@ -678,9 +752,6 @@ components:
       required:
         - properties
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for ApplicationGroup
           x-ms-client-flatten: true
@@ -781,9 +852,6 @@ components:
       required:
         - properties
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for HostPool
           x-ms-client-flatten: true
@@ -849,6 +917,7 @@ components:
             - BreadthFirst
             - DepthFirst
             - Persistent
+            - MultiplePersistent
           x-ms-enum:
             name: LoadBalancerType
             modelAsString: true
@@ -872,6 +941,16 @@ components:
         vmTemplate:
           type: string
           description: VM template for sessionhosts configuration within hostpool.
+        managementType:
+          enum:
+            - Automated
+            - Standard
+          x-ms-enum:
+            name: ManagementType
+            modelAsString: true
+          type: string
+          description: The type of management for this hostpool, Automated or Standard. The default value is Automated.
+          nullable: false
         applicationGroupReferences:
           readOnly: true
           type: array
@@ -949,7 +1028,50 @@ components:
           items:
             $ref: '#/components/schemas/PrivateEndpointConnection'
           description: List of private endpoint connection associated with the specified resource
-          nullable: true
+        managedPrivateUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: ManagedPrivateUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        directUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: DirectUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        publicUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: PublicUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        relayUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: RelayUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
     HostPoolPatch:
       type: object
       description: HostPool properties that can be patched.
@@ -999,6 +1121,7 @@ components:
             - BreadthFirst
             - DepthFirst
             - Persistent
+            - MultiplePersistent
           x-ms-enum:
             name: LoadBalancerType
             modelAsString: true
@@ -1071,8 +1194,978 @@ components:
         agentUpdate:
           $ref: '#/components/schemas/AgentUpdatePatchProperties'
           description: The session host configuration for updating agent, monitoring agent, and stack component.
+        managedPrivateUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: ManagedPrivateUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        directUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: DirectUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        publicUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: PublicUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+        relayUDP:
+          enum:
+            - Default
+            - Enabled
+            - Disabled
+          x-ms-enum:
+            name: RelayUDP
+            modelAsString: true
+          type: string
+          description: 'Default: AVD-wide settings are used to determine connection availability, Enabled: UDP will attempt this connection type when making connections. This means that this connection is possible, but is not guaranteed, as there are other factors that may prevent this connection type, Disabled: UDP will not attempt this connection type when making connections'
+          nullable: false
+    SessionHostManagementList:
+      type: object
+      title: SessionHostManagementList
+      description: List of SessionHostManagement definitions.
+      properties:
+        value:
+          type: array
+          description: List of SessionHostManagement definitions.
+          items:
+            $ref: '#/components/schemas/SessionHostManagement'
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next page of results.
+    SessionHostManagement:
+      type: object
+      description: Represents a SessionHostManagement definition.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+      required:
+        - properties
+      properties:
+        properties:
+          description: Detailed properties for SessionHostManagement
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SessionHostManagementProperties'
+    SessionHostManagementProperties:
+      description: Session host Managements of HostPool.
+      type: object
+      required:
+        - scheduledDateTimeZone
+        - update
+      properties:
+        scheduledDateTimeZone:
+          type: string
+          description: Time zone for sessionHostManagement operations as defined in https://docs.microsoft.com/dotnet/api/system.timezoneinfo.findsystemtimezonebyid. Must be set if useLocalTime is true.
+        update:
+          $ref: '#/components/schemas/HostPoolUpdateConfigurationProperties'
+          description: Parameters for a hostpool update.
+    SessionHostManagementPatch:
+      type: object
+      description: Represents a SessionHostManagementPatch definition.
+      properties:
+        properties:
+          description: Detailed properties for SessionHostManagementPatch
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SessionHostManagementPatchProperties'
+    SessionHostManagementPatchProperties:
+      description: Session host Managements of HostPool.
+      type: object
+      properties:
+        scheduledDateTimeZone:
+          type: string
+          description: Time zone for sessionHostManagement operations as defined in https://docs.microsoft.com/dotnet/api/system.timezoneinfo.findsystemtimezonebyid. Must be set if useLocalTime is true.
+        update:
+          $ref: '#/components/schemas/HostPoolUpdateConfigurationPatchProperties'
+          description: Parameters for a hostpool update.
+    HostPoolUpdateConfigurationProperties:
+      description: The configurations of a hostpool update.
+      type: object
+      required:
+        - maxVmsRemoved
+        - logOffDelayMinutes
+      properties:
+        deleteOriginalVm:
+          type: boolean
+          description: Whether not to save original disk. False by default.
+        maxVmsRemoved:
+          type: integer
+          format: int32
+          description: The maximum number of virtual machines to be removed during hostpool update.
+          minimum: 1
+        logOffDelayMinutes:
+          type: integer
+          format: int32
+          description: Grace period before logging off users in minutes.
+        logOffMessage:
+          type: string
+          description: Log off message sent to user for logoff. Default value is an empty string.
+          maxLength: 260
+          default: ''
+    HostPoolUpdateConfigurationPatchProperties:
+      description: The configurations of a hostpool update.
+      type: object
+      properties:
+        deleteOriginalVm:
+          type: boolean
+          description: Whether not to save original disk. False by default.
+        maxVmsRemoved:
+          type: integer
+          format: int32
+          description: The maximum number of virtual machines to be removed during hostpool update.
+          minimum: 1
+        logOffDelayMinutes:
+          type: integer
+          format: int32
+          description: Grace period before logging off users in minutes.
+        logOffMessage:
+          type: string
+          description: Log off message sent to user for logoff.
+          maxLength: 260
+    HostPoolUpdateControlParameter:
+      description: Represents properties for a hostpool update control request.
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          enum:
+            - Start
+            - Pause
+            - Cancel
+            - Retry
+            - Resume
+          x-ms-enum:
+            name: HostPoolUpdateAction
+            modelAsString: true
+            values:
+              - value: Start
+                description: Start the hostpool update.
+              - value: Pause
+                description: Pause the hostpool update.
+              - value: Cancel
+                description: Cancel the hostpool update.
+              - value: Retry
+                description: Retry the hostpool update.
+              - value: Resume
+                description: Resume the hostpool update.
+          type: string
+          description: Action types for controlling hostpool update.
+          nullable: false
+        cancelMessage:
+          type: string
+          description: The cancel message sent to the user on the session host. This is can only be specified if the action is 'Cancel'.
+          maxLength: 260
+    HostPoolUpdateFault:
+      description: Hostpool update fault information.
+      type: object
+      properties:
+        faultType:
+          type: string
+          description: Hostpool update fault type.
+          enum:
+            - ServiceError
+            - UserError
+          x-ms-enum:
+            name: faultType
+            modelAsString: true
+            values:
+              - value: ServiceError
+                description: Fault caused by service error.
+              - value: UserError
+                description: Fault caused by user error.
+        faultCode:
+          type: string
+          description: Hostpool update fault code.
+        faultText:
+          type: string
+          description: Hostpool update fault text.
+        faultContext:
+          type: string
+          description: Hostpool update fault context.
+    SessionHostManagementUpdateStatus:
+      description: The current status of the session host update async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status. Current defined values are < Error | Scheduled | UpdatingSessionHosts | ValidatingSessionHostUpdate | Paused | Pausing | Cancelling > | Succeeded | Failed | Canceled
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+        properties:
+          x-ms-client-flatten: true
+          type: object
+          description: The custom properties of the SessionHost Update Status.
+          $ref: '#/components/schemas/SessionHostManagementUpdateStatusProperties'
+    SessionHostManagementUpdateStatusProperties:
+      description: Properties bag to hold custom RP properties for sessionHostManagement Update Statuses.
+      type: object
+      properties:
+        correlationId:
+          type: string
+          description: The Log Analytics.
+        progress:
+          description: Progress information on the sessionHostManagement operation.
+          $ref: '#/components/schemas/SessionHostManagementOperationProgress'
+        scheduledDateTime:
+          format: date-time
+          type: string
+          description: The timestamp that the update is scheduled for.
+        sessionHostManagement:
+          description: SessionHostManagement properties used for the operation.
+          $ref: '#/components/schemas/SessionHostManagement'
+    SessionHostManagementOperationType:
+      enum:
+        - InitiateSessionHostUpdate
+        - ValidateSessionHostUpdate
+      type: string
+      x-ms-enum:
+        name: OperationTypeSHM
+        modelAsString: true
+    SessionHostManagementOperationProgress:
+      type: object
+      description: SessionHostManagement Operation Progress information.
+      properties:
+        executionStartTime:
+          format: date-time
+          type: string
+          description: Time that the sessionHostManagement operation was created.
+        totalSessionHosts:
+          type: integer
+          format: int32
+          description: The number of sessionHosts to be started in the sessionHostManagement operation.
+        sessionHostsInProgress:
+          type: integer
+          format: int32
+          description: The number of sessionHosts in progress in the sessionHostManagement operation.
+        sessionHostsCompleted:
+          type: integer
+          format: int32
+          description: The number of sessionHosts completed in the sessionHostManagement operation.
+        sessionHostsRollbackFailed:
+          type: integer
+          format: int32
+          description: The number of sessionHosts rollback failed in the sessionHostManagement operation.
+    UpdateSessionHostsRequestBody:
+      description: Object containing the definition for properties to be used for a sessionHostUpdate operation.
+      type: object
+      properties:
+        scheduledDateTime:
+          type: string
+          format: date-time
+          description: The timestamp that the update validation is scheduled for. If none is provided, the update will be executed immediately
+        scheduledDateTimeZone:
+          type: string
+          description: The timeZone as defined in https://docs.microsoft.com/dotnet/api/system.timezoneinfo.findsystemtimezonebyid.
+        update:
+          description: settings for management information for the hostpool update operation. If none is provided the update will use the settings saved in the sessionHostManagement object.
+          $ref: '#/components/schemas/HostPoolUpdateConfigurationPatchProperties'
+    SessionHostConfigurationOperationStatus:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status. Current defined values are <UpdateFailed | Paused | Pausing | Cancelling | InProgress | Succeeded | Failed | Canceled>
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionHostConfigurationOperationStatus'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    SessionHostConfigurationOperationStatusList:
+      type: object
+      title: OperationStatusList
+      description: List of OperationStatus definitions.
+      properties:
+        value:
+          type: array
+          description: List of OperationStatus definitions.
+          items:
+            $ref: '#/components/schemas/SessionHostConfigurationOperationStatus'
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next page of results.
+    ActiveSessionHostConfigurationList:
+      type: object
+      title: ActiveSessionHostConfigurationList
+      description: List of ActiveSessionHostConfiguration definitions.
+      properties:
+        value:
+          type: array
+          description: List of ActiveSessionHostConfiguration definitions.
+          items:
+            $ref: '#/components/schemas/ActiveSessionHostConfiguration'
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next page of results.
+    ActiveSessionHostConfiguration:
+      type: object
+      description: Represents a ActiveSessionHostConfiguration definition. This has all of the sessionHostConfiguration properties except provisioningState
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      required:
+        - properties
+      properties:
+        properties:
+          description: Detailed properties for SessionHostConfiguration
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ActiveSessionHostConfigurationProperties'
+    ActiveSessionHostConfigurationProperties:
+      description: Session host configurations of HostPool.
+      type: object
+      required:
+        - vmNamePrefix
+        - networkInfo
+        - vmSizeId
+        - diskInfo
+        - imageInfo
+        - domainInfo
+        - vmAdminCredentials
+      properties:
+        version:
+          format: date-time
+          type: string
+          description: The timestamp of the last update.
+          readOnly: true
+        friendlyName:
+          type: string
+          description: Friendly name to describe this version of the SessionHostConfiguration.
+          maxLength: 260
+        vmTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Hashtable that lists key/value pair tags to apply to the VMs
+        vmLocation:
+          type: string
+          description: The Location for the session host to be created in. It will default to the location of the hostpool if not provided.
+        vmResourceGroup:
+          type: string
+          description: The ResourceGroup for the session hosts to be created in. It will default to the ResourceGroup of the hostpool if not provided.
+        vmNamePrefix:
+          type: string
+          description: The prefix that should be associated with session host names
+          maxLength: 11
+        availabilityZones:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: Value for availability zones to be used by the session host. Should be from [1,2,3].
+        networkInfo:
+          $ref: '#/components/schemas/NetworkInfoProperties'
+          description: Network information.
+        vmSizeId:
+          type: string
+          description: 'The id of the size of a virtual machine connected to a hostpool. Example: Standard_D2as_v6'
+        diskInfo:
+          $ref: '#/components/schemas/DiskInfoProperties'
+          description: Disk information.
+        customConfigurationScriptUrl:
+          type: string
+          format: uri
+          description: The uri to the storage blob containing the arm template to be run on the virtual machine after provisioning.
+        imageInfo:
+          $ref: '#/components/schemas/ImageInfoProperties'
+          description: Image configurations of HostPool.
+        domainInfo:
+          $ref: '#/components/schemas/DomainInfoProperties'
+          description: Domain configurations of session hosts.
+        securityInfo:
+          $ref: '#/components/schemas/SecurityInfoProperties'
+          description: Security information.
+        vmAdminCredentials:
+          $ref: '#/components/schemas/KeyVaultCredentialsProperties'
+          description: Local Admin credentials for session hosts.
+        bootDiagnosticsInfo:
+          $ref: '#/components/schemas/BootDiagnosticsInfoProperties'
+          description: Boot Diagnostics information.
+    SessionHostConfigurationList:
+      type: object
+      title: SessionHostConfigurationList
+      description: List of SessionHostConfiguration definitions.
+      properties:
+        value:
+          type: array
+          description: List of SessionHostConfiguration definitions.
+          items:
+            $ref: '#/components/schemas/SessionHostConfiguration'
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next page of results.
+    SessionHostConfiguration:
+      type: object
+      description: Represents a SessionHostConfiguration definition.
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+      required:
+        - properties
+      properties:
+        properties:
+          description: Detailed properties for SessionHostConfiguration
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SessionHostConfigurationProperties'
+    SessionHostConfigurationProperties:
+      description: Session host configurations of HostPool.
+      type: object
+      required:
+        - vmNamePrefix
+        - networkInfo
+        - vmSizeId
+        - diskInfo
+        - imageInfo
+        - domainInfo
+        - vmAdminCredentials
+      properties:
+        version:
+          format: date-time
+          type: string
+          description: The timestamp of the last update.
+          readOnly: true
+        friendlyName:
+          type: string
+          description: Friendly name to describe this version of the SessionHostConfiguration.
+          maxLength: 260
+        provisioningState:
+          description: Provisioning state of the Session Host Configuration.
+          enum:
+            - Succeeded
+            - Failed
+            - Canceled
+            - Provisioning
+          type: string
+          readOnly: true
+          x-ms-enum:
+            name: ProvisioningStateSHC
+            modelAsString: true
+        vmTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Hashtable that lists key/value pair tags to apply to the VMs
+        vmLocation:
+          type: string
+          description: The Location for the session host to be created in. It will default to the location of the hostpool if not provided.
+        vmResourceGroup:
+          type: string
+          description: The ResourceGroup for the session hosts to be created in. It will default to the ResourceGroup of the hostpool if not provided.
+        vmNamePrefix:
+          type: string
+          description: The prefix that should be associated with session host names
+          maxLength: 11
+        availabilityZones:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: Value for availability zones to be used by the session host. Should be from [1,2,3].
+        networkInfo:
+          $ref: '#/components/schemas/NetworkInfoProperties'
+          description: Network information.
+        vmSizeId:
+          type: string
+          description: 'The id of the size of a virtual machine connected to a hostpool. Example: Standard_D2as_v6'
+        diskInfo:
+          $ref: '#/components/schemas/DiskInfoProperties'
+          description: Disk information.
+        customConfigurationScriptUrl:
+          type: string
+          format: uri
+          description: The uri to the storage blob containing the arm template to be run on the virtual machine after provisioning.
+        imageInfo:
+          $ref: '#/components/schemas/ImageInfoProperties'
+          description: Image configurations of HostPool.
+        domainInfo:
+          $ref: '#/components/schemas/DomainInfoProperties'
+          description: Domain configurations of session hosts.
+        securityInfo:
+          $ref: '#/components/schemas/SecurityInfoProperties'
+          description: Security information.
+        vmAdminCredentials:
+          $ref: '#/components/schemas/KeyVaultCredentialsProperties'
+          description: Local Admin credentials for session hosts.
+        bootDiagnosticsInfo:
+          $ref: '#/components/schemas/BootDiagnosticsInfoProperties'
+          description: Boot Diagnostics information.
+    SessionHostConfigurationPatch:
+      type: object
+      description: Represents a SessionHostConfigurationPatch definition.
+      properties:
+        properties:
+          description: Detailed properties for SessionHostConfigurationPatch
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/SessionHostConfigurationPatchProperties'
+    SessionHostConfigurationPatchProperties:
+      description: Session host configurations of HostPool.
+      type: object
+      properties:
+        friendlyName:
+          type: string
+          description: Friendly name to describe this version of the SessionHostConfiguration.
+          maxLength: 260
+        vmTags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Hashtable that lists key/value pair tags to apply to the VMs
+        vmLocation:
+          type: string
+          description: The Location for the session host to be created in
+        vmResourceGroup:
+          type: string
+          description: The ResourceGroup for the session hosts to be created in. It will default to the ResourceGroup of the hostpool if not provided.
+        vmNamePrefix:
+          type: string
+          description: The prefix that should be associated with session host names
+          maxLength: 11
+        availabilityZones:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: Value for availability zones to be used by the session host. Should be from [1,2,3].
+        networkInfo:
+          $ref: '#/components/schemas/NetworkInfoPatchProperties'
+          description: Network information.
+        vmSizeId:
+          type: string
+          description: 'The id of the size of a virtual machine connected to a hostpool. Example: Standard_D2as_v6'
+        diskInfo:
+          $ref: '#/components/schemas/DiskInfoPatchProperties'
+          description: Disk information.
+        customConfigurationScriptUrl:
+          type: string
+          format: uri
+          description: The uri to the storage blob containing the arm template to be run on the virtual machine after provisioning.
+          maxLength: 260
+        imageInfo:
+          $ref: '#/components/schemas/ImageInfoPatchProperties'
+          description: Image configurations of HostPool.
+        domainInfo:
+          $ref: '#/components/schemas/DomainInfoPatchProperties'
+          description: Domain configurations of session hosts.
+        securityInfo:
+          $ref: '#/components/schemas/SecurityInfoPatchProperties'
+          description: Security information.
+        vmAdminCredentials:
+          $ref: '#/components/schemas/KeyVaultCredentialsPatchProperties'
+          description: Local Admin credentials for session hosts.
+        bootDiagnosticsInfo:
+          $ref: '#/components/schemas/BootDiagnosticsInfoPatchProperties'
+          description: Boot Diagnostics information.
+    DiskInfoProperties:
+      description: Disk information.
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - Standard_LRS
+            - Premium_LRS
+            - StandardSSD_LRS
+          x-ms-enum:
+            name: VirtualMachineDiskType
+            modelAsString: true
+            values:
+              - value: Standard_LRS
+                description: Standard HDD locally redundant storage. Best for backup, non-critical, and infrequent access.
+              - value: Premium_LRS
+                description: Premium SSD locally redundant storage. Best for production and performance sensitive workloads.
+              - value: StandardSSD_LRS
+                description: Standard SSD locally redundant storage. Best for web servers, lightly used enterprise applications and dev/test.
+          description: The disk type used by virtual machine in hostpool session host.
+    DiskInfoPatchProperties:
+      description: Disk information.
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - Standard_LRS
+            - Premium_LRS
+            - StandardSSD_LRS
+          x-ms-enum:
+            name: VirtualMachineDiskType
+            modelAsString: true
+            values:
+              - value: Standard_LRS
+                description: Standard HDD locally redundant storage. Best for backup, non-critical, and infrequent access.
+              - value: Premium_LRS
+                description: Premium SSD locally redundant storage. Best for production and performance sensitive workloads.
+              - value: StandardSSD_LRS
+                description: Standard SSD locally redundant storage. Best for web servers, lightly used enterprise applications and dev/test.
+          description: The disk type used by virtual machine in hostpool session host.
+    ImageInfoProperties:
+      description: Image configurations of session host in a HostPool.
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          x-ms-client-name: imageType
+          enum:
+            - Marketplace
+            - Custom
+          x-ms-enum:
+            name: type
+            modelAsString: true
+            values:
+              - value: Marketplace
+                description: Using default marketplace images offered by Azure Marketplace.
+              - value: Custom
+                description: Using a custom image.
+          type: string
+          description: The type of image session hosts use in the hostpool.
+          nullable: false
+        marketplaceInfo:
+          $ref: '#/components/schemas/MarketplaceInfoProperties'
+          description: The values to uniquely identify a marketplace image. Only one should be populated based on the image type.
+        customInfo:
+          $ref: '#/components/schemas/CustomInfoProperties'
+          description: The values to uniquely identify a custom image. Only one should be populated based on the image type.
+    ImageInfoPatchProperties:
+      description: Image configurations of session host in a HostPool.
+      type: object
+      properties:
+        type:
+          x-ms-client-name: imageType
+          enum:
+            - Marketplace
+            - Custom
+          x-ms-enum:
+            name: type
+            modelAsString: true
+            values:
+              - value: Marketplace
+                description: Using default marketplace images offered by Azure Marketplace.
+              - value: Custom
+                description: Using a custom image.
+          type: string
+          description: The type of image session hosts use in the hostpool.
+          nullable: false
+        marketplaceInfo:
+          $ref: '#/components/schemas/MarketplaceInfoPatchProperties'
+          description: The values to uniquely identify a marketplace image. Only one should be populated based on the image type.
+        customInfo:
+          $ref: '#/components/schemas/CustomInfoPatchProperties'
+          description: The values to uniquely identify a custom image. Only one should be populated based on the image type.
+    MarketplaceInfoProperties:
+      description: Marketplace image information.
+      type: object
+      required:
+        - offer
+        - publisher
+        - sku
+        - exactVersion
+      properties:
+        offer:
+          type: string
+          description: The offer of the image.
+        publisher:
+          type: string
+          description: The publisher of the image.
+        sku:
+          type: string
+          description: The sku of the image.
+        exactVersion:
+          type: string
+          description: The exact version of the image.
+    MarketplaceInfoPatchProperties:
+      description: Marketplace image information.
+      type: object
+      properties:
+        offer:
+          type: string
+          description: The offer of the image.
+        publisher:
+          type: string
+          description: The publisher of the image.
+        sku:
+          type: string
+          description: The sku of the image.
+        exactVersion:
+          type: string
+          description: The exact version of the image.
+    CustomInfoProperties:
+      description: Custom image information.
+      type: object
+      required:
+        - resourceId
+      properties:
+        resourceId:
+          type: string
+          format: arm-id
+          description: The resource id of the custom image.
+    CustomInfoPatchProperties:
+      description: Custom image information.
+      type: object
+      properties:
+        resourceId:
+          type: string
+          format: arm-id
+          description: The resource id of the custom image.
+    DomainInfoProperties:
+      description: Domain configurations of session hosts.
+      type: object
+      required:
+        - joinType
+      properties:
+        joinType:
+          enum:
+            - ActiveDirectory
+            - AzureActiveDirectory
+          x-ms-enum:
+            name: DomainJoinType
+            modelAsString: true
+            values:
+              - value: ActiveDirectory
+                description: Using microsoft active directory.
+              - value: AzureActiveDirectory
+                description: Using microsoft azure active directory.
+          type: string
+          description: The type of domain join done by the virtual machine.
+          nullable: false
+        activeDirectoryInfo:
+          $ref: '#/components/schemas/ActiveDirectoryInfoProperties'
+          description: Active directory info. Only one should be populated based on the join type.
+        azureActiveDirectoryInfo:
+          $ref: '#/components/schemas/AzureActiveDirectoryInfoProperties'
+          description: Azure active directory info. Only one should be populated based on the join type.
+    DomainInfoPatchProperties:
+      description: Domain configurations of session hosts.
+      type: object
+      properties:
+        activeDirectoryInfo:
+          $ref: '#/components/schemas/ActiveDirectoryInfoPatchProperties'
+          description: Active directory info. Only one should be populated based on the join type.
+    ActiveDirectoryInfoProperties:
+      description: Active directory info. Only one should be populated based on the join type.
+      type: object
+      required:
+        - domainCredentials
+        - ouPath
+      properties:
+        domainCredentials:
+          $ref: '#/components/schemas/KeyVaultCredentialsProperties'
+          description: Credentials needed to create the virtual machine.
+        ouPath:
+          type: string
+          description: The organizational unit(OU) path.
+        domainName:
+          type: string
+          description: The domain a virtual machine connected to a hostpool will join.
+    ActiveDirectoryInfoPatchProperties:
+      description: Active directory info. Only one should be populated based on the join type.
+      type: object
+      properties:
+        domainCredentials:
+          $ref: '#/components/schemas/KeyVaultCredentialsPatchProperties'
+          description: Credentials needed to create the virtual machine.
+    AzureActiveDirectoryInfoProperties:
+      description: Azure Active directory info. Only one should be populated based on the join type.
+      type: object
+      required:
+        - mdmProviderGuid
+      properties:
+        mdmProviderGuid:
+          type: string
+          description: The Mobile Device Management(MDM) guid.
+    KeyVaultCredentialsProperties:
+      description: Credentials kept in the keyvault.
+      type: object
+      required:
+        - usernameKeyVaultSecretUri
+        - passwordKeyVaultSecretUri
+      properties:
+        usernameKeyVaultSecretUri:
+          type: string
+          format: uri
+          description: The uri to access the secret that the username is stored in.
+        passwordKeyVaultSecretUri:
+          type: string
+          format: uri
+          description: The uri to access the secret that the password is stored in.
+    KeyVaultCredentialsPatchProperties:
+      description: Credentials kept in the keyvault.
+      type: object
+      properties:
+        usernameKeyVaultSecretUri:
+          type: string
+          format: uri
+          description: The uri to access the secret that the username is stored in.
+        passwordKeyVaultSecretUri:
+          type: string
+          format: uri
+          description: The uri to access the secret that the password is stored in.
+    NetworkInfoProperties:
+      description: Network information.
+      type: object
+      required:
+        - subnetId
+      properties:
+        subnetId:
+          type: string
+          format: arm-id
+          description: The resource ID of the subnet.
+        securityGroupId:
+          type: string
+          description: The resource ID of the security group. Any allowable/open ports should be specified in the Network Security Group(NSG).
+    NetworkInfoPatchProperties:
+      description: Network information.
+      type: object
+      properties:
+        subnetId:
+          type: string
+          format: arm-id
+          description: The resource ID of the subnet.
+        securityGroupId:
+          type: string
+          description: The resource ID of the security group. Any allowable/open ports should be specified in the Network Security Group(NSG).
+    SecurityInfoProperties:
+      description: Security information.
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - Standard
+            - TrustedLaunch
+            - ConfidentialVM
+          x-ms-enum:
+            name: VirtualMachineSecurityType
+            modelAsString: true
+            values:
+              - value: Standard
+                description: Standard security protocol. No additional parameters
+              - value: TrustedLaunch
+                description: TrustedLaunch allows for secure boot adn vTPM
+              - value: ConfidentialVM
+                description: Confidential Virtual Machine security protocol
+          default: Standard
+          description: The security type used by virtual machine in hostpool session host. Default is Standard.
+        secureBootEnabled:
+          type: boolean
+          description: Whether to use secureBoot on the virtual machine.
+        vTpmEnabled:
+          type: boolean
+          description: Whether to use vTPM on the virtual machine.
+    SecurityInfoPatchProperties:
+      description: Security information.
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - Standard
+            - TrustedLaunch
+            - ConfidentialVM
+          x-ms-enum:
+            name: VirtualMachineSecurityType
+            modelAsString: true
+            values:
+              - value: Standard
+                description: Standard security protocol. No additional parameters
+              - value: TrustedLaunch
+                description: TrustedLaunch allows for secure boot adn vTPM
+              - value: ConfidentialVM
+                description: Confidential Virtual Machine security protocol
+          description: The security type used by virtual machine in hostpool session host.
+        secureBootEnabled:
+          type: boolean
+          description: Whether to use secureBoot on the virtual machine.
+        vTpmEnabled:
+          type: boolean
+          description: Whether to use vTPM on the virtual machine.
+    BootDiagnosticsInfoProperties:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether boot diagnostics should be enabled on the Virtual Machine.
+        storageUri:
+          type: string
+          format: uri
+          description: Uri of the storage account to use for placing the console output and screenshot. <br><br>If storageUri is not specified while enabling boot diagnostics, managed storage will be used.
           nullable: true
-          x-nullable: true
+      description: Boot Diagnostics is a debugging feature which allows you to view Console Output and Screenshot to diagnose VM status. <br><br> You can easily view the output of your console log. <br><br> Azure also enables you to see a screenshot of the VM from the hypervisor.
+    BootDiagnosticsInfoPatchProperties:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether boot diagnostics should be enabled on the Virtual Machine.
+        storageUri:
+          type: string
+          description: Uri of the storage account to use for placing the console output and screenshot. <br><br>If storageUri is not specified while enabling boot diagnostics, managed storage will be used.
+      description: Boot Diagnostics is a debugging feature which allows you to view Console Output and Screenshot to diagnose VM status. <br><br> You can easily view the output of your console log. <br><br> Azure also enables you to see a screenshot of the VM from the hypervisor.
     RegistrationInfo:
       description: Represents a RegistrationInfo definition.
       type: object
@@ -1253,9 +2346,6 @@ components:
       required:
         - properties
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for MSIX Package
           x-ms-client-flatten: true
@@ -1301,7 +2391,7 @@ components:
             $ref: '#/components/schemas/MsixPackageDependencies'
         version:
           type: string
-          description: 'Package version found in the appxmanifest.xml. '
+          description: 'Package Version found in the appxmanifest.xml. '
           nullable: false
         lastUpdated:
           format: date-time
@@ -1375,7 +2465,7 @@ components:
       properties:
         dependencyName:
           type: string
-          description: Name of package dependency.
+          description: Name of the package dependency. For Msix packages, this is the other packages this package depends upon, for APP-V packages this is the locations of the user and deployment config files
           nullable: false
         publisher:
           type: string
@@ -1414,11 +2504,16 @@ components:
           nullable: false
           x-nullable: false
     AppAttachPackagePatch:
-      description: Schema for updatable App Attach Package properties.
+      description: Schema for patchable App Attach Package properties.
       type: object
       allOf:
         - $ref: '#/components/schemas/Resource'
       properties:
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: tags to be updated
         properties:
           description: Detailed properties for App Attach Package
           $ref: '#/components/schemas/AppAttachPackagePatchProperties'
@@ -1459,10 +2554,21 @@ components:
             type: string
         keyVaultURL:
           type: string
-          description: URL path to certificate name located in keyVault
+          description: URL of keyvault location to store certificate
         failHealthCheckOnStagingFailure:
           $ref: '#/components/schemas/FailHealthCheckOnStagingFailureEnum'
           description: Parameter indicating how the health check should behave if this package fails staging
+        packageOwnerName:
+          type: string
+          description: Specific name of package owner, is "AppAttach" for native app attach packages
+        packageLookbackUrl:
+          type: string
+          format: uri
+          description: Lookback url to third party control plane, is null for native app attach packages
+          nullable: true
+        customData:
+          type: string
+          description: Field that can be populated with custom data and filtered on in list GET calls
     AppAttachPackagePatchProperties:
       description: Schema for patchable fields on an App Attach Package.
       type: object
@@ -1478,10 +2584,17 @@ components:
             format: arm-id
         keyVaultURL:
           type: string
-          description: URL path to certificate name located in keyVault
+          description: URL of keyvault location to store certificate
         failHealthCheckOnStagingFailure:
           $ref: '#/components/schemas/FailHealthCheckOnStagingFailureEnum'
           description: Parameter indicating how the health check should behave if this package fails staging
+        packageLookbackUrl:
+          type: string
+          format: uri
+          description: Lookback url to third party control plane, should be null for first party packages
+        customData:
+          type: string
+          description: Field that can be populated with custom data and filtered on in list GET calls
     AppAttachPackageInfoProperties:
       description: Schema for Import Package Information properties.
       type: object
@@ -1491,7 +2604,7 @@ components:
           description: Alias of App Attach Package. Assigned at import time
         imagePath:
           type: string
-          description: VHD/CIM image path on Network Share.
+          description: VHD/CIM/APP-V image path on Network Share.
           nullable: false
         packageName:
           type: string
@@ -1499,11 +2612,11 @@ components:
           nullable: false
         packageFamilyName:
           type: string
-          description: 'Package Family Name from appxmanifest.xml. Contains Package Name and Publisher name. '
+          description: 'Identifier not including the package version, for Msix packages it is the family name from the appxmanifest.xml. '
           nullable: false
         packageFullName:
           type: string
-          description: 'Package Full Name from appxmanifest.xml. '
+          description: 'Identifier including the package version, for Msix packages it is the full name from the appxmanifest.xml. '
           nullable: false
         displayName:
           type: string
@@ -1530,12 +2643,12 @@ components:
           nullable: true
         version:
           type: string
-          description: 'Package version found in the appxmanifest.xml. '
+          description: 'Package Version found in the appxmanifest.xml. '
           nullable: false
         lastUpdated:
           format: date-time
           type: string
-          description: 'Date Package was last updated, found in the appxmanifest.xml. '
+          description: 'Date the package source was last updated, for Msix packages this is found in the appxmanifest.xml. '
           nullable: false
         packageApplications:
           type: array
@@ -1615,9 +2728,6 @@ components:
       required:
         - properties
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for Application
           x-ms-client-flatten: true
@@ -1789,9 +2899,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/Resource'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for Desktop
           x-ms-client-flatten: true
@@ -1948,7 +3055,7 @@ components:
           nullable: true
         version:
           type: string
-          description: 'Package version found in the appxmanifest.xml. '
+          description: 'Package Version found in the appxmanifest.xml. '
           nullable: false
         lastUpdated:
           format: date-time
@@ -2007,9 +3114,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/Resource'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for SessionHost
           x-ms-client-flatten: true
@@ -2125,6 +3229,15 @@ components:
         updateErrorMessage:
           type: string
           description: The error message.
+        lastSessionHostUpdateTime:
+          type: string
+          format: date-time
+          description: The last time update was completed.
+          readOnly: true
+        sessionHostConfiguration:
+          type: string
+          description: 'SessionHostConfiguration version reference at the time the update is initiated, in the format of date time. Example: 2024-04-26T04:56:45Z'
+          readOnly: true
         sessionHostHealthCheckResults:
           type: array
           readOnly: true
@@ -2263,9 +3376,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/Resource'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for UserSession
           x-ms-client-flatten: true
@@ -2333,9 +3443,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/ResourceModelWithAllowedPropertySet'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for scaling plan.
           x-ms-client-flatten: true
@@ -2364,12 +3471,15 @@ components:
         hostPoolType:
           enum:
             - Pooled
+            - Personal
           x-ms-enum:
             name: ScalingHostPoolType
             modelAsString: true
             values:
               - value: Pooled
                 description: Users get a new (random) SessionHost every time it connects to the HostPool.
+              - value: Personal
+                description: Users will be assigned a SessionHost either by administrators (PersonalDesktopAssignmentType = Direct) or upon connecting to the pool (PersonalDesktopAssignmentType = Automatic). They will always be redirected to their assigned SessionHost.
           default: Pooled
           type: string
           description: HostPool type for desktop.
@@ -2530,9 +3640,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/Resource'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for ScalingPlanPooledSchedule
           x-ms-client-flatten: true
@@ -2735,9 +3842,6 @@ components:
             $ref: '#/components/schemas/ScalingHostPoolReference'
     PrivateEndpointConnectionWithSystemData:
       type: object
-      properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
       allOf:
         - $ref: '#/components/schemas/PrivateEndpointConnection'
       description: The Private Endpoint Connection resource.
@@ -2749,6 +3853,11 @@ components:
           description: Array of private link resources
           items:
             $ref: '#/components/schemas/PrivateLinkResource'
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
       description: A list of private link resources.
     PrivateLinkResource:
       type: object
@@ -2822,9 +3931,6 @@ components:
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
       properties:
-        systemData:
-          $ref: '#/components/schemas/systemData'
-          description: Metadata pertaining to creation and last modification of the resource.
         properties:
           description: Detailed properties for ScalingPlanPersonalSchedule
           x-ms-client-flatten: true
@@ -2885,6 +3991,7 @@ components:
           enum:
             - None
             - Deallocate
+            - Hibernate
           x-ms-enum:
             name: SessionHandlingOperation
             modelAsString: true
@@ -2899,6 +4006,7 @@ components:
           enum:
             - None
             - Deallocate
+            - Hibernate
           x-ms-enum:
             name: SessionHandlingOperation
             modelAsString: true
@@ -2926,6 +4034,7 @@ components:
           enum:
             - None
             - Deallocate
+            - Hibernate
           x-ms-enum:
             name: SessionHandlingOperation
             modelAsString: true
@@ -2940,6 +4049,7 @@ components:
           enum:
             - None
             - Deallocate
+            - Hibernate
           x-ms-enum:
             name: SessionHandlingOperation
             modelAsString: true
@@ -2967,6 +4077,7 @@ components:
           enum:
             - None
             - Deallocate
+            - Hibernate
           x-ms-enum:
             name: SessionHandlingOperation
             modelAsString: true
@@ -3117,6 +4228,11 @@ components:
           description: Array of private endpoint connections.
           items:
             $ref: '#/components/schemas/PrivateEndpointConnection'
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
       description: List of private endpoint connections associated with the specified resource.
   parameters:
     SubscriptionIdParameter:
@@ -3233,7 +4349,7 @@ components:
     AppAttachPackageNameParameter:
       name: appAttachPackageName
       in: path
-      description: The name of the App Attach package
+      description: The name of the App Attach package arm object
       required: true
       x-ms-parameter-location: method
       schema:
@@ -3348,6 +4464,17 @@ components:
         maxLength: 64
         minLength: 1
         type: string
+    vmPathParameter:
+      name: vmPath
+      in: query
+      description: The path to the VM.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Z][a-z][0-9][@./-_ ]*$
+        maxLength: 1092
+        minLength: 3
+        type: string
     PrivateEndpointConnectionName:
       name: privateEndpointConnectionName
       in: path
@@ -3358,7 +4485,7 @@ components:
         type: string
 paths:
   /providers/Microsoft.DesktopVirtualization/operations:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Operations
@@ -3382,7 +4509,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/workspaces/{workspaceName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Workspace
@@ -3496,7 +4623,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/workspaces/{workspaceName}/privateEndpointConnections:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
@@ -3524,7 +4651,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/workspaces/{workspaceName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
@@ -3607,7 +4734,7 @@ paths:
                 $ref: '#/components/schemas/CloudError'
           x-ms-error-response: true
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/workspaces/{workspaceName}/privateLinkResources:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
@@ -3655,7 +4782,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/workspaces:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Workspace
@@ -3701,7 +4828,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DesktopVirtualization/workspaces:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Workspace
@@ -3726,7 +4853,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans/{scalingPlanName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlan
@@ -3840,7 +4967,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlan
@@ -3886,7 +5013,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans/{scalingPlanName}/pooledSchedules/{scalingPlanScheduleName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlanPooledSchedule
@@ -4004,7 +5131,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans/{scalingPlanName}/pooledSchedules:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlanPooledSchedule
@@ -4051,7 +5178,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans/{scalingPlanName}/personalSchedules/{scalingPlanScheduleName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlanPersonalSchedule
@@ -4169,7 +5296,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/scalingPlans/{scalingPlanName}/personalSchedules:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlanPersonalSchedule
@@ -4216,7 +5343,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DesktopVirtualization/scalingPlans:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlan
@@ -4261,7 +5388,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ApplicationGroup
@@ -4375,7 +5502,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ApplicationGroup
@@ -4427,7 +5554,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DesktopVirtualization/applicationGroups:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ApplicationGroup
@@ -4458,7 +5585,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}/startMenuItems:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - StartMenuItem
@@ -4505,7 +5632,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}/applications/{applicationName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Application
@@ -4623,7 +5750,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}/applications:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Application
@@ -4670,7 +5797,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}/desktops/{desktopName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Desktop
@@ -4728,7 +5855,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/applicationGroups/{applicationGroupName}/desktops:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - Desktop
@@ -4775,7 +5902,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - HostPool
@@ -4895,7 +6022,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - HostPool
@@ -4941,7 +6068,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DesktopVirtualization/hostPools:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - HostPool
@@ -4985,8 +6112,432 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostManagements/default:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - SessionHostManagements
+      operationId: SessionHostManagements_Get
+      description: Get a SessionHostManagement.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved sessionHostManagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagement'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    put:
+      tags:
+        - SessionHostManagement
+      operationId: SessionHostManagements_CreateOrUpdate
+      description: Create or update a SessionHostManagement.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing SessionHostManagement definitions.
+        required: true
+        x-ms-requestBody-name: sessionHostManagement
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionHostManagement'
+      responses:
+        '200':
+          description: Successfully updated SessionHostManagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagement'
+        '201':
+          description: Successfully created SessionHostManagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagement'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+    patch:
+      tags:
+        - SessionHostManagement
+      operationId: SessionHostManagements_Update
+      description: Update a SessionHostManagement.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing SessionHostManagement definitions.
+        required: false
+        x-ms-requestBody-name: sessionHostManagement
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionHostManagementPatch'
+      responses:
+        '200':
+          description: Update SessionHostManagement success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagement'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostManagements:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - SessionHostManagements
+      operationId: SessionHostManagements_ListByHostPool
+      description: List SessionHostManagements by hostPool.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved SessionHostManagements in HostPool.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagementList'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostManagements/default/initiateSessionHostUpdate:
+    x-api-version: 2024-04-08-preview
+    post:
+      tags:
+        - SessionHostManagement
+      operationId: InitiateSessionHostUpdate_Post
+      description: Initiates a hostpool update or schedule an update for the future.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing the definition for properties to be used in the sessionHostUpdate validation.
+        x-ms-requestBody-name: updateSessionHostsRequestBody
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionHostsRequestBody'
+      responses:
+        '200':
+          description: Successfully initiated hostpool update.
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostManagements/default/controlSessionHostUpdate:
+    x-api-version: 2024-04-08-preview
+    post:
+      tags:
+        - SessionHostManagement
+      operationId: ControlSessionHostUpdate_Post
+      description: Control update of a hostpool.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing control action for hostpool update.
+        required: true
+        x-ms-requestBody-name: hostPoolUpdateControlParameter
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HostPoolUpdateControlParameter'
+      responses:
+        '202':
+          description: Successfully controlled hostpool update.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Suggested delay to check the status of the asynchronous operation. The value is an integer that represents the seconds.
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostManagements/default/sessionHostUpdateStatuses/default:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - SessionHostManagement
+      operationId: SessionHostManagementsUpdateStatus_Get
+      description: Get the session host update status for a given hostpool.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved the session host update status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostManagementUpdateStatus'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostConfigurations/default:
+    x-api-version: 2024-04-08-preview
+    put:
+      tags:
+        - SessionHostConfiguration
+      operationId: SessionHostConfigurations_CreateOrUpdate
+      description: Create or update a SessionHostConfiguration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing SessionHostConfiguration definitions.
+        required: true
+        x-ms-requestBody-name: sessionHostConfiguration
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionHostConfiguration'
+      responses:
+        '200':
+          description: Successfully initiated SessionHostConfiguration Update validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostConfiguration'
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+        '201':
+          description: Successfully created Session Host Configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostConfiguration'
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: azure-async-operation
+    patch:
+      tags:
+        - SessionHostConfiguration
+      operationId: SessionHostConfigurations_Update
+      description: Update a SessionHostConfiguration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      requestBody:
+        description: Object containing SessionHostConfiguration definitions.
+        required: false
+        x-ms-requestBody-name: sessionHostConfiguration
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionHostConfigurationPatch'
+      responses:
+        '200':
+          description: Successfully created SessionHostConfiguration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostConfiguration'
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+        '202':
+          description: Successfully created SessionHostConfiguration.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: The URL of the resource used to check the status of the asynchronous operation.
+            Retry-After:
+              schema:
+                format: int32
+                type: integer
+              description: Suggested delay to check the status of the asynchronous operation. The value is an integer that represents the seconds.
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+    get:
+      tags:
+        - SessionHostConfiguration
+      operationId: SessionHostConfigurations_Get
+      description: Get a SessionHostConfiguration.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved sessionHostConfiguration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostConfiguration'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHostConfigurations:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - SessionHostConfiguration
+      operationId: SessionHostConfigurations_ListByHostPool
+      description: List sessionHostConfigurations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved sessionHostConfigurations in HostPool.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHostConfigurationList'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/activeSessionHostConfigurations/default:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - ActiveSessionHostConfiguration
+      operationId: ActiveSessionHostConfigurations_Get
+      description: Get the ActiveSessionHostConfiguration for the hostPool that is currently being used for update operations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved activeSessionHostConfiguration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSessionHostConfiguration'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/activeSessionHostConfigurations:
+    x-api-version: 2024-04-08-preview
+    get:
+      tags:
+        - ActiveSessionHostConfiguration
+      operationId: ActiveSessionHostConfigurations_ListByHostPool
+      description: List activeSessionHostConfigurations.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+      responses:
+        '200':
+          description: Successfully retrieved activeSessionHostConfigurations in HostPool.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSessionHostConfigurationList'
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
+      x-ms-pageable:
+        nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/privateLinkResources:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
@@ -5034,7 +6585,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/retrieveRegistrationToken:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     post:
       tags:
         - HostPool
@@ -5059,7 +6610,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/userSessions:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - UserSession
@@ -5112,7 +6663,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - SessionHost
@@ -5204,7 +6755,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - SessionHost
@@ -5235,6 +6786,7 @@ paths:
           schema:
             format: int32
             type: integer
+        - $ref: '#/components/parameters/vmPathParameter'
       responses:
         '200':
           description: Successfully retrieved session hosts in host pool.
@@ -5250,8 +6802,30 @@ paths:
                 $ref: '#/components/schemas/CloudError'
       x-ms-pageable:
         nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}/retryProvisioning:
+    x-api-version: 2024-04-08-preview
+    post:
+      tags:
+        - SessionHost
+      operationId: SessionHost_RetryProvisioning
+      description: Retry provisioning on a SessionHost.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersionParameter'
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/HostPoolNameParameter'
+        - $ref: '#/components/parameters/SessionHostNameParameter'
+      responses:
+        '200':
+          description: Successfully started provisioning retry on the sessionHost.
+        default:
+          description: Automation error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/msixPackages/{msixPackageFullName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - MSIXPackage
@@ -5369,7 +6943,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/msixPackages:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - MSIXPackage
@@ -5416,7 +6990,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/importAppAttachPackageInfo:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     post:
       tags:
         - AppAttachPackageInfo
@@ -5451,7 +7025,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/expandMsixImage:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     post:
       tags:
         - MsixImage
@@ -5486,7 +7060,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/appAttachPackages/{appAttachPackageName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - AppAttachPackage
@@ -5542,7 +7116,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppAttachPackage'
         default:
-          description: Error response
+          description: Automation error response describing why the operation failed.
           content:
             application/json:
               schema:
@@ -5557,6 +7131,12 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/AppAttachPackageNameParameter'
+        - name: force
+          in: query
+          description: Force flag to delete App Attach package.
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: Successfully deleted App Attach Package.
@@ -5600,7 +7180,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/appAttachPackages:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - AppAttachPackage
@@ -5612,7 +7192,7 @@ paths:
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - name: $filter
           in: query
-          description: OData filter expression. Valid properties for filtering are package name and host pool.
+          description: OData filter expression. Valid properties for filtering are package name, host pool, package owner name, and custom data.
           required: false
           schema:
             type: string
@@ -5632,7 +7212,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.DesktopVirtualization/appAttachPackages:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - AppAttachPackage
@@ -5643,7 +7223,7 @@ paths:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - name: $filter
           in: query
-          description: OData filter expression. Valid properties for filtering are package name, host pool, and resource group.
+          description: OData filter expression. Valid properties for filtering are package name, resource group, host pool, package owner name, and custom data.
           required: false
           schema:
             type: string
@@ -5663,7 +7243,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}/userSessions/{userSessionId}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - UserSession
@@ -5719,7 +7299,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}/userSessions:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - UserSession
@@ -5767,7 +7347,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}/userSessions/{userSessionId}/disconnect:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     post:
       tags:
         - UserSession
@@ -5790,7 +7370,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/sessionHosts/{sessionHostName}/userSessions/{userSessionId}/sendMessage:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     post:
       tags:
         - UserSession
@@ -5821,7 +7401,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CloudError'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/scalingPlans:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - ScalingPlan
@@ -5868,7 +7448,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/privateEndpointConnections:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
@@ -5916,7 +7496,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DesktopVirtualization/hostPools/{hostPoolName}/privateEndpointConnections/{privateEndpointConnectionName}:
-    x-api-version: '2024-04-03'
+    x-api-version: 2024-04-08-preview
     get:
       tags:
         - PrivateLink
