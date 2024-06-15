@@ -105,10 +105,26 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     autorest.AddConfiguration({ "skip-semantics-validation": true });
     autorest.AddConfiguration({ "model-validator": false });
 
-    if (serviceName === 'machinelearning'){
-        autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
+    switch (serviceName) {
+        case 'machinelearning':
+            autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
+            break;
+        case 'resourcegraph':
+            autorest.AddConfiguration({ "tag": "package-2021-03" });
+            break;
+        case 'hybridcompute':
+            autorest.AddConfiguration({ "tag": "package-2019-03" });
+            break;
+        case 'portalservices':
+            autorest.AddConfiguration({ "tag": "package-2023-01-01-preview" });
+            break;  
+        case 'vmware':
+            autorest.AddConfiguration({ "tag": "package-2020-03-20" });
+            break;            
+        default:
+            break;
     }
-    
+
     // Skip processing for specified services
     if (servicesToSkip.includes(serviceName)) {
         logger.info(`Skipping ${serviceName}...`);

@@ -33,4 +33,5 @@ export const servicesToSkip = [
     'policyinsights', 
     'resourcehealth',
     'iotspaces',
+    'service-map',
 ];

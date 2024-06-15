@@ -240,6 +240,14 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
         'trace',
     ];
 
+    const stackQLHttpOps = [
+        'get',
+        'put',
+        'post',
+        'delete',
+        'patch',
+    ]
+
     // get generated date for version
     const date = new Date();
     const versionDate = `${date.toISOString().split('T')[0]}-stackql-generated`;
@@ -464,7 +472,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         // outputDoc.paths[versionedPath][verbKey]['x-stackQL-verb'] = stackqlSqlVerb;
                         // stackqlObjectKey == 'none' ? null : outputDoc.paths[versionedPath][verbKey]['x-stackQL-objectKey'] = stackqlObjectKey;   
                         
-                        addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey);
+                        stackqlResName != 'skip_this_resource' && stackQLHttpOps.includes(verbKey) ? addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey): null;
 
                     } catch (e) {
                         console.log(e);

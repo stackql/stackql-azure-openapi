@@ -133,6 +133,24 @@ function getSqlVerbFromOpId(service, opId){
                 default:
                     return false;
             }
+        case 'api_management':
+            switch (opId) {
+                case 'OperationsResults_Get':
+                    return 'exec';
+                default:
+                    return false;
+            }
+        case 'resource_graph':
+            switch (opId) {
+                case 'Resources':
+                    return 'select';
+                case 'ResourcesHistory':
+                    return 'select';
+                case 'ResourceChangeDetails':
+                    return 'select';                                            
+                default:
+                    return false;
+            }
         // case 'elastic':
         //     switch (opId) {
         //         // case 'createAndAssociateIPFilter_Create':
@@ -149,7 +167,9 @@ function getSqlVerbFromOpId(service, opId){
                 case 'NetAppResource_QueryNetworkSiblingSet':
                     return 'select';
                 case 'NetAppResource_QueryRegionInfo':
-                    return 'select';        
+                    return 'select';
+                case 'Accounts_GetChangeKeyVaultInformation':
+                    return 'exec';        
                 default:
                     return false;
             }

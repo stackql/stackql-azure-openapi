@@ -111,7 +111,7 @@ bin/stackql-azure-openapi tag
 1. download the latest `stackql` binary, for example `curl -L https://bit.ly/stackql-zip -O && unzip stackql-zip` for Linux systems
 2. run the following:
 ```
-PROVIDER_REGISTRY_ROOT_DIR="$(pwd)"
+PROVIDER_REGISTRY_ROOT_DIR="$(pwd)/openapi"
 REG_STR='{"url": "file://'${PROVIDER_REGISTRY_ROOT_DIR}'", "localDocRoot": "'${PROVIDER_REGISTRY_ROOT_DIR}'", "verifyConfig": {"nopVerify": true}}'
 ./stackql shell --registry="${REG_STR}"
 ```
@@ -127,21 +127,21 @@ cd ../../stackql-provider-tests
 sh test-provider.sh \
 azure \
 false \
-/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi/openapi \
 true
 
 # azure_extras
 sh test-provider.sh \
 azure_extras \
 false \
-/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi/openapi \
 true
 
 # azure_isv
 sh test-provider.sh \
 azure_isv \
 false \
-/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi \
+/mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi/openapi \
 true
 
 # azure_stack
