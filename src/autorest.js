@@ -104,6 +104,8 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     autorest.AddConfiguration({ "level": "error" });
     autorest.AddConfiguration({ "skip-semantics-validation": true });
     autorest.AddConfiguration({ "model-validator": false });
+    // autorest.AddConfiguration({ "suppress-warnings": true });
+    autorest.AddConfiguration({ "client-side-validation": false });
 
     switch (serviceName) {
         case 'machinelearning':
@@ -120,7 +122,10 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
             break;  
         case 'vmware':
             autorest.AddConfiguration({ "tag": "package-2020-03-20" });
-            break;            
+            break;   
+        // case 'liftrqumulo':
+        //     autorest.AddConfiguration({ "tag": "package-2022-06-27-preview" });
+        //     break;              
         default:
             break;
     }

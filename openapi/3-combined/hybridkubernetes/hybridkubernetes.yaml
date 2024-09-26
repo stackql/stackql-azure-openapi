@@ -3,8 +3,8 @@ servers:
   - url: https://management.azure.com/
 info:
   title: ConnectedKubernetesClient
-  version: '2024-01-01'
-  description: Azure Connected Cluster Resource Provider API for adopting any Kubernetes Cluster
+  version: 2024-07-15-preview
+  description: Azure Connected Cluster Resource Provider API for onboarding a Kubernetes Cluster to Azure Arc
 security:
   - azure_auth:
       - user_impersonation
@@ -282,7 +282,7 @@ components:
           properties:
             provider:
               type: string
-              description: 'Service provider: Microsoft.connectedClusters'
+              description: 'Service provider: Microsoft.Kubernetes'
             resource:
               type: string
               description: Connected Cluster Resource on which the operation is performed
@@ -483,7 +483,7 @@ components:
           items:
             $ref: '#/components/schemas/ConnectedCluster'
         nextLink:
-          description: The link to fetch the next page of connected cluster
+          description: The link to fetch the next page of connected clusters
           type: string
     ConnectedCluster:
       type: object
@@ -615,7 +615,7 @@ components:
             modelAsString: true
         privateLinkScopeResourceId:
           type: string
-          description: The resource id of the private link scope this connected cluster is assigned to, if any.
+          description: This is populated only if privateLinkState is enabled. The resource id of the private link scope this connected cluster is assigned to, if any.
         azureHybridBenefit:
           type: string
           description: Indicates whether Azure Hybrid Benefit is opted in
@@ -633,6 +633,24 @@ components:
         arcAgentProfile:
           description: Arc agentry configuration for the provisioned cluster.
           $ref: '#/components/schemas/ArcAgentProfile'
+        securityProfile:
+          description: Security profile for the connected cluster.
+          $ref: '#/components/schemas/SecurityProfile'
+        oidcIssuerProfile:
+          description: Open ID Connect (OIDC) Issuer Profile for the connected cluster.
+          $ref: '#/components/schemas/OidcIssuerProfile'
+        gateway:
+          description: Details of the gateway used by the Arc router for connectivity.
+          $ref: '#/components/schemas/Gateway'
+          nullable: true
+          x-nullable: true
+        arcAgentryConfigurations:
+          description: Configuration settings for customizing the behavior of the connected cluster.
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/ArcAgentryConfigurations'
+          nullable: true
         miscellaneousProperties:
           description: More properties related to the Connected Cluster
           type: object
@@ -737,6 +755,14 @@ components:
           description: Sender access token
           type: string
           readOnly: true
+        relayTid:
+          description: TenantID of the relay
+          type: string
+          readOnly: true
+        relayType:
+          description: Type of relay
+          type: string
+          readOnly: true
     AadProfile:
       type: object
       description: AAD Profile specifies attributes for Azure Active Directory integration.
@@ -752,6 +778,63 @@ components:
         tenantID:
           type: string
           description: The AAD tenant ID to use for authentication. If not specified, will use the tenant of the deployment subscription.
+    SecurityProfile:
+      type: object
+      description: Security Profile specifies attributes for cluster security features.
+      properties:
+        workloadIdentity:
+          type: object
+          description: The workload identity feature webhook.
+          properties:
+            enabled:
+              type: boolean
+              description: Whether to enable or disable the workload identity Webhook
+    OidcIssuerProfile:
+      type: object
+      description: OIDC Issuer Profile specifies attributes for workload identity integration.
+      properties:
+        enabled:
+          type: boolean
+          description: Whether to enable oidc issuer for workload identity integration.
+        issuerUrl:
+          type: string
+          description: The issuer url for hybrid clusters connected to Arc used for the workload identity feature.
+          readOnly: true
+        selfHostedIssuerUrl:
+          type: string
+          description: The issuer url for public cloud clusters - AKS, EKS, GKE - used for the workload identity feature.
+    Gateway:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Indicates whether the gateway for arc router connectivity is enabled.
+        resourceId:
+          type: string
+          format: arm-id
+          x-ms-arm-id-details:
+            allowedResources:
+              - type: Microsoft.HybridCompute/gateways
+          description: The resource ID of the gateway used for the Arc router feature.
+    ArcAgentryConfigurations:
+      type: object
+      properties:
+        feature:
+          type: string
+          description: Specifies the name of the feature for the configuration setting.
+        settings:
+          type: object
+          description: The configuration settings for the feature that do not contain any sensitive or secret information.
+          nullable: true
+          additionalProperties:
+            type: string
+        protectedSettings:
+          type: object
+          description: The configuration settings for the feature that contain any sensitive or secret information.
+          nullable: true
+          x-ms-secret: true
+          additionalProperties:
+            type: string
     ArcAgentProfile:
       description: Defines the Arc Agent properties for the clusters.
       type: object
@@ -769,6 +852,59 @@ components:
           x-ms-enum:
             name: AutoUpgradeOptions
             modelAsString: true
+        systemComponents:
+          type: array
+          description: List of system extensions that are installed on the cluster resource.
+          items:
+            $ref: '#/components/schemas/SystemComponent'
+        agentErrors:
+          type: array
+          description: List of arc agentry and system components errors on the cluster resource.
+          items:
+            $ref: '#/components/schemas/AgentError'
+        agentState:
+          type: string
+          description: Represents the current state of the Arc agentry and its dependent components.
+          readOnly: true
+    AgentError:
+      description: Agent Errors if any during agent or system component upgrade.
+      type: object
+      properties:
+        message:
+          type: string
+          readOnly: true
+          description: Agent error message.
+        severity:
+          type: string
+          readOnly: true
+          description: Severity of the error message.
+        component:
+          type: string
+          readOnly: true
+          description: Agent component where error message occured.
+        time:
+          format: date-time
+          description: The timestamp of error occured (UTC).
+          type: string
+          readOnly: true
+    SystemComponent:
+      description: System extensions and its current versions installed on the cluster resource.
+      type: object
+      properties:
+        type:
+          type: string
+          description: Type of the system extension
+        userSpecifiedVersion:
+          type: string
+          description: Version of the system extension to be installed on the cluster resource.
+        majorVersion:
+          type: integer
+          format: int32
+          description: Major Version of the system extension that is currently installed on the cluster resource.
+        currentVersion:
+          type: string
+          readOnly: true
+          description: Version of the system extension that is currently installed on the cluster resource.
     SystemData:
       description: Metadata pertaining to creation and last modification of the resource.
       type: object
@@ -884,10 +1020,10 @@ components:
         type: string
 paths:
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Kubernetes/connectedClusters/{clusterName}:
-    x-api-version: '2024-01-01'
+    x-api-version: 2024-07-15-preview
     put:
       summary: Register a new Kubernetes cluster with Azure Resource Manager.
-      operationId: ConnectedCluster_Create
+      operationId: ConnectedCluster_CreateOrUpdate
       description: API to register a new Kubernetes cluster and create a tracked resource in Azure Resource Manager (ARM).
       parameters:
         - $ref: '#/components/parameters/ApiVersionParameter'
@@ -1002,7 +1138,7 @@ paths:
       x-ms-long-running-operation-options:
         final-state-via: location
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Kubernetes/connectedClusters/{clusterName}/listClusterUserCredential:
-    x-api-version: '2024-01-01'
+    x-api-version: 2024-07-15-preview
     post:
       summary: Gets cluster user credentials of a connected cluster
       operationId: ConnectedCluster_ListClusterUserCredential
@@ -1034,9 +1170,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Kubernetes/connectedClusters:
-    x-api-version: '2024-01-01'
+    x-api-version: 2024-07-15-preview
     get:
-      summary: Lists all connected clusters
+      summary: Lists all connected clusters in the given ResourceGroup
       operationId: ConnectedCluster_ListByResourceGroup
       description: API to enumerate registered connected K8s clusters under a Resource Group
       parameters:
@@ -1059,9 +1195,9 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /subscriptions/{subscriptionId}/providers/Microsoft.Kubernetes/connectedClusters:
-    x-api-version: '2024-01-01'
+    x-api-version: 2024-07-15-preview
     get:
-      summary: Lists all connected clusters
+      summary: Lists all connected clusters in the given Subscription
       operationId: ConnectedCluster_ListBySubscription
       description: API to enumerate registered connected K8s clusters under a Subscription
       parameters:
@@ -1083,7 +1219,7 @@ paths:
       x-ms-pageable:
         nextLinkName: nextLink
   /providers/Microsoft.Kubernetes/operations:
-    x-api-version: '2024-01-01'
+    x-api-version: 2024-07-15-preview
     get:
       description: Lists all of the available API operations for Connected Cluster resource.
       operationId: Operations_Get

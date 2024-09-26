@@ -121,7 +121,7 @@ export const serviceInfo = {
     //
     splitio: {
         provider: 'azure_isv',
-        service: 'splitio',
+        service: 'split',
         title: 'Split Software (Azure Native ISV Service)',
         description: 'Switch on the Split Feature Data Platform and deliver software features that matter, fast.'
     },
@@ -139,7 +139,7 @@ export const serviceInfo = {
     },
     mongocluster: {
         provider: 'azure_isv',
-        service: 'mongocluster',
+        service: 'mongo_db',
         title: 'MongoDB Atlas on Azure (Azure Native ISV Service)',
         description: 'Run your fully managed MongoDB workloads on Azure with MongoDB Atlas, a global developer data platform with the versatility you need to build modern and scalable applications.'
     },
@@ -205,7 +205,7 @@ export const serviceInfo = {
     },
     paloaltonetworks: {
         provider: 'azure_isv',
-        service: 'paloaltonetworks',
+        service: 'paloalto',
         title: 'Palo Alto Networks (Azure Native ISV Service)',
         description: 'Get a next generation firewall solution integrated with Azure that you can use to protect your organization.'
     },
@@ -272,39 +272,75 @@ export const serviceInfo = {
     //
     // Azure
     //
+    computeschedule: {
+        provider: 'azure',
+        service: 'computeschedule',
+        title: 'Microsoft ComputeSchedule',
+        description: 'Microsoft ComputeSchedule Resource Provider management API.'
+    },
+    fabric: {
+        provider: 'azure',
+        service: 'fabric',
+        title: 'Microsoft Fabric',
+        description: 'Reshape how everyone accesses, manages, and acts on data with a single, AI-powered platform.'
+    },
+    healthdataaiservices: {
+        provider: 'azure',
+        service: 'healthdataaiservices',
+        title: 'Microsoft HealthDataAIServices',
+        description: 'Microsoft.HealthDataAIServices'
+    },
+    iotoperations: {
+        provider: 'azure',
+        service: 'iotoperations',
+        title: 'Microsoft IoTOperations',
+        description: 'Microsoft IoTOperations management service.'
+    },
+    programmableconnectivity: {
+        provider: 'azure',
+        service: 'programmableconnectivity',
+        title: 'Azure Programmable Connectivity',
+        description: 'Azure Programmable Connectivity Provider management API.'
+    },
+    terraform: {
+        provider: 'azure',
+        service: 'terraform',
+        title: 'Azure Terraform Resource Provider Client',
+        description: 'The Azure Terraform management API provides a RESTful set of web services that used to manage your Azure Terraform resources.'
+    },
     verifiedid: {
         provider: 'azure',
-        service: 'verifiedid',
+        service: 'verified_id',
         title: 'Microsoft Entra Verified ID',
         description: 'Start your decentralized identity journey with Microsoft Entra Verified ID—included free with any Microsoft Entra ID subscription.'
     },
     standbypool: {
         provider: 'azure',
-        service: 'standbypool',
+        service: 'standby_pools',
         title: 'Azure Standby Pools',
         description: 'Azure standby pools is a feature for Virtual Machine Scale Sets with Flexible Orchestration that enables faster scaling out of resources by creating a pool of pre-provisioned virtual machines ready to service your workload.'
     },
     kubernetesruntime: {
         provider: 'azure',
-        service: 'kubernetesruntime',
+        service: 'k8s_runtime',
         title: 'Microsoft Kubernetes Runtime',
         description: 'Microsoft Kubernetes Runtime.'
     },
     edgezones: {
         provider: 'azure',
-        service: 'edgezones',
+        service: 'edge_zones',
         title: 'Azure Edge Zones',
         description: 'Azure Edge Zones are part of the Microsoft global network and offer secure, reliable, and high-bandwidth connectivity between apps—running at the Azure Edge Zone (close to the user), and the full set of Azure services running across the larger Azure regions.'
     },
     databasewatcher: {
         provider: 'azure',
-        service: 'databasewatcher',
+        service: 'db_watcher',
         title: 'Database Watcher',
         description: 'Database watcher is a managed monitoring solution for database services in the Azure SQL family. It supports Azure SQL Database and Azure SQL Managed Instance.'
     },
     azurefleet: {
         provider: 'azure',
-        service: 'azurefleet',
+        service: 'azure_fleet',
         title: 'Azure Fleet',
         description: 'Fleet cluster enables centralized management of all your clusters at scale.'
     },
@@ -1513,13 +1549,13 @@ export const serviceInfo = {
     //
     mobilepacketcore: {
         provider: 'azure_extras',
-        service: 'mobilepacketcore',
+        service: 'mobile_packet_core',
         title: 'Azure Operator 5G Core',
         description: 'Modernize your network with a flexible, scalable 5G mobile packet core.'
     },
     codesigning: {
         provider: 'azure_extras',
-        service: 'codesigning',
+        service: 'code_signing',
         title: 'Trusted Signing',
         description: 'Trusted Signing (formerly Azure Code Signing) is a fully managed service that facilitates app signing for developers.'
     },

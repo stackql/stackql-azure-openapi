@@ -34,4 +34,6 @@ export const servicesToSkip = [
     'resourcehealth',
     'iotspaces',
     'service-map',
+    'contosowidgetmanager',
+    'liftrqumulo',
 ];

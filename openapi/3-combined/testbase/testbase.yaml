@@ -3,7 +3,7 @@ servers:
   - url: https://management.azure.com/
 info:
   title: Test Base
-  description: Use these REST APIs for Test Base Custom Image controls.
+  description: Use these REST APIs for performing operations on Test Base Draft Packages, which are used to facilitate the creation and update of Test Base Package.
   version: 2023-11-01-preview
 security:
   - azure_auth:
@@ -19,6 +19,524 @@ components:
           scopes:
             user_impersonation: impersonate your user account
   schemas:
+    UserAssignedIdentities:
+      title: User-Assigned Identities
+      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/UserAssignedIdentity'
+        nullable: true
+        x-nullable: true
+    UserAssignedIdentity:
+      type: object
+      description: User assigned identity properties
+      properties:
+        principalId:
+          description: The principal ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+        clientId:
+          description: The client ID of the assigned identity.
+          format: uuid
+          type: string
+          readOnly: true
+    ManagedServiceIdentityType:
+      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
+      enum:
+        - None
+        - SystemAssigned
+        - UserAssigned
+        - SystemAssigned,UserAssigned
+      type: string
+      x-ms-enum:
+        name: ManagedServiceIdentityType
+        modelAsString: true
+    ManagedServiceIdentity:
+      description: Managed service identity (system assigned and/or user assigned identities)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/ManagedServiceIdentityType'
+        userAssignedIdentities:
+          $ref: '#/components/schemas/UserAssignedIdentities'
+      required:
+        - type
+    SystemAssignedServiceIdentityType:
+      description: Type of managed service identity (either system assigned, or none).
+      enum:
+        - None
+        - SystemAssigned
+      type: string
+      x-ms-enum:
+        name: SystemAssignedServiceIdentityType
+        modelAsString: true
+    SystemAssignedServiceIdentity:
+      description: Managed service identity (either system assigned, or none)
+      type: object
+      properties:
+        principalId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        tenantId:
+          readOnly: true
+          format: uuid
+          type: string
+          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+        type:
+          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+      required:
+        - type
+    DraftPackageListResult:
+      description: A list of Test Base Draft Packages.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftPackageResource'
+          description: The list of Test Base Draft Packages.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    DraftPackageResource:
+      description: The Test Base Draft Package resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/DraftPackageProperties'
+          x-ms-client-flatten: true
+          description: Test Base Draft Package properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    DraftPackageProperties:
+      description: The properties of the Test Base Draft Package.
+      type: object
+      properties:
+        applicationName:
+          type: string
+          description: Application name
+        version:
+          type: string
+          description: Application version
+        draftPackagePath:
+          type: string
+          readOnly: true
+          description: The relative path of the folder hosting package files.
+        workingPath:
+          type: string
+          readOnly: true
+          description: The relative path for a temporarily folder for package creation work.
+        appFileName:
+          type: string
+          description: The name of the app file.
+        sourceType:
+          $ref: '#/components/schemas/DraftPackageSourceType'
+          description: The source type.
+          default: Native
+        useSample:
+          type: boolean
+          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
+        comments:
+          type: string
+          description: Comments added by user.
+        intuneMetadata:
+          type: object
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
+          description: Metadata used to generate draft package folder and scripts.
+        highlightedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/HighlightedFile'
+          x-ms-identifiers: []
+          description: The highlight files in the package.
+        packageTags:
+          description: Tags of the package to be created.
+          $ref: '#/components/schemas/Tags'
+        editPackage:
+          type: boolean
+          description: Specifies whether this draft package is used to edit a package.
+          default: false
+        packageId:
+          type: string
+          description: Specifies the package id from which the draft package copied.
+        useAutofill:
+          type: boolean
+          description: Indicates whether user choose to enable script auto-fill.
+        executableLaunchCommand:
+          type: string
+          description: The executable launch command for script auto-fill. Will be used to run the application.
+        processName:
+          type: string
+          description: The process name for script auto-fill. Will be used to identify the application process.
+        tabState:
+          type: object
+          $ref: '#/components/schemas/TabState'
+          description: Tab state.
+        testTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestType'
+          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+        targetOSList:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetOSInfo'
+          x-ms-identifiers: []
+          description: Specifies the target OSs of specific OS Update types.
+        inplaceUpgradeOSPair:
+          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
+          description: Specifies the baseline os and target os for inplace upgrade.
+        lastModifiedTime:
+          readOnly: true
+          type: string
+          format: date-time
+          description: The UTC timestamp when the package was last modified.
+        flightingRing:
+          type: string
+          description: The flighting ring for feature update.
+        firstPartyApps:
+          description: The list of first party applications to test along with user application.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/FirstPartyAppDefinition'
+        galleryApps:
+          description: The list of gallery apps to test along with user application.
+          type: array
+          x-ms-identifiers:
+            - skuId
+          items:
+            $ref: '#/components/schemas/GalleryAppDefinition'
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Test'
+          x-ms-identifiers: []
+          description: The detailed test information.
+        intuneEnrollmentMetadata:
+          description: The metadata of Intune enrollment.
+          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
+    DraftPackageUpdateParameters:
+      description: Parameters supplied to update a Test Base Draft Package.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/DraftPackageUpdateParameterProperties'
+          x-ms-client-flatten: true
+          description: Test Base Draft Package update parameters.
+    DraftPackageUpdateParameterProperties:
+      description: The properties of draft package update parameters.
+      type: object
+      properties:
+        applicationName:
+          type: string
+          description: Application name
+        version:
+          type: string
+          description: Application version
+        appFileName:
+          type: string
+          description: The name of the app file.
+        sourceType:
+          $ref: '#/components/schemas/DraftPackageSourceType'
+          description: The source type.
+          default: Native
+        useSample:
+          type: boolean
+          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
+        comments:
+          type: string
+          description: Comments added by user.
+        intuneMetadata:
+          type: object
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
+          description: Metadata used to generate draft package folder and scripts.
+        highlightedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/HighlightedFile'
+          x-ms-identifiers: []
+          description: The highlight files in the package.
+        packageTags:
+          description: Tags of the package to be created.
+          $ref: '#/components/schemas/Tags'
+        packageId:
+          type: string
+          description: Specifies the package id from which the draft package copied.
+        useAutofill:
+          type: boolean
+          description: Indicates whether user choose to enable script auto-fill.
+        executableLaunchCommand:
+          type: string
+          description: The executable launch command for script auto-fill. Will be used to run the application.
+        processName:
+          type: string
+          description: The process name for script auto-fill. Will be used to identify the application process.
+        tabState:
+          type: object
+          $ref: '#/components/schemas/TabState'
+          description: Tab state.
+        testTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestType'
+          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
+        targetOSList:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetOSInfo'
+          x-ms-identifiers: []
+          description: Specifies the target OSs of specific OS Update types.
+        inplaceUpgradeOSPair:
+          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
+          description: Specifies the baseline os and target os for in-place upgrade.
+        flightingRing:
+          type: string
+          description: The flighting ring for feature update.
+        firstPartyApps:
+          description: Specifies the list of first party applications to test along with user application.
+          type: array
+          x-ms-identifiers: []
+          items:
+            $ref: '#/components/schemas/FirstPartyAppDefinition'
+        galleryApps:
+          description: The list of gallery apps to test along with user application.
+          type: array
+          items:
+            $ref: '#/components/schemas/GalleryAppDefinition'
+          x-ms-identifiers:
+            - skuId
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Test'
+          x-ms-identifiers: []
+          description: The detailed test information.
+        intuneEnrollmentMetadata:
+          description: The metadata of Intune enrollment.
+          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
+    DraftPackageSourceType:
+      type: string
+      description: The source type.
+      enum:
+        - Native
+        - IntuneWin
+        - TestBasePackage
+        - GalleryApp
+        - IntuneEnrollment
+      x-ms-enum:
+        name: draftPackageSourceType
+        modelAsString: true
+    DraftPackageIntuneAppMetadata:
+      description: The metadata of Intune app(s) used for generation.
+      type: object
+      properties:
+        intuneApp:
+          description: The Metadata of the Intune App through intunewin file uploading.
+          $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
+        intuneAppDependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
+          x-ms-identifiers: []
+          description: The Metadata of dependencies of the Intune App through intunewin file uploading.
+    DraftPackageIntuneAppMetadataItem:
+      description: The Metadata of a single Intune App.
+      type: object
+      properties:
+        appName:
+          type: string
+          description: Intune app name.
+        version:
+          type: string
+          description: Intune app version.
+        appId:
+          type: string
+          description: Intune app id.
+        publisher:
+          type: string
+          description: Publisher of the app.
+        description:
+          type: string
+          description: Description of the app.
+        owner:
+          type: string
+          description: Owner of the app.
+        createDate:
+          type: string
+          format: date-time
+          description: Creation date of the app.
+        dependentAppCount:
+          type: integer
+          format: int32
+          description: Count of dependency apps.
+        installCommand:
+          type: string
+          description: Install command.
+        uninstallCommand:
+          type: string
+          description: Uninstall command.
+        lastProcessed:
+          type: integer
+          format: int64
+          description: last processed time tickets.
+        dependencyIds:
+          type: array
+          items:
+            type: string
+          description: Ids of dependency apps.
+        setupFile:
+          type: string
+          description: Setup file path.
+        minimumSupportedOS:
+          type: string
+          description: Minimum supported OS. The OS version must be greater than this version to run this app.
+        status:
+          enum:
+            - Ready
+            - Uploading
+            - UploadFailed
+            - ExtractFailed
+            - NoDependencyApp
+          type: string
+          x-ms-enum:
+            name: intuneExtractStatus
+            modelAsString: true
+          description: Extract status.
+        expectedExitCodes:
+          type: array
+          items:
+            type: string
+          description: Expected exit codes returned from Intune App.
+    HighlightedFile:
+      description: The information of a highlighted file that user should pay attention to.
+      type: object
+      properties:
+        path:
+          type: string
+          description: The path of the highlighted file.
+        visited:
+          type: boolean
+          description: A flag to save whether this file is viewed by user.
+          default: false
+        sections:
+          type: array
+          items:
+            type: string
+          description: The name of sections to highlight.
+      required:
+        - path
+    Tabs:
+      description: Specifies the tabs when creating / cloning / editing a package.
+      type: string
+      enum:
+        - Unspecified
+        - BasicsTab
+        - ConfigureTestTab
+        - EditPackageTab
+        - TestMatrixTab
+        - TagsTab
+        - ReviewAndCreateTab
+      x-ms-enum:
+        name: packageStudioTabs
+        modelAsString: true
+    TabState:
+      description: Specifies current state of tabs.
+      type: object
+      properties:
+        currentTab:
+          description: Current tab.
+          $ref: '#/components/schemas/Tabs'
+        visitedTabs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tabs'
+          description: visited tabs.
+    DraftPackageGetPathResponse:
+      description: The response of getting a download URL.
+      type: object
+      properties:
+        baseUrl:
+          type: string
+          readOnly: true
+          description: The base URL of the storage account.
+        draftPackagePath:
+          type: string
+          readOnly: true
+          description: The relative path of the folder hosting package files.
+        workingPath:
+          type: string
+          readOnly: true
+          description: The relative path for a temporary folder for package creation work.
+        sasToken:
+          type: string
+          readOnly: true
+          x-ms-secret: true
+          description: A SAS token for the storage account to access workspace.
+        expirationTime:
+          type: string
+          readOnly: true
+          format: date-time
+          description: Expiry date of the SAS token.
+    ExtractFileOperationParameters:
+      description: Parameters body to pass to extract file operation of Draft Package.
+      type: object
+      properties:
+        fileType:
+          $ref: '#/components/schemas/ExtractFileType'
+          description: The type of file to extract.
+          default: IntuneWinPackage
+        sourceFile:
+          description: Relative path of the file to be extracted, the path must under working path of this draft package.
+          type: string
+        intuneAppId:
+          description: Intune application id.
+          type: string
+      required:
+        - sourceFile
+    ExtractFileType:
+      type: string
+      description: The type of file to extract.
+      enum:
+        - TestBasePackage
+        - IntuneWinPackage
+      x-ms-enum:
+        name: extractFileType
+        modelAsString: true
+    GenerateOperationParameters:
+      description: Parameters body to pass to generate operation of Draft Package.
+      type: object
+      properties:
+        forceGenerate:
+          type: boolean
+          description: Force to generate package files even if no metadata changed.
+          default: false
+    CopyFromPackageOperationParameters:
+      description: Parameters body to pass to copy-from-package operation of Draft Package.
+      type: object
+      properties:
+        packageId:
+          description: The id of the package to copy from.
+          type: string
+      required:
+        - packageId
     CustomImageListResult:
       description: A list of Test Base custom images.
       type: object
@@ -346,145 +864,553 @@ components:
         provisioningState:
           type: string
           readOnly: true
-    CredentialListResult:
-      description: A list of credential resources.
+    ChatSessionResourceListResult:
+      description: A list of chat session.
       type: object
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/CredentialResource'
-          description: The list of credential resources.
+            $ref: '#/components/schemas/ChatSessionResource'
+          description: The list of chat session.
         nextLink:
           type: string
           readOnly: true
           description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    CredentialResource:
-      description: The test base credential resource.
+    ChatSessionResource:
       type: object
+      description: The chat session resource.
       properties:
         properties:
-          $ref: '#/components/schemas/CredentialProperties'
           x-ms-client-flatten: true
-          description: The test base credential properties.
+          $ref: '#/components/schemas/ChatSessionProperties'
+          description: The properties of chat session.
       allOf:
         - $ref: '#/components/schemas/ProxyResource'
-    CredentialProperties:
-      description: The properties of test base credential
-      discriminator:
-        propertyName: credentialType
+    ChatSessionProperties:
       type: object
+      description: The chat session properties.
       properties:
-        credentialType:
+        provisioningState:
+          description: The provisioning state of the resource.
+          $ref: '#/components/schemas/ProvisioningState'
+    ChatRequest:
+      type: object
+      description: The chat request payload.
+      properties:
+        question:
           type: string
-          description: Credential type.
-          enum:
-            - IntuneAccount
-          x-ms-enum:
-            name: CredentialType
-            modelAsString: true
-            values:
-              - value: IntuneAccount
-                description: Username password credential for intune enrollment.
-        displayName:
-          type: string
-          description: Credential display name.
+          description: The question of the chat turn
       required:
-        - credentialType
-        - displayName
-    IntuneSingletonResourceProperties:
-      description: The properties of intune credential.
+        - question
+    ChatResponse:
       type: object
-      x-ms-discriminator-value: IntuneAccount
+      description: The chat response payload.
       properties:
-        userNameKeyVaultSecretPath:
+        properties:
+          x-ms-client-flatten: true
+          $ref: '#/components/schemas/ChatResponseProperties'
+          description: The properties of chat response.
+      required:
+        - properties
+    ChatResponseProperties:
+      type: object
+      description: The chat response properties.
+      properties:
+        question:
           type: string
-          description: The key vault secret path of user name.
-        passwordKeyVaultSecretPath:
+          description: The question from the request
+        answer:
           type: string
-          description: The key vault secret path of password.
+          description: The answer from the system
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitation'
+          x-ms-identifiers: []
+        usage:
+          type: integer
+          format: int32
+          description: The usage of questions within the chat session
+          readOnly: true
+        limit:
+          type: integer
+          format: int32
+          description: The limit of questions within the chat session
+          readOnly: true
+      required:
+        - question
+        - answer
+        - usage
+        - limit
+    AnswerCitation:
+      type: object
+      description: The answer citation.
+      properties:
+        title:
+          type: string
+          description: The title of the citation.
+        url:
+          type: string
+          description: The url of the citation.
+        chunkIndex:
+          type: integer
+          description: The chunk index of the content.
+          format: int32
+    Resource:
+      title: Resource
+      description: Common fields that are returned in the response for all Azure Resource Manager resources
+      type: object
+      properties:
+        id:
+          readOnly: true
+          type: string
+          format: arm-id
+          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
+        name:
+          readOnly: true
+          type: string
+          description: The name of the resource
+        type:
+          readOnly: true
+          type: string
+          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+        systemData:
+          readOnly: true
+          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+          $ref: '#/components/schemas/systemData'
+      x-ms-azure-resource: true
+    AzureEntityResource:
+      x-ms-client-name: AzureEntityResource
+      title: Entity Resource
+      description: The resource model definition for an Azure Resource Manager resource with an etag.
+      type: object
+      properties:
+        etag:
+          type: string
+          readOnly: true
+          description: Resource Etag.
       allOf:
-        - $ref: '#/components/schemas/CredentialProperties'
-    UserAssignedIdentities:
-      title: User-Assigned Identities
-      description: 'The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: ''/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.'
+        - $ref: '#/components/schemas/Resource'
+    TrackedResource:
+      title: Tracked Resource
+      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
       type: object
-      additionalProperties:
-        $ref: '#/components/schemas/UserAssignedIdentity'
-        nullable: true
-        x-nullable: true
-    UserAssignedIdentity:
-      type: object
-      description: User assigned identity properties
       properties:
-        principalId:
-          description: The principal ID of the assigned identity.
-          format: uuid
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: Resource tags.
+        location:
           type: string
-          readOnly: true
-        clientId:
-          description: The client ID of the assigned identity.
-          format: uuid
+          x-ms-mutability:
+            - read
+            - create
+          description: The geo-location where the resource lives
+      required:
+        - location
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ProxyResource:
+      title: Proxy Resource
+      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Resource'
+    ResourceModelWithAllowedPropertySet:
+      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
+      type: object
+      properties:
+        managedBy:
           type: string
+          x-ms-mutability:
+            - read
+            - create
+            - update
+          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
+        kind:
+          type: string
+          x-ms-mutability:
+            - read
+            - create
+          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
+          pattern: ^[-\w\._,\(\)]+$
+        etag:
           readOnly: true
-    ManagedServiceIdentityType:
-      description: Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
-      enum:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned,UserAssigned
+          type: string
+          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/Identity'
+        sku:
+          allOf:
+            - $ref: '#/components/schemas/Sku'
+        plan:
+          allOf:
+            - $ref: '#/components/schemas/Plan'
+      allOf:
+        - $ref: '#/components/schemas/TrackedResource'
+      x-ms-azure-resource: true
+    SkuTier:
       type: string
+      enum:
+        - Free
+        - Basic
+        - Standard
+        - Premium
       x-ms-enum:
-        name: ManagedServiceIdentityType
-        modelAsString: true
-    ManagedServiceIdentity:
-      description: Managed service identity (system assigned and/or user assigned identities)
+        name: SkuTier
+        modelAsString: false
+      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
+    Sku:
+      description: The resource model definition representing SKU
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the SKU. E.g. P3. It is typically a letter+number code
+        tier:
+          $ref: '#/components/schemas/SkuTier'
+        size:
+          type: string
+          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
+        family:
+          type: string
+          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
+        capacity:
+          type: integer
+          format: int32
+          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
+      required:
+        - name
+    Identity:
+      description: Identity for the resource.
       type: object
       properties:
         principalId:
           readOnly: true
-          format: uuid
           type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
+          format: uuid
+          description: The principal ID of resource identity. The value must be an UUID.
         tenantId:
           readOnly: true
-          format: uuid
           type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
+          format: uuid
+          description: The tenant ID of resource. The value must be an UUID.
         type:
-          $ref: '#/components/schemas/ManagedServiceIdentityType'
-        userAssignedIdentities:
-          $ref: '#/components/schemas/UserAssignedIdentities'
-      required:
-        - type
-    SystemAssignedServiceIdentityType:
-      description: Type of managed service identity (either system assigned, or none).
-      enum:
-        - None
-        - SystemAssigned
-      type: string
-      x-ms-enum:
-        name: SystemAssignedServiceIdentityType
-        modelAsString: true
-    SystemAssignedServiceIdentity:
-      description: Managed service identity (either system assigned, or none)
+          type: string
+          description: The identity type.
+          enum:
+            - SystemAssigned
+          x-ms-enum:
+            name: ResourceIdentityType
+            modelAsString: false
+    Plan:
       type: object
       properties:
-        principalId:
-          readOnly: true
-          format: uuid
+        name:
           type: string
-          description: The service principal ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        tenantId:
-          readOnly: true
-          format: uuid
+          description: A user defined name of the 3rd Party Artifact that is being procured.
+        publisher:
           type: string
-          description: The tenant ID of the system assigned identity. This property will only be provided for a system assigned identity.
-        type:
-          $ref: '#/components/schemas/SystemAssignedServiceIdentityType'
+          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
+        product:
+          type: string
+          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
+        promotionCode:
+          type: string
+          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
+        version:
+          type: string
+          description: The version of the desired product/artifact.
+      description: Plan for the resource.
       required:
-        - type
+        - name
+        - publisher
+        - product
+    ErrorDetail:
+      description: The error detail.
+      type: object
+      properties:
+        code:
+          readOnly: true
+          type: string
+          description: The error code.
+        message:
+          readOnly: true
+          type: string
+          description: The error message.
+        target:
+          readOnly: true
+          type: string
+          description: The error target.
+        details:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          x-ms-identifiers:
+            - message
+            - target
+          description: The error details.
+        additionalInfo:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorAdditionalInfo'
+          x-ms-identifiers: []
+          description: The error additional info.
+    ErrorResponse:
+      title: Error response
+      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+      type: object
+      properties:
+        error:
+          description: The error object.
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorAdditionalInfo:
+      type: object
+      properties:
+        type:
+          readOnly: true
+          type: string
+          description: The additional info type.
+        info:
+          readOnly: true
+          type: object
+          description: The additional info.
+      description: The resource management error additional info.
+    Operation:
+      title: REST API Operation
+      description: Details of a REST API operation, returned from the Resource Provider Operations API
+      type: object
+      properties:
+        name:
+          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
+          type: string
+          readOnly: true
+        isDataAction:
+          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
+          type: boolean
+          readOnly: true
+        display:
+          description: Localized display information for this particular operation.
+          type: object
+          properties:
+            provider:
+              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
+              type: string
+              readOnly: true
+            resource:
+              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
+              type: string
+              readOnly: true
+            operation:
+              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
+              type: string
+              readOnly: true
+            description:
+              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
+              type: string
+              readOnly: true
+        origin:
+          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
+          type: string
+          readOnly: true
+          enum:
+            - user
+            - system
+            - user,system
+          x-ms-enum:
+            name: Origin
+            modelAsString: true
+        actionType:
+          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
+          type: string
+          readOnly: true
+          enum:
+            - Internal
+          x-ms-enum:
+            name: ActionType
+            modelAsString: true
+    OperationListResult:
+      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Operation'
+          x-ms-identifiers:
+            - name
+          description: List of operations supported by the resource provider
+          readOnly: true
+        nextLink:
+          type: string
+          format: uri
+          description: URL to get the next set of operation list results (if there are any).
+          readOnly: true
+    OperationStatusResult:
+      description: The current status of an async operation.
+      type: object
+      required:
+        - status
+      properties:
+        id:
+          description: Fully qualified ID for the async operation.
+          type: string
+          format: arm-id
+        resourceId:
+          description: Fully qualified ID of the resource against which the original async operation was started.
+          type: string
+          format: arm-id
+          readOnly: true
+        name:
+          description: Name of the async operation.
+          type: string
+        status:
+          description: Operation status.
+          type: string
+        percentComplete:
+          description: Percent of the operation that is complete.
+          type: number
+          minimum: 0
+          maximum: 100
+        startTime:
+          description: The start time of the operation.
+          type: string
+          format: date-time
+        endTime:
+          description: The end time of the operation.
+          type: string
+          format: date-time
+        operations:
+          description: The operations list.
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatusResult'
+        error:
+          description: If present, details of the operation error.
+          $ref: '#/components/schemas/ErrorDetail'
+    locationData:
+      description: Metadata pertaining to the geographic location of the resource.
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          description: A canonical name for the geographic or physical location.
+        city:
+          type: string
+          description: The city or locality where the resource is located.
+        district:
+          type: string
+          description: The district, state, or province where the resource is located.
+        countryOrRegion:
+          type: string
+          description: The country or region where the resource is located
+      required:
+        - name
+    systemData:
+      description: Metadata pertaining to creation and last modification of the resource.
+      type: object
+      readOnly: true
+      properties:
+        createdBy:
+          type: string
+          description: The identity that created the resource.
+        createdByType:
+          type: string
+          description: The type of identity that created the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource creation (UTC).
+        lastModifiedBy:
+          type: string
+          description: The identity that last modified the resource.
+        lastModifiedByType:
+          type: string
+          description: The type of identity that last modified the resource.
+          enum:
+            - User
+            - Application
+            - ManagedIdentity
+            - Key
+          x-ms-enum:
+            name: createdByType
+            modelAsString: true
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: The timestamp of resource last modification (UTC)
+    encryptionProperties:
+      description: Configuration of key for data encryption
+      type: object
+      properties:
+        status:
+          description: Indicates whether or not the encryption is enabled for container registry.
+          enum:
+            - enabled
+            - disabled
+          type: string
+          x-ms-enum:
+            name: EncryptionStatus
+            modelAsString: true
+        keyVaultProperties:
+          $ref: '#/components/schemas/KeyVaultProperties'
+          description: Key vault properties.
+    KeyVaultProperties:
+      type: object
+      properties:
+        keyIdentifier:
+          description: Key vault uri to access the encryption key.
+          type: string
+        identity:
+          description: The client ID of the identity which will be used to access key vault.
+          type: string
+    CheckNameAvailabilityRequest:
+      description: The check availability request body.
+      type: object
+      properties:
+        name:
+          description: The name of the resource for which availability needs to be checked.
+          type: string
+        type:
+          description: The resource type.
+          type: string
+    CheckNameAvailabilityResponse:
+      description: The check availability result.
+      type: object
+      properties:
+        nameAvailable:
+          description: Indicates if the resource name is available.
+          type: boolean
+        reason:
+          description: The reason why the given name is not available.
+          type: string
+          enum:
+            - Invalid
+            - AlreadyExists
+          x-ms-enum:
+            name: CheckNameAvailabilityReason
+            modelAsString: true
+        message:
+          description: Detailed reason why the given name is available.
+          type: string
     Tags:
       type: object
       additionalProperties:
@@ -2796,6 +3722,65 @@ components:
         - appName
         - appId
         - expectedInstallationPath
+    CredentialListResult:
+      description: A list of credential resources.
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialResource'
+          description: The list of credential resources.
+        nextLink:
+          type: string
+          readOnly: true
+          description: Link to the next set of results. Not empty if value contains incomplete list of results.
+    CredentialResource:
+      description: The test base credential resource.
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/CredentialProperties'
+          x-ms-client-flatten: true
+          description: The test base credential properties.
+      allOf:
+        - $ref: '#/components/schemas/ProxyResource'
+    CredentialProperties:
+      description: The properties of test base credential
+      discriminator:
+        propertyName: credentialType
+      type: object
+      properties:
+        credentialType:
+          type: string
+          description: Credential type.
+          enum:
+            - IntuneAccount
+          x-ms-enum:
+            name: CredentialType
+            modelAsString: true
+            values:
+              - value: IntuneAccount
+                description: Username password credential for intune enrollment.
+        displayName:
+          type: string
+          description: Credential display name.
+      required:
+        - credentialType
+        - displayName
+    IntuneSingletonResourceProperties:
+      description: The properties of intune credential.
+      type: object
+      x-ms-discriminator-value: IntuneAccount
+      properties:
+        userNameKeyVaultSecretPath:
+          type: string
+          description: The key vault secret path of user name.
+        passwordKeyVaultSecretPath:
+          type: string
+          description: The key vault secret path of password.
+      allOf:
+        - $ref: '#/components/schemas/CredentialProperties'
     ActionRequests:
       type: object
       properties:
@@ -2881,992 +3866,31 @@ components:
           type: string
         companyWebsite:
           type: string
-    DraftPackageListResult:
-      description: A list of Test Base Draft Packages.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/DraftPackageResource'
-          description: The list of Test Base Draft Packages.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    DraftPackageResource:
-      description: The Test Base Draft Package resource.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DraftPackageProperties'
-          x-ms-client-flatten: true
-          description: Test Base Draft Package properties.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    DraftPackageProperties:
-      description: The properties of the Test Base Draft Package.
-      type: object
-      properties:
-        applicationName:
-          type: string
-          description: Application name
-        version:
-          type: string
-          description: Application version
-        draftPackagePath:
-          type: string
-          readOnly: true
-          description: The relative path of the folder hosting package files.
-        workingPath:
-          type: string
-          readOnly: true
-          description: The relative path for a temporarily folder for package creation work.
-        appFileName:
-          type: string
-          description: The name of the app file.
-        sourceType:
-          $ref: '#/components/schemas/DraftPackageSourceType'
-          description: The source type.
-          default: Native
-        useSample:
-          type: boolean
-          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
-        comments:
-          type: string
-          description: Comments added by user.
-        intuneMetadata:
-          type: object
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
-          description: Metadata used to generate draft package folder and scripts.
-        highlightedFiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/HighlightedFile'
-          x-ms-identifiers: []
-          description: The highlight files in the package.
-        packageTags:
-          description: Tags of the package to be created.
-          $ref: '#/components/schemas/Tags'
-        editPackage:
-          type: boolean
-          description: Specifies whether this draft package is used to edit a package.
-          default: false
-        packageId:
-          type: string
-          description: Specifies the package id from which the draft package copied.
-        useAutofill:
-          type: boolean
-          description: Indicates whether user choose to enable script auto-fill.
-        executableLaunchCommand:
-          type: string
-          description: The executable launch command for script auto-fill. Will be used to run the application.
-        processName:
-          type: string
-          description: The process name for script auto-fill. Will be used to identify the application process.
-        tabState:
-          type: object
-          $ref: '#/components/schemas/TabState'
-          description: Tab state.
-        testTypes:
-          type: array
-          items:
-            $ref: '#/components/schemas/TestType'
-          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-        targetOSList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TargetOSInfo'
-          x-ms-identifiers: []
-          description: Specifies the target OSs of specific OS Update types.
-        inplaceUpgradeOSPair:
-          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
-          description: Specifies the baseline os and target os for inplace upgrade.
-        lastModifiedTime:
-          readOnly: true
-          type: string
-          format: date-time
-          description: The UTC timestamp when the package was last modified.
-        flightingRing:
-          type: string
-          description: The flighting ring for feature update.
-        firstPartyApps:
-          description: The list of first party applications to test along with user application.
-          type: array
-          x-ms-identifiers: []
-          items:
-            $ref: '#/components/schemas/FirstPartyAppDefinition'
-        galleryApps:
-          description: The list of gallery apps to test along with user application.
-          type: array
-          x-ms-identifiers:
-            - skuId
-          items:
-            $ref: '#/components/schemas/GalleryAppDefinition'
-        tests:
-          type: array
-          items:
-            $ref: '#/components/schemas/Test'
-          x-ms-identifiers: []
-          description: The detailed test information.
-        intuneEnrollmentMetadata:
-          description: The metadata of Intune enrollment.
-          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
-    DraftPackageUpdateParameters:
-      description: Parameters supplied to update a Test Base Draft Package.
-      type: object
-      properties:
-        properties:
-          $ref: '#/components/schemas/DraftPackageUpdateParameterProperties'
-          x-ms-client-flatten: true
-          description: Test Base Draft Package update parameters.
-    DraftPackageUpdateParameterProperties:
-      description: The properties of draft package update parameters.
-      type: object
-      properties:
-        applicationName:
-          type: string
-          description: Application name
-        version:
-          type: string
-          description: Application version
-        appFileName:
-          type: string
-          description: The name of the app file.
-        sourceType:
-          $ref: '#/components/schemas/DraftPackageSourceType'
-          description: The source type.
-          default: Native
-        useSample:
-          type: boolean
-          description: Specifies whether a sample package should be used instead of the one uploaded by the user.
-        comments:
-          type: string
-          description: Comments added by user.
-        intuneMetadata:
-          type: object
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadata'
-          description: Metadata used to generate draft package folder and scripts.
-        highlightedFiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/HighlightedFile'
-          x-ms-identifiers: []
-          description: The highlight files in the package.
-        packageTags:
-          description: Tags of the package to be created.
-          $ref: '#/components/schemas/Tags'
-        packageId:
-          type: string
-          description: Specifies the package id from which the draft package copied.
-        useAutofill:
-          type: boolean
-          description: Indicates whether user choose to enable script auto-fill.
-        executableLaunchCommand:
-          type: string
-          description: The executable launch command for script auto-fill. Will be used to run the application.
-        processName:
-          type: string
-          description: The process name for script auto-fill. Will be used to identify the application process.
-        tabState:
-          type: object
-          $ref: '#/components/schemas/TabState'
-          description: Tab state.
-        testTypes:
-          type: array
-          items:
-            $ref: '#/components/schemas/TestType'
-          description: OOB, functional or flow driven. Mapped to the data in 'tests' property.
-        targetOSList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TargetOSInfo'
-          x-ms-identifiers: []
-          description: Specifies the target OSs of specific OS Update types.
-        inplaceUpgradeOSPair:
-          $ref: '#/components/schemas/InplaceUpgradeOSInfo'
-          description: Specifies the baseline os and target os for in-place upgrade.
-        flightingRing:
-          type: string
-          description: The flighting ring for feature update.
-        firstPartyApps:
-          description: Specifies the list of first party applications to test along with user application.
-          type: array
-          x-ms-identifiers: []
-          items:
-            $ref: '#/components/schemas/FirstPartyAppDefinition'
-        galleryApps:
-          description: The list of gallery apps to test along with user application.
-          type: array
-          items:
-            $ref: '#/components/schemas/GalleryAppDefinition'
-          x-ms-identifiers:
-            - skuId
-        tests:
-          type: array
-          items:
-            $ref: '#/components/schemas/Test'
-          x-ms-identifiers: []
-          description: The detailed test information.
-        intuneEnrollmentMetadata:
-          description: The metadata of Intune enrollment.
-          $ref: '#/components/schemas/IntuneEnrollmentMetadata'
-    DraftPackageSourceType:
-      type: string
-      description: The source type.
-      enum:
-        - Native
-        - IntuneWin
-        - TestBasePackage
-        - GalleryApp
-        - IntuneEnrollment
-      x-ms-enum:
-        name: draftPackageSourceType
-        modelAsString: true
-    DraftPackageIntuneAppMetadata:
-      description: The metadata of Intune app(s) used for generation.
-      type: object
-      properties:
-        intuneApp:
-          description: The Metadata of the Intune App through intunewin file uploading.
-          $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
-        intuneAppDependencies:
-          type: array
-          items:
-            $ref: '#/components/schemas/DraftPackageIntuneAppMetadataItem'
-          x-ms-identifiers: []
-          description: The Metadata of dependencies of the Intune App through intunewin file uploading.
-    DraftPackageIntuneAppMetadataItem:
-      description: The Metadata of a single Intune App.
-      type: object
-      properties:
-        appName:
-          type: string
-          description: Intune app name.
-        version:
-          type: string
-          description: Intune app version.
-        appId:
-          type: string
-          description: Intune app id.
-        publisher:
-          type: string
-          description: Publisher of the app.
-        description:
-          type: string
-          description: Description of the app.
-        owner:
-          type: string
-          description: Owner of the app.
-        createDate:
-          type: string
-          format: date-time
-          description: Creation date of the app.
-        dependentAppCount:
-          type: integer
-          format: int32
-          description: Count of dependency apps.
-        installCommand:
-          type: string
-          description: Install command.
-        uninstallCommand:
-          type: string
-          description: Uninstall command.
-        lastProcessed:
-          type: integer
-          format: int64
-          description: last processed time tickets.
-        dependencyIds:
-          type: array
-          items:
-            type: string
-          description: Ids of dependency apps.
-        setupFile:
-          type: string
-          description: Setup file path.
-        minimumSupportedOS:
-          type: string
-          description: Minimum supported OS. The OS version must be greater than this version to run this app.
-        status:
-          enum:
-            - Ready
-            - Uploading
-            - UploadFailed
-            - ExtractFailed
-            - NoDependencyApp
-          type: string
-          x-ms-enum:
-            name: intuneExtractStatus
-            modelAsString: true
-          description: Extract status.
-        expectedExitCodes:
-          type: array
-          items:
-            type: string
-          description: Expected exit codes returned from Intune App.
-    HighlightedFile:
-      description: The information of a highlighted file that user should pay attention to.
-      type: object
-      properties:
-        path:
-          type: string
-          description: The path of the highlighted file.
-        visited:
-          type: boolean
-          description: A flag to save whether this file is viewed by user.
-          default: false
-        sections:
-          type: array
-          items:
-            type: string
-          description: The name of sections to highlight.
-      required:
-        - path
-    Tabs:
-      description: Specifies the tabs when creating / cloning / editing a package.
-      type: string
-      enum:
-        - Unspecified
-        - BasicsTab
-        - ConfigureTestTab
-        - EditPackageTab
-        - TestMatrixTab
-        - TagsTab
-        - ReviewAndCreateTab
-      x-ms-enum:
-        name: packageStudioTabs
-        modelAsString: true
-    TabState:
-      description: Specifies current state of tabs.
-      type: object
-      properties:
-        currentTab:
-          description: Current tab.
-          $ref: '#/components/schemas/Tabs'
-        visitedTabs:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tabs'
-          description: visited tabs.
-    DraftPackageGetPathResponse:
-      description: The response of getting a download URL.
-      type: object
-      properties:
-        baseUrl:
-          type: string
-          readOnly: true
-          description: The base URL of the storage account.
-        draftPackagePath:
-          type: string
-          readOnly: true
-          description: The relative path of the folder hosting package files.
-        workingPath:
-          type: string
-          readOnly: true
-          description: The relative path for a temporary folder for package creation work.
-        sasToken:
-          type: string
-          readOnly: true
-          x-ms-secret: true
-          description: A SAS token for the storage account to access workspace.
-        expirationTime:
-          type: string
-          readOnly: true
-          format: date-time
-          description: Expiry date of the SAS token.
-    ExtractFileOperationParameters:
-      description: Parameters body to pass to extract file operation of Draft Package.
-      type: object
-      properties:
-        fileType:
-          $ref: '#/components/schemas/ExtractFileType'
-          description: The type of file to extract.
-          default: IntuneWinPackage
-        sourceFile:
-          description: Relative path of the file to be extracted, the path must under working path of this draft package.
-          type: string
-        intuneAppId:
-          description: Intune application id.
-          type: string
-      required:
-        - sourceFile
-    ExtractFileType:
-      type: string
-      description: The type of file to extract.
-      enum:
-        - TestBasePackage
-        - IntuneWinPackage
-      x-ms-enum:
-        name: extractFileType
-        modelAsString: true
-    GenerateOperationParameters:
-      description: Parameters body to pass to generate operation of Draft Package.
-      type: object
-      properties:
-        forceGenerate:
-          type: boolean
-          description: Force to generate package files even if no metadata changed.
-          default: false
-    CopyFromPackageOperationParameters:
-      description: Parameters body to pass to copy-from-package operation of Draft Package.
-      type: object
-      properties:
-        packageId:
-          description: The id of the package to copy from.
-          type: string
-      required:
-        - packageId
-    ChatSessionResourceListResult:
-      description: A list of chat session.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ChatSessionResource'
-          description: The list of chat session.
-        nextLink:
-          type: string
-          readOnly: true
-          description: Link to the next set of results. Not empty if value contains incomplete list of results.
-    ChatSessionResource:
-      type: object
-      description: The chat session resource.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ChatSessionProperties'
-          description: The properties of chat session.
-      allOf:
-        - $ref: '#/components/schemas/ProxyResource'
-    ChatSessionProperties:
-      type: object
-      description: The chat session properties.
-      properties:
-        provisioningState:
-          description: The provisioning state of the resource.
-          $ref: '#/components/schemas/ProvisioningState'
-    ChatRequest:
-      type: object
-      description: The chat request payload.
-      properties:
-        question:
-          type: string
-          description: The question of the chat turn
-      required:
-        - question
-    ChatResponse:
-      type: object
-      description: The chat response payload.
-      properties:
-        properties:
-          x-ms-client-flatten: true
-          $ref: '#/components/schemas/ChatResponseProperties'
-          description: The properties of chat response.
-      required:
-        - properties
-    ChatResponseProperties:
-      type: object
-      description: The chat response properties.
-      properties:
-        question:
-          type: string
-          description: The question from the request
-        answer:
-          type: string
-          description: The answer from the system
-        citations:
-          type: array
-          items:
-            $ref: '#/components/schemas/AnswerCitation'
-          x-ms-identifiers: []
-        usage:
-          type: integer
-          format: int32
-          description: The usage of questions within the chat session
-          readOnly: true
-        limit:
-          type: integer
-          format: int32
-          description: The limit of questions within the chat session
-          readOnly: true
-      required:
-        - question
-        - answer
-        - usage
-        - limit
-    AnswerCitation:
-      type: object
-      description: The answer citation.
-      properties:
-        title:
-          type: string
-          description: The title of the citation.
-        url:
-          type: string
-          description: The url of the citation.
-        chunkIndex:
-          type: integer
-          description: The chunk index of the content.
-          format: int32
-    Resource:
-      title: Resource
-      description: Common fields that are returned in the response for all Azure Resource Manager resources
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          format: arm-id
-          description: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
-        name:
-          readOnly: true
-          type: string
-          description: The name of the resource
-        type:
-          readOnly: true
-          type: string
-          description: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
-        systemData:
-          readOnly: true
-          description: Azure Resource Manager metadata containing createdBy and modifiedBy information.
-          $ref: '#/components/schemas/systemData'
-      x-ms-azure-resource: true
-    AzureEntityResource:
-      x-ms-client-name: AzureEntityResource
-      title: Entity Resource
-      description: The resource model definition for an Azure Resource Manager resource with an etag.
-      type: object
-      properties:
-        etag:
-          type: string
-          readOnly: true
-          description: Resource Etag.
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    TrackedResource:
-      title: Tracked Resource
-      description: The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'
-      type: object
-      properties:
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: Resource tags.
-        location:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: The geo-location where the resource lives
-      required:
-        - location
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ProxyResource:
-      title: Proxy Resource
-      description: The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/Resource'
-    ResourceModelWithAllowedPropertySet:
-      description: The resource model definition containing the full set of allowed properties for a resource. Except properties bag, there cannot be a top level property outside of this set.
-      type: object
-      properties:
-        managedBy:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-            - update
-          description: The fully qualified resource ID of the resource that manages this resource. Indicates if this resource is managed by another Azure resource. If this is present, complete mode deployment will not delete the resource if it is removed from the template since it is managed by another resource.
-        kind:
-          type: string
-          x-ms-mutability:
-            - read
-            - create
-          description: Metadata used by portal/tooling/etc to render different UX experiences for resources of the same type. E.g. ApiApps are a kind of Microsoft.Web/sites type.  If supported, the resource provider must validate and persist this value.
-          pattern: ^[-\w\._,\(\)]+$
-        etag:
-          readOnly: true
-          type: string
-          description: 'The etag field is *not* required. If it is provided in the response body, it must also be provided as a header per the normal etag convention.  Entity tags are used for comparing two or more entities from the same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields. '
-        identity:
-          allOf:
-            - $ref: '#/components/schemas/Identity'
-        sku:
-          allOf:
-            - $ref: '#/components/schemas/Sku'
-        plan:
-          allOf:
-            - $ref: '#/components/schemas/Plan'
-      allOf:
-        - $ref: '#/components/schemas/TrackedResource'
-      x-ms-azure-resource: true
-    SkuTier:
-      type: string
-      enum:
-        - Free
-        - Basic
-        - Standard
-        - Premium
-      x-ms-enum:
-        name: SkuTier
-        modelAsString: false
-      description: This field is required to be implemented by the Resource Provider if the service has more than one tier, but is not required on a PUT.
-    Sku:
-      description: The resource model definition representing SKU
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the SKU. E.g. P3. It is typically a letter+number code
-        tier:
-          $ref: '#/components/schemas/SkuTier'
-        size:
-          type: string
-          description: 'The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. '
-        family:
-          type: string
-          description: If the service has different generations of hardware, for the same SKU, then that can be captured here.
-        capacity:
-          type: integer
-          format: int32
-          description: If the SKU supports scale out/in then the capacity integer should be included. If scale out/in is not possible for the resource this may be omitted.
-      required:
-        - name
-    Identity:
-      description: Identity for the resource.
-      type: object
-      properties:
-        principalId:
-          readOnly: true
-          type: string
-          format: uuid
-          description: The principal ID of resource identity. The value must be an UUID.
-        tenantId:
-          readOnly: true
-          type: string
-          format: uuid
-          description: The tenant ID of resource. The value must be an UUID.
-        type:
-          type: string
-          description: The identity type.
-          enum:
-            - SystemAssigned
-          x-ms-enum:
-            name: ResourceIdentityType
-            modelAsString: false
-    Plan:
-      type: object
-      properties:
-        name:
-          type: string
-          description: A user defined name of the 3rd Party Artifact that is being procured.
-        publisher:
-          type: string
-          description: The publisher of the 3rd Party Artifact that is being bought. E.g. NewRelic
-        product:
-          type: string
-          description: 'The 3rd Party artifact that is being procured. E.g. NewRelic. Product maps to the OfferID specified for the artifact at the time of Data Market onboarding. '
-        promotionCode:
-          type: string
-          description: A publisher provided promotion code as provisioned in Data Market for the said product/artifact.
-        version:
-          type: string
-          description: The version of the desired product/artifact.
-      description: Plan for the resource.
-      required:
-        - name
-        - publisher
-        - product
-    ErrorDetail:
-      description: The error detail.
-      type: object
-      properties:
-        code:
-          readOnly: true
-          type: string
-          description: The error code.
-        message:
-          readOnly: true
-          type: string
-          description: The error message.
-        target:
-          readOnly: true
-          type: string
-          description: The error target.
-        details:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          x-ms-identifiers:
-            - message
-            - target
-          description: The error details.
-        additionalInfo:
-          readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorAdditionalInfo'
-          x-ms-identifiers: []
-          description: The error additional info.
-    ErrorResponse:
-      title: Error response
-      description: Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
-      type: object
-      properties:
-        error:
-          description: The error object.
-          $ref: '#/components/schemas/ErrorDetail'
-    ErrorAdditionalInfo:
-      type: object
-      properties:
-        type:
-          readOnly: true
-          type: string
-          description: The additional info type.
-        info:
-          readOnly: true
-          type: object
-          description: The additional info.
-      description: The resource management error additional info.
-    Operation:
-      title: REST API Operation
-      description: Details of a REST API operation, returned from the Resource Provider Operations API
-      type: object
-      properties:
-        name:
-          description: 'The name of the operation, as per Resource-Based Access Control (RBAC). Examples: "Microsoft.Compute/virtualMachines/write", "Microsoft.Compute/virtualMachines/capture/action"'
-          type: string
-          readOnly: true
-        isDataAction:
-          description: Whether the operation applies to data-plane. This is "true" for data-plane operations and "false" for ARM/control-plane operations.
-          type: boolean
-          readOnly: true
-        display:
-          description: Localized display information for this particular operation.
-          type: object
-          properties:
-            provider:
-              description: The localized friendly form of the resource provider name, e.g. "Microsoft Monitoring Insights" or "Microsoft Compute".
-              type: string
-              readOnly: true
-            resource:
-              description: The localized friendly name of the resource type related to this operation. E.g. "Virtual Machines" or "Job Schedule Collections".
-              type: string
-              readOnly: true
-            operation:
-              description: The concise, localized friendly name for the operation; suitable for dropdowns. E.g. "Create or Update Virtual Machine", "Restart Virtual Machine".
-              type: string
-              readOnly: true
-            description:
-              description: The short, localized friendly description of the operation; suitable for tool tips and detailed views.
-              type: string
-              readOnly: true
-        origin:
-          description: The intended executor of the operation; as in Resource Based Access Control (RBAC) and audit logs UX. Default value is "user,system"
-          type: string
-          readOnly: true
-          enum:
-            - user
-            - system
-            - user,system
-          x-ms-enum:
-            name: Origin
-            modelAsString: true
-        actionType:
-          description: Enum. Indicates the action type. "Internal" refers to actions that are for internal only APIs.
-          type: string
-          readOnly: true
-          enum:
-            - Internal
-          x-ms-enum:
-            name: ActionType
-            modelAsString: true
-    OperationListResult:
-      description: A list of REST API operations supported by an Azure Resource Provider. It contains an URL link to get the next set of results.
-      type: object
-      properties:
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Operation'
-          x-ms-identifiers:
-            - name
-          description: List of operations supported by the resource provider
-          readOnly: true
-        nextLink:
-          type: string
-          format: uri
-          description: URL to get the next set of operation list results (if there are any).
-          readOnly: true
-    OperationStatusResult:
-      description: The current status of an async operation.
-      type: object
-      required:
-        - status
-      properties:
-        id:
-          description: Fully qualified ID for the async operation.
-          type: string
-          format: arm-id
-        resourceId:
-          description: Fully qualified ID of the resource against which the original async operation was started.
-          type: string
-          format: arm-id
-          readOnly: true
-        name:
-          description: Name of the async operation.
-          type: string
-        status:
-          description: Operation status.
-          type: string
-        percentComplete:
-          description: Percent of the operation that is complete.
-          type: number
-          minimum: 0
-          maximum: 100
-        startTime:
-          description: The start time of the operation.
-          type: string
-          format: date-time
-        endTime:
-          description: The end time of the operation.
-          type: string
-          format: date-time
-        operations:
-          description: The operations list.
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationStatusResult'
-        error:
-          description: If present, details of the operation error.
-          $ref: '#/components/schemas/ErrorDetail'
-    locationData:
-      description: Metadata pertaining to the geographic location of the resource.
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 256
-          description: A canonical name for the geographic or physical location.
-        city:
-          type: string
-          description: The city or locality where the resource is located.
-        district:
-          type: string
-          description: The district, state, or province where the resource is located.
-        countryOrRegion:
-          type: string
-          description: The country or region where the resource is located
-      required:
-        - name
-    systemData:
-      description: Metadata pertaining to creation and last modification of the resource.
-      type: object
-      readOnly: true
-      properties:
-        createdBy:
-          type: string
-          description: The identity that created the resource.
-        createdByType:
-          type: string
-          description: The type of identity that created the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        createdAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource creation (UTC).
-        lastModifiedBy:
-          type: string
-          description: The identity that last modified the resource.
-        lastModifiedByType:
-          type: string
-          description: The type of identity that last modified the resource.
-          enum:
-            - User
-            - Application
-            - ManagedIdentity
-            - Key
-          x-ms-enum:
-            name: createdByType
-            modelAsString: true
-        lastModifiedAt:
-          type: string
-          format: date-time
-          description: The timestamp of resource last modification (UTC)
-    encryptionProperties:
-      description: Configuration of key for data encryption
-      type: object
-      properties:
-        status:
-          description: Indicates whether or not the encryption is enabled for container registry.
-          enum:
-            - enabled
-            - disabled
-          type: string
-          x-ms-enum:
-            name: EncryptionStatus
-            modelAsString: true
-        keyVaultProperties:
-          $ref: '#/components/schemas/KeyVaultProperties'
-          description: Key vault properties.
-    KeyVaultProperties:
-      type: object
-      properties:
-        keyIdentifier:
-          description: Key vault uri to access the encryption key.
-          type: string
-        identity:
-          description: The client ID of the identity which will be used to access key vault.
-          type: string
-    CheckNameAvailabilityRequest:
-      description: The check availability request body.
-      type: object
-      properties:
-        name:
-          description: The name of the resource for which availability needs to be checked.
-          type: string
-        type:
-          description: The resource type.
-          type: string
-    CheckNameAvailabilityResponse:
-      description: The check availability result.
-      type: object
-      properties:
-        nameAvailable:
-          description: Indicates if the resource name is available.
-          type: boolean
-        reason:
-          description: The reason why the given name is not available.
-          type: string
-          enum:
-            - Invalid
-            - AlreadyExists
-          x-ms-enum:
-            name: CheckNameAvailabilityReason
-            modelAsString: true
-        message:
-          description: Detailed reason why the given name is available.
-          type: string
   parameters:
+    DraftPackageNameParameter:
+      name: draftPackageName
+      in: path
+      description: The resource name of the Test Base Draft Package.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    PackageNameQueryParameter:
+      name: packageName
+      in: query
+      description: Parameter used to filter draft packages by linked Test Base Package.
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    DraftPackageEditPackageParameter:
+      name: editPackage
+      in: query
+      description: Parameter used to filter draft packages by editPackage property.
+      required: false
+      x-ms-parameter-location: method
+      schema:
+        type: boolean
     CustomImageNameParameter:
       name: customImageName
       in: path
@@ -3894,14 +3918,103 @@ components:
       schema:
         pattern: ^[a-zA-Z0-9_.-]+$
         type: string
-    CredentialNameParameter:
-      name: credentialName
+    ChatSessionNameParameter:
+      name: chatSessionName
       in: path
-      description: The credential resource name.
+      description: The chat session name.
       required: true
       x-ms-parameter-location: method
       schema:
         pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
+    SubscriptionIdParameter:
+      name: subscriptionId
+      in: path
+      description: The ID of the target subscription. The value must be an UUID.
+      required: true
+      schema:
+        format: uuid
+        type: string
+    ApiVersionParameter:
+      name: api-version
+      in: query
+      description: The API version to use for this operation.
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    ResourceGroupNameParameter:
+      name: resourceGroupName
+      in: path
+      description: The name of the resource group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ManagementGroupNameParameter:
+      name: managementGroupName
+      in: path
+      description: The name of the management group. The name is case insensitive.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        maxLength: 90
+        type: string
+    ScopeParameter:
+      name: scope
+      in: path
+      description: The scope at which the operation is performed.
+      required: true
+      x-ms-skip-url-encoding: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    TenantIdParameter:
+      name: tenantId
+      in: path
+      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        format: uuid
+        type: string
+    OperationIdParameter:
+      name: operationId
+      in: path
+      description: The ID of an ongoing async operation.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    LocationParameter:
+      name: location
+      in: path
+      description: The name of the Azure region.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        minLength: 1
+        type: string
+    If-Match:
+      name: ifMatch
+      in: header
+      description: The If-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        type: string
+    If-None-Match:
+      name: ifNoneMatch
+      in: header
+      description: The If-None-Match header that makes a request conditional.
+      required: true
+      x-ms-parameter-location: method
+      schema:
         type: string
     TestBaseAccountNameParameter:
       name: testBaseAccountName
@@ -4070,6 +4183,15 @@ components:
           modelAsString: true
         pattern: ^[A-Za-z]+$
         type: string
+    CredentialNameParameter:
+      name: credentialName
+      in: path
+      description: The credential resource name.
+      required: true
+      x-ms-parameter-location: method
+      schema:
+        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
+        type: string
     ActionRequestName:
       name: actionRequestName
       in: path
@@ -4085,129 +4207,306 @@ components:
       x-ms-parameter-location: method
       schema:
         type: string
-    DraftPackageNameParameter:
-      name: draftPackageName
-      in: path
-      description: The resource name of the Test Base Draft Package.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    PackageNameQueryParameter:
-      name: packageName
-      in: query
-      description: Parameter used to filter draft packages by linked Test Base Package.
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    DraftPackageEditPackageParameter:
-      name: editPackage
-      in: query
-      description: Parameter used to filter draft packages by editPackage property.
-      required: false
-      x-ms-parameter-location: method
-      schema:
-        type: boolean
-    ChatSessionNameParameter:
-      name: chatSessionName
-      in: path
-      description: The chat session name.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        pattern: ^[A-Za-z0-9]([A-Za-z0-9_]|([-. ][A-Za-z0-9]))+$
-        type: string
-    SubscriptionIdParameter:
-      name: subscriptionId
-      in: path
-      description: The ID of the target subscription. The value must be an UUID.
-      required: true
-      schema:
-        format: uuid
-        type: string
-    ApiVersionParameter:
-      name: api-version
-      in: query
-      description: The API version to use for this operation.
-      required: true
-      schema:
-        minLength: 1
-        type: string
-    ResourceGroupNameParameter:
-      name: resourceGroupName
-      in: path
-      description: The name of the resource group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    ManagementGroupNameParameter:
-      name: managementGroupName
-      in: path
-      description: The name of the management group. The name is case insensitive.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        maxLength: 90
-        type: string
-    ScopeParameter:
-      name: scope
-      in: path
-      description: The scope at which the operation is performed.
-      required: true
-      x-ms-skip-url-encoding: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    TenantIdParameter:
-      name: tenantId
-      in: path
-      description: The Azure tenant ID. This is a GUID-formatted string (e.g. 00000000-0000-0000-0000-000000000000)
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        format: uuid
-        type: string
-    OperationIdParameter:
-      name: operationId
-      in: path
-      description: The ID of an ongoing async operation.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    LocationParameter:
-      name: location
-      in: path
-      description: The name of the Azure region.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        minLength: 1
-        type: string
-    If-Match:
-      name: ifMatch
-      in: header
-      description: The If-Match header that makes a request conditional.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
-    If-None-Match:
-      name: ifNoneMatch
-      in: header
-      description: The If-None-Match header that makes a request conditional.
-      required: true
-      x-ms-parameter-location: method
-      schema:
-        type: string
 paths:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_ListByTestBaseAccount
+      description: Lists all the draft packages under a test base account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/PackageNameQueryParameter'
+        - $ref: '#/components/parameters/DraftPackageEditPackageParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The operation is completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}:
+    x-api-version: 2023-11-01-preview
+    put:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Create
+      description: Creates or replaces a Test Base Draft Package.
+      requestBody:
+        description: Parameters supplied to create a Test Base Draft Package.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftPackageResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package was successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        '201':
+          description: The Test Base Draft Package was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Update
+      description: Updates an existing Test Base Draft Package.
+      requestBody:
+        description: Parameters supplied to update a Test Base Draft Package.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftPackageUpdateParameters'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The existing Test Base Draft Package was successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Delete
+      description: Deletes a Test Base Draft Package.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package 'delete' operation was completed successfully.
+        '204':
+          description: The Test Base Draft Package 'delete' operation was completed successfully.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_Get
+      description: Gets a Test Base Draft Package.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The Test Base Draft Package was successfully found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/getPath:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_GetPath
+      description: Gets draft package path and temp working path with SAS.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The paths with access token is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftPackageGetPathResponse'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/copyFromPackage:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_CopyFromPackage
+      description: Copy package file and metadata from a package to this draft package
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package CopyFromPackage operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyFromPackageOperationParameters'
+      responses:
+        '202':
+          description: The operation was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/extractFile:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_ExtractFile
+      description: Performs extracting file operation for a Test Base Draft Package
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package ExtractFile operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractFileOperationParameters'
+      responses:
+        '202':
+          description: The 'ExtractFile' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/generateFoldersAndScripts:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Test Base Draft Package
+      operationId: DraftPackages_GenerateFoldersAndScripts
+      description: Generates folders and scripts
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/DraftPackageNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Parameters supplied to the Test Base Draft Package Generate operation.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateOperationParameters'
+      responses:
+        '202':
+          description: The 'Generate' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/customImages:
     x-api-version: 2023-11-01-preview
     get:
@@ -4562,13 +4861,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions:
     x-api-version: 2023-11-01-preview
     get:
       tags:
-        - Test Base Credential
-      operationId: Credential_ListByTestBaseAccount
-      description: Lists all the Credentials under a Test Base Account.
+        - Chat
+      operationId: ChatSessions_List
+      description: List all chat sessions
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
@@ -4576,11 +4875,11 @@ paths:
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: The operation is completed.
+          description: The chat session was successfully created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CredentialListResult'
+                $ref: '#/components/schemas/ChatSessionResourceListResult'
         default:
           description: Error response describing why the operation failed.
           content:
@@ -4589,118 +4888,74 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials/{credentialName}:
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}:
     x-api-version: 2023-11-01-preview
-    put:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Create
-      description: Creates or replaces a Test Base Credential.
-      requestBody:
-        description: Parameters supplied to create a Test Base Credential.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CredentialResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The test base credential was successfully created or updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        '201':
-          description: Create a test base credential Resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Update
-      description: Updates an existing test base credential.
-      requestBody:
-        description: Parameters supplied to create a test base credential.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CredentialResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: Get the test base credential.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Test Base Credential
-      operationId: Credentials_Delete
-      description: Deletes an existing test base credential.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The test base credential was deleted successfully.
-        '204':
-          description: The test base credential was deleted successfully.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     get:
       tags:
-        - Test Base Credential
-      operationId: Credential_Get
-      description: Gets a test base credential Resource
+        - Chat
+      operationId: ChatSessions_Get
+      description: Get a chat session
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdParameter'
         - $ref: '#/components/parameters/ResourceGroupNameParameter'
         - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ChatSessionNameParameter'
         - $ref: '#/components/parameters/ApiVersionParameter'
       responses:
         '200':
-          description: Get the test base Credential.
+          description: The chat session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CredentialResource'
+                $ref: '#/components/schemas/ChatSessionResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}/chat:
+    x-api-version: 2023-11-01-preview
+    post:
+      tags:
+        - Chat
+      operationId: ChatSession_Chat
+      description: Start a new chat turn. Ask a question and see the answer in response.
+      x-ms-long-running-operation: true
+      x-ms-long-running-operation-options:
+        final-state-via: location
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ChatSessionNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      requestBody:
+        description: Payload to ask a question.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: The question was answered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '202':
+          description: The chat operation was successfully enqueued. Waiting for the answer.
+          headers:
+            Azure-AsyncOperation:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
+            Location:
+              schema:
+                type: string
+              description: URL to query for status of the operation.
         default:
           description: Error response describing why the operation failed.
           content:
@@ -6607,6 +6862,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials:
+    x-api-version: 2023-11-01-preview
+    get:
+      tags:
+        - Test Base Credential
+      operationId: Credential_ListByTestBaseAccount
+      description: Lists all the Credentials under a Test Base Account.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The operation is completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialListResult'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-ms-pageable:
+        nextLinkName: nextLink
+  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/credentials/{credentialName}:
+    x-api-version: 2023-11-01-preview
+    put:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Create
+      description: Creates or replaces a Test Base Credential.
+      requestBody:
+        description: Parameters supplied to create a Test Base Credential.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The test base credential was successfully created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        '201':
+          description: Create a test base credential Resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Update
+      description: Updates an existing test base credential.
+      requestBody:
+        description: Parameters supplied to create a test base credential.
+        required: true
+        x-ms-requestBody-name: parameters
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialResource'
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Get the test base credential.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Test Base Credential
+      operationId: Credentials_Delete
+      description: Deletes an existing test base credential.
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: The test base credential was deleted successfully.
+        '204':
+          description: The test base credential was deleted successfully.
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Test Base Credential
+      operationId: Credential_Get
+      description: Gets a test base credential Resource
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionIdParameter'
+        - $ref: '#/components/parameters/ResourceGroupNameParameter'
+        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
+        - $ref: '#/components/parameters/CredentialNameParameter'
+        - $ref: '#/components/parameters/ApiVersionParameter'
+      responses:
+        '200':
+          description: Get the test base Credential.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResource'
+        default:
+          description: Error response describing why the operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/actionRequests/{actionRequestName}:
     x-api-version: 2023-11-01-preview
     get:
@@ -6720,403 +7120,3 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-ms-pageable:
         nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_ListByTestBaseAccount
-      description: Lists all the draft packages under a test base account.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/PackageNameQueryParameter'
-        - $ref: '#/components/parameters/DraftPackageEditPackageParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The operation is completed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}:
-    x-api-version: 2023-11-01-preview
-    put:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Create
-      description: Creates or replaces a Test Base Draft Package.
-      requestBody:
-        description: Parameters supplied to create a Test Base Draft Package.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DraftPackageResource'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package was successfully updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        '201':
-          description: The Test Base Draft Package was successfully created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Update
-      description: Updates an existing Test Base Draft Package.
-      requestBody:
-        description: Parameters supplied to update a Test Base Draft Package.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DraftPackageUpdateParameters'
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The existing Test Base Draft Package was successfully updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Delete
-      description: Deletes a Test Base Draft Package.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package 'delete' operation was completed successfully.
-        '204':
-          description: The Test Base Draft Package 'delete' operation was completed successfully.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_Get
-      description: Gets a Test Base Draft Package.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The Test Base Draft Package was successfully found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/getPath:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_GetPath
-      description: Gets draft package path and temp working path with SAS.
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The paths with access token is returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DraftPackageGetPathResponse'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/copyFromPackage:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_CopyFromPackage
-      description: Copy package file and metadata from a package to this draft package
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package CopyFromPackage operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CopyFromPackageOperationParameters'
-      responses:
-        '202':
-          description: The operation was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/extractFile:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_ExtractFile
-      description: Performs extracting file operation for a Test Base Draft Package
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package ExtractFile operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExtractFileOperationParameters'
-      responses:
-        '202':
-          description: The 'ExtractFile' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/draftPackages/{draftPackageName}/generateFoldersAndScripts:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Test Base Draft Package
-      operationId: DraftPackages_GenerateFoldersAndScripts
-      description: Generates folders and scripts
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/DraftPackageNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Parameters supplied to the Test Base Draft Package Generate operation.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateOperationParameters'
-      responses:
-        '202':
-          description: The 'Generate' operation of Draft Package was accepted. Follow the Location header to poll for final outcome.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Chat
-      operationId: ChatSessions_List
-      description: List all chat sessions
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The chat session was successfully created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatSessionResourceListResult'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-ms-pageable:
-        nextLinkName: nextLink
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}:
-    x-api-version: 2023-11-01-preview
-    get:
-      tags:
-        - Chat
-      operationId: ChatSessions_Get
-      description: Get a chat session
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ChatSessionNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      responses:
-        '200':
-          description: The chat session.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatSessionResource'
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.TestBase/testBaseAccounts/{testBaseAccountName}/chatSessions/{chatSessionName}/chat:
-    x-api-version: 2023-11-01-preview
-    post:
-      tags:
-        - Chat
-      operationId: ChatSession_Chat
-      description: Start a new chat turn. Ask a question and see the answer in response.
-      x-ms-long-running-operation: true
-      x-ms-long-running-operation-options:
-        final-state-via: location
-      parameters:
-        - $ref: '#/components/parameters/SubscriptionIdParameter'
-        - $ref: '#/components/parameters/ResourceGroupNameParameter'
-        - $ref: '#/components/parameters/TestBaseAccountNameParameter'
-        - $ref: '#/components/parameters/ChatSessionNameParameter'
-        - $ref: '#/components/parameters/ApiVersionParameter'
-      requestBody:
-        description: Payload to ask a question.
-        required: true
-        x-ms-requestBody-name: parameters
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatRequest'
-      responses:
-        '200':
-          description: The question was answered.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatResponse'
-        '202':
-          description: The chat operation was successfully enqueued. Waiting for the answer.
-          headers:
-            Azure-AsyncOperation:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-            Location:
-              schema:
-                type: string
-              description: URL to query for status of the operation.
-        default:
-          description: Error response describing why the operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'

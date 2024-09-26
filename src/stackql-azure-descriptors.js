@@ -773,7 +773,9 @@ export function getSQLVerbFromMethod(s, r, m, o){
         v = 'delete';
     } else if (m.toLowerCase() == 'add' || m.toLowerCase() == 'create' || m == 'CreateOrUpdate' || m == 'CreateOrReplace'){
         v = 'insert';
-    } 
+    } else if (m == 'ReplaceAll' || m == 'Replace'){
+        v = 'replace';
+    }
     return v;
 };
 
@@ -1028,6 +1030,42 @@ export function camelToSnake(inStr){
         return "_" + y.toLowerCase()
     }).replace(/^_/, "");
 }
+
+export function fixCamelCaseIssues(propertyName) {
+    const replacements = {
+        GB: "Gb",
+        IOPS: "Iops",
+        MBps: "Mbps",
+        DB: "Db",
+        WAN: "Wan",
+        URL: "Url",
+        DHCP: "Dhcp",
+        DNS: "Dns",
+        IP: "Ip",
+        TLS: "Tls",
+        CNAME: "Cname",
+        ML: "Ml",
+        SKU: "Sku",
+        CA: "Ca",
+        ID: "Id",
+        TTL: "Ttl",
+        URI: "Uri",
+        ACL: "Acl",
+        API: "Api",
+        MFA: "Mfa",
+        OAuth: "Oauth",
+    };
+  
+    let updatedPropertyName = propertyName;
+  
+    for (const [key, value] of Object.entries(replacements)) {
+        const regex = new RegExp(key, 'g');
+        updatedPropertyName = updatedPropertyName.replace(regex, value);
+    }
+  
+    return updatedPropertyName;
+  }
+
 
 export function fixCamelCase(inStr){
 	

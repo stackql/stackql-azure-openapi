@@ -6,6 +6,7 @@ import { contactInfo, serviceInfo } from './provider-metadata';
 import {     
     getSQLVerbFromMethod,
     camelToSnake,
+    fixCamelCaseIssues,
     fixCamelCase,
     // getObjectKey, 
     determineObjectKey,
@@ -116,6 +117,7 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
                 select: [],
                 insert: [],
                 update: [],
+                replace: [],
                 delete: []
             }
         };
@@ -158,6 +160,9 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
         case 'update':
             outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.update.push(methodRef);
             break;
+        case 'replace':
+            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.replace.push(methodRef);
+            break;            
         case 'delete':
             outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.delete.push(methodRef);
             break;
@@ -200,12 +205,16 @@ function countCurlyBraces(str) {
 }
 
 function getPathObjectFromRef(obj, path) {
-    const keys = path.split('/');
+    // Decode JSON Pointer path
+    const decodedPath = path.replace(/~1/g, '/').replace(/~0/g, '~');
+    const keys = decodedPath.split('/');
     let result = obj;
+
     for (const key of keys) {
         if (result && result.hasOwnProperty(key)) {
             result = result[key];
         } else {
+            logger.warn(`Key ${key} not found in the current object. Path traversal stopped.`);
             return undefined;
         }
     }
@@ -431,7 +440,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }
                         
                         // get final resource name
-                        getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCase(stackqlResName));
+                        getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlResName)));
                         // remove service from stackqlResName
                         if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
 
@@ -449,7 +458,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         debug ? logger.debug(`stackqlSqlVerb is ${stackqlSqlVerb}`) : null;
 
                         // get final method name
-                        stackqlMethodName = camelToSnake(fixCamelCase(stackqlMethodName))
+                        stackqlMethodName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlMethodName)))
 
                         // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
                         if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'list'){
@@ -502,6 +511,142 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     // outputDoc['x-stackQL-config']['variations'] = {};
     // outputDoc['x-stackQL-config']['variations']['isObjectSchemaImplicitlyUnioned'] = true;
 
+//
+// second pass to add views
+//
+
+logger.info(`Processing second pass for SQL views in ${specificationDir}...`);
+
+Object.keys(outputDoc.components['x-stackQL-resources']).forEach((resourceName) => {
+    logger.info(`Processing resource : ${resourceName}...`);
+
+    const resource = outputDoc.components['x-stackQL-resources'][resourceName];
+    const selectMethods = (resource.sqlVerbs && resource.sqlVerbs.select) ? resource.sqlVerbs.select : [];
+
+    logger.debug(`Found ${selectMethods.length} select methods for [${resourceName}].`);
+
+    if (selectMethods.length > 0) {
+        const firstSelectMethodRef = selectMethods[0].$ref;
+
+        // Ensure firstSelectMethodRef exists and is valid
+        if (!firstSelectMethodRef) {
+            logger.warn(`First select method reference not found for [${resourceName}]. Skipping...`);
+            return;
+        }
+
+        logger.debug(`First select method reference for ${resourceName}: ${firstSelectMethodRef}`);
+
+        const methodName = firstSelectMethodRef.split('/').pop();
+
+        logger.debug(`Method name for ${resourceName}: ${methodName}`);
+
+        const firstSelectMethod = resource.methods[methodName]; 
+
+        if (!firstSelectMethod) {
+            logger.warn(`First select method not found for reference ${firstSelectMethodRef}. Skipping...`);
+            return;
+        }
+
+        // Check if the response body has a top-level `properties` field
+        const responseKey = firstSelectMethod.response && firstSelectMethod.response.openAPIDocKey;
+        if (!responseKey) {
+            logger.warn(`Response key not found in the first select method for resource [${resourceName}]. Skipping...`);
+            return;
+        }
+
+        const opPath = firstSelectMethod.operation.$ref;
+
+        logger.debug(`Response key for ${resourceName}: ${responseKey}`);
+
+        const pathAndVerb = extractPathAndVerb(opPath);
+        const path = pathAndVerb.path;
+        const verb = pathAndVerb.verb;
+
+        logger.debug(`Path for ${resourceName}: ${path}`);
+        logger.debug(`Verb for ${resourceName}: ${verb}`);
+
+        let responseSchemaName;
+
+        // Check if the response schema is an array
+        if (outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.type === 'array') {
+            logger.debug(`Response Schema for ${resourceName} (${methodName}) is an array.`);
+            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.items.$ref.split('/').pop();
+        } else {
+            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.$ref.split('/').pop();
+        }
+        
+        logger.debug(`Response Schema for ${resourceName} (${methodName}): ${responseSchemaName}`);
+
+        const responseSchema = outputDoc.components.schemas[responseSchemaName];
+
+        if (!responseSchema) {
+            logger.warn(`Response schema not found for operation reference ${firstSelectMethod.operation && firstSelectMethod.operation.$ref} and response key ${responseKey}. Skipping...`);
+            return;
+        }
+
+        logger.debug(`Response schema found for ${resourceName}.`);
+
+        // Safeguard to ensure that `properties` exists
+        if (responseSchema.properties && responseSchema.properties.properties && responseSchema.properties.properties.$ref) {
+            logger.info(`Top-level properties field found for [${resourceName}]. Proceeding to create view...`);
+
+            const newViewResourceName = `vw_${resourceName}`;
+            logger.info(`Creating view for [${resourceName}] as ${newViewResourceName}...`);
+
+            const columns = [];
+            const topLevelFields = responseSchema.properties || {}; // fields at the top level
+            const propertiesFields = outputDoc.components.schemas[responseSchema.properties.properties.$ref.split('/').pop()].properties || {}; // fields under `properties`
+
+            // Add top-level fields to the columns array
+            Object.keys(topLevelFields).forEach((topField) => {
+                if (topField !== 'properties') { // Skip `properties` field itself
+                    columns.push(`${topField} as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(topField)))}`);
+                    logger.debug(`Added top-level field ${topField} to columns.`);
+                }
+            });
+
+            // Add `properties` fields to the columns array, converting to JSON extraction in SQL
+            Object.keys(propertiesFields).forEach((propField) => {
+                columns.push(`JSON_EXTRACT(properties, '$.${propField}') as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(propField)))}`);
+                logger.debug(`Added property field ${propField} to columns as JSON extraction.`);
+            });
+
+            // Create the SQL query template
+            const selectQuery = `
+SELECT
+${columns.join(',\n')}
+FROM ${providerName}.${serviceName}.${resourceName}
+WHERE resourceGroupName = 'replace-me'
+AND subscriptionId = 'replace-me';
+`;
+
+            // Add the view to the `x-stackQL-resources` section
+            outputDoc.components['x-stackQL-resources'][newViewResourceName] = {
+                id: `${providerName}.${serviceName}.${newViewResourceName}`,
+                name: newViewResourceName,
+                config: {
+                    views: {
+                        select: {
+                            predicate: 'sqlDialect == "sqlite3"',
+                            ddl: selectQuery.trim(),
+                            fallback: {
+                                predicate: 'sqlDialect == "postgres"',
+                                ddl: selectQuery.replace('JSON_EXTRACT', 'json_extract_path_text').trim() // Handle Postgres JSON
+                            }
+                        }
+                    }
+                }
+            };
+
+            logger.info(`View ${newViewResourceName} created successfully for [${resourceName}].`);
+        } else {
+            logger.debug(`No top-level 'properties' field found for [${resourceName}]. Skipping view creation.`);
+        }
+    } else {
+        logger.debug(`No select methods found for [${resourceName}]. Skipping...`);
+    }
+});
+
     if (dryrun){
         logger.info(`dryrun specified, no output written`);
     } else {
@@ -514,4 +659,19 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     console.log("Unique initMethod values:");
     console.log(Array.from(uniqueInitMethods));
 
+}
+
+function extractPathAndVerb(opPath) {
+    // Step 1: Remove the leading `#/paths/`
+    let cleanedPath = opPath.replace('#/paths/', '');
+
+    // Step 2: Replace '~1' with '/'
+    cleanedPath = cleanedPath.replace(/~1/g, '/');
+
+    // Step 3: Split the path to extract the HTTP verb
+    const parts = cleanedPath.split('/');
+    const verb = parts.pop();  // The last part is the verb
+    const path = parts.join('/');  // Join the rest to form the cleaned path
+
+    return { path, verb };
 }
