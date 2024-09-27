@@ -1054,6 +1054,7 @@ export function fixCamelCaseIssues(propertyName) {
         API: "Api",
         MFA: "Mfa",
         OAuth: "Oauth",
+        HyperV: "Hyperv",
     };
   
     let updatedPropertyName = propertyName;

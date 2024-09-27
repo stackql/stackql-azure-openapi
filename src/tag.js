@@ -511,153 +511,25 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     // outputDoc['x-stackQL-config']['variations'] = {};
     // outputDoc['x-stackQL-config']['variations']['isObjectSchemaImplicitlyUnioned'] = true;
 
-//
-// second pass to add views
-//
+    //
+    // Second pass to add views
+    //
 
-logger.info(`Processing second pass for SQL views in ${specificationDir}...`);
+    logger.info(`Processing second pass for SQL views in ${specificationDir}...`);
 
-Object.keys(outputDoc.components['x-stackQL-resources']).forEach((resourceName) => {
-    logger.info(`Processing resource : ${resourceName}...`);
-
-    const resource = outputDoc.components['x-stackQL-resources'][resourceName];
-    const selectMethods = (resource.sqlVerbs && resource.sqlVerbs.select) ? resource.sqlVerbs.select : [];
-
-    logger.debug(`Found ${selectMethods.length} select methods for [${resourceName}].`);
-
-    if (selectMethods.length > 0) {
-        const firstSelectMethodRef = selectMethods[0].$ref;
-
-        // Ensure firstSelectMethodRef exists and is valid
-        if (!firstSelectMethodRef) {
-            logger.warn(`First select method reference not found for [${resourceName}]. Skipping...`);
-            return;
-        }
-
-        logger.debug(`First select method reference for ${resourceName}: ${firstSelectMethodRef}`);
-
-        const methodName = firstSelectMethodRef.split('/').pop();
-
-        logger.debug(`Method name for ${resourceName}: ${methodName}`);
-
-        const firstSelectMethod = resource.methods[methodName]; 
-
-        if (!firstSelectMethod) {
-            logger.warn(`First select method not found for reference ${firstSelectMethodRef}. Skipping...`);
-            return;
-        }
-
-        // Check if the response body has a top-level `properties` field
-        const responseKey = firstSelectMethod.response && firstSelectMethod.response.openAPIDocKey;
-        if (!responseKey) {
-            logger.warn(`Response key not found in the first select method for resource [${resourceName}]. Skipping...`);
-            return;
-        }
-
-        const opPath = firstSelectMethod.operation.$ref;
-
-        logger.debug(`Response key for ${resourceName}: ${responseKey}`);
-
-        const pathAndVerb = extractPathAndVerb(opPath);
-        const path = pathAndVerb.path;
-        const verb = pathAndVerb.verb;
-
-        logger.debug(`Path for ${resourceName}: ${path}`);
-        logger.debug(`Verb for ${resourceName}: ${verb}`);
-
-        let responseSchemaName;
-
-        // Check if the response schema is an array
-        if (outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.type === 'array') {
-            logger.debug(`Response Schema for ${resourceName} (${methodName}) is an array.`);
-            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.items.$ref.split('/').pop();
-        } else {
-            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.$ref.split('/').pop();
-        }
-        
-        logger.debug(`Response Schema for ${resourceName} (${methodName}): ${responseSchemaName}`);
-
-        const responseSchema = outputDoc.components.schemas[responseSchemaName];
-
-        if (!responseSchema) {
-            logger.warn(`Response schema not found for operation reference ${firstSelectMethod.operation && firstSelectMethod.operation.$ref} and response key ${responseKey}. Skipping...`);
-            return;
-        }
-
-        logger.debug(`Response schema found for ${resourceName}.`);
-
-        // Safeguard to ensure that `properties` exists
-        if (responseSchema.properties && responseSchema.properties.properties && responseSchema.properties.properties.$ref) {
-            logger.info(`Top-level properties field found for [${resourceName}]. Proceeding to create view...`);
-
-            const newViewResourceName = `vw_${resourceName}`;
-            logger.info(`Creating view for [${resourceName}] as ${newViewResourceName}...`);
-
-            const columns = [];
-            const topLevelFields = responseSchema.properties || {}; // fields at the top level
-            const propertiesFields = outputDoc.components.schemas[responseSchema.properties.properties.$ref.split('/').pop()].properties || {}; // fields under `properties`
-
-            // Add top-level fields to the columns array
-            Object.keys(topLevelFields).forEach((topField) => {
-                if (topField !== 'properties') { // Skip `properties` field itself
-                    columns.push(`${topField} as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(topField)))}`);
-                    logger.debug(`Added top-level field ${topField} to columns.`);
-                }
-            });
-
-            // Add `properties` fields to the columns array, converting to JSON extraction in SQL
-            Object.keys(propertiesFields).forEach((propField) => {
-                columns.push(`JSON_EXTRACT(properties, '$.${propField}') as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(propField)))}`);
-                logger.debug(`Added property field ${propField} to columns as JSON extraction.`);
-            });
-
-            // Create the SQL query template
-            const selectQuery = `
-SELECT
-${columns.join(',\n')}
-FROM ${providerName}.${serviceName}.${resourceName}
-WHERE resourceGroupName = 'replace-me'
-AND subscriptionId = 'replace-me';
-`;
-
-            // Add the view to the `x-stackQL-resources` section
-            outputDoc.components['x-stackQL-resources'][newViewResourceName] = {
-                id: `${providerName}.${serviceName}.${newViewResourceName}`,
-                name: newViewResourceName,
-                config: {
-                    views: {
-                        select: {
-                            predicate: 'sqlDialect == "sqlite3"',
-                            ddl: selectQuery.trim(),
-                            fallback: {
-                                predicate: 'sqlDialect == "postgres"',
-                                ddl: selectQuery.replace('JSON_EXTRACT', 'json_extract_path_text').trim() // Handle Postgres JSON
-                            }
-                        }
-                    }
-                }
-            };
-
-            logger.info(`View ${newViewResourceName} created successfully for [${resourceName}].`);
-        } else {
-            logger.debug(`No top-level 'properties' field found for [${resourceName}]. Skipping view creation.`);
-        }
-    } else {
-        logger.debug(`No select methods found for [${resourceName}]. Skipping...`);
-    }
-});
+    const completeDoc = await processResources(outputDoc, providerName, serviceName, debug);
 
     if (dryrun){
         logger.info(`dryrun specified, no output written`);
     } else {
         logger.info(`writing ${outputDir}/${serviceName}.yaml...`);
-        fs.writeFileSync(`${outputDir}/${serviceName}.yaml`, yaml.dump(outputDoc, {lineWidth: -1, noRefs: true}));
+        fs.writeFileSync(`${outputDir}/${serviceName}.yaml`, yaml.dump(completeDoc, {lineWidth: -1, noRefs: true}));
         logger.info(`${outputDir}/${serviceName}.yaml written successfully`);
     }
     logger.info(`${specificationDir} finished processing`);
 
-    console.log("Unique initMethod values:");
-    console.log(Array.from(uniqueInitMethods));
+    // logger.debug("Unique initMethod values:");
+    // logger.debug(Array.from(uniqueInitMethods));
 
 }
 
@@ -674,4 +546,161 @@ function extractPathAndVerb(opPath) {
     const path = parts.join('/');  // Join the rest to form the cleaned path
 
     return { path, verb };
+}
+
+function pathParamsFromPath(path) {
+    const pathTokens = path.split('/');
+    return pathTokens
+        .filter(token => token.startsWith('{') && token.endsWith('}'))
+        .map(token => token.slice(1, -1));  // Remove the curly braces
+}
+
+async function processResources(outputDoc, providerName, serviceName, debug) {
+    for (const resourceName of Object.keys(outputDoc.components['x-stackQL-resources'])) {
+        logger.info(`Processing resource: ${resourceName}...`);
+
+        const resource = outputDoc.components['x-stackQL-resources'][resourceName];
+        logger.info(`FQ resource id: ${resource.id}`);
+
+        const selectMethods = (resource && resource.sqlVerbs && resource.sqlVerbs.select) ? resource.sqlVerbs.select : [];
+
+        debug ? logger.debug(`Found ${selectMethods.length} select methods for [${resourceName}].`) : null;
+
+        if (selectMethods.length === 0) {
+            debug ? logger.debug(`No select methods found for [${resourceName}]. Skipping...`) : null;
+            continue; // Use continue instead of return to skip to the next resource
+        }
+
+        const firstSelectMethodRef = selectMethods[0].$ref;
+        debug ? logger.debug(`First select method reference for ${resourceName}: ${firstSelectMethodRef}`) : null;
+
+        const methodName = firstSelectMethodRef.split('/').pop();
+        debug ? logger.debug(`Method name for ${resourceName}: ${methodName}`) : null;
+
+        const firstSelectMethod = resource.methods[methodName];
+
+        const responseKey = (firstSelectMethod.response && firstSelectMethod.response.openAPIDocKey) ? firstSelectMethod.response.openAPIDocKey : null;
+
+        const opPath = firstSelectMethod.operation.$ref;
+        const { path, verb } = extractPathAndVerb(opPath);
+
+        debug ? logger.debug(`Path for ${resourceName}: ${path}`) : null;
+        debug ? logger.debug(`Verb for ${resourceName}: ${verb}`) : null;
+
+        // Process the least specific path
+        const lastSelectMethodRef = selectMethods[selectMethods.length - 1].$ref;
+
+        debug ? logger.debug(`Last select method reference for ${resourceName}: ${lastSelectMethodRef}`) : null;
+
+        const lastMethodName = lastSelectMethodRef.split('/').pop();
+        debug ? logger.debug(`Last method name for ${resourceName}: ${lastMethodName}`) : null;
+
+        const lastSelectMethod = resource.methods[lastMethodName];
+
+        const lastOpPath = lastSelectMethod.operation.$ref;
+        const { path: lastPath } = extractPathAndVerb(lastOpPath);
+        debug ? logger.debug(`Last path for ${resourceName}: ${lastPath}`) : null;
+
+        // Extract response schema name
+        let responseSchemaName;
+        const responseSchemaType = (outputDoc.paths[path] && outputDoc.paths[path][verb] && outputDoc.paths[path][verb].responses && outputDoc.paths[path][verb].responses[responseKey] && outputDoc.paths[path][verb].responses[responseKey].content && outputDoc.paths[path][verb].responses[responseKey].content['application/json'] && outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.type) ? outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.type : null;
+
+        if (responseSchemaType === 'array') {
+            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.items.$ref.split('/').pop();
+            debug ? logger.debug(`Response Schema for ${resourceName} (${methodName}) is an array.`) : null;
+        } else {
+            responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.$ref.split('/').pop();
+        }
+
+        debug ? logger.debug(`Response Schema for ${resourceName} (${methodName}): ${responseSchemaName}`) : null;
+
+        const responseSchema = outputDoc.components.schemas[responseSchemaName];
+
+        debug ? logger.debug(`Response schema found for ${resourceName}.`) : null;
+
+        // Ensure the `properties` field exists
+        const propertiesRef = (responseSchema.properties && responseSchema.properties.properties && responseSchema.properties.properties.$ref) ? responseSchema.properties.properties.$ref : null;
+        if (!propertiesRef) {
+            debug ? logger.debug(`No top-level 'properties' field found for [${resourceName}]. Skipping view creation.`) : null;
+            continue; // Use continue instead of return to skip to the next resource
+        }
+
+        logger.info(`Top-level properties field found for [${resourceName}]. Proceeding to create view...`);
+
+        const newViewResourceName = `vw_${resourceName}`;
+        logger.info(`Creating view for [${resourceName}] as ${newViewResourceName}...`);
+
+        const columns = [];
+        const topLevelFields = responseSchema.properties || {};
+        const propertiesFields = outputDoc.components.schemas[propertiesRef.split('/').pop()].properties || {};
+        const requiredParams = pathParamsFromPath(path);
+        const lastMethodRequiredParams = pathParamsFromPath(lastPath);
+
+        debug ? logger.debug(`Required path parameters (most specific) for ${resourceName}: ${requiredParams}`) : null;
+        debug ? logger.debug(`Required path parameters (least specific) for ${resourceName}: ${lastMethodRequiredParams}`) : null;
+
+        // Log requiredParams as a CSV
+        // console.log(`${resourceName},${requiredParams.join(',')}`);
+
+        // Prioritize fields
+        const prioritizedFields = ['id', 'name', 'description', 'location'];
+
+        // Step 1: Add id, name, description, and location if they exist
+        prioritizedFields.forEach((field) => {
+            if (topLevelFields[field]) {
+                columns.push(`${field} as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(field)))}`);
+                debug ? logger.debug(`Added prioritized field ${field} to columns.`) : null;
+            }
+        });
+
+        // Step 2: Add all other fields except `properties`
+        Object.keys(topLevelFields).forEach((topField) => {
+            if (topField !== 'properties' && !prioritizedFields.includes(topField)) {
+                columns.push(`${topField} as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(topField)))}`);
+                debug ? logger.debug(`Added top-level field ${topField} to columns.`) : null;
+            }
+        });
+
+        // Add `properties` fields to the columns array, converting to JSON extraction in SQL
+        Object.keys(propertiesFields).forEach((propField) => {
+            columns.push(`JSON_EXTRACT(properties, '$.${propField}') as ${camelToSnake(fixCamelCaseIssues(fixCamelCase(propField)))}`);
+            debug ? logger.debug(`Added property field ${propField} to columns as JSON extraction.`) : null;
+        });
+
+        // Add path parameters to the columns array
+        requiredParams.forEach((param) => {
+            columns.push(param);
+            debug ? logger.debug(`Added path parameter ${param} to columns.`) : null;
+        });
+
+        // Create the SQL query template
+        const whereConditions = lastMethodRequiredParams.map(param => `${param} = 'replace-me'`).join(' AND ');
+
+        const selectQuery = `
+SELECT
+${columns.join(',\n')}
+FROM ${providerName}.${serviceName}.${resourceName}
+WHERE ${whereConditions};
+`;
+
+        // Add the view to the `x-stackQL-resources` section
+        outputDoc.components['x-stackQL-resources'][newViewResourceName] = {
+            id: `${providerName}.${serviceName}.${newViewResourceName}`,
+            name: newViewResourceName,
+            config: {
+                views: {
+                    select: {
+                        predicate: 'sqlDialect == "sqlite3"',
+                        ddl: selectQuery.trim(),
+                        fallback: {
+                            predicate: 'sqlDialect == "postgres"',
+                            ddl: selectQuery.replace('JSON_EXTRACT', 'json_extract_path_text').trim()
+                        }
+                    }
+                }
+            }
+        };
+        logger.info(`View ${newViewResourceName} created successfully for [${resourceName}].`);
+    }
+    return outputDoc;
 }
