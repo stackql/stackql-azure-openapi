@@ -1,14 +1,14 @@
 import { readdir } from 'fs/promises';
-import { processSpecs, processSpec } from './autorest';
-import { dereference } from './dereference';
-import { combine } from './combine';
-import { tag } from './tag';
-import { validate } from './validate';
+import { processSpecs, processSpec } from './autorest.js';
+import { dereference } from './dereference.js';
+import { combine } from './combine.js';
+import { tag } from './tag.js';
+import { validate } from './validate.js';
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
 import yaml from 'js-yaml';
 import * as fs from 'fs';
-import { createOrCleanDir } from './shared-functions';
+import { createOrCleanDir } from './includes/shared-functions.js';
 
 const logger = new ConsoleLogger();
 

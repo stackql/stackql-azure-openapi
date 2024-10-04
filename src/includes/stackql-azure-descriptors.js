@@ -7,82 +7,156 @@ const logger = new ConsoleLogger();
 /* --------------------------------------------- */
 
 export function checkForOpIdUpdates(serviceName, opId){
+
+    // exceptions
     switch (serviceName) {
-        case 'cloud_shell':
+        case 'advisor':
             switch (opId) {
-                case 'DeleteConsole':
-                    return 'Console_Delete';
-                case 'DeleteConsoleWithLocation':
-                    return 'Console_DeleteByLocation';
-                case 'DeleteUserSettings':
-                    return 'UserSettings_Delete';
-                case 'DeleteUserSettingsWithLocation':
-                    return 'UserSettings_DeleteByLocation';
-                case 'GetUserSettings':
-                    return 'UserSettings_Get';
-                case 'GetUserSettingsWithLocation':
-                    return 'UserSettings_GetByLocation';
-                case 'GetConsole':
-                    return 'Console_Get';
-                case 'GetConsoleWithLocation':
-                    return 'Console_GetByLocation';
-                case 'KeepAlive':
-                    return 'Console_KeepAlive';
-                case 'KeepAliveWithLocation':
-                    return 'Console_KeepAliveByLocation';
-                case 'PatchUserSettings':
-                    return 'UserSettings_Patch';
-                case 'PatchUserSettingsWithLocation':
-                    return 'UserSettings_PatchByLocation';
-                case 'PutConsole':
-                    return 'Console_Put';
-                case 'PutConsoleWithLocation':
-                    return 'Console_PutByLocation';
-                case 'PutUserSettings':
-                    return 'UserSettings_Put';
-                case 'PutUserSettingsWithLocation':
-                    return 'UserSettings_PutByLocation';                
+                case 'GetTestNotificationsAtTenantActionGroupResourceLevel':
+                    return 'NotificationsAtTenantActionGroupResourceLevel_Get';
+            }
+        case 'reservations':
+            switch (opId) {
+                case 'GetAppliedReservationList':
+                    return 'AppliedReservation_List';
+            }              
+    }
+
+    // general rule for opId updates
+    if (!opId.includes('_')) {
+        // Check if the opId starts with 'Check' and contains 'Availability' followed by an optional suffix
+        if (/^Check\w+Availability(\w*)$/.test(opId)) {
+            return opId.replace(/^Check(\w+Availability)(\w*)$/, '$1_Check$2');
+        }
+
+        const actionTokens = ['List', 'Get', 'Update', 'Delete', 'Patch', 'Put', 'Create'];
+
+        for (const actionToken of actionTokens) {
+            if (opId.startsWith(actionToken)) {
+                const resource = opId.substring(actionToken.length);
+                return `${resource}_${actionToken}`;
+            }
+        }
+    }
+
+    // post rule exceptions
+    switch (serviceName) {
+        case 'advisor':
+            switch (opId) {
+                case 'Predict':
+                    return 'RecommendationPrediction_Get';
+                default:
+                    return false;
+            }
+        case 'api_management':
+            switch (opId) {
+                case 'PerformConnectivityCheckAsync':
+                    return 'ConnectivityCheck_PerformAsync';
                 default:
                     return false;
             }
         case 'app_service':
             switch (opId) {
-                case 'ListSkus':
-                    return 'Skus_List';
-                case 'GetPublishingUser':
-                    return 'PublishingUser_Get';
-                case 'GetSourceControl':
-                    return 'SourceControl_Get';
-                case 'ListSourceControls':
-                    return 'SourceControls_List';
-                case 'ListSiteIdentifiersAssignedToHostName':
-                    return 'SiteIdentifiersAssignedToHostName_List';
-                case 'ListPremierAddOnOffers':
-                    return 'PremierAddOnOffers_List';
-                case 'ListGeoRegions':
-                    return 'GeoRegions_List';
-                case 'ListCustomHostNameSites':
-                    return 'CustomHostNameSites_List';
-                case 'ListBillingMeters':
-                    return 'BillingMeters_List';
-                case 'GetSubscriptionDeploymentLocations':
-                    return 'SubscriptionDeploymentLocations_Get';
-                case 'ListAseRegions':
-                    return 'AseRegions_List';
+                case 'VerifyHostingEnvironmentVnet':
+                    return 'HostingEnvironmentVnet_Verify';
+                case 'Move':
+                    return 'Operations_Move';
+                case 'Validate':
+                    return 'Operations_Validate';
+                case 'ValidateMove':
+                    return 'Operations_ValidateMove';                                                                                                        
                 default:
                     return false;
             }
-        case 'elastic':
+        case 'automation':
             switch (opId) {
-                case 'createAndAssociatePLFilter_Create':
-                    return 'TrafficFilters_CreateAndAssociatePlFilter';
-                    // traffic_filters
-                    //return 'create_and_associate_pl_filter';
-                case 'createAndAssociateIPFilter_Create':
-                    return 'TrafficFilters_CreateAndAssociateIpFilter';
-                    // return 'create_and_associate_ip_filter';  
-                case 'DetachAndDeleteTrafficFilter_Delete':
-                    return 'TrafficFilters_DetachAndDelete';                    
+                case 'convertGraphRunbookContent':
+                    return 'Operations_ConvertGraphRunbookContent';
+                default:
+                    return false;
+            }
+        case 'azure_stack':
+            switch (opId) {
+                case 'Products_ListProducts':
+                    return 'Products_ListByProductName';
+                case 'Products_GetProducts':
+                    return 'Products_ExecGet';
+                case 'Products_GetProduct':
+                    return 'Product_ExecGet';
+                case 'Products_Get':
+                    return 'Product_Get';                                                            
+                default:
+                    return false;
+            }
+        case 'billing_benefits':
+            switch (opId) {
+                case 'ValidatePurchase':
+                    return 'SavingsPlan_ValidatePurchase';
+                default:
+                    return false;
+            }            
+        case 'cdn':
+            switch (opId) {
+                case 'ValidateProbe':
+                    return 'Probe_Validate';
+                default:
+                    return false;
+            }
+        case 'cloud_shell':
+            switch (opId) {
+                case 'deleteConsoleWithLocation':
+                    return 'Console_DeleteByLocation';
+                case 'deleteUserSettingsWithLocation':
+                    return 'UserSettings_DeleteByLocation';
+                case 'getUserSettingsWithLocation':
+                    return 'UserSettings_GetByLocation';
+                case 'getConsoleWithLocation':
+                    return 'Console_GetByLocation';
+                case 'KeepAlive':
+                    return 'Console_KeepAlive';
+                case 'keepAliveWithLocation':
+                    return 'Console_KeepAliveByLocation';
+                case 'patchUserSettingsWithLocation':
+                    return 'UserSettings_PatchByLocation';
+                case 'putConsoleWithLocation':
+                    return 'Console_PutByLocation';
+                case 'putUserSettingsWithLocation':
+                    return 'UserSettings_PutByLocation';                
+                default:
+                    return false;
+            }
+        case 'cognitive_services':
+            switch (opId) {
+                case 'calculateModelCapacity':
+                    return 'ModelCapacity_Calculate';
+                default:
+                    return false;
+            }
+        case 'compute':
+            switch (opId) {
+                case 'VirtualMachines_InstanceView':
+                    return 'VirtualMachine_Get';
+                default:
+                    return false;
+            }
+        case 'container_apps':
+            switch (opId) {
+                case 'JobExecution':
+                    return 'JobExecution_Get';
+                default:
+                    return false;
+            }
+        case 'data_box':
+            switch (opId) {
+                case 'Mitigate':
+                    return 'Jobs_Mitigate';
+                default:
+                    return false;
+            }
+        case 'data_replication':
+            switch (opId) {
+                case 'DeploymentPreflight':
+                    return 'Deployment_Preflight';
                 default:
                     return false;
             }
@@ -100,27 +174,129 @@ export function checkForOpIdUpdates(serviceName, opId){
                     return 'Actions_ProductRotateSecretsAction';                                            
                 default:
                     return false;
-            }            
-        case 'azure_stack':
+            }
+        case 'elastic':
             switch (opId) {
-                case 'Products_ListProducts':
-                    return 'Products_ListByProductName';
-                case 'Products_GetProducts':
-                    return 'Products_ExecGet';
-                case 'Products_GetProduct':
-                    return 'Product_ExecGet';
-                case 'Products_Get':
-                    return 'Product_Get';                                                            
+                case 'createAndAssociatePLFilter_Create':
+                    return 'TrafficFilters_CreateAndAssociatePlFilter';
+                case 'createAndAssociateIPFilter_Create':
+                    return 'TrafficFilters_CreateAndAssociateIpFilter';
+                case 'DetachAndDeleteTrafficFilter_Delete':
+                    return 'TrafficFilters_DetachAndDelete';                    
                 default:
                     return false;
             }
-        case 'compute':
+        case 'management_groups':
             switch (opId) {
-                case 'VirtualMachines_InstanceView':
-                    return 'VirtualMachine_Get';
+                case 'TenantBackfillStatus':
+                    return 'TenantBackfillStatus_Get';
+                case 'StartTenantBackfill':
+                    return 'TenantBackfill_Start';                    
                 default:
                     return false;
-            }                        
+            }
+        case 'maria_db':
+            switch (opId) {
+                case 'ResetQueryPerformanceInsightData':
+                    return 'QueryPerformanceInsightData_Reset';        
+                default:
+                    return false;
+            }
+        case 'network':
+            switch (opId) {
+                case 'ExpressRouteProviderPort':
+                    return 'ExpressRouteProviderPort_List';
+                case 'DisconnectActiveSessions':
+                    return 'BastionHosts_DisconnectActiveSessions';
+                case 'generatevirtualwanvpnserverconfigurationvpnprofile':
+                    return 'VirtualWan_generatevirtualwanvpnserverconfigurationvpnprofile';
+                case 'SupportedSecurityProviders':
+                    return 'SupportedSecurityProviders_List';
+                default:
+                    return false;
+            }
+        case 'powerbi_embedded':
+            switch (opId) {
+                case 'getAvailableOperations':
+                    return 'Operations_List';
+                default:
+                    return false;
+            }
+        case 'provider_hub':
+            switch (opId) {
+                case 'CheckinManifest':
+                    return 'Manifest_Checkin';
+                case 'GenerateManifest':
+                    return 'Manifest_Generate';
+                default:
+                    return false;
+            }
+        case 'recovery_services_backup':
+            switch (opId) {
+                case 'MoveRecoveryPoint':
+                    return 'RecoveryPoint_Move';
+                case 'BMSTriggerDataMove':
+                    return 'BackupResourceStorageConfigsNonCRR_BMSTriggerDataMove';
+                case 'BMSPrepareDataMove':
+                    return 'BackupResourceStorageConfigsNonCRR_BMSPrepareDataMove';
+                default:
+                    return false;
+            }                                
+        case 'resources':
+            switch (opId) {
+                case 'checkResourceName':
+                    return 'ResourceName_Check';
+                default:
+                    return false;
+            }
+        case 'resource_graph':
+            switch (opId) {
+                case 'Resources':
+                    return 'Resources_Query';
+                default:
+                    return false;
+            }
+        case 'search':
+            switch (opId) {
+                case 'UsageBySubscriptionSku':
+                    return 'Usages_listBySubscriptionSku';
+                default:
+                    return false;
+            }
+        case 'serial_console':
+            switch (opId) {
+                case 'EnableConsole':
+                    return 'Console_Enable';
+                case 'DisableConsole':
+                    return 'Console_Disable';
+                default:
+                    return false;
+            }
+        case 'storage_cache':
+            switch (opId) {
+                case 'getRequiredAmlFSSubnetsSize':
+                    return 'RequiredAmlFSSubnetsSize_Get';
+                case 'checkAmlFSSubnets':
+                    return 'AmlFSSubnets_Check';                    
+                default:
+                    return false;
+            }
+        case 'storage_sync':
+            switch (opId) {
+                case 'LocationOperationStatus':
+                    return 'LocationOperationStatus_Get';
+                default:
+                    return false;
+            }
+        case 'terraform':
+            switch (opId) {
+                case 'ExportTerraform':
+                    return 'Operations_ExportTerraform';
+                case 'OperationStatuses_Get':
+                    return 'Operations_Get';
+                default:
+                    return false;
+            }
         default:
             return false;
     }
@@ -155,17 +331,6 @@ function getSqlVerbFromOpId(service, opId){
                 default:
                     return false;
             }
-        // case 'elastic':
-        //     switch (opId) {
-        //         // case 'createAndAssociateIPFilter_Create':
-        //         //     return 'exec';
-        //         // case 'createAndAssociatePLFilter_Create':
-        //         //     return 'exec';                    
-        //         // case 'DetachAndDeleteTrafficFilter_Delete':
-        //         //     return 'exec';                    
-        //         default:
-        //             return false;
-        //     }
         case 'netapp':
             switch (opId) {
                 case 'NetAppResource_QueryNetworkSiblingSet':
@@ -763,8 +928,12 @@ export function getSQLVerbFromMethod(s, r, m, o){
         v = selectOrExec('ListBy', s, r, m, o);
     } else if (m == 'ListAll'){
         v = 'select';
-    } else if (m == 'GetBy'){
+    } else if (m == 'GetAll'){
+        v = 'select';        
+    } else if (m.startsWith('GetBy')){
         v = 'select';
+    } else if (m.startsWith('ListIn')){
+        v = 'select';        
     } else if (m.toLowerCase() == 'get'){
         v = selectOrExec('Get', s, r, m, o);
     } else if (m.toLowerCase() == 'list'){

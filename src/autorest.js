@@ -2,15 +2,17 @@ import * as fs from "fs";
 import * as path from "path";
 import { RealFileSystem } from '@azure-tools/datastore';
 import { ConsoleLogger } from '@autorest/common';
-import { AutoRest } from '@autorest/core';
+// import { AutoRest } from '@autorest/core';
+import pkg from '@autorest/core';
+const { AutoRest } = pkg;
 import { resolveUri, 
          createFolderUri,
 } from '@azure-tools/uri';
-import { ArtifactWriter } from "./lib/artifact-writer";
+import { ArtifactWriter } from "./lib/artifact-writer.js";
 import { 
     createOrCleanDir,
     servicesToSkip 
-} from './shared-functions';
+} from './includes/shared-functions.js';
 
 const logger = new ConsoleLogger();
 
@@ -123,9 +125,6 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
         case 'vmware':
             autorest.AddConfiguration({ "tag": "package-2020-03-20" });
             break;   
-        // case 'liftrqumulo':
-        //     autorest.AddConfiguration({ "tag": "package-2022-06-27-preview" });
-        //     break;              
         default:
             break;
     }

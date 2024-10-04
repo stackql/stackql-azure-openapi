@@ -1,5 +1,7 @@
-const arg = require('arg');
-const commandLineUsage = require('command-line-usage');
+// const arg = require('arg');
+// const commandLineUsage = require('command-line-usage');
+import arg from 'arg';
+import commandLineUsage from 'command-line-usage';
 
 const programName = 'stackql-azure-openapi';
 
