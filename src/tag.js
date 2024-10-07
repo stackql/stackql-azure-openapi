@@ -2,17 +2,17 @@ import $RefParser from '@apidevtools/json-schema-ref-parser';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
-import pluralize from 'pluralize';
+// import pluralize from 'pluralize';
 import { contactInfo, serviceInfo } from './includes/provider-metadata.js';
 import {     
-    getSQLVerbFromMethod,
+    // getSQLVerbFromMethod,
     camelToSnake,
     fixCamelCaseIssues,
     fixCamelCase,
     // getObjectKey, 
     determineObjectKey,
-    getResourceNameFromOpId,
-    checkForOpIdUpdates,
+    // getResourceNameFromOpId,
+    // checkForOpIdUpdates,
     resolveStackQLDescriptorsDirectlyFromOpId,
     resolveStackQLDescriptorsFromSplittableOpId,
     resolveStackQLDescriptorsFromNonSplittableOpId,
@@ -570,17 +570,17 @@ function cleanUpDescriptions(obj) {
     
 // }
 
-function camelCase(methodName) {
-    return camelToSnake(fixCamelCaseIssues(fixCamelCase(methodName)));
-}
+// function camelCase(methodName) {
+//     return camelToSnake(fixCamelCaseIssues(fixCamelCase(methodName)));
+// }
 
-function camelCaseAndPluralize(resName) {
-    const camelCaseResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(resName)));
-    let resNameParts = camelCaseResName.split('_');
-    let lastPartPluralized = pluralize(resNameParts.pop());
-    resNameParts.push(lastPartPluralized);
-    return resNameParts.join('_');
-}
+// function camelCaseAndPluralize(resName) {
+//     const camelCaseResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(resName)));
+//     let resNameParts = camelCaseResName.split('_');
+//     let lastPartPluralized = pluralize(resNameParts.pop());
+//     resNameParts.push(lastPartPluralized);
+//     return resNameParts.join('_');
+// }
 
 function isMethodOrFirstTokenEqualTo(method, searchStr) {
     const normalizedMethod = method.toLowerCase();
