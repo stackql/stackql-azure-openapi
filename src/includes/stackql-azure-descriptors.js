@@ -1,10 +1,312 @@
 import { ConsoleLogger } from '@autorest/common';
+import pluralize from 'pluralize';
 
 const logger = new ConsoleLogger();
 
 /* --------------------------------------------- */
 /* needed to avoid unreachable routes in stackQL */
 /* --------------------------------------------- */
+
+export function resolveStackQLDescriptorsDirectlyFromOpId(serviceName, operationId) {
+    let stackqlResName;
+    let stackqlMethodName;
+
+    switch (serviceName) {
+        case 'serial_console':
+            switch (operationId) {
+                case 'DisableConsole':
+                    stackqlResName = 'console';
+                    stackqlMethodName = 'disable';
+                    break;
+                case 'EnableConsole':
+                    stackqlResName = 'console';
+                    stackqlMethodName = 'enable';
+                    break;
+                case 'GetConsoleStatus':
+                    stackqlResName = 'console'
+                    stackqlMethodName = 'get_status';
+                    break;
+            }
+        case 'compute':
+            switch (operationId) {
+                case 'VirtualMachines_InstanceView':
+                    stackqlResName = 'virtual_machines';
+                    stackqlMethodName = 'get_by_instance_view';
+                    break;
+                case 'DiskAccesses_GetAPrivateEndpointConnection':
+                    stackqlResName = 'disk_access_private_endpoint_connections';
+                    stackqlMethodName = 'get';
+                    break;
+                case 'DiskAccesses_ListPrivateEndpointConnections':
+                    stackqlResName = 'disk_access_private_endpoint_connections';
+                    stackqlMethodName = 'list';
+                    break;
+                case 'DiskAccesses_UpdateAPrivateEndpointConnection':
+                    stackqlResName = 'disk_access_private_endpoint_connections';
+                    stackqlMethodName = 'update';
+                    break;
+                case 'DiskAccesses_DeleteAPrivateEndpointConnection':
+                    stackqlResName = 'disk_access_private_endpoint_connections';
+                    stackqlMethodName = 'delete';
+                    break;                                                
+            }
+    }
+
+    return { stackqlResName, stackqlMethodName };
+}
+
+// export function resolveStackQLDescriptorsFromSplittableOpId(operationId){
+//     let stackqlResName;
+//     let stackqlMethodName;
+
+//     stackqlResName = camelCaseAndPluralize(operationId.split('_')[0]);
+//     stackqlMethodName = camelCase(operationId.split('_')[1]);
+
+//     const actions = [
+//         'create', 
+//         'create_and_update', 
+//         'create_if_not_exist', 
+//         'create_or_replace', 
+//         'create_or_update',
+//         'create_update',
+//         'create_and_start_migration',
+//         'create_or_get_start_pending_upload',
+//         'get',
+//         'get_all',
+//         'list',
+//         'list_all',
+//         'update',
+//         'update_put',
+//         'patch',
+//         'put',
+//         'replace',
+//         'replace_all',
+//         'delete',
+//     ];    
+
+//     const conditionalClauses = ['_by_', '_with_', '_in_'];
+
+//     // simple direct match
+//     // example: stackqlMethodName = `create_or_update`
+
+//     if (actions.includes(stackqlMethodName)) {
+//         return { stackqlResName, stackqlMethodName };
+//     }
+
+//     // check if the stackqlMethodName is a known action followed immediately by a conditional clause
+//     // example: stackqlMethodName = `list_by_resource_group`
+
+//     for (const action of actions) {
+//         for (const clause of conditionalClauses) {
+//             // Check if the method name starts with the action and the clause comes immediately after it
+//             const regex = new RegExp(`^${action}${clause}`);
+//             if (regex.test(stackqlMethodName)) {
+//                 return { stackqlResName, stackqlMethodName };
+//             }
+//         }
+//     }
+
+//     // check for sub resources and update the resource name accordingly
+//     // examples: 
+//     // initial stackqlResName = `private_link_services`, stackqlMethodName = `list_auto_approved_private_link_services_by_resource_group`
+//     // updated stackqlResName = `private_link_services_auto_approved_private_link_services`    
+//     //
+//     // initial stackqlResName = `private_link_services`, stackqlMethodName = `list_auto_approved_private_link_services`
+//     // updated stackqlResName = `private_link_services_auto_approved_private_link_services`
+    
+
+//     return { stackqlResName, stackqlMethodName };
+// }
+
+export function resolveStackQLDescriptorsFromSplittableOpId(serviceName, operationId) {
+    let stackqlResName;
+    let stackqlMethodName;
+
+    // Split the operationId and process the parts
+    stackqlResName = camelCaseAndPluralize(operationId.split('_')[0]);
+    stackqlMethodName = camelCase(operationId.split('_')[1]);
+
+    const actions = [
+        'create', 
+        'create_and_update', 
+        'create_if_not_exist', 
+        'create_or_replace', 
+        'create_or_update',
+        'create_update',
+        'create_and_start_migration',
+        'create_or_get_start_pending_upload',
+        'create_or_update_or_cancel',
+        'get',
+        'get_all',
+        'list',
+        'list_all',
+        'update',
+        'update_put',
+        'patch',
+        'put',
+        'replace',
+        'replace_all',
+        'delete',
+    ];    
+
+    const subResActions = [
+        'get',
+        'get_all',
+        'list',
+        'list_all',
+        'create_or_update',
+        'create_update',
+        'create',
+        'delete',
+    ]
+
+    const conditionalClauses = ['_by_', '_with_', '_in_'];
+
+    // Simple direct match
+    if (actions.includes(stackqlMethodName)) {
+        return { stackqlResName, stackqlMethodName };
+    }
+
+    // Check if the stackqlMethodName is a known action followed immediately by a conditional clause
+    for (const action of actions) {
+        for (const clause of conditionalClauses) {
+            const regex = new RegExp(`^${action}${clause}`);
+            if (regex.test(stackqlMethodName)) {
+                return { stackqlResName, stackqlMethodName };
+            }
+        }
+    }
+
+    // If it's a known action but not just the action or action + condition
+    for (const action of subResActions) {
+        if (stackqlMethodName.startsWith(action)) {
+            // Remove the action from the method name
+            let remaining = stackqlMethodName.replace(action, '');
+
+            // Now, remove any conditional clause and everything after it
+            for (const clause of conditionalClauses) {
+                const clauseIndex = remaining.indexOf(clause);
+                if (clauseIndex !== -1) {
+                    remaining = remaining.substring(0, clauseIndex); // Keep only the part before the condition
+                    break;
+                }
+            }
+
+            // Update the resource name by appending the remaining part
+            stackqlResName = `${stackqlResName}_${camelCaseAndPluralize(remaining)}`;
+            return { stackqlResName, stackqlMethodName };
+        }
+    }
+
+    return { stackqlResName, stackqlMethodName };
+}
+
+export function cleanResourceName(serviceName, stackqlResName) {
+
+    let retName = stackqlResName;
+
+    retName = retName.replace('skuses', 'skus')
+                .replace('_for_my_approvals', '_for_my_approval')
+
+    // if the resource starts with the service name, remove it
+    if (retName.startsWith(`${serviceName}_`)) {
+        retName = retName.replace(`${serviceName}_`, '');
+    }
+
+    if(serviceName == 'web_pubsub' && retName.startsWith('web_pub_sub_')){
+        retName = retName.replace('web_pub_sub_', '');
+    }
+
+    if(serviceName == 'web_pubsub' && retName.startsWith('web_pub_subs_')){
+        retName = retName.replace('web_pub_subs_', '');
+    }
+
+    if(serviceName == 'key_vault' && retName == 'vaults_deleteds'){
+        retName = 'deleted_vaults';
+    }
+
+    return retName;
+}
+
+export function isNotSelectable(serviceName, stackqlResName, stackqlMethodName){
+
+    switch (serviceName) {
+        case 'container_apps':
+            switch (stackqlResName) {
+                case 'custom_domain_verification_ids':
+                    switch (stackqlMethodName) {
+                        case 'get':
+                            return true;
+            }
+        }
+        case 'key_vault':
+            switch (stackqlResName) {
+                case 'vaults':
+                    switch (stackqlMethodName) {
+                        case 'list':
+                            return true;
+            }
+        }        
+    }
+
+    return false;
+}
+
+export function resolveStackQLDescriptorsFromNonSplittableOpId(operationId, operationTags){
+    let stackqlResName;
+    let stackqlMethodName;
+
+    // starts with a known verb?
+    const verbs = ['Create', 'Delete', 'Get', 'List', 'Put', 'Update', 'Patch', 'Post'];
+    const verbRegex = new RegExp(`^(${verbs.join('|')})(.*)`, 'i');
+    const match = operationId.match(verbRegex);
+
+    if (match) {
+        const verb = match[1]; // The matched verb
+        let rest = match[2];   // The rest of the string after the verb
+
+        // Check if it ends with 'ByANYTHING' or 'WithANYTHING'
+        const byOrWithRegex = /(By\w+|With\w+)$/;
+        const byOrWithMatch = rest.match(byOrWithRegex);
+        
+        if (byOrWithMatch) {
+            // Extract By or With statement
+            stackqlMethodName = verb + byOrWithMatch[0]; // MethodName is verb + By/With statement
+            stackqlResName = rest.replace(byOrWithRegex, ''); // ResName is the rest after removing By/With
+        } else {
+            stackqlMethodName = verb; // MethodName is just the verb
+            stackqlResName = rest;    // ResName is the rest of the string after the verb
+        }
+
+        stackqlResName = camelCaseAndPluralize(stackqlResName);
+        stackqlMethodName = camelCase(stackqlMethodName);
+    } else {
+        // not a known verb, check tags
+        stackqlMethodName = camelCase(operationId);
+        if(operationTags.length > 0) {
+            // use the tag
+            stackqlResName = camelCaseAndPluralize(operationTags[0].replace(/( |,|-)/g, ''));
+        } else {
+            stackqlResName = 'operations';
+        }  
+    }	
+    
+    return { stackqlResName, stackqlMethodName };
+}
+
+function camelCase(methodName) {
+    return camelToSnake(fixCamelCaseIssues(fixCamelCase(methodName)));
+}
+
+function camelCaseAndPluralize(resName) {
+    const camelCaseResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(resName)));
+    let resNameParts = camelCaseResName.split('_');
+    let lastPartPluralized = pluralize(resNameParts.pop());
+    resNameParts.push(lastPartPluralized);
+    return resNameParts.join('_');
+}
+
+////
 
 export function checkForOpIdUpdates(serviceName, opId){
 
@@ -1206,6 +1508,8 @@ export function fixCamelCaseIssues(propertyName) {
         IOPS: "Iops",
         MBps: "Mbps",
         DB: "Db",
+        CRR: "Crr",
+        BMS: "Bms",
         WAN: "Wan",
         URL: "Url",
         DHCP: "Dhcp",

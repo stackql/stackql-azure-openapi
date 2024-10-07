@@ -2,6 +2,7 @@ import $RefParser from '@apidevtools/json-schema-ref-parser';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
+import pluralize from 'pluralize';
 import { contactInfo, serviceInfo } from './includes/provider-metadata.js';
 import {     
     getSQLVerbFromMethod,
@@ -12,6 +13,11 @@ import {
     determineObjectKey,
     getResourceNameFromOpId,
     checkForOpIdUpdates,
+    resolveStackQLDescriptorsDirectlyFromOpId,
+    resolveStackQLDescriptorsFromSplittableOpId,
+    resolveStackQLDescriptorsFromNonSplittableOpId,
+    cleanResourceName,
+    isNotSelectable,
 } from './includes/stackql-azure-descriptors.js';
 import { 
     servicesToSkip 
@@ -188,11 +194,6 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
 
                 if (operations.includes(verbKey)){
                     try {
-                        logger.info(`processing operationId ${inputDoc.paths[pathKey][verbKey]['operationId']}`);
-                        let operationId = checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) ? checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) : inputDoc.paths[pathKey][verbKey]['operationId'];
-                        operationId != inputDoc.paths[pathKey][verbKey]['operationId'] ? logger.info(`operationId updated to ${operationId}`): null;
-                        const operationObj = inputDoc.paths[pathKey][verbKey];
-
                         // remove api version from operation level parameters
                         if (inputDoc.paths[pathKey][verbKey]['parameters']){
                             debug ? logger.debug(`removing api version from operation level parameters for ${pathKey}:${verbKey}`): null;
@@ -209,81 +210,218 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                             outputDoc.paths[versionedPath][verbKey]['parameters'] = newOpParams;
                         }
 
-                        // get resourcename, method and verb from operationId
+                        const operationObj = inputDoc.paths[pathKey][verbKey];
+                        const operationId = inputDoc.paths[pathKey][verbKey]['operationId'];
+                        const operationTags = inputDoc.paths[pathKey][verbKey]['tags'] ? inputDoc.paths[pathKey][verbKey]['tags'] : [];
+                        logger.info(`processing operationId [${operationId}]`);
+                        // const { stackqlResName, stackqlMethodName } = resolveNames(serviceName, operationId, operationTags, debug);
 
+                        // resolve resource name and method
                         let stackqlResName;
+                        let stackqlMethodName;
                         let stackqlSqlVerb = 'exec';
                         let stackqlObjectKey = 'none';
-                        let stackqlMethodName;
+                    
+                        // direct hit
+                        ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsDirectlyFromOpId(serviceName, operationId));
+
+                        // switch (serviceName) {
+                        //     case 'serial_console':
+                        //         switch (operationId) {
+                        //             case 'DisableConsole':
+                        //                 stackqlResName = 'console';
+                        //                 stackqlMethodName = 'disable';
+                        //             case 'EnableConsole':
+                        //                 stackqlResName = 'console';
+                        //                 stackqlMethodName = 'enable';
+                        //             case 'GetConsoleStatus':
+                        //                 stackqlResName = 'console'
+                        //                 stackqlMethodName = 'get_status';
+                        //         }
+                        //     case 'compute':
+                        //         switch (operationId) {
+                        //             case 'VirtualMachines_InstanceView':
+                        //                 stackqlResName = 'virtual_machines';
+                        //                 stackqlMethodName = 'get_by_instance_view';
+                        //         }        
+                        // }
                         
-                        if (!operationId.split('_')[1]){
-                            logger.info(`operationId [${operationId}] not splittable, update checkForOpIdUpdates for [${serviceName}]`);
-                            // replace outlier operationIds with no method
-                            if(providerName === 'azure'){
-                                throw `operationId [${operationId}] not splittable, update checkForOpIdUpdates`;
-                            }
-                            // replace outlier operationIds with no method
-                            if (inputDoc.paths[pathKey][verbKey]['tags']){
-                                let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
-                                debug ? logger.debug(`using ${tag} for initial resource name and method`): null;
-                                // use the tag
-                                stackqlResName = tag;
-                                stackqlMethodName = tag;
+                        if(!stackqlResName && !stackqlMethodName){
+                            // splitable
+                            if (operationId.split('_')[1]){
+
+                                ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromSplittableOpId(serviceName, operationId));
+
+                                // stackqlResName = camelCaseAndPluralize(operationId.split('_')[0]);
+                                // stackqlMethodName = camelCase(operationId.split('_')[1]);
                             } else {
-                                stackqlResName = operationId;
-                                stackqlMethodName = operationId;
-                            }                            
-                        } else {
-                            debug ? logger.debug(`operationId ${operationId} is splittable, getting initial resource and method`): null;
-                            const returnValue = processOperationId(operationId, debug);
-                            const resolvedResName = returnValue.initResName;
-                            const resolvedMethod = returnValue.initMethod;
+                                // not splitable
+                                ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromNonSplittableOpId(operationId, operationTags));
 
-                            stackqlResName = resolvedResName;
-                            stackqlMethodName = resolvedMethod;
-
-                            debug ? logger.debug(`initial resource name set to ${stackqlResName}, initial method set to ${stackqlMethodName}`) : null;
-                            uniqueInitMethods.add(stackqlMethodName);
+                                // // starts with a known verb?
+                                // const verbs = ['Create', 'Delete', 'Get', 'List', 'Put', 'Update', 'Patch', 'Post'];
+                                // const verbRegex = new RegExp(`^(${verbs.join('|')})(.*)`, 'i');
+                                // const match = operationId.match(verbRegex);
+                    
+                                // if (match) {
+                                //     const verb = match[1]; // The matched verb
+                                //     let rest = match[2];   // The rest of the string after the verb
+                    
+                                //     // Check if it ends with 'ByANYTHING' or 'WithANYTHING'
+                                //     const byOrWithRegex = /(By\w+|With\w+)$/;
+                                //     const byOrWithMatch = rest.match(byOrWithRegex);
+                                    
+                                //     if (byOrWithMatch) {
+                                //         // Extract By or With statement
+                                //         stackqlMethodName = verb + byOrWithMatch[0]; // MethodName is verb + By/With statement
+                                //         stackqlResName = rest.replace(byOrWithRegex, ''); // ResName is the rest after removing By/With
+                                //     } else {
+                                //         stackqlMethodName = verb; // MethodName is just the verb
+                                //         stackqlResName = rest;    // ResName is the rest of the string after the verb
+                                //     }
+                    
+                                //     stackqlResName = camelCaseAndPluralize(stackqlResName);
+                                //     stackqlMethodName = camelCase(stackqlMethodName);
+                                // } else {
+                                //     // not a known verb, check tags
+                                //     stackqlMethodName = camelCase(operationId);
+                                //     if(operationTags.length > 0) {
+                                //         // use the tag
+                                //         stackqlResName = camelCaseAndPluralize(operationTags[0].replace(/( |,|-)/g, ''));
+                                //     } else {
+                                //         stackqlResName = 'operations';
+                                //     }  
+                                // }			
+                            }
                         }
+
+                        stackqlResName = cleanResourceName(serviceName, stackqlResName);
+
+                        logger.info(`resolved resource name: [${stackqlResName}]`);
+                        logger.info(`resolved method name: [${stackqlMethodName}]`);
+                        // const stackqlSqlVerb = resolveSQLVerb(serviceName, stackqlResName, stackqlMethodName, verbKey, debug);
+
+
+                        if(verbKey.toLowerCase() == 'delete'){
+                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'delete')){
+                                stackqlSqlVerb = 'delete';
+                            }
+                        }
+                    
+                        if(verbKey.toLowerCase() == 'post' || verbKey.toLowerCase() == 'put'){
+                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'create')){
+                                stackqlSqlVerb =  'insert';
+                            }
+                        }
+                    
+                        if(verbKey.toLowerCase() == 'put'){
+                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'put') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'replace')){ 
+                                stackqlSqlVerb =  'replace';
+                            }
+                        }    
+                    
+                        if(verbKey.toLowerCase() == 'patch'){
+                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'patch') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update')){ 
+                                stackqlSqlVerb =  'update';
+                            }
+                        }    
+                    
+                        if(verbKey.toLowerCase() == 'get' || verbKey.toLowerCase() == 'post'){
+                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'get') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'list')){
+                                if(isNotSelectable(serviceName, stackqlResName, stackqlMethodName)){
+                                    stackqlSqlVerb =  'exec';
+                                } else {
+                                    stackqlSqlVerb =  'select';
+                                }
+                            }
+                        }
+
+
+                        logger.info(`resolved SQL verb: [${stackqlSqlVerb}]`);
+
+
+
+
+                        // let operationId = checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) ? checkForOpIdUpdates(serviceName, inputDoc.paths[pathKey][verbKey]['operationId']) : inputDoc.paths[pathKey][verbKey]['operationId'];
+                        // operationId != inputDoc.paths[pathKey][verbKey]['operationId'] ? logger.info(`operationId updated to ${operationId}`): null;
                         
-                        // get final resource name
-                        getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlResName)));
-                        // remove service from stackqlResName
-                        if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
 
-                            debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
-                            if (serviceName == 'security' && stackqlResName == 'security_connectors'){
-                                debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
-                            } else {
-                                stackqlResName.substring(serviceName.length+1).length < 3 ? null : stackqlResName = stackqlResName.substring(serviceName.length+1);
-                                debug ? logger.debug(`new resource name is ${stackqlResName}`): null;
-                            }
-                        }
 
-                        // get sql verb
-                        stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, stackqlMethodName, operationId);
-                        debug ? logger.debug(`stackqlSqlVerb is ${stackqlSqlVerb}`) : null;
+                        // // get resourcename, method and verb from operationId
 
-                        // get final method name
-                        stackqlMethodName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlMethodName)))
+                        // let stackqlResName;
+                        // let stackqlSqlVerb = 'exec';
+                        // let stackqlObjectKey = 'none';
+                        // let stackqlMethodName;
+                        
+                        // if (!operationId.split('_')[1]){
+                        //     logger.info(`operationId [${operationId}] not splittable, update checkForOpIdUpdates for [${serviceName}]`);
+                        //     // replace outlier operationIds with no method
+                        //     if(providerName === 'azure'){
+                        //         throw `operationId [${operationId}] not splittable, update checkForOpIdUpdates`;
+                        //     }
+                        //     // replace outlier operationIds with no method
+                        //     if (inputDoc.paths[pathKey][verbKey]['tags']){
+                        //         let tag = inputDoc.paths[pathKey][verbKey]['tags'][0].replace(/( |,|-)/g, '');
+                        //         debug ? logger.debug(`using ${tag} for initial resource name and method`): null;
+                        //         // use the tag
+                        //         stackqlResName = tag;
+                        //         stackqlMethodName = tag;
+                        //     } else {
+                        //         stackqlResName = operationId;
+                        //         stackqlMethodName = operationId;
+                        //     }                            
+                        // } else {
+                        //     debug ? logger.debug(`operationId ${operationId} is splittable, getting initial resource and method`): null;
+                        //     const returnValue = processOperationId(operationId, debug);
+                        //     const resolvedResName = returnValue.initResName;
+                        //     const resolvedMethod = returnValue.initMethod;
 
-                        // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
-                        if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'list'){
-                            stackqlMethodName = `exec_list`;
-                        }
+                        //     stackqlResName = resolvedResName;
+                        //     stackqlMethodName = resolvedMethod;
 
-                        // Check if finalMethod is 'Get' and stackqlSqlVerb is 'exec'
-                        if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'get'){
-                            stackqlMethodName = `exec_get`;
-                        }                            
+                        //     debug ? logger.debug(`initial resource name set to ${stackqlResName}, initial method set to ${stackqlMethodName}`) : null;
+                        //     uniqueInitMethods.add(stackqlMethodName);
+                        // }
+                        
+                        // // get final resource name
+                        // getResourceNameFromOpId(serviceName, operationId) ? stackqlResName = getResourceNameFromOpId(serviceName, operationId) : stackqlResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlResName)));
+                        // // remove service from stackqlResName
+                        // if (stackqlResName.startsWith(serviceName) && stackqlResName != serviceName){
+
+                        //     debug ? logger.debug(`cleaning resource name for ${stackqlResName}`): null;
+                        //     if (serviceName == 'security' && stackqlResName == 'security_connectors'){
+                        //         debug ? logger.debug(`bypassing ${serviceName}.${stackqlResName}`): null;
+                        //     } else {
+                        //         stackqlResName.substring(serviceName.length+1).length < 3 ? null : stackqlResName = stackqlResName.substring(serviceName.length+1);
+                        //         debug ? logger.debug(`new resource name is ${stackqlResName}`): null;
+                        //     }
+                        // }
+
+                        // // get sql verb
+                        // stackqlSqlVerb = getSQLVerbFromMethod(serviceName, stackqlResName, stackqlMethodName, operationId);
+                        // debug ? logger.debug(`stackqlSqlVerb is ${stackqlSqlVerb}`) : null;
+
+                        // // get final method name
+                        // stackqlMethodName = camelToSnake(fixCamelCaseIssues(fixCamelCase(stackqlMethodName)))
+
+                        // // Check if finalMethod is 'List' and stackqlSqlVerb is 'exec'
+                        // if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'list'){
+                        //     stackqlMethodName = `exec_list`;
+                        // }
+
+                        // // Check if finalMethod is 'Get' and stackqlSqlVerb is 'exec'
+                        // if(stackqlSqlVerb == 'exec' && stackqlMethodName.toLowerCase() === 'get'){
+                        //     stackqlMethodName = `exec_get`;
+                        // }                            
 
                         // get object key
                         stackqlObjectKey = determineObjectKey(serviceName, operationId, operationObj, inputDoc, debug);
 
-                        debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
-                        debug ? logger.debug(`stackql method : ${stackqlMethodName}`): null;
-                        debug ? logger.debug(`stackql verb : ${stackqlSqlVerb}`): null;
-                        debug ? logger.debug(`stackql object key : ${stackqlObjectKey}`): null;
+                        // debug ? logger.debug(`stackql resource : ${stackqlResName}`): null;
+                        // debug ? logger.debug(`stackql method : ${stackqlMethodName}`): null;
+                        // debug ? logger.debug(`stackql verb : ${stackqlSqlVerb}`): null;
+                        // debug ? logger.debug(`stackql object key : ${stackqlObjectKey}`): null;
                        
                         stackqlResName != 'skip_this_resource' && stackQLHttpOps.includes(verbKey) ? addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey, debug): null;
 
@@ -309,9 +447,10 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
     // Second pass to add views
     //
 
-    logger.info(`Processing second pass for SQL views in ${specificationDir}...`);
+    // logger.info(`Processing second pass for SQL views in ${specificationDir}...`);
 
     const completeDoc = await processResources(outputDoc, providerName, serviceName, debug);
+    // const completeDoc = outputDoc;
 
     if (dryrun){
         logger.info(`dryrun specified, no output written`);
@@ -348,64 +487,210 @@ function cleanUpDescriptions(obj) {
     return obj;
 }  
 
-function processOperationId(operationId, debug) {
-    let initResName = operationId.split('_')[0];
-    let initMethod = operationId.split('_')[1];
+// function resolveNames(serviceName, operationId, operationTags, debug) {
 
-    debug ? logger.debug(`initial resource name : ${initResName}`) : null;
-    debug ? logger.debug(`initial method : ${initMethod}`) : null;
+//     let resName;
+//     let methodName;
 
-    // transpose if necessary
-    if(initResName.toLowerCase() === 'list' || initResName.toLowerCase() === 'get' || initResName.toLowerCase() === 'create' || initResName.toLowerCase() === 'update' || initResName.toLowerCase() === 'delete'){
-        initResName = operationId.split('_')[1];
-        initMethod = operationId.split('_')[0];
-        debug ? logger.debug(`transposed method : ${initMethod}`) : null;
-        debug ? logger.debug(`transposed resource name : ${initResName}`) : null;
-    }
+//     // direct hit
+//     switch (serviceName) {
+//         case 'serial_console':
+//             switch (operationId) {
+//                 case 'DisableConsole':
+//                     return { resName: 'console', methodName: 'disable' };
+//                 case 'EnableConsole':
+//                     return { resName: 'console', methodName: 'enable' };
+//                 case 'GetConsoleStatus':
+//                     return { resName: 'console', methodName: 'get_status' };
+//             }
+//         case 'compute':
+//             switch (operationId) {
+//                 case 'VirtualMachines_InstanceView':
+//                     return { resName: 'virtual_machines', methodName: 'get_by_instance_view' };
+//             }        
+//     }
 
-    // Simple cases
-    const simpleMethods = ['GetAll', 'CreateOrUpdate', 'CreateorUpdate', 'CreateUpdate', 'CreateAndUpdate', 'CreateOrReplace', 'CreateIfNotExist', 'CreateOrGetStartPendingUpload', 'Get', 'List', 'Create', 'Update', 'Delete', 'get', 'list', 'create', 'update', 'delete'];    
-    if (simpleMethods.includes(initMethod)) {
-        debug ? logger.debug(`returning resource name : ${initResName}`) : null;
-        debug ? logger.debug(`returning method : ${initMethod}`) : null;
-        return { initResName, initMethod };
-    }
+//     function camelCase(methodName) {
+//         return camelToSnake(fixCamelCaseIssues(fixCamelCase(methodName)));
+//     }
 
-    // By or In cases
-    const byOrInMethods = [
-        'CreateOrUpdateBy', 
-        'GetBy', 
-        'GetIn', 
-        'ListBy', 
-        'ListIn', 
-        'CreateBy', 
-        'CreateIn', 
-        'UpdateBy', 
-        'UpdateIn', 
-        'DeleteBy',
-        'DeleteIn',
-    ];    
-    for (const methodPrefix of byOrInMethods) {
-        if (initMethod.startsWith(methodPrefix)) {
-            const remainder = initMethod.substring(methodPrefix.length);
-            if (remainder.length > 0 && remainder[0] === remainder[0].toUpperCase()) {
-                return { initResName, initMethod };
-            }
-            break; // Exit the loop if prefix matches but doesn't follow the capitalization rule
-        }
-    }
+//     function camelCaseAndPluralize(resName) {
+//         const camelCaseResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(resName)));
+//         let resNameParts = camelCaseResName.split('_');
+//         let lastPartPluralized = pluralize(resNameParts.pop());
+//         resNameParts.push(lastPartPluralized);
+//         return resNameParts.join('_');
+//     }
 
-    // Not a simple verb or a By/In case
-    let extractedVerb = simpleMethods.find(methodPrefix => initMethod.startsWith(methodPrefix));
-    if (extractedVerb) {
-        const restOfMethod = initMethod.substring(extractedVerb.length);
-        initResName += restOfMethod; // Append the rest of the method to the resource name
-        initMethod = extractedVerb; // The method is the simple verb itself
-        return { initResName, initMethod };
-    }
+//     // splitable
+//     if (operationId.split('_')[1]){
+//         resName = camelCaseAndPluralize(operationId.split('_')[0]);
+//         methodName = camelCase(operationId.split('_')[1]);
+//         return { resName, methodName };
+//     }
 
-    return { initResName, initMethod };
+//     // not splitable
+//     // starts with a known verb?
+//     const verbs = ['Create', 'Delete', 'Get', 'List', 'Put', 'Update', 'Patch', 'Post'];
+//     const verbRegex = new RegExp(`^(${verbs.join('|')})(.*)`, 'i');
+//     const match = operationId.match(verbRegex);
+
+//     if (match) {
+//         const verb = match[1]; // The matched verb
+//         let rest = match[2];   // The rest of the string after the verb
+
+//         // Check if it ends with 'ByANYTHING' or 'WithANYTHING'
+//         const byOrWithRegex = /(By\w+|With\w+)$/;
+//         const byOrWithMatch = rest.match(byOrWithRegex);
+        
+//         if (byOrWithMatch) {
+//             // Extract By or With statement
+//             methodName = verb + byOrWithMatch[0]; // MethodName is verb + By/With statement
+//             resName = rest.replace(byOrWithRegex, ''); // ResName is the rest after removing By/With
+//         } else {
+//             methodName = verb; // MethodName is just the verb
+//             resName = rest;    // ResName is the rest of the string after the verb
+//         }
+
+//         resName = camelCaseAndPluralize(resName);
+//         methodName = camelCase(methodName);
+//         return { resName, methodName };        
+//     }
+    
+//     // not a known verb, check tags
+//     methodName = camelCase(operationId);
+//     if(operationTags.length > 0) {
+//         // use the tag
+//         resName = camelCaseAndPluralize(operationTags[0].replace(/( |,|-)/g, ''));
+//     } else {
+//         resName = 'operations';
+//     }  
+
+//     return { resName, methodName };
+    
+// }
+
+function camelCase(methodName) {
+    return camelToSnake(fixCamelCaseIssues(fixCamelCase(methodName)));
 }
+
+function camelCaseAndPluralize(resName) {
+    const camelCaseResName = camelToSnake(fixCamelCaseIssues(fixCamelCase(resName)));
+    let resNameParts = camelCaseResName.split('_');
+    let lastPartPluralized = pluralize(resNameParts.pop());
+    resNameParts.push(lastPartPluralized);
+    return resNameParts.join('_');
+}
+
+function isMethodOrFirstTokenEqualTo(method, searchStr) {
+    const normalizedMethod = method.toLowerCase();
+    const normalizedSearchStr = searchStr.toLowerCase();
+    const methodTokens = normalizedMethod.split('_');
+    return normalizedMethod === normalizedSearchStr || methodTokens[0] === normalizedSearchStr;
+}
+
+// function resolveSQLVerb(serviceName, stackqlResName, stackqlMethodName, httpVerb, debug){
+
+//     function isMethodOrFirstTokenEqualTo(method, searchStr) {
+//         console.log(`method: ${method}, searchStr: ${searchStr}`);
+
+//         const normalizedMethod = method.toLowerCase();
+//         const normalizedSearchStr = searchStr.toLowerCase();
+//         const methodTokens = normalizedMethod.split('_');
+//         return normalizedMethod === normalizedSearchStr || methodTokens[0] === normalizedSearchStr;
+//     }
+
+//     if(httpVerb.toLowerCase() == 'delete'){
+//         if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'delete')){
+//             return 'delete';
+//         }
+//     }
+
+//     if(httpVerb.toLowerCase() == 'post'){
+//         if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'create')){
+//             return 'insert';
+//         }
+//     }
+
+//     if(httpVerb.toLowerCase() == 'put'){
+//         if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'put') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'replace')){ 
+//             return 'replace';
+//         }
+//     }    
+
+//     if(httpVerb.toLowerCase() == 'patch'){
+//         if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'patch') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update')){ 
+//             return 'update';
+//         }
+//     }    
+
+//     if(httpVerb.toLowerCase() == 'get' || httpVerb.toLowerCase() == 'post'){
+//         if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'get') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'list')){
+//             return 'select';
+//         }
+//     }
+
+//     return 'exec';
+// }
+
+// function processOperationId(operationId, debug) {
+//     let initResName = operationId.split('_')[0];
+//     let initMethod = operationId.split('_')[1];
+
+//     debug ? logger.debug(`initial resource name : ${initResName}`) : null;
+//     debug ? logger.debug(`initial method : ${initMethod}`) : null;
+
+//     // transpose if necessary
+//     if(initResName.toLowerCase() === 'list' || initResName.toLowerCase() === 'get' || initResName.toLowerCase() === 'create' || initResName.toLowerCase() === 'update' || initResName.toLowerCase() === 'delete'){
+//         initResName = operationId.split('_')[1];
+//         initMethod = operationId.split('_')[0];
+//         debug ? logger.debug(`transposed method : ${initMethod}`) : null;
+//         debug ? logger.debug(`transposed resource name : ${initResName}`) : null;
+//     }
+
+//     // Simple cases
+//     const simpleMethods = ['GetAll', 'CreateOrUpdate', 'CreateorUpdate', 'CreateUpdate', 'CreateAndUpdate', 'CreateOrReplace', 'CreateIfNotExist', 'CreateOrGetStartPendingUpload', 'Get', 'List', 'Create', 'Update', 'Delete', 'get', 'list', 'create', 'update', 'delete'];    
+//     if (simpleMethods.includes(initMethod)) {
+//         debug ? logger.debug(`returning resource name : ${initResName}`) : null;
+//         debug ? logger.debug(`returning method : ${initMethod}`) : null;
+//         return { initResName, initMethod };
+//     }
+
+//     // By or In cases
+//     const byOrInMethods = [
+//         'CreateOrUpdateBy', 
+//         'GetBy', 
+//         'GetIn', 
+//         'ListBy', 
+//         'ListIn', 
+//         'CreateBy', 
+//         'CreateIn', 
+//         'UpdateBy', 
+//         'UpdateIn', 
+//         'DeleteBy',
+//         'DeleteIn',
+//     ];    
+//     for (const methodPrefix of byOrInMethods) {
+//         if (initMethod.startsWith(methodPrefix)) {
+//             const remainder = initMethod.substring(methodPrefix.length);
+//             if (remainder.length > 0 && remainder[0] === remainder[0].toUpperCase()) {
+//                 return { initResName, initMethod };
+//             }
+//             break; // Exit the loop if prefix matches but doesn't follow the capitalization rule
+//         }
+//     }
+
+//     // Not a simple verb or a By/In case
+//     let extractedVerb = simpleMethods.find(methodPrefix => initMethod.startsWith(methodPrefix));
+//     if (extractedVerb) {
+//         const restOfMethod = initMethod.substring(extractedVerb.length);
+//         initResName += restOfMethod; // Append the rest of the method to the resource name
+//         initMethod = extractedVerb; // The method is the simple verb itself
+//         return { initResName, initMethod };
+//     }
+
+//     return { initResName, initMethod };
+// }
 
 function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResName, versionedPath, verbKey, stackqlMethodName, stackqlSqlVerb, stackqlObjectKey, debug) {
     debug ? logger.debug(`adding ${stackqlMethodName} to ${providerName}.${serviceName}.${stackqlResName}...`) : null;
@@ -434,6 +719,9 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
         };
     }
 
+    const first2XXResponse = Object.keys(outputDoc.paths[versionedPath][verbKey].responses).find(responseCode => responseCode.startsWith('2'));
+    const respSchemaRef = outputDoc.paths?.[versionedPath]?.[verbKey]?.responses?.[first2XXResponse]?.content?.['application/json']?.schema?.$ref?.split('/')?.pop() ?? null;
+
     const methodObj = {
         operation: {
             $ref: `#/paths/${versionedPath.replace(/\//g, '~1')}/${verbKey}`,
@@ -441,30 +729,30 @@ function addToStackQLResources(outputDoc, providerName, serviceName, stackqlResN
         },
         response: {
             mediaType: 'application/json',
-            openAPIDocKey: '200'
+            openAPIDocKey: first2XXResponse,
         }
     };
 
+    // Add response schema reference if available
+    if (respSchemaRef) {
+        methodObj.response['schemaRef'] = respSchemaRef;
+    }
+
+    // Add objectKey if available
     if (stackqlObjectKey !== 'none' && stackqlSqlVerb === 'select') {
         methodObj.response['objectKey'] = stackqlObjectKey;
     }
 
     outputDoc.components['x-stackQL-resources'][stackqlResName].methods[stackqlMethodName] = methodObj;
 
-    // Add "naked" method if objectKey is present
-    // if (stackqlObjectKey !== 'none') {
-    //     const nakedMethodName = `_${stackqlMethodName}`;
-    //     const nakedMethodObj = { ...methodObj };
-    //     delete nakedMethodObj.response.objectKey;
-    //     outputDoc.components['x-stackQL-resources'][stackqlResName].methods[nakedMethodName] = nakedMethodObj;
-    // }
-
     // Add references to sqlVerbs
     const methodRef = { $ref: `#/components/x-stackQL-resources/${stackqlResName}/methods/${stackqlMethodName}` };
 
     switch (stackqlSqlVerb.toLowerCase()) {
         case 'select':
-            outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.select.push(methodRef);
+            if (respSchemaRef) {
+                outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.select.push(methodRef);
+            }            
             break;
         case 'insert':
             outputDoc.components['x-stackQL-resources'][stackqlResName].sqlVerbs.insert.push(methodRef);
@@ -595,6 +883,10 @@ async function processResources(outputDoc, providerName, serviceName, debug) {
             responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.items.$ref.split('/').pop();
             debug ? logger.debug(`Response Schema for ${resourceName} (${methodName}) is an array.`) : null;
         } else {
+            // console.log('path', path);
+            // console.log('verb', verb);
+            // console.log('responseKey', responseKey);
+            // console.info(outputDoc.paths[path][verb]);
             responseSchemaName = outputDoc.paths[path][verb].responses[responseKey].content['application/json'].schema.$ref.split('/').pop();
         }
 
