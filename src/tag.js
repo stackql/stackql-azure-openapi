@@ -8,11 +8,10 @@ import {
     fixCamelCaseIssues,
     fixCamelCase,
     determineObjectKey,
-    resolveStackQLDescriptorsDirectlyFromOpId,
-    resolveStackQLDescriptorsFromSplittableOpId,
-    resolveStackQLDescriptorsFromNonSplittableOpId,
     cleanResourceName,
     isNotSelectable,
+    getTransformedOperationId,
+    resolveStackQLDescriptorsFromOpId,
 } from './includes/stackql-azure-descriptors.js';
 import { 
     servicesToSkip 
@@ -206,9 +205,22 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         }
 
                         const operationObj = inputDoc.paths[pathKey][verbKey];
-                        const operationId = inputDoc.paths[pathKey][verbKey]['operationId'];
+                        const originalOperationId = inputDoc.paths[pathKey][verbKey]['operationId'];
                         const operationTags = inputDoc.paths[pathKey][verbKey]['tags'] ? inputDoc.paths[pathKey][verbKey]['tags'] : [];
-                        logger.info(`processing operationId [${operationId}]`);
+                        logger.info(`processing operationId [${originalOperationId}]`);
+
+
+                        //
+                        // update operationId if necessary
+                        // 
+                        const transformedOperationId = getTransformedOperationId(serviceName, originalOperationId);
+                        if (transformedOperationId){
+                            logger.info(`transformed operationId [${transformedOperationId}]`);
+                            outputDoc.paths[versionedPath][verbKey]['operationId'] = transformedOperationId;
+                            outputDoc.paths[versionedPath][verbKey]['x-ms-original-operationId'] = originalOperationId;
+                        }
+                        
+                        const operationId = transformedOperationId ? transformedOperationId : originalOperationId;
 
                         //
                         // resolve resource name and method
@@ -220,17 +232,19 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         let stackqlObjectKey = 'none';
                     
                         // direct hit
-                        ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsDirectlyFromOpId(serviceName, operationId));
+                        // ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromOpId(serviceName, operationId));
+                        ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromOpId(operationId));
 
-                        if(!stackqlResName && !stackqlMethodName){
-                            // splitable
-                            if (operationId.split('_')[1]){
-                                ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromSplittableOpId(serviceName, operationId));
-                            } else {
-                                // not splitable
-                                ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromNonSplittableOpId(operationId, operationTags));
-                            }
-                        }
+                        // if(!stackqlResName && !stackqlMethodName){
+
+                            // // splitable
+                            // if (operationId.split('_')[1]){
+                            //     ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromSplittableOpId(serviceName, operationId));
+                            // } else {
+                            //     // not splitable
+                            //     ({ stackqlResName, stackqlMethodName } = resolveStackQLDescriptorsFromNonSplittableOpId(operationId, operationTags));
+                            // }
+                        // }
 
                         stackqlResName = cleanResourceName(serviceName, stackqlResName);
 

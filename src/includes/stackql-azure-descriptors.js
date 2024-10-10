@@ -3,176 +3,200 @@ import pluralize from 'pluralize';
 
 const logger = new ConsoleLogger();
 
-export function resolveStackQLDescriptorsDirectlyFromOpId(serviceName, operationId) {
-    let stackqlResName;
-    let stackqlMethodName;
-
-    switch (serviceName) {
-        case 'serial_console':
-            switch (operationId) {
-                case 'DisableConsole':
-                    stackqlResName = 'console';
-                    stackqlMethodName = 'disable';
-                    break;
-                case 'EnableConsole':
-                    stackqlResName = 'console';
-                    stackqlMethodName = 'enable';
-                    break;
-                case 'GetConsoleStatus':
-                    stackqlResName = 'console'
-                    stackqlMethodName = 'get_status';
-                    break;
-            }
-        case 'compute':
-            switch (operationId) {
-                case 'VirtualMachines_InstanceView':
-                    stackqlResName = 'virtual_machines';
-                    stackqlMethodName = 'get_by_instance_view';
-                    break;
-                case 'DiskAccesses_GetAPrivateEndpointConnection':
-                    stackqlResName = 'disk_access_private_endpoint_connections';
-                    stackqlMethodName = 'get';
-                    break;
-                case 'DiskAccesses_ListPrivateEndpointConnections':
-                    stackqlResName = 'disk_access_private_endpoint_connections';
-                    stackqlMethodName = 'list';
-                    break;
-                case 'DiskAccesses_UpdateAPrivateEndpointConnection':
-                    stackqlResName = 'disk_access_private_endpoint_connections';
-                    stackqlMethodName = 'update';
-                    break;
-                case 'DiskAccesses_DeleteAPrivateEndpointConnection':
-                    stackqlResName = 'disk_access_private_endpoint_connections';
-                    stackqlMethodName = 'delete';
-                    break;                                                
-            }
+const opIdMap = {
+    ad_hybrid_health_service: {
+        update_IPAddressAggregateSettings: 'IPAddressAggregateSettings_Update',
+        list_IPAddressAggregateSettings: 'IPAddressAggregateSettings_List',
+        list_IPAddressAggregatesByService: 'IPAddressAggregatesByService_List',
+    },
+    advisor: {
+        Predict: 'Recommendations_Predict',
+        Recommendations_GetGenerateStatus: 'Recommendations_ExecGetGenerateStatus',
+    },
+    serial_console: {
+        DisableConsole: 'Console_Disable',
+        EnableConsole: 'Console_Enable',
+        GetConsoleStatus: 'Console_GetStatus',
+    },
+    cloud_shell: {
+        keepAliveWithLocation: 'Console_KeepAliveWithLocation',
+        KeepAlive: 'Console_KeepAlive',
+        PatchUserSettings: 'UserSettings_Patch',
+        patchUserSettingsWithLocation: 'UserSettings_PatchWithLocation',
+        PutConsole: 'Console_Put',
+        putConsoleWithLocation: 'Console_PutWithLocation',
+        PutUserSettings: 'UserSettings_Put',
+        putUserSettingsWithLocation: 'UserSettings_PutWithLocation',
+        DeleteConsole: 'Console_Delete',
+        GetConsole: 'Console_Get',
+        deleteConsoleWithLocation: 'ConsoleWithLocation_Delete',
+        getConsoleWithLocation: 'ConsoleWithLocation_Get',
+    },
+    cognitive_services: {
+        calculateModelCapacity: 'Models_CalculateCapacity',
+    },
+    scom: {
+        Operations_ListV2: 'V2Operations_List',
+    },
+    container_apps: {
+        ContainerAppsRevisionReplicas_GetReplica: 'ContainerAppsRevisionReplicas_Get',
+        ContainerAppsRevisionReplicas_ListReplicas: 'ContainerAppsRevisionReplicas_List',
+        ContainerAppsRevisions_ListRevisions: 'ContainerAppsRevisions_List',
+        ContainerAppsRevisions_GetRevision: 'ContainerAppsRevisions_Get',
+    },
+    search: {
+        UsageBySubscriptionSku: 'UsageBySubscriptionSku_Get',
+    },
+    resource_graph: {
+        Resources: 'Resources_Query',
     }
-
-    return { stackqlResName, stackqlMethodName };
 }
 
-export function resolveStackQLDescriptorsFromSplittableOpId(serviceName, operationId) {
-    let stackqlResName;
-    let stackqlMethodName;
+export function getTransformedOperationId(serviceName, operationId) {
 
-    // Split the operationId and process the parts
-    stackqlResName = camelCaseAndPluralize(operationId.split('_')[0]);
-    stackqlMethodName = camelCase(operationId.split('_')[1]);
-
-    const actions = [
-        'create', 
-        'create_and_update', 
-        'create_if_not_exist', 
-        'create_or_replace', 
-        'create_or_update',
-        'create_update',
-        'create_and_start_migration',
-        'create_or_get_start_pending_upload',
-        'create_or_update_or_cancel',
-        'get',
-        'get_all',
-        'list',
-        'list_all',
-        'update',
-        'update_put',
-        'patch',
-        'put',
-        'replace',
-        'replace_all',
-        'delete',
-    ];    
-
-    const subResActions = [
-        'get',
-        'get_all',
-        'list',
-        'list_all',
-        'create_or_update',
-        'create_update',
-        'create',
-        'delete',
-    ]
-
-    const conditionalClauses = ['_by_', '_with_', '_in_'];
-
-    // Simple direct match
-    if (actions.includes(stackqlMethodName)) {
-        return { stackqlResName, stackqlMethodName };
+    // check opIdMap for direct hit
+    if(opIdMap[serviceName] && opIdMap[serviceName][operationId]){
+        return opIdMap[serviceName][operationId];
     }
 
-    // Check if the stackqlMethodName is a known action followed immediately by a conditional clause
-    for (const action of actions) {
-        for (const clause of conditionalClauses) {
-            const regex = new RegExp(`^${action}${clause}`);
-            if (regex.test(stackqlMethodName)) {
-                return { stackqlResName, stackqlMethodName };
-            }
-        }
+    // Check for Check*-related operation IDs
+    const checkRegex = /^check/i;
+    if (checkRegex.test(operationId)) {
+        return `Operations_${operationId.replace('_', '')}`;
     }
 
-    // If it's a known action but not just the action or action + condition
-    for (const action of subResActions) {
-        if (stackqlMethodName.startsWith(action)) {
-            // Remove the action from the method name
-            let remaining = stackqlMethodName.replace(action, '');
-
-            // Now, remove any conditional clause and everything after it
-            for (const clause of conditionalClauses) {
-                const clauseIndex = remaining.indexOf(clause);
-                if (clauseIndex !== -1) {
-                    remaining = remaining.substring(0, clauseIndex); // Keep only the part before the condition
-                    break;
-                }
-            }
-
-            // Update the resource name by appending the remaining part
-            stackqlResName = `${stackqlResName}_${camelCaseAndPluralize(remaining)}`;
-            return { stackqlResName, stackqlMethodName };
-        }
-    }
-
-    return { stackqlResName, stackqlMethodName };
-}
-
-export function resolveStackQLDescriptorsFromNonSplittableOpId(operationId, operationTags){
-    let stackqlResName;
-    let stackqlMethodName;
-
-    // starts with a known verb?
-    const verbs = ['Create', 'Delete', 'Get', 'List', 'Put', 'Update', 'Patch', 'Post'];
-    const verbRegex = new RegExp(`^(${verbs.join('|')})(.*)`, 'i');
-    const match = operationId.match(verbRegex);
-
-    if (match) {
-        const verb = match[1]; // The matched verb
-        let rest = match[2];   // The rest of the string after the verb
-
-        // Check if it ends with 'ByANYTHING' or 'WithANYTHING'
-        const byOrWithRegex = /(By\w+|With\w+)$/;
-        const byOrWithMatch = rest.match(byOrWithRegex);
-        
-        if (byOrWithMatch) {
-            // Extract By or With statement
-            stackqlMethodName = verb + byOrWithMatch[0]; // MethodName is verb + By/With statement
-            stackqlResName = rest.replace(byOrWithRegex, ''); // ResName is the rest after removing By/With
-        } else {
-            stackqlMethodName = verb; // MethodName is just the verb
-            stackqlResName = rest;    // ResName is the rest of the string after the verb
-        }
-
-        stackqlResName = camelCaseAndPluralize(stackqlResName);
-        stackqlMethodName = camelCase(stackqlMethodName);
-    } else {
-        // not a known verb, check tags
-        stackqlMethodName = camelCase(operationId);
-        if(operationTags.length > 0) {
-            // use the tag
-            stackqlResName = camelCaseAndPluralize(operationTags[0].replace(/( |,|-)/g, ''));
-        } else {
-            stackqlResName = 'operations';
-        }  
-    }	
+    // Check if operationId is splittable by '_'
+    const parts = operationId.split('_');
     
+    if (parts.length === 1) {
+        // Not splittable
+
+        // Check if operationId starts with a known verb
+        if (operationId.toLowerCase().startsWith('list')) {
+            const rest = operationId.slice(4);
+            return `${rest}_List`;
+        }
+
+        if (operationId.toLowerCase().startsWith('get')) {
+            const rest = operationId.slice(3);
+            return `${rest}_Get`;
+        }        
+
+        if (operationId.toLowerCase().startsWith('delete')) {
+            const rest = operationId.slice(6);
+            return `${rest}_Delete`;
+        }
+
+        if (operationId.toLowerCase().startsWith('put')) {
+            const rest = operationId.slice(3);
+            return `${rest}_Put`;
+        }
+        
+        if (operationId.toLowerCase().startsWith('update')) {
+            const rest = operationId.slice(6);
+            return `${rest}_Update`;
+        }        
+
+        if (operationId.toLowerCase().startsWith('create')) {
+            const rest = operationId.slice(6);
+            if(rest.startsWith('And') || rest.startsWith('Or') || rest.startsWith('If') || rest.startsWith('With') || rest.startsWith('In')) {
+                return `Operations_${operationId}`;
+            } else {
+                return `${rest}_Create`;
+            }
+        }        
+
+        return `Operations_${operationId}`;
+    }
+    
+    // Splittable
+    const [firstPart, secondPart] = parts;
+   
+    // Check first part patterns for transposed opid, excluding 'Deleted'
+    const firstPartPatterns = ['Create', 'Delete', 'Get', 'List'];
+    if (firstPartPatterns.some(pattern => firstPart.toLowerCase().startsWith(pattern.toLowerCase())) && 
+        !firstPart.toLowerCase().startsWith('deleted')) {
+        // Check if the second part starts with any of the firstPartPatterns
+        const matchedFirstPattern = firstPartPatterns.find(pattern => firstPart.toLowerCase().startsWith(pattern.toLowerCase()));
+        const matchedSecondPattern = firstPartPatterns.find(pattern => secondPart.toLowerCase().startsWith(pattern.toLowerCase()));
+        
+        if (matchedSecondPattern) {
+            // Both parts start with a verb pattern
+            const restOfFirstPart = firstPart.slice(matchedFirstPattern.length);
+            return `${restOfFirstPart}_${matchedSecondPattern}`;
+        } else {
+            // Only the first part starts with a verb pattern
+            return `${secondPart}_${matchedFirstPattern}`;
+        }
+    }
+
+    // Check second part exact matches
+    const exactMatches = [
+        'Create', 'CreateAndUpdate', 'CreateOrReplace', 'CreateOrUpdate', 'CreateIfNotExist',
+        'CreateUpdate', 'Delete', 'Get', 'GetAll', 'List', 'ListAll', 'Patch', 'Put',
+        'Update', 'Replace', 'ReplaceAll', 'UpdatePatch', 'UpdatePut'
+    ];
+    if (exactMatches.some(match => secondPart.toLowerCase() === match.toLowerCase())) {
+        return false;
+    }
+    
+    // Check second part patterns
+    const patternRegex = /^(Create(By|OrUpdateBy)|Delete(By|In)|Get(By|In)|List(All(By)?|By|In|With)|UpdateBy|In(?=[A-Z]))/;
+
+    if (patternRegex.test(secondPart)) {
+        return false;
+    }
+
+    // Check if second part doesn't start with specific prefixes
+    const nonMatchingPrefixes = [
+        'Create', 'Get', 'GetAll', 'Update', 'Replace', 'ReplaceAll', 'Delete', 'List', 'ListAll', 'get', 'list',
+    ];
+    if (!nonMatchingPrefixes.some(prefix => secondPart.startsWith(prefix))) {
+        return false;
+    }
+    
+    // New logic for handling specific verbs at the start of the second part
+    const verbs = [
+        'CreateOrUpdate', 'createOrUpdate',
+        'Create', 'create',
+        'Get', 'get',
+        'List', 'list',
+        'Delete', 'delete',
+        'Update', 'update',
+        'Replace', 'replace',
+    ];
+    for (const verb of verbs) {
+        if (secondPart.startsWith(verb)) {
+            const rest = secondPart.slice(verb.length);
+            // Check for By*, In* (except Instances), or With* at the end
+            if (rest.endsWith('By') || rest.endsWith('In') || rest.endsWith('With') || 
+                (rest.endsWith('Instances') && rest !== 'Instances')) {
+                return `${firstPart}${rest}_${secondPart}`;
+            } else {
+                return `${firstPart}${rest}_${verb}`;
+            }
+        }
+    }
+
+    return `Unassigned_${operationId.replace('_', '')}`;
+}
+
+
+export function resolveStackQLDescriptorsFromOpId(operationId){
+    // split by _
+    const parts = operationId.split('_');
+    let stackqlResName;
+    let stackqlMethodName;
+    if(parts.length == 2){
+        stackqlResName = camelCaseAndPluralize(parts[0]);
+        stackqlMethodName = camelCase(parts[1]);
+    } else if(parts.length == 1){
+        stackqlResName = 'operations';
+        stackqlMethodName = camelCase(operationId);
+    } else {
+        throw new Error(`OperationId ${operationId} is not in the expected format.`);
+    }
+
     return { stackqlResName, stackqlMethodName };
 }
 
@@ -180,8 +204,9 @@ export function cleanResourceName(serviceName, stackqlResName) {
 
     let retName = stackqlResName;
 
-    retName = retName.replace('skuses', 'skus')
-                .replace('_for_my_approvals', '_for_my_approval')
+    retName = retName.replace(/skuses/g, 'skus');
+
+    retName = retName.replace('_for_my_approvals', '_for_my_approval')
 
     // if the resource starts with the service name, remove it
     if (retName.startsWith(`${serviceName}_`)) {
@@ -199,6 +224,18 @@ export function cleanResourceName(serviceName, stackqlResName) {
     if(serviceName == 'key_vault' && retName == 'vaults_deleteds'){
         retName = 'deleted_vaults';
     }
+
+    if(serviceName == 'dashboard' && retName == 'grafanas'){
+        retName = 'grafana';
+    }    
+
+    if(serviceName == 'app_service' && retName.startsWith('web_apps_')){
+        retName = retName.replace('web_apps_', '');
+    }
+    
+    if(serviceName == 'cosmos_db' && retName.startsWith('cassandra_resources_')){
+        retName = retName.replace('cassandra_resources_', '');
+    }    
 
     return retName;
 }
@@ -362,6 +399,9 @@ export function fixCamelCaseIssues(propertyName) {
         MFA: "Mfa",
         OAuth: "Oauth",
         HyperV: "Hyperv",
+        SignalR: "Signalr",
+        GraphQL: "Graphql",
+        SKU: "Sku",
     };
   
     let updatedPropertyName = propertyName;
