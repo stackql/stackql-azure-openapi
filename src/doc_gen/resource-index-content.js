@@ -24,14 +24,14 @@ async function executeSQL(connectionOptions, query) {
       }
 }
 
-export async function createResourceIndexContent(serviceName, resourceName, resourceData, paths, componentsSchemas) {
+export async function createResourceIndexContent(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas) {
     
-    const fieldsSql = `DESCRIBE EXTENDED google.${serviceName}.${resourceName}`;
+    const fieldsSql = `DESCRIBE EXTENDED ${providerName}.${serviceName}.${resourceName}`;
     const fields = await executeSQL(connectionOptions, fieldsSql) || [];
     // console.info('fields:', fields);
     
     // Fetch method descriptions
-    const methodsSql = `SHOW EXTENDED METHODS IN google.${serviceName}.${resourceName}`;
+    const methodsSql = `SHOW EXTENDED METHODS IN ${providerName}.${serviceName}.${resourceName}`;
     const methods = await executeSQL(connectionOptions, methodsSql) || [];    
     // console.info('methods:', methods);
 
@@ -97,19 +97,19 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
 
         switch (sqlVerb) {
             case 'SELECT':
-                content += generateSelectExample(serviceName, resourceName, exampleMethod, fields);
+                content += generateSelectExample(providerName, serviceName, resourceName, exampleMethod, fields);
                 break;
             case 'INSERT':
-                content += generateInsertExample(serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod);
+                content += generateInsertExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod);
                 break;
             case 'UPDATE':
-                content += generateUpdateExample(serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod);
+                content += generateUpdateExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod);
                 break;
             case 'REPLACE':
-                content += generateUpdateExample(serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod, true);
+                content += generateUpdateExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod, true);
                 break;
             case 'DELETE':
-                content += generateDeleteExample(serviceName, resourceName, exampleMethod);
+                content += generateDeleteExample(providerName, serviceName, resourceName, exampleMethod);
                 break;
         }
     });
@@ -170,7 +170,7 @@ function getSchemaManifest(schema, allSchemas, maxDepth = 10) {
     ];
 }
 
-function generateSelectExample(serviceName, resourceName, method, fields) {
+function generateSelectExample(providerName, serviceName, resourceName, method, fields) {
     // Map over the fields array to create a list of column names
     const selectColumns = fields.map(field => field.name).join(',\n');
 
@@ -187,7 +187,7 @@ ${method.description}
 ${sqlCodeBlockStart}
 SELECT
 ${selectColumns}
-FROM google.${serviceName}.${resourceName}
+FROM ${providerName}.${serviceName}.${resourceName}
 ${whereClause};
 ${codeBlockEnd}
 `;
@@ -203,7 +203,7 @@ const readOnlyPropertyNames = [
     'selfLinkWithId',
 ];
 
-function generateInsertExample(serviceName, resourceName, resourceData, paths, componentsSchemas, method) {
+function generateInsertExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, method) {
     try {
         const requiredParams = method.RequiredParams
             ? method.RequiredParams.split(', ').map(param => param.trim())  // Splitting requiredParams into an array
@@ -275,7 +275,7 @@ Use the following StackQL query and manifest file to create a new <code>${resour
 
 ${sqlCodeBlockStart}
 /*+ create */
-INSERT INTO google.${serviceName}.${resourceName} (
+INSERT INTO ${providerName}.${serviceName}.${resourceName} (
 ${insertFields}
 )
 SELECT 
@@ -297,7 +297,7 @@ ${codeBlockEnd}
 }
 
 
-function generateUpdateExample(serviceName, resourceName, resourceData, paths, componentsSchemas, method, isReplace = false) {
+function generateUpdateExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, method, isReplace = false) {
     try {
         const requiredParams = method.RequiredParams.split(', ').map(param => param.trim()); // Splitting required params into an array
 
@@ -351,7 +351,7 @@ ${sqlDescription}
 
 ${sqlCodeBlockStart}
 /*+ update */
-${isReplace ? 'REPLACE': 'UPDATE'} google.${serviceName}.${resourceName}
+${isReplace ? 'REPLACE': 'UPDATE'} ${providerName}.${serviceName}.${resourceName}
 SET 
 ${setParams}
 WHERE 
@@ -363,7 +363,7 @@ ${codeBlockEnd}
     }
 }
 
-function generateDeleteExample(serviceName, resourceName, method) {
+function generateDeleteExample(providerName, serviceName, resourceName, method) {
     return `
 ## ${mdCodeAnchor}DELETE${mdCodeAnchor} example
 
@@ -371,7 +371,7 @@ Deletes the specified <code>${resourceName}</code> resource.
 
 ${sqlCodeBlockStart}
 /*+ delete */
-DELETE FROM google.${serviceName}.${resourceName}
+DELETE FROM ${providerName}.${serviceName}.${resourceName}
 WHERE ${method.RequiredParams.split(', ').map(param => `${param} = '{{ ${param} }}'`).join('\nAND ')};
 ${codeBlockEnd}
 `;

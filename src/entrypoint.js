@@ -181,7 +181,7 @@ async function openapiTag(options) {
 
 async function generateDocs(options) {
   try {
-    await doc(options.specificationDir, taggedDir, docsDir, options.debug).finally(() => {
+    await doc(options.specificationDir, options.debug).finally(() => {
       logger.info(`finished documenting!`);
     });
   } catch (err) {

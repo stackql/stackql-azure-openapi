@@ -1,43 +1,34 @@
-import $RefParser from '@apidevtools/json-schema-ref-parser';
-import * as fs from 'fs';
-import * as yaml from 'js-yaml';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
 import { ConsoleLogger } from '@autorest/common';
-import { contactInfo, serviceInfo } from './includes/provider-metadata.js';
-import {     
-    camelToSnake,
-    fixCamelCaseIssues,
-    fixCamelCase,
-    determineObjectKey,
-    cleanResourceName,
-    isNotSelectable,
-    getTransformedOperationId,
-    resolveStackQLDescriptorsFromOpId,
-} from './includes/stackql-azure-descriptors.js';
-import { 
-    servicesToSkip 
-} from './includes/shared-functions.js';
+import { createResourceIndexContent } from './doc_gen/resource-index-content.js';
 
 const logger = new ConsoleLogger();
+
+const providerVer = 'v00.00.00000';
 
 //
 // main doc function
 //
-export async function doc(providerName, taggedDir, docsDir, debug) {
+export async function doc(providerName, debug) {
 
     logger.info(`documenting ${providerName}...`);
 
-    // delete ${providerName}-docs/index.md if it exists
-    fs.existsSync(`${providerName}-docs/index.md`) && fs.unlinkSync(`${providerName}-docs/index.md`);
+    const providerDir = `openapi/src/${providerName}/${providerVer}`;
+    const docsDir = `${providerName}-docs`;
 
-    // clean the MdDocs directory (less static service docs)
-    clearMdDocsDir();
+   
+    // delete ${providerName}-docs/index.md if it exists
+    fs.existsSync(`${docsDir}/index.md`) && fs.unlinkSync(`${docsDir}/index.md`);
+    fs.existsSync(`${docsDir}/providers`) && fs.rmSync(`${docsDir}/providers`, { recursive: true, force: true });
 
     // init provider index
     let servicesForIndex = [];
 
     // Static header content
     const headerContent1 = fs.readFileSync(`src/doc_gen/${providerName}/headerContent1.txt`, 'utf8');
-    const headerContent2 = fs.readFileSync(`${providerName}/headerContent2.txt`, 'utf8');
+    const headerContent2 = fs.readFileSync(`src/doc_gen/${providerName}/headerContent2.txt`, 'utf8');
 
     // Initialize counters for services and resources
     let totalServicesCount = 0;
@@ -49,16 +40,19 @@ export async function doc(providerName, taggedDir, docsDir, debug) {
     //
 
     // Process each YAML file one by one
-    const serviceDir = `openapi/src/${providerSpecDirName}/v00.00.00000/services`;
+    const serviceDir = `${providerDir}/services`;
     const serviceFiles = fs.readdirSync(serviceDir).filter(file => path.extname(file) === '.yaml');
 
     for (const file of serviceFiles) {
         const serviceName = path.basename(file, '.yaml');
+        logger.info(`Processing ${serviceName}`);
         servicesForIndex.push(serviceName);
         const filePath = path.join(serviceDir, file);
         totalServicesCount++;
-        await createDocsForService(filePath); // Ensure one-by-one processing
+        const serviceFolder = `${docsDir}/providers/${providerName}/${serviceName}`;
+        await createDocsForService(filePath, providerName, serviceName, serviceFolder); // Ensure one-by-one processing
     }
+
 
     // totalResourcesCount is the sum of all resources in all services
     totalResourcesCount = fs.readdirSync(`${providerName}-docs/providers/${providerName}`, { withFileTypes: true })
@@ -69,9 +63,6 @@ export async function doc(providerName, taggedDir, docsDir, debug) {
     //
     // get data for provider index
     //
-
-    // add non cloud control services
-    servicesForIndex = servicesForIndex.concat(staticServices);
 
     // make sure servicesForIndex is unique
     servicesForIndex = [...new Set(servicesForIndex)];
@@ -87,7 +78,7 @@ export async function doc(providerName, taggedDir, docsDir, debug) {
     // Create the content for the index file
     const indexContent = `${headerContent1}
 
-:::info Provider Summary (${googleProviderVer})
+:::info Provider Summary (${providerVer})
 
 <div class="row">
 <div class="providerDocColumn">
@@ -119,36 +110,10 @@ ${servicesToMarkdown(secondColumnServices)}
 
 }
 
-
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
-import { createResourceIndexContent } from './resource-index-content.js';
-
-//
-// update ...
-//
-
-const providerName = 'google';
-const googleProviderVer = 'v24.09.00254';
-const staticServices = [];
-
-//
-// end update
-//
-
 // Process each service sequentially
-async function createDocsForService(yamlFilePath) {
+async function createDocsForService(yamlFilePath, providerName, serviceName, serviceFolder) {
+
     const data = yaml.load(fs.readFileSync(yamlFilePath, 'utf8'));
-
-    const serviceName = path.basename(yamlFilePath, '.yaml');
-
-    if (staticServices.includes(serviceName)) {
-        console.log(`Skipping ${serviceName}`);
-        return;
-    }
-
-    const serviceFolder = path.join(`${providerName}-docs/providers/${providerName}`, serviceName);
 
     // Create service directory
     if (!fs.existsSync(serviceFolder)) {
@@ -178,7 +143,7 @@ async function createDocsForService(yamlFilePath) {
 
     // Process service index
     const serviceIndexPath = path.join(serviceFolder, 'index.md');
-    const serviceIndexContent = await createServiceIndexContent(serviceName, resources);
+    const serviceIndexContent = await createServiceIndexContent(providerName, serviceName, resources);
     fs.writeFileSync(serviceIndexPath, serviceIndexContent);
 
     // Split into columns and process resources one by one
@@ -188,26 +153,26 @@ async function createDocsForService(yamlFilePath) {
 
     // Process each resource in first column
     for (const resource of firstColumn) {
-        await processResource(serviceFolder, serviceName, resource);
+        await processResource(providerName, serviceFolder, serviceName, resource);
     }
 
     // Process each resource in second column
     for (const resource of secondColumn) {
-        await processResource(serviceFolder, serviceName, resource);
+        await processResource(providerName, serviceFolder, serviceName, resource);
     }
 
     console.log(`Generated documentation for ${serviceName}`);
 }
 
 // new
-async function processResource(serviceFolder, serviceName, resource) {
+async function processResource(providerName, serviceFolder, serviceName, resource) {
     const resourceFolder = path.join(serviceFolder, resource.name);
     if (!fs.existsSync(resourceFolder)) {
         fs.mkdirSync(resourceFolder, { recursive: true });
     }
 
     const resourceIndexPath = path.join(resourceFolder, 'index.md');
-    const resourceIndexContent = await createResourceIndexContent(serviceName, resource.name, resource.resourceData, resource.paths, resource.componentsSchemas);
+    const resourceIndexContent = await createResourceIndexContent(providerName, serviceName, resource.name, resource.resourceData, resource.paths, resource.componentsSchemas);
     fs.writeFileSync(resourceIndexPath, resourceIndexContent);
 
     // After writing the file, force garbage collection if available (optional)
@@ -216,7 +181,7 @@ async function processResource(serviceFolder, serviceName, resource) {
     }
 }
 
-async function createServiceIndexContent(serviceName, resources) {
+async function createServiceIndexContent(providerName, serviceName, resources) {
     const totalResources = resources.length; // Calculate the total resources
 
     // Sort resources alphabetically by name
@@ -227,10 +192,10 @@ async function createServiceIndexContent(serviceName, resources) {
     const secondColumnResources = resources.slice(halfLength);
 
     // Generate the HTML for resource links in the first column
-    const firstColumnLinks = generateResourceLinks(serviceName, firstColumnResources);
+    const firstColumnLinks = generateResourceLinks(providerName, serviceName, firstColumnResources);
 
     // Generate the HTML for resource links in the second column
-    const secondColumnLinks = generateResourceLinks(serviceName, secondColumnResources);
+    const secondColumnLinks = generateResourceLinks(providerName, serviceName, secondColumnResources);
 
     // Create the markdown content for the service index
     // You can customize this content as needed
@@ -273,43 +238,12 @@ ${secondColumnLinks}
 </div>`;
 }
 
-function generateResourceLinks(serviceName, resources) {
+function generateResourceLinks(providerName, serviceName, resources) {
     // Generate resource links for the service index
     const resourceLinks = resources.map((resource) => {
         return `<a href="/providers/${providerName}/${serviceName}/${resource.name}/">${resource.name}</a>`;
     });
     return resourceLinks.join('<br />\n');
-}
-
-function clearMdDocsDir(directory = `${providerName}-docs/providers/${providerName}`) {
-    if (fs.existsSync(directory)) {
-        fs.readdirSync(directory).forEach((file) => {
-            const currentPath = path.join(directory, file);
-            if (fs.lstatSync(currentPath).isDirectory()) {
-                // Skip directories listed in staticServices
-                if (staticServices.includes(file)) {
-                    console.log("Skipping directory:", currentPath);
-                    return; // Skip this directory and its contents
-                }
-                // Recurse if it's a directory and not in staticServices
-                clearMdDocsDir(currentPath);
-                // After recursion, check if the directory is empty before attempting to remove it
-                if (fs.readdirSync(currentPath).length === 0) {
-                    fs.rmdirSync(currentPath); // Remove the directory once it's empty
-                }
-            } else {
-                // Check if the file is 'stackql-provider-registry.mdx' and skip if true
-                if (file === 'stackql-provider-registry.mdx') {
-                    console.log("Skipping file:", currentPath);
-                    return;
-                }
-                // Delete the file if it's not a directory and not the MDX file
-                fs.unlinkSync(currentPath);
-            }
-        });
-    } else {
-        console.log("Directory not found:", directory);
-    }
 }
 
 // Function to convert services to markdown links
