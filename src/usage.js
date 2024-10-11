@@ -10,6 +10,7 @@ const dereferenceDesc = 'Uses the output from the generate command to create int
 const combineDesc = 'Uses the output from the dereference command to create a single OpenAPI3 yaml document for an Azure RM service or services.';
 const validateDesc = 'Validates an OpenAPI3 document.';
 const tagDesc = 'Tags an OpenAPI3 document with the appropriate stackql resource name.';
+const docDesc = 'Generates docusaurus markdown docs for the stackql provider.';
 
 const debugDesc = '[OPTIONAL] Debug flag. (defaults to false)';
 const dryrunDesc = '[OPTIONAL] Dry run flag. (defaults to false)';
@@ -140,6 +141,39 @@ const combineUsage = [
     }    
 ];
 
+const docUsage = [
+  {
+    header: `${programName} doc`,
+    content:docDesc
+  },
+  {
+    header: 'Synopsis',
+    content: `$ ${programName} doc <providerName>`
+  },
+  {
+    header: 'Arguments',
+    content: [
+      { name: 'providerName', summary: 'stackql provider name' },
+    ]
+  },
+  {
+      header: 'Flags',
+      optionList: [
+        {
+          name: 'debug',
+          alias: 'd',
+          type: Boolean,
+          description: debugDesc,
+        },
+        {
+          name: 'dryrun',
+          type: Boolean,
+          description: dryrunDesc,
+        },        
+      ]
+    }    
+];
+
 const validateUsage = [
   {
     header: `${programName} validate`,
@@ -220,6 +254,9 @@ function showUsage(command) {
         case 'validate':
           console.log(commandLineUsage(validateUsage));
           break;
+        case 'doc':
+          console.log(commandLineUsage(docUsage));
+          break;          
         case 'tag':
           console.log(commandLineUsage(tagUsage));
           break;           

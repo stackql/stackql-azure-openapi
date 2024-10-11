@@ -3,6 +3,7 @@ import { processSpecs, processSpec } from './autorest.js';
 import { dereference } from './dereference.js';
 import { combine } from './combine.js';
 import { tag } from './tag.js';
+import { doc } from './doc.js';
 import { validate } from './validate.js';
 import { showUsage, parseArgumentsIntoOptions } from './usage.js';
 import { ConsoleLogger } from '@autorest/common';
@@ -18,6 +19,7 @@ const generatedDir = 'openapi/1-autorest-generated';
 const derefedDir = 'openapi/2-dereferenced';
 const combinedDir = 'openapi/3-combined';
 const taggedDir = 'openapi/src';
+const docsDir = 'web-docs';
 
 async function autorest(options) {
   if (options.specificationDir){
@@ -177,6 +179,16 @@ async function openapiTag(options) {
   return true;    
 }
 
+async function generateDocs(options) {
+  try {
+    await doc(options.specificationDir, taggedDir, docsDir, options.debug).finally(() => {
+      logger.info(`finished documenting!`);
+    });
+  } catch (err) {
+    logger.error(err);
+  }
+}
+
 export async function main(args) {
 
   const options = parseArgumentsIntoOptions(args);
@@ -219,6 +231,14 @@ export async function main(args) {
             process.exit(1);
           });
           break;
+        case 'doc':
+          await generateDocs(options).finally(() => {
+            process.exit(0);
+          }).catch(err => {
+            logger.error(err);
+            process.exit(1);
+          });
+          break;          
         case 'validate':
             //
             break; 

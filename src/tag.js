@@ -256,7 +256,7 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                         //
 
                         if(verbKey.toLowerCase() == 'delete'){
-                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'delete')){
+                            if(stackqlMethodName == 'delete' || stackqlMethodName.startsWith('delete_by') || stackqlMethodName.startsWith('delete_in')){
                                 stackqlSqlVerb = 'delete';
                             }
                         }
@@ -266,15 +266,15 @@ export async function tag(combinedDir, taggedDir, specificationDir, debug, dryru
                                 stackqlSqlVerb =  'insert';
                             }
                         }
-                    
+
                         if(verbKey.toLowerCase() == 'put'){
-                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'put') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'replace')){ 
+                            if(stackqlMethodName == 'update' || stackqlMethodName == 'put' || stackqlMethodName == 'replace'){ 
                                 stackqlSqlVerb =  'replace';
                             }
                         }    
                     
                         if(verbKey.toLowerCase() == 'patch'){
-                            if(isMethodOrFirstTokenEqualTo(stackqlMethodName, 'patch') || isMethodOrFirstTokenEqualTo(stackqlMethodName, 'update')){ 
+                            if(stackqlMethodName == 'update' || stackqlMethodName == 'patch'){ 
                                 stackqlSqlVerb =  'update';
                             }
                         }    

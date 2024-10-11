@@ -13,10 +13,22 @@ const opIdMap = {
         Predict: 'Recommendations_Predict',
         Recommendations_GetGenerateStatus: 'Recommendations_ExecGetGenerateStatus',
     },
-    serial_console: {
-        DisableConsole: 'Console_Disable',
-        EnableConsole: 'Console_Enable',
-        GetConsoleStatus: 'Console_GetStatus',
+    api_management: {
+        TenantAccessGit_RegeneratePrimaryKey: 'TenantAccess_RegenerateGitPrimaryKey',
+        TenantAccessGit_RegenerateSecondaryKey: 'TenantAccess_RegenerateGitSecondaryKey',
+        ApiManagementServiceSkus_ListAvailableServiceSkus: 'ApiManagementAvailableServiceSkus_List',
+        NamedValue_ListValue: 'NamedValue_List',
+    },
+    app_service: {
+        WebApps_ListBackupsSlot: 'WebApps_ListBackupSlots',
+        ContainerAppsRevisions_ListRevisions: 'ContainerAppsRevisions_List',
+        ContainerAppsRevisions_GetRevision: 'ContainerAppsRevisions_Get',
+        WebApps_GetDiagnosticLogsConfigurationSlot: 'WebApps_GetDiagnosticLogsConfigSlot',
+        WebApps_GetDiagnosticLogsConfiguration: 'WebApps_GetDiagnosticLogsConfig',
+        AppServiceEnvironments_GetDiagnosticsItem: 'AppServiceEnvironments_GetDiagnostics',
+        AppServicePlans_GetRouteForVnet: 'AppServicePlans_GetVnetRoute',
+        AppServicePlans_ListRoutesForVnet: 'AppServicePlans_ListVnetRoute',
+        DeletedWebApps_GetDeletedWebAppByLocation: 'DeletedWebApps_GetByLocation',
     },
     cloud_shell: {
         keepAliveWithLocation: 'Console_KeepAliveWithLocation',
@@ -35,22 +47,53 @@ const opIdMap = {
     cognitive_services: {
         calculateModelCapacity: 'Models_CalculateCapacity',
     },
-    scom: {
-        Operations_ListV2: 'V2Operations_List',
-    },
     container_apps: {
         ContainerAppsRevisionReplicas_GetReplica: 'ContainerAppsRevisionReplicas_Get',
         ContainerAppsRevisionReplicas_ListReplicas: 'ContainerAppsRevisionReplicas_List',
         ContainerAppsRevisions_ListRevisions: 'ContainerAppsRevisions_List',
         ContainerAppsRevisions_GetRevision: 'ContainerAppsRevisions_Get',
     },
-    search: {
-        UsageBySubscriptionSku: 'UsageBySubscriptionSku_Get',
+    delegated_network: {
+        ControllerDetails_Get: 'Controller_Get',
+    },
+    desktop_virtualization: {
+        AppAttachPackageInfo_Import: 'AppAttachPackage_ImportInfo',
+    },
+    front_door: {
+        FrontDoorNameAvailability_Check: 'Operations_CheckNameAvailability',
+        FrontDoorNameAvailabilityWithSubscription_Check: 'Operations_CheckNameAvailabilityWithSubscription',
+    },
+    migrate_projects: {
+        Solutions_GetSolution: 'Solutions_Get',
+        Solutions_DeleteSolution: 'Solutions_Delete',
+    },
+    network: {
+        IpGroups_UpdateGroups: 'IpGroups_Update',
+    },
+    postgresql: {
+        GetPrivateDnsZoneSuffix_Execute: 'PrivateDnsZoneSuffix_ExecGet'
     },
     resource_graph: {
         Resources: 'Resources_Query',
+    },
+    scom: {
+        Operations_ListV2: 'V2Operations_List',
+    },
+    search: {
+        UsageBySubscriptionSku: 'UsageBySubscriptionSku_Get',
+    },
+    serial_console: {
+        DisableConsole: 'Console_Disable',
+        EnableConsole: 'Console_Enable',
+        GetConsoleStatus: 'Console_GetStatus',
+    },
+    service_fabric_managed_clusters: {
+        managedApplyMaintenanceWindow_Post: 'ManagedClusters_ApplyMaintenanceWindow'
+    },
+    voice_services: {
+        NameAvailability_CheckLocal: 'Operations_CheckLocalNameAvailability',
     }
-}
+};
 
 export function getTransformedOperationId(serviceName, operationId) {
 
@@ -111,6 +154,25 @@ export function getTransformedOperationId(serviceName, operationId) {
     
     // Splittable
     const [firstPart, secondPart] = parts;
+
+    // New condition to handle {Resource}_{Verb}{SubResource}{By|With|In}{Condition} pattern
+    const resourceVerbPattern = /^(\w+)_((?:Create(?:OrUpdate)?|Get|List|Delete|Update|Replace)(?:\w+)(?:By|With|In)\w+)$/;
+    const match = operationId.match(resourceVerbPattern);
+    if (match) {
+        const [, resource, restOfOperation] = match;
+        const verbMatch = restOfOperation.match(/^(Create(?:OrUpdate)?|Get|List|Delete|Update|Replace)/);
+        if (verbMatch) {
+            const verb = verbMatch[0];
+            const subResourceAndCondition = restOfOperation.slice(verb.length);
+            return `${resource}${subResourceAndCondition}_${verb}`;
+        }
+    }    
+
+    // if the first part starts wih Generate, remove this from the first part and return the remainder
+    if (firstPart.toLowerCase().startsWith('generate')) {
+        const rest = firstPart.slice(8);
+        return `${rest}_${secondPart}`;
+    }
    
     // Check first part patterns for transposed opid, excluding 'Deleted'
     const firstPartPatterns = ['Create', 'Delete', 'Get', 'List'];
@@ -132,16 +194,17 @@ export function getTransformedOperationId(serviceName, operationId) {
 
     // Check second part exact matches
     const exactMatches = [
-        'Create', 'CreateAndUpdate', 'CreateOrReplace', 'CreateOrUpdate', 'CreateIfNotExist',
+        'Create', 'CreateAndUpdate', 'CreateOrReplace', 'CreateOrUpdate', 'CreateIfNotExist', 'CreateOrGetStartPendingUpload', 'CreateAndStartMigration',
         'CreateUpdate', 'Delete', 'Get', 'GetAll', 'List', 'ListAll', 'Patch', 'Put',
-        'Update', 'Replace', 'ReplaceAll', 'UpdatePatch', 'UpdatePut'
+        'Update', 'Replace', 'ReplaceAll', 'UpdatePatch', 'UpdatePut', 'UpdateTags'
     ];
     if (exactMatches.some(match => secondPart.toLowerCase() === match.toLowerCase())) {
         return false;
     }
     
     // Check second part patterns
-    const patternRegex = /^(Create(By|OrUpdateBy)|Delete(By|In)|Get(By|In)|List(All(By)?|By|In|With)|UpdateBy|In(?=[A-Z]))/;
+
+    const patternRegex = /^(Create(By|OrUpdateBy|In(?=[A-Z]))|Delete(By|In)|Get(By|In)|List(All(By)?|By|In|With|For)|UpdateBy|In(?=[A-Z]))/;
 
     if (patternRegex.test(secondPart)) {
         return false;
@@ -158,6 +221,7 @@ export function getTransformedOperationId(serviceName, operationId) {
     // New logic for handling specific verbs at the start of the second part
     const verbs = [
         'CreateOrUpdate', 'createOrUpdate',
+        'CreateUpdate', 'createUpdate',
         'Create', 'create',
         'Get', 'get',
         'List', 'list',
@@ -205,20 +269,46 @@ export function cleanResourceName(serviceName, stackqlResName) {
     let retName = stackqlResName;
 
     retName = retName.replace(/skuses/g, 'skus');
-
-    retName = retName.replace('_for_my_approvals', '_for_my_approval')
+    retName = retName.replace(/_for_my_approvals$/g, '_for_my_approval');
+    retName = retName.replace(/_news$/g, '_new');
+    retName = retName.replace(/_existings$/g, '_existing');
+    retName = retName.replace(/_prems$/g, '_prem');
+    retName = retName.replace(/_supporteds$/g, '_supported');
+    retName = retName.replace(/_recommendeds$/g, '_recommended');
+    retName = retName.replace(/_currents$/g, '_current');
+    retName = retName.replace(/_detaileds$/g, '_detailed');
+    retName = retName.replace(/_mongos$/g, '_mongo');
+    retName = retName.replace(/_activates$/g, '_activate');
+    retName = retName.replace(/_centers$/g, '_center');
+    retName = retName.replace(/_dismisses$/g, '_dismiss');
+    retName = retName.replace(/_latests$/g, '_latest');
+    retName = retName.replace(/_progresses$/g, '_progress');
+    retName = retName.replace(/_resolves$/g, '_resolve');
+    retName = retName.replace(/_bis$/g, '_bi');
+    retName = retName.replace(/_crrs$/g, '_crr');
+    retName = retName.replace(/_powershells$/g, '_powershell');
+    retName = retName.replace(/_freshnesses$/g, '_freshness');
+    retName = retName.replace(/_fors$/g, '_for');
+    retName = retName.replace(/_jsons$/g, '_json');
+    retName = retName.replace(/_sses$/g, '_sse');
+    retName = retName.replace(/_troubleshoots$/g, '_troubleshoot');
+    retName = retName.replace(/_v2s$/g, '_v2');
+    retName = retName.replace(/_ins$/g, '_in');
+    retName = retName.replace(/_texts$/g, '_text');
+    retName = retName.replace(/_texts$/g, '_text');
+    retName = retName.replace(/_deleteds$/g, '_deleted');
+    retName = retName.replace(/_statuses$/g, '_status');
+    retName = retName.replace(/_infos$/g, '_info');
+    retName = retName.replace(/_alloweds$/g, '_allowed');
 
     // if the resource starts with the service name, remove it
     if (retName.startsWith(`${serviceName}_`)) {
         retName = retName.replace(`${serviceName}_`, '');
     }
 
-    if(serviceName == 'web_pubsub' && retName.startsWith('web_pub_sub_')){
-        retName = retName.replace('web_pub_sub_', '');
-    }
-
-    if(serviceName == 'web_pubsub' && retName.startsWith('web_pub_subs_')){
-        retName = retName.replace('web_pub_subs_', '');
+    if(serviceName == 'web_pubsub'){
+        retName = retName.replace(/^web_pub_sub_/, '');
+        retName = retName.replace(/^web_pub_subs_/, '');
     }
 
     if(serviceName == 'key_vault' && retName == 'vaults_deleteds'){
@@ -229,12 +319,114 @@ export function cleanResourceName(serviceName, stackqlResName) {
         retName = 'grafana';
     }    
 
-    if(serviceName == 'app_service' && retName.startsWith('web_apps_')){
-        retName = retName.replace('web_apps_', '');
+    if(serviceName == 'app_service'){
+
+        retName = retName.replace(/^web_apps_/, '');
+        retName = retName.replace(/^static_sites_/, '');
+    
+        switch (retName) {
+            case 'app_settings_key_vault_references_slots':
+                retName = 'app_setting_key_vault_reference_slots';
+                break;
+            case 'app_settings_key_vault_references':
+                retName = 'app_setting_key_vault_references';
+                break;
+            case 'build_database_connection_with_details':
+                retName = 'build_database_connections_with_details';
+                break;
+            case 'configurations_slots':
+                retName = 'configuration_slots';
+                break;
+            case 'continuous_web_jobs_slots':
+                retName = 'continuous_web_job_slots';
+                break;
+            case 'database_connection_with_details':
+                retName = 'database_connections_with_details';
+                break;
+            case 'deployments_slots':
+                retName = 'deployment_slots';
+                break;
+            case 'diagnostics_site_analyses_slots':
+                retName = 'diagnostics_site_analysis_slots';
+                break;
+            case 'diagnostics_site_detector_responses_slots':
+                retName = 'diagnostics_site_detector_response_slots';
+                break;
+            case 'diagnostics_site_detectors_slots':
+                retName = 'diagnostics_site_detector_slots';
+                break;
+            case 'diagnostics_site_diagnostic_categories_slots':
+                retName = 'diagnostics_site_diagnostic_category_slots';
+                break;
+            case 'domain_ownership_identifiers_slots':
+                retName = 'domain_ownership_identifier_slots';
+                break;
+            case 'function_secrets_slots':
+                retName = 'function_secret_slots';
+                break;
+            case 'host_name_bindings_slots':
+                retName = 'host_name_binding_slots';
+                break;
+            case 'hybrid_connections_slots':
+                retName = 'hybrid_connection_slots';
+                break;
+            case 'linked_backends_for_builds':
+                retName = 'linked_backend_for_builds';
+                break;
+            case 'migrate_my_sql_status':
+                retName = 'migrate_mysql_status';
+                break;
+            case 'migrate_my_sql_status_slots':
+                retName = 'migrate_mysql_status_slots';
+                break;
+            case 'premier_add_ons_slots':
+                retName = 'premier_add_on_slots';
+                break;
+            case 'processes_slots':
+                retName = 'process_slots';
+                break;
+            case 'process_modules_slots':
+                retName = 'process_module_slots';
+                break;
+            case 'public_certificates_slots':
+                retName = 'public_certificate_slots';
+                break;
+            case 'relay_service_connections_slots':
+                retName = 'relay_service_connection_slots';
+                break;
+            case 'site_containers_slots':
+                retName = 'site_container_slots';
+                break;
+            case 'site_extensions_slots':
+                retName = 'site_extension_slots';
+                break;
+            case 'slot_site_deployment_statuses_slots':
+                retName = 'slot_site_deployment_status_slots';
+                break;
+            case 'triggered_web_jobs_slots':
+                retName = 'triggered_web_job_slots';
+                break;
+            case 'user_provided_function_apps_for_static_site_builds':
+                retName = 'user_provided_function_app_for_static_site_builds';
+                break;
+            case 'user_provided_function_apps_for_static_sites':
+                retName = 'user_provided_function_app_for_static_sites';
+                break;
+            case 'vnet_connections_slots':
+                retName = 'vnet_connection_slots';
+                break;
+            case 'web_jobs_slots':
+                retName = 'web_job_slots';
+                break;
+        }
     }
     
-    if(serviceName == 'cosmos_db' && retName.startsWith('cassandra_resources_')){
-        retName = retName.replace('cassandra_resources_', '');
+    if(serviceName == 'cosmos_db'){
+        retName = retName.replace(/^cassandra_resources_/, '');
+        retName = retName.replace(/^gremlin_resources_/, '');
+        retName = retName.replace(/^mongodb_resources_/, '');
+        retName = retName.replace(/^sql_resources_/, '');
+        retName = retName.replace(/^table_resources_/, '');
     }    
 
     return retName;
