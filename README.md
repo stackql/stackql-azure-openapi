@@ -151,3 +151,13 @@ false \
 /mnt/c/LocalGitRepos/stackql/openapi-conversion/stackql-azure-openapi/openapi \
 true
 ```
+
+# Document
+
+```bash
+sh start-stackql-server.sh
+bin/stackql-azure-openapi doc azure
+bin/stackql-azure-openapi doc azure_isv
+bin/stackql-azure-openapi doc azure_stack
+bin/stackql-azure-openapi doc azure_extras
+```

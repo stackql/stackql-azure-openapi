@@ -6,7 +6,7 @@ import { createResourceIndexContent } from './doc_gen/resource-index-content.js'
 
 const logger = new ConsoleLogger();
 
-const providerVer = 'v00.00.00000';
+const providerVer = 'v24.10.00256';
 
 //
 // main doc function
@@ -15,9 +15,8 @@ export async function doc(providerName, debug) {
 
     logger.info(`documenting ${providerName}...`);
 
-    const providerDir = `openapi/src/${providerName}/${providerVer}`;
+    const providerDir = `openapi/src/${providerName}/v00.00.00000`;
     const docsDir = `${providerName}-docs`;
-
    
     // delete ${providerName}-docs/index.md if it exists
     fs.existsSync(`${docsDir}/index.md`) && fs.unlinkSync(`${docsDir}/index.md`);
@@ -41,6 +40,7 @@ export async function doc(providerName, debug) {
 
     // Process each YAML file one by one
     const serviceDir = `${providerDir}/services`;
+    logger.info(`Processing services in ${serviceDir}...`);
     const serviceFiles = fs.readdirSync(serviceDir).filter(file => path.extname(file) === '.yaml');
 
     for (const file of serviceFiles) {
@@ -53,12 +53,15 @@ export async function doc(providerName, debug) {
         await createDocsForService(filePath, providerName, serviceName, serviceFolder); // Ensure one-by-one processing
     }
 
+    logger.info(`Processed ${totalServicesCount} services`);
 
     // totalResourcesCount is the sum of all resources in all services
     totalResourcesCount = fs.readdirSync(`${providerName}-docs/providers/${providerName}`, { withFileTypes: true })
         .filter(dirent => dirent.isDirectory())
         .map(dirent => fs.readdirSync(`${providerName}-docs/providers/${providerName}/${dirent.name}`).length)
         .reduce((a, b) => a + b, 0);
+
+    logger.info(`Processed ${totalResourcesCount} resources`);
 
     //
     // get data for provider index
@@ -94,10 +97,10 @@ ${headerContent2}
 ## Services
 <div class="row">
 <div class="providerDocColumn">
-${servicesToMarkdown(firstColumnServices)}
+${servicesToMarkdown(providerName, firstColumnServices)}
 </div>
 <div class="providerDocColumn">
-${servicesToMarkdown(secondColumnServices)}
+${servicesToMarkdown(providerName, secondColumnServices)}
 </div>
 </div>
 `;
@@ -106,7 +109,7 @@ ${servicesToMarkdown(secondColumnServices)}
     const indexPath = `${providerName}-docs/index.md`;
     fs.writeFileSync(indexPath, indexContent);
 
-    console.log(`Index file created at ${indexPath}`);
+    logger.info(`Index file created at ${indexPath}`);
 
 }
 
@@ -131,15 +134,27 @@ async function createDocsForService(yamlFilePath, providerName, serviceName, ser
 
     const resources = [];
     for (let resourceName in resourcesObj) {
+        // Skip resources that start with "vw_"
+        if (resourceName.startsWith('vw_')) continue;
+    
         let resourceData = resourcesObj[resourceName];
-
         if (!resourceData.id) {
             console.warn(`No 'id' defined for resource: ${resourceName} in service: ${serviceName}`);
-            return;
+            continue;
         }
-
-        resources.push({ name: resourceName, resourceData, paths, componentsSchemas });
-    }
+    
+        // Check if there's a corresponding "vw_" resource
+        const vwResourceName = `vw_${resourceName}`;
+        const hasVwResource = vwResourceName in resourcesObj;
+    
+        resources.push({
+            name: resourceName,
+            vwResourceName: hasVwResource ? vwResourceName : hasVwResource,
+            resourceData,
+            paths,
+            componentsSchemas
+        });
+    }    
 
     // Process service index
     const serviceIndexPath = path.join(serviceFolder, 'index.md');
@@ -172,7 +187,7 @@ async function processResource(providerName, serviceFolder, serviceName, resourc
     }
 
     const resourceIndexPath = path.join(resourceFolder, 'index.md');
-    const resourceIndexContent = await createResourceIndexContent(providerName, serviceName, resource.name, resource.resourceData, resource.paths, resource.componentsSchemas);
+    const resourceIndexContent = await createResourceIndexContent(providerName, serviceName, resource.name, resource.vwResourceName, resource.resourceData, resource.paths, resource.componentsSchemas, logger);
     fs.writeFileSync(resourceIndexPath, resourceIndexContent);
 
     // After writing the file, force garbage collection if available (optional)
@@ -205,17 +220,18 @@ hide_title: false
 hide_table_of_contents: false
 keywords:
   - ${serviceName}
-  - google
+  - azure
+  - microsoft azure
   - stackql
   - infrastructure-as-code
   - configuration-as-data
   - cloud inventory
-description: Query, deploy and manage google resources using SQL
+description: Query, deploy and manage Microsoft Azure resources using SQL
 custom_edit_url: null
-image: /img/providers/google/stackql-google-provider-featured-image.png
+image: /img/providers/azure/stackql-azure-provider-featured-image.png
 ---
 
-The ${serviceName} service documentation.
+${serviceName} service documentation.
 
 :::info Service Summary
 
@@ -247,7 +263,7 @@ function generateResourceLinks(providerName, serviceName, resources) {
 }
 
 // Function to convert services to markdown links
-function servicesToMarkdown(servicesList) {
+function servicesToMarkdown(providerName, servicesList) {
     return servicesList.map(service => `<a href="/providers/${providerName}/${service}/">${service}</a><br />`).join('\n');
 }
 

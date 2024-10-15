@@ -24,11 +24,40 @@ async function executeSQL(connectionOptions, query) {
       }
 }
 
-export async function createResourceIndexContent(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas) {
+export async function createResourceIndexContent(providerName, serviceName, resourceName, vwResourceName, resourceData, paths, componentsSchemas, logger) {
     
     const fieldsSql = `DESCRIBE EXTENDED ${providerName}.${serviceName}.${resourceName}`;
     const fields = await executeSQL(connectionOptions, fieldsSql) || [];
     // console.info('fields:', fields);
+
+    let vwFieldsSql;
+    let vwFields = [];
+    let mergedFields = [];
+
+    if (vwResourceName) {
+        vwFieldsSql = `DESCRIBE EXTENDED ${providerName}.${serviceName}.${vwResourceName}`;
+        vwFields = await executeSQL(connectionOptions, vwFieldsSql) || [];
+        // console.info('vwFields:', vwFields);
+        // Merge `fields` into `vwFields` with fallback for missing descriptions
+        const mergeFields = (fields, vwFields) => {
+            const fieldsMap = new Map(fields.map(f => [f.name, f]));
+
+            return vwFields.map(vwField => {
+                const matchingField = fieldsMap.get(vwField.name) || {};
+
+                return {
+                    ...vwField,
+                    type: vwField.type || matchingField.type || 'text',
+                    description: vwField.description || 
+                                matchingField.description || 
+                                'field from the `properties` object',
+                };
+            });
+        };
+
+        mergedFields = mergeFields(fields, vwFields);
+        // console.info('Merged Fields:', mergedFields);        
+    }
     
     // Fetch method descriptions
     const methodsSql = `SHOW EXTENDED METHODS IN ${providerName}.${serviceName}.${resourceName}`;
@@ -70,12 +99,39 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
 `;
 
     if (fields.length === 0) {
+        // no fields
         content += `${mdCodeAnchor}SELECT${mdCodeAnchor} not supported for this resource, use ${mdCodeAnchor}SHOW METHODS${mdCodeAnchor} to view available operations for the resource.\n\n`;
     } else {
+        if (mergedFields.length > 0) {
+            // we have a view, use tabs
+            content +=
+`<Tabs
+    defaultValue="view"
+    values={[
+        { label: '${vwResourceName}', value: 'view', },
+        { label: '${resourceName}', value: 'resource', },
+    ]
+}>
+<TabItem value="view">
+
+`;
+            content += '| Name | Datatype | Description |\n|:-----|:---------|:------------|\n';
+            mergedFields.forEach(field => {
+                content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${field.description} |\n`;
+            });
+            content += '</TabItem>\n';
+            content += '<TabItem value="resource">\n';
+            content += '\n';
+        }
+        // normal fields
         content += '| Name | Datatype | Description |\n|:-----|:---------|:------------|\n';
         fields.forEach(field => {
             content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${field.description} |\n`;
         });
+        // close tabs
+        if (vwFields.length > 0) {
+            content += '</TabItem></Tabs>\n';
+        }
     }
 
     content += '\n## Methods\n| Name | Accessible by | Required Params | Description |\n|:-----|:--------------|:----------------|:------------|\n';
@@ -97,7 +153,7 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
 
         switch (sqlVerb) {
             case 'SELECT':
-                content += generateSelectExample(providerName, serviceName, resourceName, exampleMethod, fields);
+                content += generateSelectExample(providerName, serviceName, resourceName, vwResourceName, exampleMethod, fields, vwFields);
                 break;
             case 'INSERT':
                 content += generateInsertExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, exampleMethod);
@@ -170,7 +226,50 @@ function getSchemaManifest(schema, allSchemas, maxDepth = 10) {
     ];
 }
 
-function generateSelectExample(providerName, serviceName, resourceName, method, fields) {
+function generateSelectExample(providerName, serviceName, resourceName, vwResourceName, method, fields, vwFields) {
+
+    // heading and preamble
+    let retSelectStmt = `
+## ${mdCodeAnchor}SELECT${mdCodeAnchor} examples
+
+${method.description}
+
+`;
+
+    // Check if there is a view resource, use tabs if so
+    if(vwFields.length > 0) {
+        retSelectStmt +=
+`<Tabs
+    defaultValue="view"
+    values={[
+        { label: '${vwResourceName}', value: 'view', },
+        { label: '${resourceName}', value: 'resource', },
+    ]
+}>
+<TabItem value="view">
+`;
+    // Map over the fields array to create a list of column names
+    const vwSelectColumns = vwFields.map(field => field.name).join(',\n');
+
+    // Check if there are required parameters
+    const vwWhereClause = method.RequiredParams
+        ? `WHERE ${method.RequiredParams.split(', ').map(param => `${param} = '{{ ${param} }}'`).join('\nAND ')}`
+        : '';
+
+    retSelectStmt += `
+${sqlCodeBlockStart}
+SELECT
+${vwSelectColumns}
+FROM ${providerName}.${serviceName}.${vwResourceName}
+${vwWhereClause};
+${codeBlockEnd}
+</TabItem>
+<TabItem value="resource">
+
+`;
+    }
+
+    // resource sql
     // Map over the fields array to create a list of column names
     const selectColumns = fields.map(field => field.name).join(',\n');
 
@@ -179,28 +278,24 @@ function generateSelectExample(providerName, serviceName, resourceName, method, 
         ? `WHERE ${method.RequiredParams.split(', ').map(param => `${param} = '{{ ${param} }}'`).join('\nAND ')}`
         : '';
 
-    return `
-## ${mdCodeAnchor}SELECT${mdCodeAnchor} examples
-
-${method.description}
-
+    retSelectStmt += `
 ${sqlCodeBlockStart}
 SELECT
 ${selectColumns}
 FROM ${providerName}.${serviceName}.${resourceName}
 ${whereClause};
-${codeBlockEnd}
-`;
+${codeBlockEnd}`;
+
+    if(vwFields.length > 0) {
+        retSelectStmt += `
+</TabItem></Tabs>\n
+`
+    };
+
+   return retSelectStmt;
 }
 
 const readOnlyPropertyNames = [
-    'selfLink',
-    'kind',
-    'creationTimestamp',
-    'createTime',
-    'updateTime',
-    'id',
-    'selfLinkWithId',
 ];
 
 function generateInsertExample(providerName, serviceName, resourceName, resourceData, paths, componentsSchemas, method) {

@@ -168,9 +168,14 @@ export function getTransformedOperationId(serviceName, operationId) {
         }
     }    
 
-    // if the first part starts wih Generate, remove this from the first part and return the remainder
     if (firstPart.toLowerCase().startsWith('generate')) {
-        const rest = firstPart.slice(8);
+        const rest = firstPart.slice(8).trim(); // Remove 'Generate' and any extra spaces
+    
+        // If there's nothing left after 'Generate', return firstPart and secondPart combined
+        if (!rest) {
+            return `${firstPart}_${secondPart}`;
+        }
+    
         return `${rest}_${secondPart}`;
     }
    
