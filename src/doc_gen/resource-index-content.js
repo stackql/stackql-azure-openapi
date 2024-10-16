@@ -24,6 +24,39 @@ async function executeSQL(connectionOptions, query) {
       }
 }
 
+function cleanDescription(description) {
+    // Replace <a> tags with markdown equivalent
+    description = description.replace(/<a\s+(?:[^>]*?\s+)?href="([^"]*)"(?:[^>]*?)>(.*?)<\/a>/gi, '[$2]($1)');
+
+    // Remove <p> tags
+    description = description.replace(/<\/?p>/gi, '');
+
+    // Remove <br> tags
+    description = description.replace(/<br>/g, ' ');
+    description = description.replace(/<\/br>/g, ' ');
+
+    // Replace <code> and <pre> tags with markdown code blocks
+    description = description.replace(/<(code|pre)>(.*?)<\/\1>/gi, '`$2`');
+
+    // Replace <ul> and <li> tags with comma-delimited list
+    description = description.replace(/<\/?ul>/gi, '');
+    description = description.replace(/<li>(.*?)<\/li>/gi, '$1,');
+
+    // Remove <name>, <td>, <tr>, and <table> tags
+    description = description.replace(/<name>/g, 'name');
+    description = description.replace(/<\/?td>/gi, '');
+    description = description.replace(/<\/?tr>/gi, '');
+    description = description.replace(/<\/?table>/gi, '');
+
+    // Trim any trailing commas and whitespace
+    description = description.replace(/,\s*$/, '');
+
+    // Escape pipe characters to prevent breaking markdown tables
+    description = description.replace(/\|/g, '\\|');
+
+    return description.trim();
+}
+
 export async function createResourceIndexContent(providerName, serviceName, resourceName, vwResourceName, resourceData, paths, componentsSchemas, logger) {
     
     const fieldsSql = `DESCRIBE EXTENDED ${providerName}.${serviceName}.${resourceName}`;
@@ -117,7 +150,7 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
 `;
             content += '| Name | Datatype | Description |\n|:-----|:---------|:------------|\n';
             mergedFields.forEach(field => {
-                content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${field.description} |\n`;
+                content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${cleanDescription(field.description)} |\n`;
             });
             content += '</TabItem>\n';
             content += '<TabItem value="resource">\n';
@@ -126,7 +159,7 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
         // normal fields
         content += '| Name | Datatype | Description |\n|:-----|:---------|:------------|\n';
         fields.forEach(field => {
-            content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${field.description} |\n`;
+            content += `| <CopyableCode code="${field.name}" /> | ${mdCodeAnchor}${field.type}${mdCodeAnchor} | ${cleanDescription(field.description)} |\n`;
         });
         // close tabs
         if (vwFields.length > 0) {
@@ -139,7 +172,7 @@ Creates, updates, deletes, gets or lists a <code>${resourceName}</code> resource
     // Append methods
     methods.forEach(method => {
         const sqlVerb = method.SQLVerb;
-        content += `| <CopyableCode code="${method.MethodName}" /> | ${mdCodeAnchor}${sqlVerb}${mdCodeAnchor} | <CopyableCode code="${method.RequiredParams}" /> | ${method.description} |\n`;
+        content += `| <CopyableCode code="${method.MethodName}" /> | ${mdCodeAnchor}${sqlVerb}${mdCodeAnchor} | <CopyableCode code="${method.RequiredParams}" /> | ${cleanDescription(method.description)} |\n`;
     });
 
     // Append SQL examples for each SQL verb
@@ -232,7 +265,7 @@ function generateSelectExample(providerName, serviceName, resourceName, vwResour
     let retSelectStmt = `
 ## ${mdCodeAnchor}SELECT${mdCodeAnchor} examples
 
-${method.description}
+${cleanDescription(method.description)}
 
 `;
 
