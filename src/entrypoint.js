@@ -22,9 +22,11 @@ const taggedDir = 'openapi/src';
 const docsDir = 'web-docs';
 
 async function autorest(options) {
+
   if (options.specificationDir){
     const serviceName = options.specificationDir;
     const serviceRootDir = `${azureRestApiSpecsDir}/specification/${serviceName}`;
+    logger.debug(`processing files in ${serviceRootDir}`);
     await processSpec(
       serviceName, 
       `${serviceRootDir}/resource-manager/readme.md`, 

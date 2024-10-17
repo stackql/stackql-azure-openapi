@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 import { RealFileSystem } from '@azure-tools/datastore';
 import { ConsoleLogger } from '@autorest/common';
 // import { AutoRest } from '@autorest/core';
@@ -16,8 +17,12 @@ import {
 
 const logger = new ConsoleLogger();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const resolveAppRoot = () => {
     let current = path.resolve(__dirname);
+    logger.debug(`current: ${current}`);
     while (!fs.existsSync(path.join(current, "package.json"))) {
         current = path.dirname(current);
     }
@@ -85,9 +90,11 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     
     logger.info(`processing ${serviceName}...`);
 
+    logger.debug(`cleaning ${outputFolder}`);
     createOrCleanDir(outputFolder, true, debug);
 
     const AppRoot = resolveAppRoot();
+    logger.debug(`approot : ${AppRoot}`);
     const f = new RealFileSystem();
     const autorest = new AutoRest(
         logger,
@@ -109,21 +116,37 @@ export async function processSpec(serviceName, configFile, outputFolder, debug, 
     // autorest.AddConfiguration({ "suppress-warnings": true });
     autorest.AddConfiguration({ "client-side-validation": false });
 
+    let configOverride = {};
+
     switch (serviceName) {
+        case 'resources':
+            configOverride = { "tag": "package-resources-2024-07" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
         case 'machinelearning':
-            autorest.AddConfiguration({ "tag": "package-webservices-2017-01" });
+            configOverride = { "tag": "package-webservices-2017-01" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
             break;
         case 'resourcegraph':
-            autorest.AddConfiguration({ "tag": "package-2021-03" });
+            configOverride = { "tag": "package-2021-03" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
             break;
         case 'hybridcompute':
-            autorest.AddConfiguration({ "tag": "package-2019-03" });
+            configOverride = { "tag": "package-2019-03" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
             break;
         case 'portalservices':
-            autorest.AddConfiguration({ "tag": "package-2023-01-01-preview" });
+            configOverride = { "tag": "package-2023-01-01-preview" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
             break;  
         case 'vmware':
-            autorest.AddConfiguration({ "tag": "package-2020-03-20" });
+            configOverride = { "tag": "package-2020-03-20" };
+            logger.debug(`overriding default configuration, setting to ${JSON.stringify(configOverride)}`);
+            autorest.AddConfiguration(configOverride);
             break;   
         default:
             break;
