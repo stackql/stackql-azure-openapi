@@ -610,8 +610,8 @@ async function processResources(outputDoc, providerName, serviceName, debug) {
             lastMethodCombReqParams.push('queryStatisticId');
         } else if(resourceId === 'azure.maria_db.wait_statistics'){
             lastMethodCombReqParams.push('waitStatisticsId');
-        } else if(resourceId === 'azure.monitor.tenant_action_groups'){
-            lastMethodCombReqParams.push('tenantId');
+        // } else if(resourceId === 'azure.monitor.tenant_action_groups'){
+        //     lastMethodCombReqParams.push('tenantId');
         } else if(resourceId === 'azure.security.dev_ops_policy_assignments'){
             lastMethodCombReqParams.push('resourceId');
         }
@@ -647,13 +647,27 @@ async function processResources(outputDoc, providerName, serviceName, debug) {
         });
 
         // Add path parameters to the columns array
+        // combinedRequiredParams.forEach((param) => {
+        //     columns.push(param);
+        //     debug ? logger.debug(`Added path parameter ${param} to columns.`) : null;
+        // });
         combinedRequiredParams.forEach((param) => {
-            columns.push(param);
-            debug ? logger.debug(`Added path parameter ${param} to columns.`) : null;
-        });
+            const formattedParam = param.includes('-') ? `"${param}"` : param;
+            columns.push(formattedParam);
+            debug ? logger.debug(`Added path parameter ${formattedParam} to columns.`) : null;
+        });        
 
         // Create the SQL query template
-        const whereConditions = lastMethodCombReqParams.length > 0 ? lastMethodCombReqParams.map(param => `${param} = 'replace-me'`).join(' AND ') : combinedRequiredParams.map(param => `${param} = 'replace-me'`).join(' AND ');
+        // const whereConditions = lastMethodCombReqParams.length > 0 ? lastMethodCombReqParams.map(param => `${param} = 'replace-me'`).join(' AND ') : combinedRequiredParams.map(param => `${param} = 'replace-me'`).join(' AND ');
+        const whereConditions = lastMethodCombReqParams.length > 0 
+        ? lastMethodCombReqParams.map(param => {
+            const formattedParam = param.includes('-') ? `"${param}"` : param;
+            return `${formattedParam} = 'replace-me'`;
+        }).join(' AND ') 
+        : combinedRequiredParams.map(param => {
+            const formattedParam = param.includes('-') ? `"${param}"` : param;
+            return `${formattedParam} = 'replace-me'`;
+        }).join(' AND ');        
 
         const selectQuery = `
 SELECT
@@ -721,8 +735,8 @@ function getRequiredQueryParams(outputDoc, path, verb) {
         paramDetails = param;
       }
   
-      // Check if the parameter is in 'query' and is required
-      if (paramDetails.in === 'query' && paramDetails.required) {
+      // Check if the parameter is in 'query' or 'header' and is required
+      if ((paramDetails.in === 'query' || paramDetails.in === 'header') && paramDetails.required) {
         requiredQueryParams.push(paramDetails.name);
       }
     });
